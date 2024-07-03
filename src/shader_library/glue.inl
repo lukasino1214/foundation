@@ -10,7 +10,7 @@ typedef daxa_u32 u32;
 
 #define fn auto
 
-#else
+#elif DAXA_SHADERLANG != DAXA_SHADERLANG_GLSL
 
 typedef daxa_u32 u32;
 typedef daxa_f32 f32;

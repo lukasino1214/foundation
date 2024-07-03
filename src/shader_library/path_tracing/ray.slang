@@ -1,5 +1,5 @@
 #pragma once
-#include "../../shared/shared.inl"
+#include "../../shader_library/shared.inl"
 
 struct Ray {
     f32vec3 origin;

@@ -6,7 +6,7 @@
 #include <graphics/misc.hpp>
 #endif
 
-#include "../../../shared/shared.inl"
+#include "../../../shader_library/shared.inl"
 
 DAXA_DECL_TASK_HEAD_BEGIN(RayTrace)
 DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ, daxa_BufferPtr(ShaderGlobals), u_globals)

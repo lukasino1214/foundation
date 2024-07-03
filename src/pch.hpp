@@ -15,6 +15,8 @@
 #include <span>
 #include <bit>
 #include <print>
+#include <type_traits>
+#include <utility>
 
 #include <daxa/daxa.hpp>
 #include <daxa/utils/task_graph.hpp>
@@ -52,4 +54,5 @@ namespace Shaper {
     }
 } // namespace Shaper::types
 
-#include <shared/shared.inl>
+#include <shader_library/shared.inl>
+#include <common/result.hpp>

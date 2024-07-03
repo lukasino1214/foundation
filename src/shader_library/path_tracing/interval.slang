@@ -1,5 +1,5 @@
 #pragma once
-#include "../../shared/shared.inl"
+#include "../../shader_library/shared.inl"
 
 struct Interval {
     f32 min;

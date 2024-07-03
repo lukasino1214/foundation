@@ -4,11 +4,12 @@
 #include <graphics/helper.hpp>
 #include "common/tasks/clear_image.inl"
 #include "traditional/tasks/triangle.inl"
+#include "traditional/tasks/render_meshes.inl"
 #include "path_tracing/tasks/raytrace.inl"
 
 namespace Shaper {
-    Renderer::Renderer(AppWindow* _window, Context* _context) 
-        : window{_window}, context{_context}, buffers({ }) {
+    Renderer::Renderer(AppWindow* _window, Context* _context, Scene* _scene) 
+        : window{_window}, context{_context}, scene{_scene} {
         ImGui::CreateContext();
         ImGui_ImplGlfw_InitForVulkan(window->glfw_handle, true);
         imgui_renderer =  daxa::ImGuiRenderer({
@@ -22,9 +23,11 @@ namespace Shaper {
 
         swapchain_image = daxa::TaskImage{{.swapchain_image = true, .name = "swapchain image"}};
         render_image = daxa::TaskImage{{ .name = "render image" }};
+        depth_image = daxa::TaskImage{{ .name = "depth image" }};
 
         images = {
-            render_image
+            render_image,
+            depth_image
         };
         frame_buffer_images = {
             {
@@ -34,6 +37,14 @@ namespace Shaper {
                     .name = render_image.info().name,
                 },
                 render_image,
+            },
+            {
+                {
+                    .format = daxa::Format::D32_SFLOAT,
+                    .usage = daxa::ImageUsageFlagBits::DEPTH_STENCIL_ATTACHMENT | daxa::ImageUsageFlagBits::SHADER_SAMPLED | daxa::ImageUsageFlagBits::TRANSFER_SRC,
+                    .name = depth_image.info().name,
+                },
+                depth_image,
             },
         };
 
@@ -61,6 +72,7 @@ namespace Shaper {
         context->gpu_metrics[ClearImageTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
         context->gpu_metrics[RayTraceTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
         context->gpu_metrics[TriangleTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
+        context->gpu_metrics[RenderMeshesTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
     }
 
     Renderer::~Renderer() {
@@ -125,7 +137,8 @@ namespace Shaper {
 
     void Renderer::compile_pipelines() {
         std::vector<std::tuple<std::string_view, daxa::RasterPipelineCompileInfo>> rasters = {
-            {TriangleTask::name(), TriangleTask::pipeline_config_info()}
+            {TriangleTask::name(), TriangleTask::pipeline_config_info()},
+            {RenderMeshesTask::name(), RenderMeshesTask::pipeline_config_info()}
         };
 
         for (auto [name, info] : rasters) {
@@ -155,6 +168,7 @@ namespace Shaper {
 
         render_task_graph.use_persistent_image(swapchain_image);
         render_task_graph.use_persistent_image(render_image);
+        render_task_graph.use_persistent_image(depth_image);
         render_task_graph.use_persistent_buffer(context->shader_globals_buffer);
 
         build_tradional_task_graph();
@@ -252,12 +266,14 @@ namespace Shaper {
     void Renderer::build_tradional_task_graph() {
         if(rendering_mode != Mode::Traditional) { return; }
 
-        render_task_graph.add_task(TriangleTask {
+        render_task_graph.add_task(RenderMeshesTask {
             .views = std::array{
-                TriangleTask::AT.u_globals | context->shader_globals_buffer,
-                TriangleTask::AT.u_image | render_image
+                RenderMeshesTask::AT.u_globals | context->shader_globals_buffer,
+                RenderMeshesTask::AT.u_image | render_image,
+                RenderMeshesTask::AT.u_depth_image | depth_image
             },
             .context = context,
+            .scene = scene
         });
     }
 

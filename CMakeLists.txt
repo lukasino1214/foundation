@@ -15,15 +15,22 @@ find_package(daxa CONFIG REQUIRED)
 find_package(imgui CONFIG REQUIRED)
 find_package(glfw3 CONFIG REQUIRED)
 find_package(glm CONFIG REQUIRED)
-find_package(fastgltf CONFIG REQUIRED)
 find_package(Stb REQUIRED)
 find_package(zstd CONFIG REQUIRED)
 find_package(Ktx CONFIG REQUIRED)
 find_package(meshoptimizer CONFIG REQUIRED)
+find_package(flecs CONFIG REQUIRED)
+find_package(fastgltf CONFIG REQUIRED)
 
 add_executable(${PROJECT_NAME} 
     "src/main.cpp"
     "src/application.cpp"
+    "src/common/thread_pool.cpp"
+    "src/ecs/asset_manager.cpp"
+    "src/ecs/asset_processor.cpp"
+    "src/ecs/components.cpp"
+    "src/ecs/entity.cpp"
+    "src/ecs/scene.cpp"
     "src/graphics/context.cpp"
     "src/graphics/utils/gpu_metric.cpp"
     "src/graphics/window.cpp"
@@ -50,6 +57,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     KTX::ktx
     $<IF:$<TARGET_EXISTS:zstd::libzstd_shared>,zstd::libzstd_shared,zstd::libzstd_static>
     meshoptimizer::meshoptimizer
+    $<IF:$<TARGET_EXISTS:flecs::flecs>,flecs::flecs,flecs::flecs_static>
 )
 target_include_directories(${PROJECT_NAME} PRIVATE ${Stb_INCLUDE_DIR})
 

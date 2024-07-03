@@ -1,15 +1,57 @@
 #include <application.hpp>
 #include <imgui.h>
 #include <glm/gtx/string_cast.hpp>
+#include "ecs/components.hpp"
 
 namespace Shaper {
     Application::Application() : 
         window{1280, 720, "shaper"},
         context{this->window},
-        renderer{&window, &context} {
+        scene{std::make_shared<Scene>("scene", &context, &window)},
+        renderer{&window, &context, scene.get()},
+        asset_processor{std::make_unique<AssetProcessor>(&context)},
+        asset_manager{std::make_unique<AssetManager>(&context, scene.get())},
+        thread_pool{std::make_unique<ThreadPool>(3)} {
 
         last_time_point = std::chrono::steady_clock::now();
         camera.camera.resize(static_cast<i32>(window.get_width()), static_cast<i32>(window.get_height()));
+
+        auto add_transform = [](Entity entity) -> LocalTransformComponent* {
+            entity.add_component<GlobalTransformComponent>();
+            return entity.add_component<LocalTransformComponent>();
+        };
+
+        {
+            auto entity = scene->create_entity("sponza");
+            auto* tc = add_transform(entity);
+            tc->set_position({0.0, 0.0, 0.0});
+            // tc->set_scale({0.01, 0.01, 0.01});
+
+            // LoadManifestInfo manifesto {
+            //     .parent = entity,
+            //     .path = "assets/models/Sponza/glTF/Sponza.gltf",
+            //     .thread_pool = thread_pool,
+            //     .asset_processor = asset_processor,
+            // };
+
+            // LoadManifestInfo manifesto {
+            //     .parent = entity,
+            //     .path = "assets/models/Bistro/Bistro.glb",
+            //     .thread_pool = thread_pool,
+            //     .asset_processor = asset_processor,
+            // };
+
+            LoadManifestInfo manifesto {
+                .parent = entity,
+                .path = "assets/models/deccer-cubes/SM_Deccer_Cubes_Textured.glb",
+                .thread_pool = thread_pool,
+                .asset_processor = asset_processor,
+            };
+
+            asset_manager->load_model(manifesto);
+        }
+
+        scene->update(delta_time);
     }
 
     Application::~Application() {
@@ -28,6 +70,15 @@ namespace Shaper {
                 camera.camera.resize(static_cast<i32>(window.get_width()), static_cast<i32>(window.get_height()));
                 window.window_state->resize_requested = false;
             }
+
+            auto commands = asset_processor->record_gpu_load_processing_commands();
+            auto cmd_list = asset_manager->record_manifest_update(AssetManager::RecordManifestUpdateInfo {
+                .uploaded_meshes = commands.uploaded_meshes,
+                .uploaded_textures = commands.uploaded_textures
+            });
+            context.device.submit_commands(daxa::CommandSubmitInfo {
+                .command_lists = { {std::move(commands.upload_commands), std::move(cmd_list)} }
+            });
 
             update();
             renderer.render();
@@ -71,9 +122,30 @@ namespace Shaper {
         }
 
         this->context.shader_globals.camera_position = *reinterpret_cast<daxa_f32vec3*>(&camera.position);
+
+        scene->update(delta_time);
     }
 
     void Application::ui_update() {
+        {
+            ImGuiDockNodeFlags dockspace_flags = ImGuiDockNodeFlags_PassthruCentralNode;
+            ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_NoBackground;
+            const ImGuiViewport *viewport = ImGui::GetMainViewport();
+            ImGui::SetNextWindowPos(viewport->WorkPos);
+            ImGui::SetNextWindowSize(viewport->WorkSize);
+            ImGui::SetNextWindowViewport(viewport->ID);
+            ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
+            ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+            ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+            window_flags |= ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove;
+            window_flags |= ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus;
+            ImGuiID dockspace_id = ImGui::GetID("dockspace");
+            ImGui::Begin("dockSpace", nullptr, window_flags);
+            ImGui::PopStyleVar(3);
+            ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), dockspace_flags);
+            ImGui::End();
+        }
+
         ImGui::Begin("Performance Statistics");
         ImGui::Text("test");
         f64 total_time = 0.0;
@@ -81,9 +153,6 @@ namespace Shaper {
             total_time += metric->time_elapsed;
             ImGui::Text("%s : %f ms", key.data(), metric->time_elapsed);
         }
-        ImGui::End();
-
-        ImGui::Begin("Dock");
         ImGui::End();
 
         ImGui::Begin("File Browser");

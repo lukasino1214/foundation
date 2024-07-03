@@ -1,5 +1,6 @@
 #pragma once
 
+#include "ecs/scene.hpp"
 #include <graphics/window.hpp>
 #include <graphics/context.hpp>
 #include <daxa/utils/imgui.hpp>
@@ -12,7 +13,7 @@ namespace Shaper {
             PathTracing
         };
 
-        Renderer(AppWindow* _window, Context* _context);
+        Renderer(AppWindow* _window, Context* _context, Scene* _scene);
         ~Renderer();
 
         void render();
@@ -34,9 +35,11 @@ namespace Shaper {
 
         AppWindow* window = {};
         Context* context = {};
+        Scene* scene = {};
 
         daxa::TaskImage swapchain_image = {};
         daxa::TaskImage render_image = {};
+        daxa::TaskImage depth_image = {};
 
         std::vector<daxa::TaskImage> images = {};
         std::vector<std::pair<daxa::ImageInfo, daxa::TaskImage>> frame_buffer_images = {};

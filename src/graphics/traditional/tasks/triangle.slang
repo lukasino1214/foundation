@@ -1,19 +1,19 @@
 #include "daxa/daxa.inl"
 #include "triangle.inl"
 
-struct Vertex {
+struct AVertex {
     f32vec2 pos;
     f32vec3 color;
 };
 
 struct VertexStageOutput {
-    Vertex vertex : Vertex;
+    AVertex vertex : Vertex;
     f32vec4 sv_position : SV_Position;
 };
 
 [shader("vertex")]
 VertexStageOutput vertex_main(u32 index: SV_VertexID) {
-    Vertex data[3] = {
+    AVertex data[3] = {
         { { 0.0f, -0.5f }, { 1.0f, 0.0f, 0.0f } },
         { { 0.5f, 0.5f }, { 0.0f, 1.0f, 0.0f } },
         { { -0.5f, 0.5f }, { 0.0f, 0.0f, 1.0f } }
@@ -26,6 +26,6 @@ VertexStageOutput vertex_main(u32 index: SV_VertexID) {
 }
 
 [shader("fragment")]
-f32vec4 fragment_main(Vertex vertex : Vertex) : SV_Target {
+f32vec4 fragment_main(AVertex vertex : Vertex) : SV_Target {
     return daxa_f32vec4(vertex.color, 1.0f);
 }   
