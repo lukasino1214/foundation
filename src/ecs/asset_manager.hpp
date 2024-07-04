@@ -14,6 +14,7 @@ namespace Shaper {
     struct LoadManifestInfo {
         Entity parent;
         std::filesystem::path path;
+        Scene* scene;
         std::unique_ptr<ThreadPool> & thread_pool;
         std::unique_ptr<AssetProcessor> & asset_processor;
     };
@@ -24,14 +25,31 @@ namespace Shaper {
         u32 texture_manifest_offset = {};
         u32 material_manifest_offset = {};
         u32 mesh_manifest_offset = {};
+        u32 mesh_group_manifest_offset = {};
         Entity parent;
     };
 
     struct MeshManifestEntry {
+        struct RenderInfo {
+            daxa::BufferId vertex_buffer = {};
+            daxa::BufferId index_buffer = {};
+            daxa::BufferId material_buffer = {};
+            u32 vertex_count = {};
+            u32 index_count = {};
+        };
+
         u32 gltf_asset_manifest_index = {};
         u32 asset_local_mesh_index = {};
         u32 asset_local_primitive_index = {};
-        Entity child;
+        std::optional<RenderInfo> render_info = {};
+    };
+
+    struct MeshGroupManifestEntry {
+        u32 mesh_manifest_indices_offset = {};
+        u32 mesh_count = {};
+        u32 gltf_asset_manifest_index = {};
+        u32 asset_local_index = {};
+        std::string name = {};
     };
 
     struct TextureManifestEntry {
@@ -45,8 +63,8 @@ namespace Shaper {
         u32 gltf_asset_manifest_index = {};
         u32 asset_local_index = {};
         std::vector<MaterialManifestIndex> material_manifest_indices = {};
-        std::optional<daxa::ImageId> image_id = {};
-        std::optional<daxa::SamplerId> sampler_id = {};
+        daxa::ImageId image_id = {};
+        daxa::SamplerId sampler_id = {};
         std::string name = {};
     };
 
@@ -82,6 +100,7 @@ namespace Shaper {
         std::vector<TextureManifestEntry> material_texture_manifest_entries = {};
         std::vector<MaterialManifestEntry> material_manifest_entries = {};
         std::vector<MeshManifestEntry> mesh_manifest_entries = {};
+        std::vector<MeshGroupManifestEntry> mesh_group_manifest_entries = {};
 
         Context* context;
         Scene* scene;

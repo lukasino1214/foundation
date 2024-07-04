@@ -1,5 +1,6 @@
 #pragma once
 
+#include "ecs/asset_manager.hpp"
 #include "ecs/scene.hpp"
 #include <graphics/window.hpp>
 #include <graphics/context.hpp>
@@ -13,7 +14,7 @@ namespace Shaper {
             PathTracing
         };
 
-        Renderer(AppWindow* _window, Context* _context, Scene* _scene);
+        Renderer(AppWindow* _window, Context* _context, Scene* _scene, AssetManager* _asset_manager);
         ~Renderer();
 
         void render();
@@ -36,6 +37,7 @@ namespace Shaper {
         AppWindow* window = {};
         Context* context = {};
         Scene* scene = {};
+        AssetManager* asset_manager = {};
 
         daxa::TaskImage swapchain_image = {};
         daxa::TaskImage render_image = {};

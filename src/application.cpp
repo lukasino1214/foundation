@@ -8,10 +8,11 @@ namespace Shaper {
         window{1280, 720, "shaper"},
         context{this->window},
         scene{std::make_shared<Scene>("scene", &context, &window)},
-        renderer{&window, &context, scene.get()},
         asset_processor{std::make_unique<AssetProcessor>(&context)},
         asset_manager{std::make_unique<AssetManager>(&context, scene.get())},
+        renderer{&window, &context, scene.get(), asset_manager.get()},
         thread_pool{std::make_unique<ThreadPool>(3)} {
+
 
         last_time_point = std::chrono::steady_clock::now();
         camera.camera.resize(static_cast<i32>(window.get_width()), static_cast<i32>(window.get_height()));
@@ -24,7 +25,6 @@ namespace Shaper {
         {
             auto entity = scene->create_entity("sponza");
             auto* tc = add_transform(entity);
-            tc->set_position({0.0, 0.0, 0.0});
             // tc->set_scale({0.01, 0.01, 0.01});
 
             // LoadManifestInfo manifesto {
@@ -34,19 +34,42 @@ namespace Shaper {
             //     .asset_processor = asset_processor,
             // };
 
+            LoadManifestInfo manifesto {
+                .parent = entity,
+                .path = "assets/models/Bistro/Bistro.glb",
+                .thread_pool = thread_pool,
+                .asset_processor = asset_processor,
+            };
+
+            // LoadManifestInfo manifesto {
+            //     .parent = entity,
+            //     .path = "assets/models/deccer-cubes/SM_Deccer_Cubes_Textured.gltf",
+            //     .scene = scene.get(),
+            //     .thread_pool = thread_pool,
+            //     .asset_processor = asset_processor,
+            // };
+
+            asset_manager->load_model(manifesto);
+        }
+
+        {
+            auto entity = scene->create_entity("test");
+            auto* tc = add_transform(entity);
+            tc->set_position({0.0, 0.0, 0.0});
+
+            LoadManifestInfo manifesto {
+                .parent = entity,
+                .path = "assets/models/Sponza/glTF/Sponza.gltf",
+                .thread_pool = thread_pool,
+                .asset_processor = asset_processor,
+            };
+
             // LoadManifestInfo manifesto {
             //     .parent = entity,
             //     .path = "assets/models/Bistro/Bistro.glb",
             //     .thread_pool = thread_pool,
             //     .asset_processor = asset_processor,
             // };
-
-            LoadManifestInfo manifesto {
-                .parent = entity,
-                .path = "assets/models/deccer-cubes/SM_Deccer_Cubes_Textured.glb",
-                .thread_pool = thread_pool,
-                .asset_processor = asset_processor,
-            };
 
             asset_manager->load_model(manifesto);
         }
@@ -60,6 +83,8 @@ namespace Shaper {
 
     auto Application::run() -> i32 {
         while(!window.window_state->close_requested) {
+            FrameMarkStart("App Run");
+            ZoneScoped;
             auto new_time_point = std::chrono::steady_clock::now();
             this->delta_time = std::chrono::duration_cast<std::chrono::duration<float, std::chrono::milliseconds::period>>(new_time_point - this->last_time_point).count() * 0.001f;
             this->last_time_point = new_time_point;
@@ -71,24 +96,40 @@ namespace Shaper {
                 window.window_state->resize_requested = false;
             }
 
-            auto commands = asset_processor->record_gpu_load_processing_commands();
-            auto cmd_list = asset_manager->record_manifest_update(AssetManager::RecordManifestUpdateInfo {
-                .uploaded_meshes = commands.uploaded_meshes,
-                .uploaded_textures = commands.uploaded_textures
-            });
-            context.device.submit_commands(daxa::CommandSubmitInfo {
-                .command_lists = { {std::move(commands.upload_commands), std::move(cmd_list)} }
-            });
+            {
+                ZoneNamedN(record_gpu_load_processing_commands, "record_gpu_load_processing_commands", true);
+                auto commands = asset_processor->record_gpu_load_processing_commands();
+                ZoneNamedN(record_manifest_update, "record_manifest_update", true);
+                auto cmd_list = asset_manager->record_manifest_update(AssetManager::RecordManifestUpdateInfo {
+                    .uploaded_meshes = commands.uploaded_meshes,
+                    .uploaded_textures = commands.uploaded_textures
+                });
+                context.device.submit_commands(daxa::CommandSubmitInfo {
+                    .command_lists = { {std::move(commands.upload_commands), std::move(cmd_list)} }
+                });
+            }
 
             update();
             renderer.render();
+            FrameMarkEnd("App Run");
         }
 
         return 0;
     }
 
     void Application::update() {
+        ZoneScoped;
         camera.update(window, delta_time);
+
+        // auto query_transforms = scene->world->query_builder<GlobalTransformComponent, LocalTransformComponent, GlobalTransformComponent*>().term_at(3).cascade(flecs::ChildOf).optional().build();
+        // query_transforms.each([&](flecs::entity entity, GlobalTransformComponent& gtc, LocalTransformComponent& ltc, GlobalTransformComponent* parent_gtc) {
+        //     std::cout << entity.name() << std::endl;
+        // });
+
+        // scene->world->query<LocalTransformComponent>().each([&](flecs::entity entity, LocalTransformComponent& gtc) {
+        //     std::cout << entity.name() << std::endl;
+        //     std::cout << gtc.position.x << " " << gtc.position.y << " " << gtc.position.z << std::endl;
+        // });
 
         renderer.ui_render_start();
         ui_update();
@@ -159,6 +200,18 @@ namespace Shaper {
         ImGui::End();
 
         ImGui::Begin("Scene Hierarchy");
+        // scene->world->query<ModelComponent>().each([&](flecs::entity entity, ModelComponent& gtc) {
+        //     std::function<void(flecs::entity, int)> print_hierarchy = [&](flecs::entity e, int indent) {
+        //         std::string indent_str = "";
+        //         for (int i = 0; i < indent; i++) indent_str += "  ";
+        //         ImGui::Text(std::format("{} {}", indent_str, std::string{e.name()}).c_str());
+
+        //         e.children([&](flecs::entity child) {
+        //             print_hierarchy(child, indent + 1);
+        //         });
+        //     };
+        //     print_hierarchy(entity, 0);
+        // });
         ImGui::End();
 
         ImGui::Begin("Object Properties");

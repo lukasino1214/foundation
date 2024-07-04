@@ -25,11 +25,13 @@ struct RenderMeshesPush {
 #include "graphics/context.hpp"
 #include "ecs/entity.hpp"
 #include "ecs/components.hpp"
+#include "ecs/asset_manager.hpp"
 
 struct RenderMeshesTask : RenderMeshes::Task {
     RenderMeshes::Task::AttachmentViews views = {};
     Shaper::Context* context = {};
     Shaper::Scene* scene = {};
+    Shaper::AssetManager* asset_manager = {};
     RenderMeshesPush push = {};
 
     void assign_blob(auto & arr, auto const & span) {
@@ -95,29 +97,62 @@ struct RenderMeshesTask : RenderMeshes::Task {
 
         render_cmd.set_pipeline(*context->raster_pipelines.at(RenderMeshes::Task::name()));
 
+        u32 counter = 0;
         scene->world->query<GlobalTransformComponent, MeshComponent>().each([&](GlobalTransformComponent& tc, MeshComponent& mc) {
-            push = RenderMeshesPush {
-                .transform = context->device.get_device_address(tc.buffer).value(),
-                .vertices = context->device.get_device_address(mc.vertex_buffer).value(),
-                .material = context->device.get_device_address(mc.material_buffer).value(),
-            };
+            // push = RenderMeshesPush {
+            //     .transform = context->device.get_device_address(tc.buffer).value(),
+            //     .vertices = context->device.get_device_address(mc.vertex_buffer).value(),
+            //     .material = context->device.get_device_address(mc.material_buffer).value(),
+            // };
 
-            assign_blob(push.uses, ti.attachment_shader_blob);
-            render_cmd.push_constant(push);
+            // assign_blob(push.uses, ti.attachment_shader_blob);
+            // render_cmd.push_constant(push);
 
-            render_cmd.set_index_buffer(daxa::SetIndexBufferInfo {
-                .id = mc.index_buffer,
-                .offset = 0,
-                .index_type = daxa::IndexType::uint32
-            });
+            // render_cmd.set_index_buffer(daxa::SetIndexBufferInfo {
+            //     .id = mc.index_buffer,
+            //     .offset = 0,
+            //     .index_type = daxa::IndexType::uint32
+            // });
 
-            render_cmd.draw_indexed(daxa::DrawIndexedInfo {
-                .index_count = mc.index_count,
-                .instance_count = 1,
-                .first_index = 0,
-                .vertex_offset = 0,
-                .first_instance = 0,
-            });
+            // render_cmd.draw_indexed(daxa::DrawIndexedInfo {
+            //     .index_count = mc.index_count,
+            //     .instance_count = 1,
+            //     .first_index = 0,
+            //     .vertex_offset = 0,
+            //     .first_instance = 0,
+            // });
+            if(mc.mesh_group_index.has_value()) {
+                const auto& mesh_group_manifest = asset_manager->mesh_group_manifest_entries[mc.mesh_group_index.value()];
+                for(u32 i = 0; i < mesh_group_manifest.mesh_count; i++) {
+                    const auto& mesh_manifest = asset_manager->mesh_manifest_entries[mesh_group_manifest.mesh_manifest_indices_offset + i];
+                    counter++;
+                    if(mesh_manifest.render_info.has_value()) {
+                        const auto& render_info = mesh_manifest.render_info.value();
+                        push = RenderMeshesPush {
+                            .transform = context->device.get_device_address(tc.buffer).value(),
+                            .vertices = context->device.get_device_address(render_info.vertex_buffer).value(),
+                            .material = context->device.get_device_address(render_info.material_buffer).value(),
+                        };
+
+                        assign_blob(push.uses, ti.attachment_shader_blob);
+                        render_cmd.push_constant(push);
+
+                        render_cmd.set_index_buffer(daxa::SetIndexBufferInfo {
+                            .id = render_info.index_buffer,
+                            .offset = 0,
+                            .index_type = daxa::IndexType::uint32
+                        });
+
+                        render_cmd.draw_indexed(daxa::DrawIndexedInfo {
+                            .index_count = render_info.index_count,
+                            .instance_count = 1,
+                            .first_index = 0,
+                            .vertex_offset = 0,
+                            .first_instance = 0,
+                        });
+                    }
+                }
+            }
         });
 
         ti.recorder = std::move(render_cmd).end_renderpass();

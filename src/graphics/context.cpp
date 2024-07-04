@@ -48,6 +48,25 @@ namespace Shaper {
     }
 
     Context::~Context() {
-        device.destroy_buffer(shader_globals_buffer.get_state().buffers[0]);
+        if(!shader_globals_buffer.get_state().buffers[0].is_empty()) {
+            device.destroy_buffer(shader_globals_buffer.get_state().buffers[0]);
+        }
+
+        for(auto& [key, value] : samplers) {
+            if(!value.is_empty()) {
+                device.destroy_sampler(value);
+            }
+        }
+    }
+
+    auto Context::get_sampler(const daxa::SamplerInfo& info) -> daxa::SamplerId {
+        auto find = samplers.find(info);
+        if(find != samplers.end()) {
+            return find->second;
+        } else {
+            daxa::SamplerId sampler_id = device.create_sampler(info);
+            samplers[info] = sampler_id;
+            return sampler_id;
+        }
     }
 }

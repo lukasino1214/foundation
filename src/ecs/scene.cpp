@@ -32,6 +32,8 @@ namespace Shaper {
     }
 
     void Scene::update(f32 delta_time) {
+        ZoneNamedN(scene_update, "scene update", true);
+        
         auto query_transforms = world->query_builder<GlobalTransformComponent, LocalTransformComponent, GlobalTransformComponent*>().term_at(3).cascade(flecs::ChildOf).optional().build();
         query_transforms.each([&](flecs::entity entity, GlobalTransformComponent& gtc, LocalTransformComponent& ltc, GlobalTransformComponent* parent_gtc){
             if(gtc.buffer.is_empty()) {
@@ -42,7 +44,7 @@ namespace Shaper {
                 });
             }
 
-            if(true) {
+            if(ltc.is_dirty) {
                 ltc.model_matrix = glm::translate(glm::mat4(1.0f), ltc.position) 
                     * glm::toMat4(glm::quat(glm::radians(ltc.rotation))) 
                     * glm::scale(glm::mat4(1.0f), ltc.scale);

@@ -17,6 +17,7 @@
 #include <print>
 #include <type_traits>
 #include <utility>
+#include <thread>
 
 #include <daxa/daxa.hpp>
 #include <daxa/utils/task_graph.hpp>
@@ -33,6 +34,8 @@
 #define s_cast static_cast
 #define d_cast dynamic_cast
 #define r_cast reinterpret_cast
+
+#include <tracy/Tracy.hpp>
 
 namespace Shaper {
     inline namespace types {

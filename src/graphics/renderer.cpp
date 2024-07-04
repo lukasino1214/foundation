@@ -8,8 +8,8 @@
 #include "path_tracing/tasks/raytrace.inl"
 
 namespace Shaper {
-    Renderer::Renderer(AppWindow* _window, Context* _context, Scene* _scene) 
-        : window{_window}, context{_context}, scene{_scene} {
+    Renderer::Renderer(AppWindow* _window, Context* _context, Scene* _scene, AssetManager* _asset_manager) 
+        : window{_window}, context{_context}, scene{_scene}, asset_manager{_asset_manager} {
         ImGui::CreateContext();
         ImGui_ImplGlfw_InitForVulkan(window->glfw_handle, true);
         imgui_renderer =  daxa::ImGuiRenderer({
@@ -52,14 +52,14 @@ namespace Shaper {
 
         rebuild_task_graph();
 
-        context->shader_globals.linear_sampler = context->device.create_sampler(daxa::SamplerInfo {
+        context->shader_globals.linear_sampler = context->get_sampler(daxa::SamplerInfo {
             .address_mode_u = daxa::SamplerAddressMode::REPEAT,
             .address_mode_v = daxa::SamplerAddressMode::REPEAT,
             .address_mode_w = daxa::SamplerAddressMode::REPEAT,
             .name = "linear repeat sampler",
         });
 
-        context->shader_globals.nearest_sampler = context->device.create_sampler(daxa::SamplerInfo {
+        context->shader_globals.nearest_sampler = context->get_sampler(daxa::SamplerInfo {
             .magnification_filter = daxa::Filter::NEAREST,
             .minification_filter = daxa::Filter::NEAREST,
             .mipmap_filter = daxa::Filter::NEAREST,
@@ -99,12 +99,16 @@ namespace Shaper {
     }
 
     void Renderer::render() {
-        auto reloaded_result = context->pipeline_manager.reload_all();
-        if (auto* reload_err = daxa::get_if<daxa::PipelineReloadError>(&reloaded_result)) {
-            std::cout << "Failed to reload " << reload_err->message << '\n';
-        }
-        if (daxa::get_if<daxa::PipelineReloadSuccess>(&reloaded_result) != nullptr) {
-            std::cout << "Successfully reloaded!\n";
+        ZoneScoped;
+        {
+            ZoneNamedN(pipelines, "pipelines", true);
+            auto reloaded_result = context->pipeline_manager.reload_all();
+            if (auto* reload_err = daxa::get_if<daxa::PipelineReloadError>(&reloaded_result)) {
+                std::cout << "Failed to reload " << reload_err->message << '\n';
+            }
+            if (daxa::get_if<daxa::PipelineReloadSuccess>(&reloaded_result) != nullptr) {
+                std::cout << "Successfully reloaded!\n";
+            }
         }
 
         auto image = context->swapchain.acquire_next_image();
@@ -113,8 +117,14 @@ namespace Shaper {
 
         std::memcpy(context->device.get_host_address(context->shader_globals_buffer.get_state().buffers[0]).value(), &context->shader_globals, sizeof(ShaderGlobals));
         
-        render_task_graph.execute({});
-        context->device.collect_garbage();
+        {
+            ZoneNamedN(rendergraphexecute, "render graph", true);
+            render_task_graph.execute({});
+        }
+        {
+            ZoneNamedN(garbage, "garbage", true);
+            context->device.collect_garbage();
+        }
     }
 
     void Renderer::window_resized() {
@@ -273,7 +283,8 @@ namespace Shaper {
                 RenderMeshesTask::AT.u_depth_image | depth_image
             },
             .context = context,
-            .scene = scene
+            .scene = scene,
+            .asset_manager = asset_manager
         });
     }
 
