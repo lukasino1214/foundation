@@ -6,41 +6,53 @@ struct Entity;
 struct AppWindow;
 struct Physics;
 
-struct LocalTransformComponent {
-    glm::vec3 position = { 0.0f, 0.0f, 0.0f };
-    glm::vec3 rotation = { 0.0f, 0.0f, 0.0f };
-    glm::vec3 scale = { 1.0f, 1.0f, 1.0f };
-    glm::mat4 model_matrix{1.0f};
-    glm::mat4 normal_matrix{1.0f};
-    bool is_dirty = true;
+namespace Shaper {
+    struct EntityTag {};
 
-    void set_position(glm::vec3 _position);
-    void set_rotation(glm::vec3 _rotation);
-    void set_scale(glm::vec3 _scale);
+    struct LocalTransformComponent {
+        glm::vec3 position = { 0.0f, 0.0f, 0.0f };
+        glm::vec3 rotation = { 0.0f, 0.0f, 0.0f };
+        glm::vec3 scale = { 1.0f, 1.0f, 1.0f };
+        glm::mat4 model_matrix{1.0f};
+        glm::mat4 normal_matrix{1.0f};
+        bool is_dirty = true;
 
-    auto get_position() -> glm::vec3;
-    auto get_rotation() -> glm::vec3;
-    auto get_scale() -> glm::vec3;
-};
+        void set_position(glm::vec3 _position);
+        void set_rotation(glm::vec3 _rotation);
+        void set_scale(glm::vec3 _scale);
 
-struct GlobalTransformComponent {
-    glm::vec3 position = { 0.0f, 0.0f, 0.0f };
-    glm::vec3 rotation = { 0.0f, 0.0f, 0.0f };
-    glm::vec3 scale = { 1.0f, 1.0f, 1.0f };
-    glm::mat4 model_matrix{1.0f};
-    glm::mat4 normal_matrix{1.0f};
+        auto get_position() -> glm::vec3;
+        auto get_rotation() -> glm::vec3;
+        auto get_scale() -> glm::vec3;
 
-    auto get_position() -> glm::vec3;
-    auto get_rotation() -> glm::vec3;
-    auto get_scale() -> glm::vec3;
+        void draw();
+    };
 
-    daxa::BufferId buffer = {};
-};
+    struct GlobalTransformComponent {
+        glm::vec3 position = { 0.0f, 0.0f, 0.0f };
+        glm::vec3 rotation = { 0.0f, 0.0f, 0.0f };
+        glm::vec3 scale = { 1.0f, 1.0f, 1.0f };
+        glm::mat4 model_matrix{1.0f};
+        glm::mat4 normal_matrix{1.0f};
 
-struct ModelComponent {
-    std::filesystem::path path;
-};
+        auto get_position() -> glm::vec3;
+        auto get_rotation() -> glm::vec3;
+        auto get_scale() -> glm::vec3;
 
-struct MeshComponent {
-    std::optional<u32> mesh_group_index;
-};
+        daxa::BufferId buffer = {};
+
+        void draw();
+    };
+
+    struct ModelComponent {
+        std::filesystem::path path;
+
+        void draw();
+    };
+
+    struct MeshComponent {
+        std::optional<u32> mesh_group_index;
+
+        void draw();
+    };
+}

@@ -42,6 +42,9 @@ namespace Shaper {
             throw std::runtime_error("couldnt not find model: " + info.path.string());
         }
 
+        auto* mc = info.parent.add_component<ModelComponent>();
+        mc->path = info.path;
+
         for(const auto& asset_manifest : gltf_asset_manifest_entries) {
             if(info.path == asset_manifest.path) {
                 already_loaded_model(info, asset_manifest);
@@ -342,9 +345,6 @@ namespace Shaper {
                 }), TaskPriority::LOW);
             }
         }
-
-        auto* mc = info.parent.add_component<ModelComponent>();
-        mc->path = info.path;
     }
 
     void AssetManager::already_loaded_model(LoadManifestInfo& info, const GltfAssetManifestEntry& asset_manifest) {

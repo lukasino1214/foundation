@@ -3,6 +3,7 @@
 #include "ecs/asset_manager.hpp"
 #include "ecs/asset_processor.hpp"
 #include "ecs/scene.hpp"
+#include "ui/scene_hierarchy_panel.hpp"
 #include <pch.hpp>
 #include <graphics/window.hpp>
 #include <graphics/camera.hpp>
@@ -30,5 +31,6 @@ namespace Shaper {
         std::chrono::time_point<std::chrono::steady_clock> last_time_point = {};
 
         std::unique_ptr<ThreadPool> thread_pool;
+        SceneHierarchyPanel scene_hierarchy_panel;
     };
 }

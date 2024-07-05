@@ -11,7 +11,8 @@ namespace Shaper {
         asset_processor{std::make_unique<AssetProcessor>(&context)},
         asset_manager{std::make_unique<AssetManager>(&context, scene.get())},
         renderer{&window, &context, scene.get(), asset_manager.get()},
-        thread_pool{std::make_unique<ThreadPool>(3)} {
+        thread_pool{std::make_unique<ThreadPool>(3)},
+        scene_hierarchy_panel{scene.get()} {
 
 
         last_time_point = std::chrono::steady_clock::now();
@@ -168,23 +169,7 @@ namespace Shaper {
         ImGui::Begin("File Browser");
         ImGui::End();
 
-        ImGui::Begin("Scene Hierarchy");
-        // scene->world->query<ModelComponent>().each([&](flecs::entity entity, ModelComponent& gtc) {
-        //     std::function<void(flecs::entity, int)> print_hierarchy = [&](flecs::entity e, int indent) {
-        //         std::string indent_str = "";
-        //         for (int i = 0; i < indent; i++) indent_str += "  ";
-        //         ImGui::Text(std::format("{} {}", indent_str, std::string{e.name()}).c_str());
-
-        //         e.children([&](flecs::entity child) {
-        //             print_hierarchy(child, indent + 1);
-        //         });
-        //     };
-        //     print_hierarchy(entity, 0);
-        // });
-        ImGui::End();
-
-        ImGui::Begin("Object Properties");
-        ImGui::End();
+        scene_hierarchy_panel.draw();
 
         renderer.ui_update(camera, delta_time);
     }

@@ -98,7 +98,7 @@ struct RenderMeshesTask : RenderMeshes::Task {
         render_cmd.set_pipeline(*context->raster_pipelines.at(RenderMeshes::Task::name()));
 
         u32 counter = 0;
-        scene->world->query<GlobalTransformComponent, MeshComponent>().each([&](GlobalTransformComponent& tc, MeshComponent& mc) {
+        scene->world->query<Shaper::GlobalTransformComponent, Shaper::MeshComponent>().each([&](Shaper::GlobalTransformComponent& tc, Shaper::MeshComponent& mc) {
             if(tc.buffer.is_empty()) { return; }
             if(mc.mesh_group_index.has_value()) {
                 const auto& mesh_group_manifest = asset_manager->mesh_group_manifest_entries[mc.mesh_group_index.value()];

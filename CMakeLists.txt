@@ -39,6 +39,8 @@ add_executable(${PROJECT_NAME}
     "src/graphics/helper.cpp"
     "src/graphics/camera.cpp"
     "src/math/decompose.cpp"
+    "src/ui/scene_hierarchy_panel.cpp"
+    "src/ui/ui.cpp"
 )
 target_precompile_headers(${PROJECT_NAME} PRIVATE "src/pch.hpp")
 

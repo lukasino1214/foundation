@@ -10,6 +10,8 @@ namespace Shaper {
         flecs::entity handle = {};
         Scene* scene = {};
 
+        operator bool() const { return handle.is_valid(); }
+
         template<typename T>
         auto add_component() -> T* {
             handle.set<T>(T{});

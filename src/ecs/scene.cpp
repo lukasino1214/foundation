@@ -21,7 +21,9 @@ namespace Shaper {
     }
 
     auto Scene::create_entity(const std::string_view& _name) -> Entity {
-        return Entity(world->entity(_name.data()), this);
+        flecs::entity e = world->entity(_name.data());
+        e.add<EntityTag>();
+        return Entity(e, this);
     }
 
     void Scene::destroy_entity(const Entity& entity) {
@@ -49,6 +51,17 @@ namespace Shaper {
             }
 
             if(ltc.is_dirty) {
+                {
+                    ZoneNamedN(mark_children, "mark children", true);
+                    entity.children([&](flecs::entity c) {
+                        Entity child { c, this };
+                        if(child.has_component<LocalTransformComponent>()) {
+                            auto* child_ltc = child.get_component<LocalTransformComponent>();
+                            child_ltc->is_dirty |= true;
+                        }
+                   });
+                }
+
                 {
                     ZoneNamedN(matrix_mul, "matrix mul", true);
                     ltc.model_matrix = glm::translate(glm::mat4(1.0f), ltc.position) 
