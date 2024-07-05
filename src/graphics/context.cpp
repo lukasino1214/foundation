@@ -43,7 +43,17 @@ namespace Shaper {
                 .name = "transient memory pool",
             }},
             shader_globals{}, 
-            shader_globals_buffer{make_task_buffer(device, static_cast<u32>(sizeof(shader_globals_buffer)), daxa::MemoryFlagBits::HOST_ACCESS_SEQUENTIAL_WRITE | daxa::MemoryFlagBits::DEDICATED_MEMORY, "globals")},
+            shader_globals_buffer{daxa::TaskBufferInfo{
+                .initial_buffers = daxa::TrackedBuffers{ 
+                    .buffers = std::array{
+                        device.create_buffer({
+                            .size = s_cast<u32>(sizeof(ShaderGlobals)),
+                            .name = "globals",
+                        }),
+                    },
+                },
+                .name = "globals",
+            }},
             gpu_metric_pool{std::make_unique<GPUMetricPool>(device)} {
     }
 

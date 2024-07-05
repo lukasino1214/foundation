@@ -111,9 +111,7 @@ namespace Shaper {
         auto image = context->swapchain.acquire_next_image();
         if(image.is_empty()) { return; }
         swapchain_image.set_images({.images = std::span{&image, 1}});
-
-        std::memcpy(context->device.get_host_address(context->shader_globals_buffer.get_state().buffers[0]).value(), &context->shader_globals, sizeof(ShaderGlobals));
-        
+ 
         {
             ZoneNamedN(rendergraphexecute, "render graph", true);
             render_task_graph.execute({});
@@ -171,10 +169,29 @@ namespace Shaper {
             .name = "render task graph",
         });
 
+        auto& shader_globals_buffer = context->shader_globals_buffer;
+
         render_task_graph.use_persistent_image(swapchain_image);
         render_task_graph.use_persistent_image(render_image);
         render_task_graph.use_persistent_image(depth_image);
-        render_task_graph.use_persistent_buffer(context->shader_globals_buffer);
+        render_task_graph.use_persistent_buffer(shader_globals_buffer);
+
+        render_task_graph.add_task({
+            .attachments = {
+                daxa::inl_attachment(daxa::TaskBufferAccess::TRANSFER_WRITE, shader_globals_buffer),
+            },
+            .task = [&](daxa::TaskInterface const &ti) {
+                auto alloc = ti.allocator->allocate_fill(context->shader_globals).value();
+                ti.recorder.copy_buffer_to_buffer({
+                    .src_buffer = ti.allocator->buffer(),
+                    .dst_buffer = ti.get(shader_globals_buffer).ids[0],
+                    .src_offset = alloc.buffer_offset,
+                    .dst_offset = 0,
+                    .size = sizeof(ShaderGlobals),
+                });
+            },
+            .name = "GpuInputUploadTransferTask",
+        });
 
         build_tradional_task_graph();
         build_virtual_geometry_task_graph();
