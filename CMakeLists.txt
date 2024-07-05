@@ -38,6 +38,7 @@ add_executable(${PROJECT_NAME}
     "src/graphics/renderer.cpp"
     "src/graphics/helper.cpp"
     "src/graphics/camera.cpp"
+    "src/math/decompose.cpp"
 )
 target_precompile_headers(${PROJECT_NAME} PRIVATE "src/pch.hpp")
 

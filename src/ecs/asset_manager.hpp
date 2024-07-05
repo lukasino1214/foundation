@@ -88,6 +88,7 @@ namespace Shaper {
         ~AssetManager();
 
         void load_model(LoadManifestInfo& info);
+        void already_loaded_model(LoadManifestInfo& info, const GltfAssetManifestEntry& asset_manifest);
 
         struct RecordManifestUpdateInfo {
             std::span<const MeshUploadInfo> uploaded_meshes = {};

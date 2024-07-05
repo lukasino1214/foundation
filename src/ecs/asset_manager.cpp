@@ -10,6 +10,8 @@
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/matrix_decompose.hpp>
 
+#include <math/decompose.hpp>
+
 namespace Shaper {
     AssetManager::AssetManager(Context* _context, Scene* _scene) : context{_context}, scene{_scene} {}
     AssetManager::~AssetManager() {
@@ -38,6 +40,13 @@ namespace Shaper {
     void AssetManager::load_model(LoadManifestInfo& info) {
         if(!std::filesystem::exists(info.path)) {
             throw std::runtime_error("couldnt not find model: " + info.path.string());
+        }
+
+        for(const auto& asset_manifest : gltf_asset_manifest_entries) {
+            if(info.path == asset_manifest.path) {
+                already_loaded_model(info, asset_manifest);
+                return;
+            }
         }
 
         u32 const gltf_asset_manifest_index = static_cast<u32>(gltf_asset_manifest_entries.size());
@@ -189,7 +198,6 @@ namespace Shaper {
             LoadMeshTask(const TaskInfo& info) : info{info} { chunk_count = 1; }
 
             virtual void callback(u32 chunk_index, u32 thread_index) override {
-                // std::this_thread::sleep_for(std::chrono::milliseconds(100));
                 info.asset_processor->load_mesh(info.load_info);
             };
         };
@@ -235,50 +243,6 @@ namespace Shaper {
                 mesh_component->mesh_group_index = std::nullopt;
             }
 
-            auto decompose_transform = [](const glm::mat4 &transform, glm::vec3 &translation, glm::vec3 &rotation, glm::vec3 &scale) {
-                using namespace glm;
-                using T = float;
-
-                mat4 local_matrix(transform);
-
-                if (epsilonEqual(local_matrix[3][3], static_cast<float>(0), epsilon<T>()))
-                    return false;
-
-                if (epsilonNotEqual(local_matrix[0][3], static_cast<T>(0), epsilon<T>()) || epsilonNotEqual(local_matrix[1][3], static_cast<T>(0), epsilon<T>()) || epsilonNotEqual(local_matrix[2][3], static_cast<T>(0), epsilon<T>())) {
-                    local_matrix[0][3] = local_matrix[1][3] = local_matrix[2][3] = static_cast<T>(0);
-                    local_matrix[3][3] = static_cast<T>(1);
-                }
-
-                translation = vec3(local_matrix[3]);
-                local_matrix[3] = vec4(0, 0, 0, local_matrix[3].w);
-
-                vec3 row[3], Pdum3;
-
-                for (length_t i = 0; i < 3; ++i)
-                    for (length_t j = 0; j < 3; ++j)
-                        row[i][j] = local_matrix[i][j];
-
-                scale.x = length(row[0]);
-                row[0] = detail::scale(row[0], static_cast<T>(1));
-                scale.y = length(row[1]);
-                row[1] = detail::scale(row[1], static_cast<T>(1));
-                scale.z = length(row[2]);
-                row[2] = detail::scale(row[2], static_cast<T>(1));
-
-                rotation.y = asin(-row[0][2]);
-                if (cos(rotation.y) != 0) {
-                    rotation.x = atan2(row[1][2], row[2][2]);
-                    rotation.z = atan2(row[0][1], row[0][0]);
-                } else {
-                    rotation.x = atan2(-row[2][0], row[1][1]);
-                    rotation.z = 0;
-                }
-
-                rotation = glm::degrees(rotation);
-
-                return true;
-            };
-
             if(const auto* trs = std::get_if<fastgltf::Node::TRS>(&node.transform)) {
                 glm::quat quat;
                 quat.x = trs->rotation[0];
@@ -291,7 +255,7 @@ namespace Shaper {
                     * glm::scale(glm::mat4(1.0f), { trs->scale[0], trs->scale[1], trs->scale[2]});
                 
                 glm::vec3 position, rotation, scale;
-                decompose_transform(mat, position, rotation, scale);
+                math::decompose_transform(mat, position, rotation, scale);
 
                 auto* local_transform = parent_entity.get_component<LocalTransformComponent>();
                 local_transform->set_position(position);
@@ -300,7 +264,7 @@ namespace Shaper {
             } else if(const auto* trs = std::get_if<fastgltf::Node::TransformMatrix>(&node.transform)) {
                 const glm::mat4 mat = *r_cast<const glm::mat4*>(trs);
                 glm::vec3 position, rotation, scale;
-                decompose_transform(mat, position, rotation, scale);
+                math::decompose_transform(mat, position, rotation, scale);
 
                 auto* local_transform = parent_entity.get_component<LocalTransformComponent>();
                 local_transform->set_position(position);
@@ -351,7 +315,6 @@ namespace Shaper {
             LoadTextureTask(TaskInfo const & info) : info{info} { chunk_count = 1; }
 
             virtual void callback(u32 chunk_index, u32 thread_index) override {
-                // std::this_thread::sleep_for(std::chrono::milliseconds(100));
                 info.asset_processor->load_texture(info.load_info);
             };
         };
@@ -382,6 +345,70 @@ namespace Shaper {
 
         auto* mc = info.parent.add_component<ModelComponent>();
         mc->path = info.path;
+    }
+
+    void AssetManager::already_loaded_model(LoadManifestInfo& info, const GltfAssetManifestEntry& asset_manifest) {
+        const auto& asset = asset_manifest.gltf_asset;
+        
+        std::vector<Entity> node_index_to_entity = {};
+        for(u32 node_index = 0; node_index < s_cast<u32>(asset->nodes.size()); node_index++) {
+            node_index_to_entity.push_back(scene->create_entity("gltf asset " + std::to_string(gltf_asset_manifest_entries.size()) + " " + std::string{asset->nodes[node_index].name}));
+        }
+
+        for(u32 node_index = 0; node_index < s_cast<u32>(asset->nodes.size()); node_index++) {
+            const auto& node = asset->nodes[node_index];
+            Entity& parent_entity = node_index_to_entity[node_index];
+            parent_entity.add_component<GlobalTransformComponent>();
+            parent_entity.add_component<LocalTransformComponent>();
+            auto* mesh_component = parent_entity.add_component<MeshComponent>();
+            if(node.meshIndex.has_value()) {
+                mesh_component->mesh_group_index = asset_manifest.mesh_group_manifest_offset + node.meshIndex.value();
+            } else {
+                mesh_component->mesh_group_index = std::nullopt;
+            }
+
+            if(const auto* trs = std::get_if<fastgltf::Node::TRS>(&node.transform)) {
+                glm::quat quat;
+                quat.x = trs->rotation[0];
+                quat.y = trs->rotation[1];
+                quat.z = trs->rotation[2];
+                quat.w = trs->rotation[3];
+                
+                glm::mat4 mat = glm::translate(glm::mat4(1.0f), { trs->translation[0], trs->translation[1], trs->translation[2]}) 
+                    * glm::toMat4(quat) 
+                    * glm::scale(glm::mat4(1.0f), { trs->scale[0], trs->scale[1], trs->scale[2]});
+                
+                glm::vec3 position, rotation, scale;
+                math::decompose_transform(mat, position, rotation, scale);
+
+                auto* local_transform = parent_entity.get_component<LocalTransformComponent>();
+                local_transform->set_position(position);
+                local_transform->set_rotation(rotation);
+                local_transform->set_scale(scale);
+            } else if(const auto* trs = std::get_if<fastgltf::Node::TransformMatrix>(&node.transform)) {
+                const glm::mat4 mat = *r_cast<const glm::mat4*>(trs);
+                glm::vec3 position, rotation, scale;
+                math::decompose_transform(mat, position, rotation, scale);
+
+                auto* local_transform = parent_entity.get_component<LocalTransformComponent>();
+                local_transform->set_position(position);
+                local_transform->set_rotation(rotation);
+                local_transform->set_scale(scale);
+            }
+
+            for(u32 children_index = 0; children_index < node.children.size(); children_index++) {
+                Entity& child_entity = node_index_to_entity[children_index];
+                child_entity.handle.child_of(parent_entity.handle);
+            }
+        }
+
+        for(u32 node_index = 0; node_index < s_cast<u32>(asset->nodes.size()); node_index++) {
+            Entity& entity = node_index_to_entity[node_index];
+            auto parent = entity.handle.parent();
+            if(!parent.null()) {
+                entity.handle.child_of(info.parent.handle);
+            }
+        }
     }
 
     auto AssetManager::record_manifest_update(const RecordManifestUpdateInfo& info) -> daxa::ExecutableCommandList {
