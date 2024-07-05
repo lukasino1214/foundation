@@ -71,7 +71,6 @@ namespace Shaper {
 
             if(window.window_state->resize_requested) {
                 renderer.window_resized();
-                camera.camera.resize(static_cast<i32>(window.get_width()), static_cast<i32>(window.get_height()));
                 window.window_state->resize_requested = false;
             }
 
@@ -100,7 +99,6 @@ namespace Shaper {
 
     void Application::update() {
         ZoneScoped;
-        camera.update(window, delta_time);
 
         renderer.ui_render_start();
         ui_update();
@@ -188,7 +186,7 @@ namespace Shaper {
         ImGui::Begin("Object Properties");
         ImGui::End();
 
-        renderer.ui_update();
+        renderer.ui_update(camera, delta_time);
     }
 
 }

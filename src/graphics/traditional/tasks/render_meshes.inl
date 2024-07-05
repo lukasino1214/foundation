@@ -99,28 +99,7 @@ struct RenderMeshesTask : RenderMeshes::Task {
 
         u32 counter = 0;
         scene->world->query<GlobalTransformComponent, MeshComponent>().each([&](GlobalTransformComponent& tc, MeshComponent& mc) {
-            // push = RenderMeshesPush {
-            //     .transform = context->device.get_device_address(tc.buffer).value(),
-            //     .vertices = context->device.get_device_address(mc.vertex_buffer).value(),
-            //     .material = context->device.get_device_address(mc.material_buffer).value(),
-            // };
-
-            // assign_blob(push.uses, ti.attachment_shader_blob);
-            // render_cmd.push_constant(push);
-
-            // render_cmd.set_index_buffer(daxa::SetIndexBufferInfo {
-            //     .id = mc.index_buffer,
-            //     .offset = 0,
-            //     .index_type = daxa::IndexType::uint32
-            // });
-
-            // render_cmd.draw_indexed(daxa::DrawIndexedInfo {
-            //     .index_count = mc.index_count,
-            //     .instance_count = 1,
-            //     .first_index = 0,
-            //     .vertex_offset = 0,
-            //     .first_instance = 0,
-            // });
+            if(tc.buffer.is_empty()) { return; }
             if(mc.mesh_group_index.has_value()) {
                 const auto& mesh_group_manifest = asset_manager->mesh_group_manifest_entries[mc.mesh_group_index.value()];
                 for(u32 i = 0; i < mesh_group_manifest.mesh_count; i++) {

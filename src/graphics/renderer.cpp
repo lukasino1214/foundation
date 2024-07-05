@@ -48,7 +48,7 @@ namespace Shaper {
             },
         };
 
-        recreate_framebuffer();
+        recreate_framebuffer(viewport_size);
 
         rebuild_task_graph();
 
@@ -126,17 +126,15 @@ namespace Shaper {
 
     void Renderer::window_resized() {
         context->swapchain.resize();
-
-        recreate_framebuffer();
     }
 
-    void Renderer::recreate_framebuffer() {
+    void Renderer::recreate_framebuffer(const glm::uvec2& size) {
         for (auto &[info, timg] : frame_buffer_images) {
             if (!timg.get_state().images.empty() && !timg.get_state().images[0].is_empty()) {
                 context->device.destroy_image(timg.get_state().images[0]);
             }
 
-            info.size = { std::max(window->get_width(), 1u), std::max(window->get_height(), 1u), 1 };
+            info.size = { std::max(size.x, 1u), std::max(size.y, 1u), 1 };
 
             timg.set_images({.images = std::array{this->context->device.create_image(info)}});
         }
@@ -230,18 +228,27 @@ namespace Shaper {
         ImGui::NewFrame();
     }
 
-    void Renderer::ui_update() {
-        ImTextureID image = imgui_renderer.create_texture_id(daxa::ImGuiImageContext {
-            .image_view_id = render_image.get_state().images[0].default_view(),
-            .sampler_id = std::bit_cast<daxa::SamplerId>(context->shader_globals.nearest_sampler)
-        });
-
+    void Renderer::ui_update(ControlledCamera3D& camera, f32 delta_time) {
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
 
         auto viewport_window = [&](const std::string_view& name, Mode mode) {
             ImGui::Begin(name.data());
-            if(ImGui::IsWindowFocused()) { switch_mode(mode); }
             ImVec2 size = ImGui::GetContentRegionAvail();
+            if(viewport_size != *r_cast<glm::vec2*>(&size)) {
+                viewport_size = *r_cast<glm::vec2*>(&size);
+                camera.camera.resize(static_cast<i32>(size.x), static_cast<i32>(size.y));
+                recreate_framebuffer({ size.x, size.y });
+            }
+            if(ImGui::IsWindowFocused()) { switch_mode(mode); }
+            if(ImGui::IsWindowHovered()) { if(window->button_just_pressed(GLFW_MOUSE_BUTTON_1)) { window->capture_cursor(); } }
+            if(window->button_just_released(GLFW_MOUSE_BUTTON_1)) { window->release_cursor(); }
+            if(rendering_mode == mode) { camera.update(*window, delta_time); }
+
+            ImTextureID image = imgui_renderer.create_texture_id(daxa::ImGuiImageContext {
+                .image_view_id = render_image.get_state().images[0].default_view(),
+                .sampler_id = std::bit_cast<daxa::SamplerId>(context->shader_globals.nearest_sampler)
+            });
+
             ImGui::Image(image, size);
             ImGui::End();
         };

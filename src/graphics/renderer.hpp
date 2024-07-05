@@ -2,6 +2,7 @@
 
 #include "ecs/asset_manager.hpp"
 #include "ecs/scene.hpp"
+#include "graphics/camera.hpp"
 #include <graphics/window.hpp>
 #include <graphics/context.hpp>
 #include <daxa/utils/imgui.hpp>
@@ -20,7 +21,7 @@ namespace Shaper {
         void render();
 
         void ui_render_start();
-        void ui_update();
+        void ui_update(ControlledCamera3D& camera, f32 delta_time);
         void ui_render_end();
 
         void switch_mode(Mode mode);
@@ -30,7 +31,7 @@ namespace Shaper {
 
         void window_resized();
 
-        void recreate_framebuffer();
+        void recreate_framebuffer(const glm::uvec2& size);
         void compile_pipelines();
         void rebuild_task_graph();
 
@@ -54,5 +55,6 @@ namespace Shaper {
 
         Mode rendering_mode = Mode::Traditional;
         bool startup = true;
+        glm::vec2 viewport_size = { 0, 0 };
     };
 }
