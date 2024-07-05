@@ -64,6 +64,7 @@ namespace Shaper {
         if(find != samplers.end()) {
             return find->second;
         } else {
+            std::lock_guard<std::mutex> lock{*sampler_mutex};
             daxa::SamplerId sampler_id = device.create_sampler(info);
             samplers[info] = sampler_id;
             return sampler_id;

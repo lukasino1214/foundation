@@ -72,6 +72,8 @@ namespace Shaper {
 
         auto get_sampler(const daxa::SamplerInfo& info) -> daxa::SamplerId;
 
+        std::unique_ptr<std::mutex> sampler_mutex = std::make_unique<std::mutex>();
+
         usize frame_index = 0;
     };
 }

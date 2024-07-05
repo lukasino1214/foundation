@@ -25,14 +25,6 @@ namespace Shaper {
         {
             auto entity = scene->create_entity("sponza");
             auto* tc = add_transform(entity);
-            // tc->set_scale({0.01, 0.01, 0.01});
-
-            // LoadManifestInfo manifesto {
-            //     .parent = entity,
-            //     .path = "assets/models/Sponza/glTF/Sponza.gltf",
-            //     .thread_pool = thread_pool,
-            //     .asset_processor = asset_processor,
-            // };
 
             LoadManifestInfo manifesto {
                 .parent = entity,
@@ -41,37 +33,24 @@ namespace Shaper {
                 .asset_processor = asset_processor,
             };
 
-            // LoadManifestInfo manifesto {
-            //     .parent = entity,
-            //     .path = "assets/models/deccer-cubes/SM_Deccer_Cubes_Textured.gltf",
-            //     .scene = scene.get(),
-            //     .thread_pool = thread_pool,
-            //     .asset_processor = asset_processor,
-            // };
-
             asset_manager->load_model(manifesto);
         }
 
-        {
-            auto entity = scene->create_entity("test");
-            auto* tc = add_transform(entity);
-            tc->set_position({0.0, 0.0, 0.0});
+        for(u32 x = 0; x < 1; x++) {
+            for(u32 y = 0; y < 1; y++) {
+                auto entity = scene->create_entity(std::format("test {} {}", std::to_string(x), std::to_string(y)));
+                auto* tc = add_transform(entity);
+                tc->set_position({30.0 * x, 0.0, 20.0 * y});
 
-            LoadManifestInfo manifesto {
-                .parent = entity,
-                .path = "assets/models/Sponza/glTF/Sponza.gltf",
-                .thread_pool = thread_pool,
-                .asset_processor = asset_processor,
-            };
+                LoadManifestInfo manifesto {
+                    .parent = entity,
+                    .path = "assets/models/Sponza/glTF/Sponza.gltf",
+                    .thread_pool = thread_pool,
+                    .asset_processor = asset_processor,
+                };
 
-            // LoadManifestInfo manifesto {
-            //     .parent = entity,
-            //     .path = "assets/models/Bistro/Bistro.glb",
-            //     .thread_pool = thread_pool,
-            //     .asset_processor = asset_processor,
-            // };
-
-            asset_manager->load_model(manifesto);
+                asset_manager->load_model(manifesto);
+            }
         }
 
         scene->update(delta_time);
@@ -104,8 +83,10 @@ namespace Shaper {
                     .uploaded_meshes = commands.uploaded_meshes,
                     .uploaded_textures = commands.uploaded_textures
                 });
+
+                auto cmd_lists = std::array{std::move(commands.upload_commands), std::move(cmd_list)};
                 context.device.submit_commands(daxa::CommandSubmitInfo {
-                    .command_lists = { {std::move(commands.upload_commands), std::move(cmd_list)} }
+                    .command_lists = cmd_lists
                 });
             }
 
@@ -120,16 +101,6 @@ namespace Shaper {
     void Application::update() {
         ZoneScoped;
         camera.update(window, delta_time);
-
-        // auto query_transforms = scene->world->query_builder<GlobalTransformComponent, LocalTransformComponent, GlobalTransformComponent*>().term_at(3).cascade(flecs::ChildOf).optional().build();
-        // query_transforms.each([&](flecs::entity entity, GlobalTransformComponent& gtc, LocalTransformComponent& ltc, GlobalTransformComponent* parent_gtc) {
-        //     std::cout << entity.name() << std::endl;
-        // });
-
-        // scene->world->query<LocalTransformComponent>().each([&](flecs::entity entity, LocalTransformComponent& gtc) {
-        //     std::cout << entity.name() << std::endl;
-        //     std::cout << gtc.position.x << " " << gtc.position.y << " " << gtc.position.z << std::endl;
-        // });
 
         renderer.ui_render_start();
         ui_update();

@@ -540,6 +540,6 @@ namespace Shaper {
             .dst_access = daxa::AccessConsts::READ_WRITE,
         });
 
-        return std::move(cmd_recorder.complete_current_commands());
+        return cmd_recorder.complete_current_commands();
     }
 }

@@ -91,9 +91,6 @@ namespace Shaper {
         ImGui_ImplGlfw_Shutdown();
         ImGui::DestroyContext();
 
-        context->device.destroy_sampler(std::bit_cast<daxa::SamplerId>(context->shader_globals.linear_sampler));
-        context->device.destroy_sampler(std::bit_cast<daxa::SamplerId>(context->shader_globals.nearest_sampler));
-
         this->context->device.wait_idle();
         this->context->device.collect_garbage();
     }
@@ -185,34 +182,34 @@ namespace Shaper {
         build_virtual_geometry_task_graph();
         build_path_tracing_task_graph();
 
-        render_task_graph.add_task({
-            .attachments = {
-                daxa::inl_attachment(daxa::TaskImageAccess::TRANSFER_WRITE, swapchain_image),
-                daxa::inl_attachment(daxa::TaskImageAccess::TRANSFER_READ, render_image)
-            },
-            .task = [&](daxa::TaskInterface ti) {
-                auto& info = context->device.info_image(ti.get(daxa::TaskImageAttachmentIndex(1)).ids[0]).value();
+        // render_task_graph.add_task({
+        //     .attachments = {
+        //         daxa::inl_attachment(daxa::TaskImageAccess::TRANSFER_WRITE, swapchain_image),
+        //         daxa::inl_attachment(daxa::TaskImageAccess::TRANSFER_READ, render_image)
+        //     },
+        //     .task = [&](daxa::TaskInterface ti) {
+        //         auto& info = context->device.info_image(ti.get(daxa::TaskImageAttachmentIndex(0)).ids[0]).value();
 
-                ti.recorder.blit_image_to_image(daxa::ImageBlitInfo {
-                .src_image = ti.get(daxa::TaskImageAttachmentIndex(1)).ids[0],
-                .dst_image = ti.get(daxa::TaskImageAttachmentIndex(0)).ids[0],
-                .src_slice = {
-                    .mip_level = 0,
-                    .base_array_layer = 0,
-                    .layer_count = 1,
-                },
-                .src_offsets = {{{0, 0, 0}, {s_cast<i32>(info.size.x), s_cast<i32>(info.size.y), 1}}},
-                .dst_slice = {
-                    .mip_level = 0,
-                    .base_array_layer = 0,
-                    .layer_count = 1,
-                },
-                .dst_offsets = {{{0, 0, 0}, {s_cast<i32>(info.size.x), s_cast<i32>(info.size.y), 1}}},
-                .filter = daxa::Filter::LINEAR,
-            });
-            },
-            .name = "blit",
-        });
+        //         ti.recorder.blit_image_to_image(daxa::ImageBlitInfo {
+        //         .src_image = ti.get(daxa::TaskImageAttachmentIndex(1)).ids[0],
+        //         .dst_image = ti.get(daxa::TaskImageAttachmentIndex(0)).ids[0],
+        //         .src_slice = {
+        //             .mip_level = 0,
+        //             .base_array_layer = 0,
+        //             .layer_count = 1,
+        //         },
+        //         .src_offsets = {{{0, 0, 0}, {s_cast<i32>(info.size.x), s_cast<i32>(info.size.y), 1}}},
+        //         .dst_slice = {
+        //             .mip_level = 0,
+        //             .base_array_layer = 0,
+        //             .layer_count = 1,
+        //         },
+        //         .dst_offsets = {{{0, 0, 0}, {s_cast<i32>(info.size.x), s_cast<i32>(info.size.y), 1}}},
+        //         .filter = daxa::Filter::LINEAR,
+        //     });
+        //     },
+        //     .name = "blit",
+        // });
 
         render_task_graph.add_task({
             .attachments = {daxa::inl_attachment(daxa::TaskImageAccess::COLOR_ATTACHMENT, swapchain_image)},
