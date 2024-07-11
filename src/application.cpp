@@ -171,7 +171,7 @@ namespace Shaper {
 
         scene_hierarchy_panel.draw();
 
-        renderer.ui_update(camera, delta_time);
+        renderer.ui_update(camera, delta_time, scene_hierarchy_panel);
     }
 
 }

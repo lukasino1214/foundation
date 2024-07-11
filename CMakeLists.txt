@@ -22,6 +22,7 @@ find_package(meshoptimizer CONFIG REQUIRED)
 find_package(flecs CONFIG REQUIRED)
 find_package(fastgltf CONFIG REQUIRED)
 find_package(Tracy CONFIG REQUIRED)
+find_package(imguizmo CONFIG REQUIRED)
 
 add_executable(${PROJECT_NAME} 
     "src/main.cpp"
@@ -63,6 +64,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     meshoptimizer::meshoptimizer
     $<IF:$<TARGET_EXISTS:flecs::flecs>,flecs::flecs,flecs::flecs_static>
     Tracy::TracyClient
+    imguizmo::imguizmo
 )
 target_include_directories(${PROJECT_NAME} PRIVATE ${Stb_INCLUDE_DIR})
 

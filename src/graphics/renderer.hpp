@@ -6,6 +6,7 @@
 #include <graphics/window.hpp>
 #include <graphics/context.hpp>
 #include <daxa/utils/imgui.hpp>
+#include <ui/scene_hierarchy_panel.hpp>
 
 namespace Shaper {
     struct Renderer {
@@ -21,7 +22,7 @@ namespace Shaper {
         void render();
 
         void ui_render_start();
-        void ui_update(ControlledCamera3D& camera, f32 delta_time);
+        void ui_update(ControlledCamera3D& camera, f32 delta_time, SceneHierarchyPanel& panel);
         void ui_render_end();
 
         void switch_mode(Mode mode);
@@ -56,5 +57,6 @@ namespace Shaper {
         Mode rendering_mode = Mode::Traditional;
         bool startup = true;
         glm::vec2 viewport_size = { 0, 0 };
+        i32 gizmo_type = 0;
     };
 }

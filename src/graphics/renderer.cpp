@@ -7,6 +7,11 @@
 #include "traditional/tasks/render_meshes.inl"
 #include "path_tracing/tasks/raytrace.inl"
 
+#include <ImGuizmo.h>
+#include <glm/gtc/type_ptr.hpp>
+#include <glm/gtx/string_cast.hpp>
+#include <math/decompose.hpp>
+
 namespace Shaper {
     Renderer::Renderer(AppWindow* _window, Context* _context, Scene* _scene, AssetManager* _asset_manager) 
         : window{_window}, context{_context}, scene{_scene}, asset_manager{_asset_manager} {
@@ -245,7 +250,7 @@ namespace Shaper {
         ImGui::NewFrame();
     }
 
-    void Renderer::ui_update(ControlledCamera3D& camera, f32 delta_time) {
+    void Renderer::ui_update(ControlledCamera3D& camera, f32 delta_time, SceneHierarchyPanel& panel) {
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
 
         auto viewport_window = [&](const std::string_view& name, Mode mode) {
@@ -267,6 +272,89 @@ namespace Shaper {
             });
 
             ImGui::Image(image, size);
+
+            f32 length = 24.0f;
+
+            ImVec2 pos = ImGui::GetWindowContentRegionMin();
+
+			pos.x += ImGui::GetWindowPos().x;
+			pos.y += ImGui::GetWindowPos().y;
+
+            glm::vec2 origin = *r_cast<glm::vec2*>(&pos) + glm::vec2{size.x - length - 8.0f,  length + 8.0f};
+
+            auto project_axis = [&](const glm::vec3& axis) -> ImVec2 {
+                return ImVec2(
+                    origin.x + axis.x * length,
+                    origin.y + axis.y * length
+                );
+            };
+
+            auto view_rotation = glm::mat3(camera.camera.view_mat);
+            ImVec2 end_x = project_axis(view_rotation * glm::vec3{1.0f, 0.0f, 0.0f});
+            ImVec2 end_y = project_axis(view_rotation * glm::vec3{0.0f, -1.0f, 0.0f});
+            ImVec2 end_z = project_axis(view_rotation * glm::vec3{0.0f, 0.0f, 1.0f});
+
+            ImDrawList* draw_list = ImGui::GetWindowDrawList();
+            
+            ImU32 color_x = IM_COL32(255, 0, 0, 255);
+            draw_list->AddLine(*r_cast<ImVec2*>(&origin), end_x, color_x, 2.0f);
+            draw_list->AddText(end_x, color_x, "X");
+
+            ImU32 color_y = IM_COL32(0, 255, 0, 255);
+            draw_list->AddLine(*r_cast<ImVec2*>(&origin), end_y, color_y, 2.0f);
+            draw_list->AddText(end_y, color_y, "Y");
+
+            ImU32 color_z = IM_COL32(0, 0, 255, 255);
+            draw_list->AddLine(*r_cast<ImVec2*>(&origin), end_z, color_z, 2.0f);
+            draw_list->AddText(end_z, color_z, "Z");
+
+            // if(!ImGuizmo::IsUsing()) {
+            //     if(window->key_just_pressed(Key::U)) {
+            //         gizmo_type = -1;
+            //     }
+
+            //     if(window->key_just_pressed(Key::I)) {
+            //         gizmo_type = ImGuizmo::OPERATION::TRANSLATE;
+            //     }
+
+            //     if(window->key_just_pressed(Key::O)) {
+            //         gizmo_type = ImGuizmo::OPERATION::ROTATE;
+            //     }
+
+            //     if(window->key_just_pressed(Key::P)) {
+            //         gizmo_type = ImGuizmo::OPERATION::SCALE;
+            //     }
+            // }
+
+            // if(panel.selected_entity && gizmo_type != -1) {
+            //     ImGuizmo::SetOrthographic(false);
+            //     ImGuizmo::SetDrawlist();
+            //     ImGuizmo::SetRect(ImGui::GetWindowPos().x, ImGui::GetWindowPos().y, ImGui::GetWindowWidth(), ImGui::GetWindowHeight());
+
+            //     glm::mat4 mod_mat = panel.selected_entity.get_component<GlobalTransformComponent>()->model_matrix;
+            //     glm::mat4 delta = glm::mat4{1.0};
+            //     glm::mat4 proj = camera.camera.proj_mat;
+            //     proj[1][1] *= -1.0f;
+            //     bool use = ImGuizmo::Manipulate(glm::value_ptr(camera.camera.get_view()), glm::value_ptr(proj), s_cast<ImGuizmo::OPERATION>(gizmo_type), ImGuizmo::WORLD, glm::value_ptr(mod_mat), glm::value_ptr(delta), nullptr, nullptr, nullptr);
+            
+            //     if(ImGuizmo::IsUsing() && use) {
+            //         glm::vec3 translation, rotation, scale;
+
+            //         ImGuizmo::DecomposeMatrixToComponents(glm::value_ptr(delta), &translation[0], &rotation[0], &scale[0]);
+            //         // math::decompose_transform(delta, translation, rotation, scale);
+
+            //         std::cout << glm::to_string(scale) << std::endl;
+
+            //         auto* gtc = panel.selected_entity.get_component<GlobalTransformComponent>();
+            //         auto* ltc = panel.selected_entity.get_component<LocalTransformComponent>();
+            //         ltc->position += translation - ltc->position;
+            //         ltc->rotation += rotation - ltc->rotation;
+            //         ltc->scale += scale - ltc->scale;
+            //         ltc->is_dirty = true;
+            //     }
+            // }
+
+
             ImGui::End();
         };
 
