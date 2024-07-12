@@ -40,6 +40,12 @@ struct Material {
     daxa_SamplerId roughness_metalness_sampler_id;
     daxa_ImageViewId emissive_texture_id;
     daxa_SamplerId emissive_sampler_id;
+    daxa_f32 metallic_factor;
+    daxa_f32 roughness_factor;
+    daxa_f32vec3 emissive_factor;
+    daxa_u32 alpha_mode;
+    daxa_f32 alpha_cutoff;
+    daxa_b32 double_sided;
 };
 
 DAXA_DECL_BUFFER_PTR(Material)

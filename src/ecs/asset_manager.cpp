@@ -183,6 +183,12 @@ namespace Shaper {
                 .normal_info = normal_texture_info,
                 .roughness_metalness_info = roughnes_metalness_info,
                 .emissive_info = emissive_info,
+                .metallic_factor = material.pbrData.metallicFactor,
+                .roughness_factor = material.pbrData.roughnessFactor,
+                .emissive_factor = { material.emissiveFactor[0], material.emissiveFactor[1], material.emissiveFactor[2] },
+                .alpha_mode = s_cast<u32>(material.alphaMode),
+                .alpha_cutoff = material.alphaCutoff,
+                .double_sided = material.doubleSided,
                 .gltf_asset_manifest_index = gltf_asset_manifest_index,
                 .asset_local_index = material_index,
                 .material_buffer = {},
@@ -430,7 +436,13 @@ namespace Shaper {
                 .roughness_metalness_texture_id = {},
                 .roughness_metalness_sampler_id = {},
                 .emissive_texture_id = {},
-                .emissive_sampler_id = {}
+                .emissive_sampler_id = {},
+                .metallic_factor = 1.0f,
+                .roughness_factor = 1.0f,
+                .emissive_factor = { 0.0f, 0.0f, 0.0f },
+                .alpha_mode = 0,
+                .alpha_cutoff = 0.5f,
+                .double_sided = 0u
             };
 
             std::memcpy(context->device.get_host_address_as<Material>(material_null_buffer).value(), &material, sizeof(Material));
@@ -535,14 +547,22 @@ namespace Shaper {
                     emissive_sampler_id = texture_entry.sampler_id;
                 }
 
-                ptr[dirty_materials_index].albedo_texture_id = albedo_image_id.default_view();
-                ptr[dirty_materials_index].albedo_sampler_id = albedo_sampler_id;
-                ptr[dirty_materials_index].normal_texture_id = normal_image_id.default_view();
-                ptr[dirty_materials_index].normal_sampler_id = normal_sampler_id;
-                ptr[dirty_materials_index].roughness_metalness_texture_id = roughness_metalness_image_id.default_view();
-                ptr[dirty_materials_index].roughness_metalness_sampler_id = roughness_metalness_sampler_id;
-                ptr[dirty_materials_index].emissive_texture_id = emissive_image_id.default_view();
-                ptr[dirty_materials_index].emissive_sampler_id = emissive_sampler_id;
+                ptr[dirty_materials_index] = {
+                    .albedo_texture_id = albedo_image_id.default_view(),
+                    .albedo_sampler_id = albedo_sampler_id,
+                    .normal_texture_id = normal_image_id.default_view(),
+                    .normal_sampler_id = normal_sampler_id,
+                    .roughness_metalness_texture_id = roughness_metalness_image_id.default_view(),
+                    .roughness_metalness_sampler_id = roughness_metalness_sampler_id,
+                    .emissive_texture_id = emissive_image_id.default_view(),
+                    .emissive_sampler_id = emissive_sampler_id,
+                    .metallic_factor = material.metallic_factor,
+                    .roughness_factor = material.roughness_factor,
+                    .emissive_factor = *r_cast<daxa_f32vec3*>(&material.emissive_factor),
+                    .alpha_mode = material.alpha_mode,
+                    .alpha_cutoff = material.alpha_cutoff,
+                    .double_sided = s_cast<daxa_b32>(material.double_sided)
+                };
 
                 if(material.material_buffer.is_empty()) {
                     material.material_buffer = context->device.create_buffer({

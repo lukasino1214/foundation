@@ -77,6 +77,12 @@ namespace Shaper {
         std::optional<TextureInfo> normal_info = {};
         std::optional<TextureInfo> roughness_metalness_info = {};
         std::optional<TextureInfo> emissive_info = {};
+        f32 metallic_factor;
+        f32 roughness_factor;
+        glm::vec3 emissive_factor;
+        u32 alpha_mode;
+        f32 alpha_cutoff;
+        bool double_sided;
         u32 gltf_asset_manifest_index = {};
         u32 asset_local_index = {};
         daxa::BufferId material_buffer = {};
