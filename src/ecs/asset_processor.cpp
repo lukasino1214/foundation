@@ -1,85 +1,96 @@
 #include "asset_processor.hpp"
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
+#include <meshoptimizer.h>
+#include <fastgltf/tools.hpp>
+#include <fastgltf/glm_element_traits.hpp>
 
 namespace Shaper {
     AssetProcessor::AssetProcessor(Context* _context) : context{_context}, mesh_upload_mutex{std::make_unique<std::mutex>()} {}
     AssetProcessor::~AssetProcessor() {}
 
+    template <typename ElemT, bool IS_INDEX_BUFFER>
+    auto load_data(fastgltf::Asset& asset, fastgltf::Accessor& accessor, u32 required_size = 0) {
+        auto& buffer_view = asset.bufferViews[accessor.bufferViewIndex.value()];
+        
+        std::vector<ElemT> ret(accessor.count);
+        if constexpr(IS_INDEX_BUFFER) {
+            if (accessor.componentType == fastgltf::ComponentType::UnsignedShort) {
+                std::vector<u16> u16_index_buffer(accessor.count);
+                fastgltf::copyFromAccessor<u16>(asset, accessor, u16_index_buffer.data());
+                for (size_t i = 0; i < u16_index_buffer.size(); ++i) {
+                    ret[i] = s_cast<u32>(u16_index_buffer[i]);
+                }
+            }
+            else {
+                fastgltf::copyFromAccessor<u32>(asset, accessor, ret.data());
+            }
+        } else {
+            fastgltf::copyFromAccessor<ElemT>(asset, accessor, ret.data());
+        }
+
+        return ret;
+    }
+
     void AssetProcessor::load_mesh(const LoadMeshInfo& info) {
         ZoneScoped;
-        fastgltf::Primitive primitive = info.asset->meshes[info.gltf_mesh_index].primitives[info.gltf_primitive_index];
+        fastgltf::Asset& gltf_asset = *info.asset;
+        fastgltf::Mesh& gltf_mesh = info.asset->meshes[info.gltf_mesh_index];
+        fastgltf::Primitive& gltf_primitive = gltf_mesh.primitives[info.gltf_primitive_index];
 
-        u32 count = 0;
-        const glm::vec3* positions = nullptr;
-        const glm::vec3* normals = nullptr;
-        const glm::vec2* uvs = nullptr;
-
-        if (primitive.findAttribute("POSITION") != primitive.attributes.end()) {
-            auto& accessor = info.asset->accessors[primitive.findAttribute("POSITION")->second];
-            auto& view = info.asset->bufferViews[accessor.bufferViewIndex.value()];
-            positions = reinterpret_cast<const glm::vec3*>(&(std::get<fastgltf::sources::Vector>(info.asset->buffers[view.bufferIndex].data).bytes[accessor.byteOffset + view.byteOffset]));
-            count = static_cast<u32>(accessor.count);
+        std::vector<glm::vec3> vert_positions = {};
+        auto position_attribute_iter = gltf_primitive.findAttribute("POSITION");
+        if(position_attribute_iter != gltf_primitive.attributes.end()) {
+            vert_positions = load_data<glm::vec3, false>(gltf_asset, gltf_asset.accessors[position_attribute_iter->second], 0);
         }
 
-        if (primitive.findAttribute("NORMAL") != primitive.attributes.end()) {
-            auto& accessor = info.asset->accessors[primitive.findAttribute("NORMAL")->second];
-            auto& view = info.asset->bufferViews[accessor.bufferViewIndex.value()];
-            normals = reinterpret_cast<const glm::vec3*>(&(std::get<fastgltf::sources::Vector>(info.asset->buffers[view.bufferIndex].data).bytes[accessor.byteOffset + view.byteOffset]));
+        auto fill = [](auto& vec, u32 required_size = 0) {
+            if(vec.empty()) {
+                vec.resize(required_size);
+                for(u32 i = 0; i < required_size; i++) {
+                    vec[i] = {};
+                }
+            }
+        };
+
+        u32 vertex_count = vert_positions.size();
+        std::vector<glm::vec3> vert_normals = {};
+        auto normal_attribute_iter = gltf_primitive.findAttribute("NORMAL");
+        if(normal_attribute_iter != gltf_primitive.attributes.end()) {
+            vert_normals = load_data<glm::vec3, false>(gltf_asset, gltf_asset.accessors[normal_attribute_iter->second], vertex_count);
+        } else {
+            fill(vert_normals, vertex_count);
         }
 
-        if (primitive.findAttribute("TEXCOORD_0") != primitive.attributes.end()) {
-            auto& accessor = info.asset->accessors[primitive.findAttribute("TEXCOORD_0")->second];
-            auto& view = info.asset->bufferViews[accessor.bufferViewIndex.value()];
-            uvs = reinterpret_cast<const glm::vec2*>(&(std::get<fastgltf::sources::Vector>(info.asset->buffers[view.bufferIndex].data).bytes[accessor.byteOffset + view.byteOffset]));
-        }
-
-        std::vector<Vertex> vertices = {};
-        vertices.resize(count);
-        for(u32 i = 0; i < count; i++) {
-            vertices[i] = Vertex {
-                .position = *reinterpret_cast<const daxa_f32vec3*>(&positions[i]),
-                // .normal = *reinterpret_cast<const daxa_f32vec3*>(&normals[i]),
-                .uv = uvs ? *reinterpret_cast<const daxa_f32vec2*>(&uvs[i]) : daxa_f32vec2{0.0f, 0.0f},
-            };
+        std::vector<glm::vec2> vert_uvs = {};
+        auto uvs_attribute_iter = gltf_primitive.findAttribute("TEXCOORD_0");
+        if(uvs_attribute_iter != gltf_primitive.attributes.end()) {
+            vert_uvs = load_data<glm::vec2, false>(gltf_asset, gltf_asset.accessors[uvs_attribute_iter->second], vertex_count);
+        } else {
+            fill(vert_uvs, vertex_count);
         }
 
         std::vector<u32> indices = {};
-        u32 index_count = 0;
+        indices = load_data<u32, true>(gltf_asset, gltf_asset.accessors[gltf_primitive.indicesAccessor.value()]);
+
+        std::vector<Vertex> vertices = {};
+        vertices.resize(vertex_count);
+        for(u32 i = 0; i < vertex_count; i++) {
+            vertices[i] = Vertex {
+                .position = *r_cast<daxa_f32vec3*>(&vert_positions[i]),
+                .normal = *r_cast<daxa_f32vec3*>(&vert_normals[i]),
+                .uv = *r_cast<daxa_f32vec2*>(&vert_uvs[i]),
+            };
+        }
+
+        constexpr usize MAX_VERTICES = MAX_VERTICES_PER_MESHLET;
+        constexpr usize MAX_TRIANGLES = MAX_TRIANGLES_PER_MESHLET;
+        constexpr float CONE_WEIGHT = 1.0f;
+
         {
-            auto& accessor = info.asset->accessors[primitive.indicesAccessor.value()];
-            auto& bufferView = info.asset->bufferViews[accessor.bufferViewIndex.value()];
-            auto& buffer = info.asset->buffers[bufferView.bufferIndex];
-
-            index_count = static_cast<u32>(accessor.count);
-
-            switch(accessor.componentType) {
-                case fastgltf::ComponentType::UnsignedInt: {
-                    const uint32_t * buf = reinterpret_cast<const uint32_t *>(&std::get<fastgltf::sources::Vector>(buffer.data).bytes[accessor.byteOffset + bufferView.byteOffset]);
-                    indices.reserve((indices.size() + accessor.count) * sizeof(uint32_t));
-                    for (size_t index = 0; index < accessor.count; index++) {
-                        indices.push_back(buf[index]);
-                    }
-                    break;
-                }
-                case fastgltf::ComponentType::UnsignedShort: {
-                    const uint16_t * buf = reinterpret_cast<const uint16_t *>(&std::get<fastgltf::sources::Vector>(buffer.data).bytes[accessor.byteOffset + bufferView.byteOffset]);
-                    indices.reserve((indices.size() + accessor.count) * sizeof(uint16_t));
-                    for (size_t index = 0; index < accessor.count; index++) {
-                        indices.push_back(buf[index]);
-                    }
-                    break;
-                }
-                case fastgltf::ComponentType::UnsignedByte: {
-                    const uint8_t * buf = reinterpret_cast<const uint8_t *>(&std::get<fastgltf::sources::Vector>(buffer.data).bytes[accessor.byteOffset + bufferView.byteOffset]);
-                    indices.reserve((indices.size() + accessor.count) * sizeof(uint8_t));
-                    for (size_t index = 0; index < accessor.count; index++) {
-                        indices.push_back(buf[index]);
-                    }
-                    break;
-                }
-                default: { throw std::runtime_error("unhandled index buffer type"); }
-            }
+            std::vector<u32> optimized_indices(indices.size());
+            meshopt_optimizeVertexCache(optimized_indices.data(), indices.data(), indices.size(), vertices.size());
+            indices = std::move(optimized_indices);
         }
 
         daxa::BufferId staging_buffer = context->device.create_buffer(daxa::BufferInfo {
@@ -105,6 +116,132 @@ namespace Shaper {
             .name = "index buffer"
         });
 
+        size_t max_meshlets = meshopt_buildMeshletsBound(indices.size(), MAX_VERTICES, MAX_TRIANGLES);
+        std::vector<meshopt_Meshlet> meshlets(max_meshlets);
+        std::vector<u32> meshlet_indirect_vertices(max_meshlets * MAX_VERTICES);
+        std::vector<u8> meshlet_micro_indices(max_meshlets * MAX_TRIANGLES * 3);
+
+        size_t meshlet_count = meshopt_buildMeshlets(
+            meshlets.data(),
+            meshlet_indirect_vertices.data(),
+            meshlet_micro_indices.data(),
+            indices.data(),
+            indices.size(),
+            r_cast<const f32*>(vert_positions.data()),
+            s_cast<usize>(vertices.size()),
+            sizeof(glm::vec3),
+            MAX_VERTICES,
+            MAX_TRIANGLES,
+            CONE_WEIGHT
+        );
+
+        std::vector<BoundingSphere> meshlet_bounds(meshlet_count);
+        std::vector<AABB> meshlet_aabbs(meshlet_count);
+        for (size_t meshlet_index = 0; meshlet_index < meshlet_count; ++meshlet_index) {
+            meshopt_Bounds raw_bounds = meshopt_computeMeshletBounds(
+                &meshlet_indirect_vertices[meshlets[meshlet_index].vertex_offset],
+                &meshlet_micro_indices[meshlets[meshlet_index].triangle_offset],
+                meshlets[meshlet_index].triangle_count,
+                r_cast<const f32*>(vert_positions.data()),
+                s_cast<usize>(vertices.size()),
+                sizeof(glm::vec3));
+            meshlet_bounds[meshlet_index].center.x = raw_bounds.center[0];
+            meshlet_bounds[meshlet_index].center.y = raw_bounds.center[1];
+            meshlet_bounds[meshlet_index].center.z = raw_bounds.center[2];
+            meshlet_bounds[meshlet_index].radius = raw_bounds.radius;
+
+            glm::vec3 min_pos = vert_positions[meshlet_indirect_vertices[meshlets[meshlet_index].vertex_offset]];
+            glm::vec3 max_pos = vert_positions[meshlet_indirect_vertices[meshlets[meshlet_index].vertex_offset]];
+
+            for (u32 vertex_index = 0; vertex_index < meshlets[meshlet_index].vertex_count; ++vertex_index) {
+                glm::vec3 pos = vert_positions[meshlet_indirect_vertices[meshlets[meshlet_index].vertex_offset + vertex_index]];
+                min_pos = glm::min(min_pos, pos);
+                max_pos = glm::max(max_pos, pos);
+            }
+
+            glm::vec3 center = (max_pos + min_pos) * 0.5f;
+            glm::vec3 extent = max_pos - center;
+
+            meshlet_aabbs[meshlet_index].center = std::bit_cast<daxa_f32vec3>(center);
+            meshlet_aabbs[meshlet_index].extent = std::bit_cast<daxa_f32vec3>(extent);
+        }
+
+        const meshopt_Meshlet& last = meshlets[meshlet_count - 1];
+        meshlet_indirect_vertices.resize(last.vertex_offset + last.vertex_count);
+        meshlet_micro_indices.resize(last.triangle_offset + ((last.triangle_count * 3 + 3) & ~3));
+        meshlets.resize(meshlet_count);
+
+        const u64 total_mesh_buffer_size =
+            sizeof(Meshlet) * meshlet_count +
+            sizeof(BoundingSphere) * meshlet_count +
+            sizeof(AABB) * meshlet_count +
+            sizeof(u8) * meshlet_micro_indices.size() +
+            sizeof(u32) * meshlet_indirect_vertices.size() +
+            sizeof(daxa_f32vec3) * vertices.size() +
+            sizeof(daxa_f32vec2) * vertices.size() +
+            sizeof(daxa_f32vec3) * vertices.size();
+
+        Mesh mesh = {};
+
+        daxa::DeviceAddress mesh_bda = {};
+        daxa::BufferId staging_mesh_buffer = {};
+        daxa::BufferId mesh_buffer = {};
+
+        {
+            mesh_buffer = context->device.create_buffer(daxa::BufferInfo {
+                .size = s_cast<daxa::usize>(total_mesh_buffer_size),
+                .name = std::string(gltf_mesh.name.c_str()) + "." + std::to_string(info.gltf_primitive_index),
+            });
+
+            mesh_bda = context->device.get_device_address(std::bit_cast<daxa::BufferId>(mesh_buffer)).value();
+
+            staging_mesh_buffer = context->device.create_buffer(daxa::BufferInfo {
+                .size = s_cast<daxa::usize>(total_mesh_buffer_size),
+                .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
+                .name = std::string(gltf_mesh.name.c_str()) + "." + std::to_string(info.gltf_primitive_index) + " staging",
+            });
+        }
+
+        std::byte* staging_ptr = context->device.get_host_address(staging_mesh_buffer).value();
+        u32 accumulated_offset = 0;
+
+        mesh.meshlets = mesh_bda + accumulated_offset;
+        std::memcpy(staging_ptr + accumulated_offset, meshlets.data(), meshlets.size() * sizeof(Meshlet));
+        accumulated_offset += sizeof(Meshlet) * meshlet_count;
+        
+        mesh.meshlet_bounds = mesh_bda + accumulated_offset;
+        std::memcpy(staging_ptr + accumulated_offset, meshlet_bounds.data(), meshlet_bounds.size() * sizeof(BoundingSphere));
+        accumulated_offset += sizeof(BoundingSphere) * meshlet_count;
+        
+        mesh.meshlet_aabbs = mesh_bda + accumulated_offset;
+        std::memcpy(staging_ptr + accumulated_offset, meshlet_aabbs.data(), meshlet_aabbs.size() * sizeof(AABB));
+        accumulated_offset += sizeof(AABB) * meshlet_count;
+        
+        mesh.micro_indices = mesh_bda + accumulated_offset;
+        std::memcpy(staging_ptr + accumulated_offset, meshlet_micro_indices.data(), meshlet_micro_indices.size() * sizeof(u8));
+        accumulated_offset += sizeof(u8) * meshlet_micro_indices.size();
+        
+        mesh.indirect_vertices = mesh_bda + accumulated_offset;
+        std::memcpy(staging_ptr + accumulated_offset, meshlet_indirect_vertices.data(), meshlet_indirect_vertices.size() * sizeof(u32));
+        accumulated_offset += sizeof(u32) * meshlet_indirect_vertices.size();
+        
+        mesh.vertex_positions = mesh_bda + accumulated_offset;
+        std::memcpy(staging_ptr + accumulated_offset, vert_positions.data(), vertices.size() * sizeof(daxa_f32vec3));
+        accumulated_offset += sizeof(daxa_f32vec3) * vertices.size();
+        
+        mesh.vertex_normals = mesh_bda + accumulated_offset;
+        std::memcpy(staging_ptr + accumulated_offset, vert_normals.data(), vertices.size() * sizeof(daxa_f32vec3));
+        accumulated_offset += sizeof(daxa_f32vec3) * vertices.size();
+
+        mesh.vertex_uvs = mesh_bda + accumulated_offset;
+        std::memcpy(staging_ptr + accumulated_offset, vert_uvs.data(), vertices.size() * sizeof(daxa_f32vec2));
+        accumulated_offset += sizeof(daxa_f32vec2) * vertices.size();
+        
+        
+        mesh.material_index = info.material_manifest_offset + static_cast<u32>(info.asset->meshes[info.gltf_mesh_index].primitives[info.gltf_primitive_index].materialIndex.value());
+        mesh.meshlet_count = s_cast<u32>(meshlet_count);
+        mesh.vertex_count = s_cast<u32>(vertices.size());
+
         {
             std::lock_guard<std::mutex> lock{*mesh_upload_mutex};
             mesh_upload_queue.push_back(MeshUploadInfo {
@@ -113,6 +250,9 @@ namespace Shaper {
                 .index_buffer = index_buffer,
                 .vertex_count = static_cast<u32>(vertices.size()),
                 .index_count = static_cast<u32>(indices.size()),
+                .staging_mesh_buffer = staging_mesh_buffer,
+                .mesh_buffer = mesh_buffer,
+                .mesh = mesh,
                 .manifest_index = info.manifest_index,
                 .material_manifest_offset = info.material_manifest_offset
             });
@@ -245,6 +385,7 @@ namespace Shaper {
             ZoneNamedN(mesh_upload_info, "mesh_upload_info", true);
             for(auto& mesh_upload_info : ret.uploaded_meshes) {
                 cmd_recorder.destroy_buffer_deferred(mesh_upload_info.staging_buffer);
+                cmd_recorder.destroy_buffer_deferred(mesh_upload_info.staging_mesh_buffer);
 
                 u32 vertex_buffer_size = context->device.info_buffer(mesh_upload_info.vertex_buffer).value().size;
                 u32 index_buffer_size = context->device.info_buffer(mesh_upload_info.index_buffer).value().size;
@@ -263,6 +404,14 @@ namespace Shaper {
                     .src_offset = vertex_buffer_size,
                     .dst_offset = 0,
                     .size = index_buffer_size
+                });
+
+                cmd_recorder.copy_buffer_to_buffer(daxa::BufferCopyInfo {
+                    .src_buffer = mesh_upload_info.staging_mesh_buffer,
+                    .dst_buffer = mesh_upload_info.mesh_buffer,
+                    .src_offset = 0,
+                    .dst_offset = 0,
+                    .size = context->device.info_buffer(mesh_upload_info.mesh_buffer).value().size
                 });
             }
         }

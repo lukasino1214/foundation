@@ -14,6 +14,7 @@ namespace Shaper {
         void destroy_entity(const Entity& entity);
 
         void update(f32 delta_time);
+        void update_gpu(const daxa::TaskInterface& task_inferface, daxa::TaskBuffer& gpu_transforms);
 
         std::string name;
         std::unique_ptr<flecs::world> world;

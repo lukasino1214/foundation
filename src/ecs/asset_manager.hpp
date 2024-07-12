@@ -30,18 +30,25 @@ namespace Shaper {
     };
 
     struct MeshManifestEntry {
-        struct RenderInfo {
+        struct TraditionalRenderInfo {
             daxa::BufferId vertex_buffer = {};
             daxa::BufferId index_buffer = {};
-            daxa::BufferId material_buffer = {};
+            // daxa::BufferId material_buffer = {};
+            u32 material_manifest_index = {};
             u32 vertex_count = {};
             u32 index_count = {};
+        };
+
+        struct VirtualGeometryRenderInfo {
+            daxa::BufferId mesh_buffer = {};
+            u32 material_manifest_index = {};
         };
 
         u32 gltf_asset_manifest_index = {};
         u32 asset_local_mesh_index = {};
         u32 asset_local_primitive_index = {};
-        std::optional<RenderInfo> render_info = {};
+        std::optional<TraditionalRenderInfo> traditional_render_info = {};
+        std::optional<VirtualGeometryRenderInfo> virtual_geometry_render_info = {};
     };
 
     struct MeshGroupManifestEntry {
@@ -85,7 +92,8 @@ namespace Shaper {
         bool double_sided;
         u32 gltf_asset_manifest_index = {};
         u32 asset_local_index = {};
-        daxa::BufferId material_buffer = {};
+        // daxa::BufferId material_buffer = {};
+        u32 material_manifest_index = {};
         std::string name = {};
     };
 
@@ -111,5 +119,9 @@ namespace Shaper {
 
         Context* context;
         Scene* scene;
+        daxa::TaskBuffer gpu_scene_data = {};
+        daxa::TaskBuffer gpu_meshes = {};
+        daxa::TaskBuffer gpu_materials = {};
+        daxa::TaskBuffer gpu_transforms = {};
     };
 }

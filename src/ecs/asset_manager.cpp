@@ -1,5 +1,6 @@
 #include "asset_manager.hpp"
 #include "ecs/components.hpp"
+#include "graphics/helper.hpp"
 
 #include <fastgltf/types.hpp>
 
@@ -13,20 +14,37 @@
 #include <math/decompose.hpp>
 
 namespace Shaper {
-    AssetManager::AssetManager(Context* _context, Scene* _scene) : context{_context}, scene{_scene} {}
+    AssetManager::AssetManager(Context* _context, Scene* _scene) : context{_context}, scene{_scene} {
+        //gpu_scene_data = make_task_buffer(context->device, sizeof(SceneData), daxa::MemoryFlagBits::DEDICATED_MEMORY, "scene data");
+        gpu_meshes = make_task_buffer(context->device, {
+            sizeof(Mesh), 
+            daxa::MemoryFlagBits::DEDICATED_MEMORY, 
+            "meshes"
+        });
+
+        gpu_materials = make_task_buffer(context->device, {
+            sizeof(Material), 
+            daxa::MemoryFlagBits::DEDICATED_MEMORY, 
+            "materials"
+        });
+
+        gpu_transforms = make_task_buffer(context->device, {
+            sizeof(TransformInfo),
+            daxa::MemoryFlagBits::DEDICATED_MEMORY,
+            "gpu transforms"
+        });
+    }
     AssetManager::~AssetManager() {
-        for(auto& material_manifest : material_manifest_entries) {
-            if(!material_manifest.material_buffer.is_empty()) {
-                context->device.destroy_buffer(material_manifest.material_buffer);
-            }
-        }
+        context->device.destroy_buffer(gpu_meshes.get_state().buffers[0]);
+        context->device.destroy_buffer(gpu_materials.get_state().buffers[0]);
+        context->device.destroy_buffer(gpu_transforms.get_state().buffers[0]);
 
         for(auto& mesh_manifest : mesh_manifest_entries) {
-            if(!mesh_manifest.render_info->vertex_buffer.is_empty()) {
-                context->device.destroy_buffer(mesh_manifest.render_info->vertex_buffer);
+            if(!mesh_manifest.traditional_render_info->vertex_buffer.is_empty()) {
+                context->device.destroy_buffer(mesh_manifest.traditional_render_info->vertex_buffer);
             }
-            if(!mesh_manifest.render_info->index_buffer.is_empty()) {
-                context->device.destroy_buffer(mesh_manifest.render_info->index_buffer);
+            if(!mesh_manifest.traditional_render_info->index_buffer.is_empty()) {
+                context->device.destroy_buffer(mesh_manifest.traditional_render_info->index_buffer);
             }
         }
 
@@ -191,7 +209,7 @@ namespace Shaper {
                 .double_sided = material.doubleSided,
                 .gltf_asset_manifest_index = gltf_asset_manifest_index,
                 .asset_local_index = material_index,
-                .material_buffer = {},
+                .material_manifest_index = material_manifest_offset + material_index,
                 .name = material.name.c_str(),
             });
         }
@@ -222,7 +240,8 @@ namespace Shaper {
                     .gltf_asset_manifest_index = gltf_asset_manifest_index,
                     .asset_local_mesh_index = mesh_index,
                     .asset_local_primitive_index = primitive_index,
-                    .render_info = std::nullopt
+                    .traditional_render_info = std::nullopt,
+                    .virtual_geometry_render_info = std::nullopt
                 });
             }
 
@@ -419,7 +438,32 @@ namespace Shaper {
 
     auto AssetManager::record_manifest_update(const RecordManifestUpdateInfo& info) -> daxa::ExecutableCommandList {
         ZoneScoped;
-        auto cmd_recorder = context->device.create_command_recorder({ .name = "asset manager upload" });
+        auto cmd_recorder = context->device.create_command_recorder({ .name = "asset manager update" });
+
+        auto realloc = [&](daxa::TaskBuffer& task_buffer, u32 new_size) {
+            daxa::BufferId buffer = task_buffer.get_state().buffers[0];
+            auto info = context->device.info_buffer(buffer).value();
+            if(info.size < new_size) {
+                cmd_recorder.destroy_buffer_deferred(buffer);
+                std::println("INFO: {} resized from {} bytes to {} bytes", std::string{info.name.c_str().data()}, std::to_string(info.size), std::to_string(new_size));
+                u32 old_size = s_cast<u32>(info.size);
+                info.size = new_size;
+                daxa::TaskBuffer new_buffer = make_task_buffer(context->device, info);
+                cmd_recorder.copy_buffer_to_buffer(daxa::BufferCopyInfo {
+                    .src_buffer = buffer,
+                    .dst_buffer = new_buffer.get_state().buffers[0],
+                    .src_offset = 0,
+                    .dst_offset = 0,
+                    .size = old_size,
+                });
+
+                task_buffer.swap_buffers(new_buffer);
+            }
+        };
+
+        realloc(gpu_meshes, s_cast<u32>(mesh_manifest_entries.size() * sizeof(Mesh)));
+        realloc(gpu_materials, s_cast<u32>(material_manifest_entries.size() * sizeof(Material)));
+        realloc(gpu_transforms, s_cast<u32>(mesh_group_manifest_entries.size() * sizeof(TransformInfo)));
 
         daxa::BufferId material_null_buffer = context->device.create_buffer({
             .size = static_cast<u32>(sizeof(Material)),
@@ -454,30 +498,50 @@ namespace Shaper {
             u32 material_index = mesh_upload_info.material_manifest_offset + static_cast<u32>(gltf_asset_manifest.gltf_asset->meshes[mesh_manifest.asset_local_mesh_index].primitives[mesh_manifest.asset_local_primitive_index].materialIndex.value());
             auto& material_manifest = material_manifest_entries.at(material_index);
 
-            if(material_manifest.material_buffer.is_empty()) {
-                material_manifest.material_buffer = context->device.create_buffer({
-                    .size = static_cast<u32>(sizeof(Material)),
-                    .allocate_info = daxa::MemoryFlagBits::DEDICATED_MEMORY,
-                    .name = "material buffer",
-                });
-
-                cmd_recorder.copy_buffer_to_buffer(daxa::BufferCopyInfo {
-                    .src_buffer = material_null_buffer,
-                    .dst_buffer = material_manifest.material_buffer,
-                    .src_offset = 0,
-                    .dst_offset = 0,
-                    .size = sizeof(Material),
-                });
-            }
+            cmd_recorder.copy_buffer_to_buffer(daxa::BufferCopyInfo {
+                .src_buffer = material_null_buffer,
+                .dst_buffer = gpu_materials.get_state().buffers[0],
+                .src_offset = 0,
+                .dst_offset = material_manifest.material_manifest_index * sizeof(Material),
+                .size = sizeof(Material),
+            });
             
-            mesh_manifest.render_info = MeshManifestEntry::RenderInfo {
+            mesh_manifest.traditional_render_info = MeshManifestEntry::TraditionalRenderInfo {
                 .vertex_buffer = mesh_upload_info.vertex_buffer,
                 .index_buffer = mesh_upload_info.index_buffer,
-                .material_buffer = material_manifest.material_buffer,
+                .material_manifest_index = material_manifest.material_manifest_index,
                 .vertex_count = mesh_upload_info.vertex_count,
                 .index_count = mesh_upload_info.index_count,
             };
 
+            mesh_manifest.virtual_geometry_render_info = MeshManifestEntry::VirtualGeometryRenderInfo {
+                .mesh_buffer = mesh_upload_info.mesh_buffer,
+                .material_manifest_index = material_manifest.material_manifest_index,
+            };
+        }
+
+        if(!info.uploaded_meshes.empty()) {
+            daxa::BufferId staging_buffer = context->device.create_buffer({
+                .size = info.uploaded_meshes.size() * sizeof(Mesh),
+                .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
+                .name = "mesh manifest upload staging buffer",
+            });
+
+            cmd_recorder.destroy_buffer_deferred(staging_buffer);
+            Mesh * staging_ptr = context->device.get_host_address_as<Mesh>(staging_buffer).value();
+
+            for (u32 upload_index = 0; upload_index < info.uploaded_meshes.size(); upload_index++) {
+                auto const & upload = info.uploaded_meshes[upload_index];
+                std::memcpy(staging_ptr + upload_index, &upload.mesh, sizeof(Mesh));
+
+                cmd_recorder.copy_buffer_to_buffer({
+                    .src_buffer = staging_buffer,
+                    .dst_buffer = gpu_meshes.get_state().buffers[0],
+                    .src_offset = upload_index * sizeof(Mesh),
+                    .dst_offset = upload.manifest_index * sizeof(Mesh),
+                    .size = sizeof(Mesh),
+                });
+            }
         }
 
         std::vector<u32> dirty_material_manifest_indices = {};
@@ -564,19 +628,11 @@ namespace Shaper {
                     .double_sided = s_cast<daxa_b32>(material.double_sided)
                 };
 
-                if(material.material_buffer.is_empty()) {
-                    material.material_buffer = context->device.create_buffer({
-                        .size = static_cast<u32>(sizeof(Material)),
-                        .allocate_info = daxa::MemoryFlagBits::DEDICATED_MEMORY,
-                        .name = "material buffer",
-                    });
-                }
-
-                cmd_recorder.copy_buffer_to_buffer({
+                cmd_recorder.copy_buffer_to_buffer(daxa::BufferCopyInfo {
                     .src_buffer = staging_buffer,
-                    .dst_buffer = material.material_buffer,
+                    .dst_buffer = gpu_materials.get_state().buffers[0],
                     .src_offset = sizeof(Material) * dirty_materials_index,
-                    .dst_offset = 0,
+                    .dst_offset = material.material_manifest_index * sizeof(Material),
                     .size = sizeof(Material),
                 });
             }

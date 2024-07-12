@@ -26,6 +26,7 @@ DAXA_DECL_BUFFER_PTR(TransformInfo)
 
 struct Vertex {
     daxa_f32vec3 position;
+    daxa_f32vec3 normal;
     daxa_f32vec2 uv;
 };
 
@@ -49,6 +50,49 @@ struct Material {
 };
 
 DAXA_DECL_BUFFER_PTR(Material)
+
+#define MAX_VERTICES_PER_MESHLET (64)
+#define MAX_TRIANGLES_PER_MESHLET (64)
+
+#define MAX_MESHES (1u << 10u)
+#define MAX_SURVIVING_MESHLETS 1000000
+#define MAX_MATERIALS (1u << 10u)
+
+struct Meshlet {
+    daxa_u32 indirect_vertex_offset;
+    daxa_u32 micro_indices_offset;
+    daxa_u32 vertex_count;
+    daxa_u32 triangle_count;
+};
+DAXA_DECL_BUFFER_PTR(Meshlet)
+
+struct BoundingSphere {
+    daxa_f32vec3 center;
+    daxa_f32 radius;
+};
+DAXA_DECL_BUFFER_PTR(BoundingSphere)
+
+struct AABB {
+    daxa_f32vec3 center;
+    daxa_f32vec3 extent;
+};
+DAXA_DECL_BUFFER_PTR(AABB)
+
+struct Mesh {
+    daxa_u32 material_index;
+    daxa_u32 meshlet_count;
+    daxa_u32 vertex_count;
+    daxa_BufferPtr(Meshlet) meshlets;
+    daxa_BufferPtr(BoundingSphere) meshlet_bounds;
+    daxa_BufferPtr(AABB) meshlet_aabbs;
+    daxa_BufferPtr(daxa_u32) micro_indices;
+    daxa_BufferPtr(daxa_u32) indirect_vertices;
+    daxa_BufferPtr(daxa_f32vec3) vertex_positions;
+    daxa_BufferPtr(daxa_f32vec3) vertex_normals;
+    daxa_BufferPtr(daxa_f32vec2) vertex_uvs;
+};
+
+DAXA_DECL_BUFFER_PTR_ALIGN(Mesh, 8)
 
 #if defined(__cplusplus)
 #define SHARED_FUNCTION inline

@@ -97,20 +97,17 @@ struct RenderMeshesTask : RenderMeshes::Task {
 
         render_cmd.set_pipeline(*context->raster_pipelines.at(RenderMeshes::Task::name()));
 
-        u32 counter = 0;
         scene->world->query<Shaper::GlobalTransformComponent, Shaper::MeshComponent>().each([&](Shaper::GlobalTransformComponent& tc, Shaper::MeshComponent& mc) {
-            if(tc.buffer.is_empty()) { return; }
             if(mc.mesh_group_index.has_value()) {
                 const auto& mesh_group_manifest = asset_manager->mesh_group_manifest_entries[mc.mesh_group_index.value()];
                 for(u32 i = 0; i < mesh_group_manifest.mesh_count; i++) {
                     const auto& mesh_manifest = asset_manager->mesh_manifest_entries[mesh_group_manifest.mesh_manifest_indices_offset + i];
-                    counter++;
-                    if(mesh_manifest.render_info.has_value()) {
-                        const auto& render_info = mesh_manifest.render_info.value();
+                    if(mesh_manifest.traditional_render_info.has_value()) {
+                        const auto& render_info = mesh_manifest.traditional_render_info.value();
                         push = RenderMeshesPush {
-                            .transform = context->device.get_device_address(tc.buffer).value(),
+                            .transform = context->device.get_device_address(asset_manager->gpu_transforms.get_state().buffers[0]).value() + mc.mesh_group_index.value() * sizeof(TransformInfo),
                             .vertices = context->device.get_device_address(render_info.vertex_buffer).value(),
-                            .material = context->device.get_device_address(render_info.material_buffer).value(),
+                            .material = context->device.get_device_address(asset_manager->gpu_materials.get_state().buffers[0]).value() + render_info.material_manifest_index * sizeof(Material),
                         };
 
                         assign_blob(push.uses, ti.attachment_shader_blob);

@@ -2,7 +2,7 @@
 
 #include "hittable.slang"
 
-struct AABB : Hittable {
+struct AABBRT : Hittable {
     f32vec3 minimum;
     f32vec3 maximum;
 

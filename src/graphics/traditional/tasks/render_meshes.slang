@@ -20,15 +20,17 @@ VertexStageOutput vertex_main(u32 index: SV_VertexID) {
 
 [shader("fragment")]
 f32vec4 fragment_main(Vertex vertex : Vertex) : SV_Target {
-    f32vec3 color = daxa_f32vec3(1.0);
+    f32vec4 color = f32vec4(vertex.normal * 0.5 + 0.5, 1.0);
     daxa_ImageViewId albedo_texture_id = deref(push.material).albedo_texture_id;
     if(albedo_texture_id.value != 0) {
-        color = Texture2D<float>::get(albedo_texture_id).Sample(SamplerState::get(deref(push.material).albedo_sampler_id), vertex.uv).xyz;
+        f32vec4 albedo = Texture2D<float>::get(albedo_texture_id).Sample(SamplerState::get(deref(push.material).albedo_sampler_id), vertex.uv);
+        if(deref(push.material).alpha_mode == 1 && albedo.a < deref(push.material).alpha_cutoff) { discard; }
+        color = f32vec4(albedo.rgb, 1.0);
     }
     daxa_ImageViewId emissive_texture_id = deref(push.material).emissive_texture_id;
     if(emissive_texture_id.value != 0) {
-        color += Texture2D<float>::get(emissive_texture_id).Sample(SamplerState::get(deref(push.material).emissive_sampler_id), vertex.uv).xyz;
+        color += f32vec4(Texture2D<float>::get(emissive_texture_id).Sample(SamplerState::get(deref(push.material).emissive_sampler_id), vertex.uv).rgb, 0);
     }
     
-    return f32vec4(color, 1.0);
+    return f32vec4(color.rgb, 1.0);
 }   

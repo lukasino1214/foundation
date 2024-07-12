@@ -180,6 +180,8 @@ namespace Shaper {
         render_task_graph.use_persistent_image(render_image);
         render_task_graph.use_persistent_image(depth_image);
         render_task_graph.use_persistent_buffer(shader_globals_buffer);
+        render_task_graph.use_persistent_buffer(asset_manager->gpu_transforms);
+        render_task_graph.use_persistent_buffer(asset_manager->gpu_materials);
 
         render_task_graph.add_task({
             .attachments = {
@@ -196,6 +198,16 @@ namespace Shaper {
                 });
             },
             .name = "GpuInputUploadTransferTask",
+        });
+
+        render_task_graph.add_task({
+            .attachments = {
+                daxa::inl_attachment(daxa::TaskBufferAccess::TRANSFER_WRITE, asset_manager->gpu_transforms),
+            },
+            .task = [&](daxa::TaskInterface const &ti) {
+                scene->update_gpu(ti, asset_manager->gpu_transforms);
+            },
+            .name = "SceneUpdateGPU",
         });
 
         build_tradional_task_graph();

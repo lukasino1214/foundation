@@ -1,6 +1,7 @@
 #include "entity.hpp"
 #include "scene.hpp"
 #include "components.hpp"
+#include "graphics/helper.hpp"
 
 #include <glm/ext/quaternion_geometric.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -14,11 +15,7 @@
 namespace Shaper {
     Scene::Scene(const std::string_view& _name, Context* _context, AppWindow* _window) : name{_name}, world{std::make_unique<flecs::world>()}, context{_context}, window{_window} {}
 
-    Scene::~Scene() {
-        world->query<GlobalTransformComponent>().each([&](GlobalTransformComponent& transform_component){
-            if(!transform_component.buffer.is_empty()) { context->device.destroy_buffer(transform_component.buffer); }
-        });
-    }
+    Scene::~Scene() {}
 
     auto Scene::create_entity(const std::string_view& _name) -> Entity {
         flecs::entity e = world->entity(_name.data());
@@ -27,11 +24,6 @@ namespace Shaper {
     }
 
     void Scene::destroy_entity(const Entity& entity) {
-        if(entity.handle.has<GlobalTransformComponent>()) {
-            auto transform_component = entity.handle.get_ref<GlobalTransformComponent>();
-            if(!transform_component->buffer.is_empty()) { context->device.destroy_buffer(transform_component->buffer); }
-        }
-
         entity.handle.destruct();
     }
 
@@ -41,14 +33,6 @@ namespace Shaper {
         auto query_transforms = world->query_builder<GlobalTransformComponent, LocalTransformComponent, GlobalTransformComponent*>().term_at(3).cascade(flecs::ChildOf).optional().build();
         query_transforms.each([&](flecs::entity entity, GlobalTransformComponent& gtc, LocalTransformComponent& ltc, GlobalTransformComponent* parent_gtc){
             ZoneNamedN(update_transform, "update transform", true);
-            if(gtc.buffer.is_empty()) {
-                ZoneNamedN(creating_buffer, "creating buffer", true);
-                gtc.buffer = context->device.create_buffer(daxa::BufferInfo{
-                    .size = static_cast<u32>(sizeof(TransformInfo)),
-                    .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_SEQUENTIAL_WRITE | daxa::MemoryFlagBits::DEDICATED_MEMORY,
-                    .name = "transform buffer",
-                });
-            }
 
             if(ltc.is_dirty) {
                 {
@@ -77,17 +61,32 @@ namespace Shaper {
                 {
                     ZoneNamedN(decompose_transform, "decompose transform", true);
                     math::decompose_transform(gtc.model_matrix, gtc.position, gtc.rotation, gtc.scale);
-                }
-
-
-                {
-                    ZoneNamedN(write_transform, "write transform", true);
-                    TransformInfo* mapped_ptr = reinterpret_cast<TransformInfo*>(context->device.get_host_address(gtc.buffer).value());
-                    mapped_ptr->model_matrix = *reinterpret_cast<daxa_f32mat4x4*>(&gtc.model_matrix);
-                    mapped_ptr->normal_matrix = *reinterpret_cast<daxa_f32mat4x4*>(&gtc.normal_matrix);
-
                     ltc.is_dirty = false;
+                    gtc.is_dirty = true;
                 }
+            }
+        });
+    }
+
+    void Scene::update_gpu(const daxa::TaskInterface& task_inferface, daxa::TaskBuffer& gpu_transforms) {
+        ZoneNamedN(scene_update_gpu, "scene update gpu", true);
+
+        auto query_transforms = world->query_builder<GlobalTransformComponent, MeshComponent>().build();
+        query_transforms.each([&](GlobalTransformComponent& gtc, MeshComponent& mesh) {
+            if(gtc.is_dirty && mesh.mesh_group_index.has_value()) {
+                gtc.is_dirty = false;
+
+                auto alloc = task_inferface.allocator->allocate_fill(TransformInfo { 
+                    *r_cast<daxa_f32mat4x4*>(&gtc.model_matrix), 
+                    *r_cast<daxa_f32mat4x4*>(&gtc.normal_matrix)
+                }).value();
+                task_inferface.recorder.copy_buffer_to_buffer({
+                    .src_buffer = task_inferface.allocator->buffer(),
+                    .dst_buffer = task_inferface.get(gpu_transforms).ids[0],
+                    .src_offset = alloc.buffer_offset,
+                    .dst_offset = mesh.mesh_group_index.value() * sizeof(TransformInfo),
+                    .size = sizeof(TransformInfo),
+                });
             }
         });
     }

@@ -34,12 +34,11 @@ namespace Shaper {
         glm::vec3 scale = { 1.0f, 1.0f, 1.0f };
         glm::mat4 model_matrix{1.0f};
         glm::mat4 normal_matrix{1.0f};
+        bool is_dirty = true;
 
         auto get_position() -> glm::vec3;
         auto get_rotation() -> glm::vec3;
         auto get_scale() -> glm::vec3;
-
-        daxa::BufferId buffer = {};
 
         void draw();
     };

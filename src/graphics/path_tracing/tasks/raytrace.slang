@@ -26,7 +26,7 @@ struct World {
             }
         }
 
-        AABB aabb = AABB(f32vec3(0, 5, 0), f32vec3(0.5));
+        AABBRT aabb = AABBRT(f32vec3(0, 5, 0), f32vec3(0.5));
         if(aabb.hit(ray, Interval(ray_t.min, closest_so_far), temp_record)) {
             hit_anything = true;
             closest_so_far = temp_record.t;
