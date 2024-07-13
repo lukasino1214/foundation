@@ -53,8 +53,6 @@ namespace Shaper {
             },
         };
 
-        recreate_framebuffer(viewport_size);
-
         rebuild_task_graph();
 
         context->shader_globals.linear_sampler = context->get_sampler(daxa::SamplerInfo {
@@ -83,13 +81,13 @@ namespace Shaper {
     Renderer::~Renderer() {
         for(auto& task_image : images) {
             for(auto image : task_image.get_state().images) {
-                context->device.destroy_image(image);
+                context->destroy_image(image);
             }
         }
 
         for (auto& task_buffer : buffers) {
             for (auto buffer : task_buffer.get_state().buffers) {
-                this->context->device.destroy_buffer(buffer);
+                context->destroy_buffer(buffer);
             }
         }
 
@@ -133,13 +131,13 @@ namespace Shaper {
 
     void Renderer::recreate_framebuffer(const glm::uvec2& size) {
         for (auto &[info, timg] : frame_buffer_images) {
-            if (!timg.get_state().images.empty() && !timg.get_state().images[0].is_empty()) {
-                context->device.destroy_image(timg.get_state().images[0]);
+            for(auto image : timg.get_state().images) {
+                context->destroy_image(image);
             }
 
             info.size = { std::max(size.x, 1u), std::max(size.y, 1u), 1 };
 
-            timg.set_images({.images = std::array{this->context->device.create_image(info)}});
+            timg.set_images({.images = std::array{context->create_image(info)}});
         }
     }
 
@@ -375,6 +373,20 @@ namespace Shaper {
         viewport_window("Traditional", Mode::Traditional);
 
         ImGui::PopStyleVar();
+
+        ImGui::Begin("Memory Usage");
+        ImGui::Text("%s", std::format("Total memory usage for images: {} MBs", std::to_string(s_cast<f64>(context->images.total_size) / 1024.0 / 1024.0)).c_str());
+        ImGui::Text("%s", std::format("Total memory usage for buffers: {} MBs", std::to_string(s_cast<f64>(context->buffers.total_size) / 1024.0 / 1024.0)).c_str());
+        
+        for(auto& resource : context->buffers.resources) {
+            ImGui::Text("%s", std::format("{} : size in {} bytes", resource.first, std::to_string(resource.second.size)).c_str());
+        }
+
+        for(auto& resource : context->images.resources) {
+            ImGui::Text("%s", std::format("{} : size in {} bytes", resource.first, std::to_string(resource.second.size)).c_str());
+        }
+        
+        ImGui::End();
     }
 
     void Renderer::ui_render_end() {

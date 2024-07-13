@@ -16,41 +16,41 @@
 namespace Shaper {
     AssetManager::AssetManager(Context* _context, Scene* _scene) : context{_context}, scene{_scene} {
         //gpu_scene_data = make_task_buffer(context->device, sizeof(SceneData), daxa::MemoryFlagBits::DEDICATED_MEMORY, "scene data");
-        gpu_meshes = make_task_buffer(context->device, {
+        gpu_meshes = make_task_buffer(context, {
             sizeof(Mesh), 
             daxa::MemoryFlagBits::DEDICATED_MEMORY, 
             "meshes"
         });
 
-        gpu_materials = make_task_buffer(context->device, {
+        gpu_materials = make_task_buffer(context, {
             sizeof(Material), 
             daxa::MemoryFlagBits::DEDICATED_MEMORY, 
             "materials"
         });
 
-        gpu_transforms = make_task_buffer(context->device, {
+        gpu_transforms = make_task_buffer(context, {
             sizeof(TransformInfo),
             daxa::MemoryFlagBits::DEDICATED_MEMORY,
             "gpu transforms"
         });
     }
     AssetManager::~AssetManager() {
-        context->device.destroy_buffer(gpu_meshes.get_state().buffers[0]);
-        context->device.destroy_buffer(gpu_materials.get_state().buffers[0]);
-        context->device.destroy_buffer(gpu_transforms.get_state().buffers[0]);
+        context->destroy_buffer(gpu_meshes.get_state().buffers[0]);
+        context->destroy_buffer(gpu_materials.get_state().buffers[0]);
+        context->destroy_buffer(gpu_transforms.get_state().buffers[0]);
 
         for(auto& mesh_manifest : mesh_manifest_entries) {
             if(!mesh_manifest.traditional_render_info->vertex_buffer.is_empty()) {
-                context->device.destroy_buffer(mesh_manifest.traditional_render_info->vertex_buffer);
+                context->destroy_buffer(mesh_manifest.traditional_render_info->vertex_buffer);
             }
             if(!mesh_manifest.traditional_render_info->index_buffer.is_empty()) {
-                context->device.destroy_buffer(mesh_manifest.traditional_render_info->index_buffer);
+                context->destroy_buffer(mesh_manifest.traditional_render_info->index_buffer);
             }
         }
 
         for(auto& texture_manifest : material_texture_manifest_entries) {
             if(!texture_manifest.image_id.is_empty()) {
-                context->device.destroy_image(texture_manifest.image_id);
+                context->destroy_image(texture_manifest.image_id);
             }
         }
     }
@@ -444,20 +444,20 @@ namespace Shaper {
             daxa::BufferId buffer = task_buffer.get_state().buffers[0];
             auto info = context->device.info_buffer(buffer).value();
             if(info.size < new_size) {
-                cmd_recorder.destroy_buffer_deferred(buffer);
+                context->destroy_buffer_deferred(cmd_recorder, buffer);
                 std::println("INFO: {} resized from {} bytes to {} bytes", std::string{info.name.c_str().data()}, std::to_string(info.size), std::to_string(new_size));
                 u32 old_size = s_cast<u32>(info.size);
                 info.size = new_size;
-                daxa::TaskBuffer new_buffer = make_task_buffer(context->device, info);
+                daxa::BufferId new_buffer = context->create_buffer(info);
                 cmd_recorder.copy_buffer_to_buffer(daxa::BufferCopyInfo {
                     .src_buffer = buffer,
-                    .dst_buffer = new_buffer.get_state().buffers[0],
+                    .dst_buffer = new_buffer,
                     .src_offset = 0,
                     .dst_offset = 0,
                     .size = old_size,
                 });
 
-                task_buffer.swap_buffers(new_buffer);
+                task_buffer.set_buffers({ .buffers=std::array{new_buffer} });
             }
         };
 
@@ -465,12 +465,12 @@ namespace Shaper {
         realloc(gpu_materials, s_cast<u32>(material_manifest_entries.size() * sizeof(Material)));
         realloc(gpu_transforms, s_cast<u32>(mesh_group_manifest_entries.size() * sizeof(TransformInfo)));
 
-        daxa::BufferId material_null_buffer = context->device.create_buffer({
+        daxa::BufferId material_null_buffer = context->create_buffer({
             .size = static_cast<u32>(sizeof(Material)),
             .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
             .name = "material null buffer",
         });
-        cmd_recorder.destroy_buffer_deferred(material_null_buffer);
+        context->destroy_buffer_deferred(cmd_recorder, material_null_buffer);
         {
             Material material {
                 .albedo_texture_id = {},
@@ -521,13 +521,13 @@ namespace Shaper {
         }
 
         if(!info.uploaded_meshes.empty()) {
-            daxa::BufferId staging_buffer = context->device.create_buffer({
+            daxa::BufferId staging_buffer = context->create_buffer({
                 .size = info.uploaded_meshes.size() * sizeof(Mesh),
                 .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
                 .name = "mesh manifest upload staging buffer",
             });
 
-            cmd_recorder.destroy_buffer_deferred(staging_buffer);
+            context->destroy_buffer_deferred(cmd_recorder, staging_buffer);
             Mesh * staging_ptr = context->device.get_host_address_as<Mesh>(staging_buffer).value();
 
             for (u32 upload_index = 0; upload_index < info.uploaded_meshes.size(); upload_index++) {
@@ -572,12 +572,12 @@ namespace Shaper {
         }
 
         if(!dirty_material_manifest_indices.empty()) {
-            daxa::BufferId staging_buffer = context->device.create_buffer({
+            daxa::BufferId staging_buffer = context->create_buffer({
                 .size = static_cast<u32>(dirty_material_manifest_indices.size() * sizeof(Material)),
                 .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
-                .name = "staging buffer",
+                .name = "staging buffer material manifest",
             });
-            cmd_recorder.destroy_buffer_deferred(staging_buffer);
+            context->destroy_buffer_deferred(cmd_recorder, staging_buffer);
             Material* ptr = context->device.get_host_address_as<Material>(staging_buffer).value();
             for (u32 dirty_materials_index = 0; dirty_materials_index < dirty_material_manifest_indices.size(); dirty_materials_index++) {
                 MaterialManifestEntry& material = material_manifest_entries.at(dirty_material_manifest_indices.at(dirty_materials_index));

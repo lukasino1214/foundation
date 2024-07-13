@@ -93,10 +93,10 @@ namespace Shaper {
             indices = std::move(optimized_indices);
         }
 
-        daxa::BufferId staging_buffer = context->device.create_buffer(daxa::BufferInfo {
+        daxa::BufferId staging_buffer = context->create_buffer(daxa::BufferInfo {
             .size = static_cast<u32>(vertices.size() * sizeof(Vertex) + indices.size() * sizeof(u32)),
             .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
-            .name = "staging buffer"
+            .name = "staging buffer: " + info.asset_path.filename().string() + " mesh " + std::to_string(info.gltf_mesh_index) + " primitive " + std::to_string(info.gltf_primitive_index)
         });
 
         std::byte* ptr = context->device.get_host_address(staging_buffer).value();
@@ -104,16 +104,16 @@ namespace Shaper {
         ptr += vertices.size() * sizeof(Vertex);
         std::memcpy(ptr, indices.data(), indices.size() * sizeof(u32));
 
-        daxa::BufferId vertex_buffer = context->device.create_buffer(daxa::BufferInfo {
+        daxa::BufferId vertex_buffer = context->create_buffer(daxa::BufferInfo {
             .size = static_cast<u32>(vertices.size() * sizeof(Vertex)),
             .allocate_info = daxa::MemoryFlagBits::DEDICATED_MEMORY,
-            .name = "vertex buffer"
+            .name = "vertex buffer: " + info.asset_path.filename().string() + " mesh " + std::to_string(info.gltf_mesh_index) + " primitive " + std::to_string(info.gltf_primitive_index)
         });
 
-        daxa::BufferId index_buffer = context->device.create_buffer(daxa::BufferInfo {
+        daxa::BufferId index_buffer = context->create_buffer(daxa::BufferInfo {
             .size = static_cast<u32>(indices.size() * sizeof(u32)),
             .allocate_info = daxa::MemoryFlagBits::DEDICATED_MEMORY,
-            .name = "index buffer"
+            .name = "index buffer: " + info.asset_path.filename().string() + " mesh " + std::to_string(info.gltf_mesh_index) + " primitive " + std::to_string(info.gltf_primitive_index)
         });
 
         size_t max_meshlets = meshopt_buildMeshletsBound(indices.size(), MAX_VERTICES, MAX_TRIANGLES);
@@ -188,17 +188,17 @@ namespace Shaper {
         daxa::BufferId mesh_buffer = {};
 
         {
-            mesh_buffer = context->device.create_buffer(daxa::BufferInfo {
+            mesh_buffer = context->create_buffer(daxa::BufferInfo {
                 .size = s_cast<daxa::usize>(total_mesh_buffer_size),
-                .name = std::string(gltf_mesh.name.c_str()) + "." + std::to_string(info.gltf_primitive_index),
+                .name = "mesh buffer: " + info.asset_path.filename().string() + " mesh " + std::to_string(info.gltf_mesh_index) + " primitive " + std::to_string(info.gltf_primitive_index)
             });
 
             mesh_bda = context->device.get_device_address(std::bit_cast<daxa::BufferId>(mesh_buffer)).value();
 
-            staging_mesh_buffer = context->device.create_buffer(daxa::BufferInfo {
+            staging_mesh_buffer = context->create_buffer(daxa::BufferInfo {
                 .size = s_cast<daxa::usize>(total_mesh_buffer_size),
                 .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
-                .name = std::string(gltf_mesh.name.c_str()) + "." + std::to_string(info.gltf_primitive_index) + " staging",
+                .name = "mesh buffer: " + info.asset_path.filename().string() + " mesh " + std::to_string(info.gltf_mesh_index) + " primitive " + std::to_string(info.gltf_primitive_index) + " staging",
             });
         }
 
@@ -322,7 +322,7 @@ namespace Shaper {
 
         u32 mip_levels = static_cast<u32>(std::floor(std::log2(std::max(width, height)))) + 1;
         daxa::Format daxa_format = info.load_as_srgb ? daxa::Format::R8G8B8A8_SRGB : daxa::Format::R8G8B8A8_UNORM;
-        daxa::ImageId daxa_image = context->device.create_image(daxa::ImageInfo {
+        daxa::ImageId daxa_image = context->create_image(daxa::ImageInfo {
             .dimensions = 2,
             .format = daxa_format,
             .size = {static_cast<u32>(width), static_cast<u32>(height), 1},
@@ -330,7 +330,7 @@ namespace Shaper {
             .array_layer_count = 1,
             .sample_count = 1,
             .usage = daxa::ImageUsageFlagBits::SHADER_SAMPLED | daxa::ImageUsageFlagBits::TRANSFER_DST | daxa::ImageUsageFlagBits::TRANSFER_SRC,
-            .name = image_path,
+            .name = "image: " + image_path + " " + std::to_string(info.gltf_texture_index),
         });
 
         daxa::SamplerId daxa_sampler = context->get_sampler({
@@ -350,10 +350,10 @@ namespace Shaper {
             .enable_unnormalized_coordinates = false,
         });
 
-        daxa::BufferId staging_buffer = context->device.create_buffer(daxa::BufferInfo {
+        daxa::BufferId staging_buffer = context->create_buffer(daxa::BufferInfo {
             .size = static_cast<u32>(width * height * 4),
             .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
-            .name = "staging buffer"
+            .name = "staging buffer: " + image_path + " " + std::to_string(info.gltf_texture_index)
         }); 
 
         std::memcpy(context->device.get_host_address(staging_buffer).value(), raw_data.data(), width * height * 4);
@@ -384,8 +384,8 @@ namespace Shaper {
         {
             ZoneNamedN(mesh_upload_info, "mesh_upload_info", true);
             for(auto& mesh_upload_info : ret.uploaded_meshes) {
-                cmd_recorder.destroy_buffer_deferred(mesh_upload_info.staging_buffer);
-                cmd_recorder.destroy_buffer_deferred(mesh_upload_info.staging_mesh_buffer);
+                context->destroy_buffer_deferred(cmd_recorder, mesh_upload_info.staging_buffer);
+                context->destroy_buffer_deferred(cmd_recorder, mesh_upload_info.staging_mesh_buffer);
 
                 u32 vertex_buffer_size = context->device.info_buffer(mesh_upload_info.vertex_buffer).value().size;
                 u32 index_buffer_size = context->device.info_buffer(mesh_upload_info.index_buffer).value().size;
@@ -426,7 +426,7 @@ namespace Shaper {
         {
             ZoneNamedN(texture_upload_info, "texture_upload_info", true);
             for(auto& texture_upload_info : ret.uploaded_textures) {
-                cmd_recorder.destroy_buffer_deferred(texture_upload_info.staging_buffer);
+                context->destroy_buffer_deferred(cmd_recorder, texture_upload_info.staging_buffer);
 
                 auto image_info = context->device.info_image(texture_upload_info.dst_image).value();
 

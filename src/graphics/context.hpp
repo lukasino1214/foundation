@@ -49,17 +49,32 @@ namespace Shaper {
         }
     };
 
+    template<typename T>
+    struct ResourceHolder {
+        struct Resource {
+            T resource = {};
+            u32 size = {};
+        };
+
+        std::unordered_map<std::string, Resource> resources = {};
+        u32 total_size = 0;
+    };
+
     struct Context {
         Context(const AppWindow& window);
         ~Context();
-
+        
         daxa::Instance instance = {};
         daxa::Device device = {};
         daxa::Swapchain swapchain = {};
         daxa::PipelineManager pipeline_manager = {};
         daxa::TransferMemoryPool transient_mem;
 
-        ShaderGlobals shader_globals= {};
+        std::unique_ptr<std::mutex> resource_mutex = std::make_unique<std::mutex>();
+        ResourceHolder<daxa::ImageId> images = {};
+        ResourceHolder<daxa::BufferId> buffers = {};
+
+        ShaderGlobals shader_globals = {};
         daxa::TaskBuffer shader_globals_buffer = {};
 
         std::unordered_map<std::string_view, std::shared_ptr<daxa::RasterPipeline>> raster_pipelines = {};
@@ -72,7 +87,13 @@ namespace Shaper {
 
         auto get_sampler(const daxa::SamplerInfo& info) -> daxa::SamplerId;
 
-        std::unique_ptr<std::mutex> sampler_mutex = std::make_unique<std::mutex>();
+        auto create_image(const daxa::ImageInfo& info) -> daxa::ImageId;
+        void destroy_image(const daxa::ImageId& id);
+        void destroy_image_deferred(daxa::CommandRecorder& cmd, const daxa::ImageId& id);
+
+        auto create_buffer(const daxa::BufferInfo& info) -> daxa::BufferId;
+        void destroy_buffer(const daxa::BufferId& id);
+        void destroy_buffer_deferred(daxa::CommandRecorder& cmd, const daxa::BufferId& id);
 
         usize frame_index = 0;
     };

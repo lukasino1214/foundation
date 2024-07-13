@@ -1,11 +1,11 @@
 #include <graphics/helper.hpp>
 
 namespace Shaper {
-    auto make_task_buffer(daxa::Device& device, const daxa::BufferInfo& info) -> daxa::TaskBuffer {
+    auto make_task_buffer(Context* context, const daxa::BufferInfo& info) -> daxa::TaskBuffer {
         return daxa::TaskBuffer{daxa::TaskBufferInfo{
             .initial_buffers = daxa::TrackedBuffers{ 
                 .buffers = std::array{
-                    device.create_buffer({
+                    context->create_buffer({
                         .size = info.size,
                         .allocate_info = info.allocate_info,
                         .name = info.name,
