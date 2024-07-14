@@ -15,7 +15,12 @@
 
 namespace Shaper {
     AssetManager::AssetManager(Context* _context, Scene* _scene) : context{_context}, scene{_scene} {
-        //gpu_scene_data = make_task_buffer(context->device, sizeof(SceneData), daxa::MemoryFlagBits::DEDICATED_MEMORY, "scene data");
+        gpu_scene_data = make_task_buffer(context, {
+            sizeof(SceneData), 
+            daxa::MemoryFlagBits::DEDICATED_MEMORY, 
+            "scene data"
+        });
+
         gpu_meshes = make_task_buffer(context, {
             sizeof(Mesh), 
             daxa::MemoryFlagBits::DEDICATED_MEMORY, 
@@ -33,11 +38,26 @@ namespace Shaper {
             daxa::MemoryFlagBits::DEDICATED_MEMORY,
             "gpu transforms"
         });
+
+        gpu_mesh_groups = make_task_buffer(context, {
+            sizeof(MeshGroup),
+            daxa::MemoryFlagBits::DEDICATED_MEMORY,
+            "mesh groups"
+        });
+
+        gpu_mesh_indices = make_task_buffer(context, {
+            sizeof(u32),
+            daxa::MemoryFlagBits::DEDICATED_MEMORY,
+            "mesh indices"
+        });
     }
     AssetManager::~AssetManager() {
+        context->destroy_buffer(gpu_scene_data.get_state().buffers[0]);
         context->destroy_buffer(gpu_meshes.get_state().buffers[0]);
         context->destroy_buffer(gpu_materials.get_state().buffers[0]);
         context->destroy_buffer(gpu_transforms.get_state().buffers[0]);
+        context->destroy_buffer(gpu_mesh_groups.get_state().buffers[0]);
+        context->destroy_buffer(gpu_mesh_indices.get_state().buffers[0]);
 
         for(auto& mesh_manifest : mesh_manifest_entries) {
             if(!mesh_manifest.traditional_render_info->vertex_buffer.is_empty()) {
@@ -45,6 +65,9 @@ namespace Shaper {
             }
             if(!mesh_manifest.traditional_render_info->index_buffer.is_empty()) {
                 context->destroy_buffer(mesh_manifest.traditional_render_info->index_buffer);
+            }
+            if(!mesh_manifest.virtual_geometry_render_info->mesh_buffer.is_empty()) {
+                context->destroy_buffer(mesh_manifest.virtual_geometry_render_info->mesh_buffer);
             }
         }
 
@@ -245,6 +268,7 @@ namespace Shaper {
                 });
             }
 
+            dirty_mesh_groups.push_back(s_cast<u32>(mesh_group_manifest_entries.size()));
             mesh_group_manifest_entries.push_back(MeshGroupManifestEntry {
                 .mesh_manifest_indices_offset = mesh_manifest_indices_offset,
                 .mesh_count = s_cast<u32>(gltf_mesh.primitives.size()),
@@ -252,6 +276,7 @@ namespace Shaper {
                 .asset_local_index = mesh_index,
                 .name = gltf_mesh.name.c_str(),
             });
+            scene_data.mesh_groups_count++;
         }
 
         std::vector<Entity> node_index_to_entity = {};
@@ -464,6 +489,77 @@ namespace Shaper {
         realloc(gpu_meshes, s_cast<u32>(mesh_manifest_entries.size() * sizeof(Mesh)));
         realloc(gpu_materials, s_cast<u32>(material_manifest_entries.size() * sizeof(Material)));
         realloc(gpu_transforms, s_cast<u32>(mesh_group_manifest_entries.size() * sizeof(TransformInfo)));
+        realloc(gpu_mesh_groups, s_cast<u32>(mesh_group_manifest_entries.size() * sizeof(MeshGroup)));
+        realloc(gpu_mesh_indices, s_cast<u32>(mesh_manifest_entries.size() * sizeof(u32)));
+
+        if(!dirty_mesh_groups.empty()) {
+            std::vector<MeshGroup> mesh_groups = {};
+            std::vector<u32> meshes = {};
+            u64 buffer_ptr = context->device.get_device_address(gpu_mesh_indices.get_state().buffers[0]).value();
+            mesh_groups.reserve(dirty_mesh_groups.size());
+            for(u32 mesh_group_index : dirty_mesh_groups) {
+                const auto& mesh_group = mesh_group_manifest_entries[mesh_group_index];
+                
+                mesh_groups.push_back(MeshGroup {
+                    .mesh_indices = buffer_ptr + mesh_group.mesh_manifest_indices_offset * sizeof(u32),
+                    .count = mesh_group.mesh_count
+                });
+                
+                meshes.reserve(meshes.size() + mesh_group.mesh_count);
+                for(u32 i = 0; i < mesh_group.mesh_count; i++) {
+                    meshes.push_back(mesh_group.mesh_manifest_indices_offset + i);
+                }
+            }
+
+            usize staging_size = sizeof(SceneData) + mesh_groups.size() * sizeof(MeshGroup) + meshes.size() * sizeof(u32);
+            daxa::BufferId staging_buffer = context->create_buffer(daxa::BufferInfo {
+                .size = staging_size,
+                .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
+                .name = "staging buffer scene data"
+            });
+            context->destroy_buffer_deferred(cmd_recorder, staging_buffer);
+            std::byte* ptr = context->device.get_host_address(staging_buffer).value();
+            *r_cast<SceneData*>(ptr) = scene_data;
+            
+            cmd_recorder.copy_buffer_to_buffer(daxa::BufferCopyInfo {
+                .src_buffer = staging_buffer,
+                .dst_buffer = gpu_scene_data.get_state().buffers[0],
+                .src_offset = 0,
+                .dst_offset = 0,
+                .size = sizeof(SceneData)
+            });
+
+            usize offset = sizeof(SceneData); 
+            std::memcpy(ptr + offset, mesh_groups.data(), mesh_groups.size() * sizeof(MeshGroup));
+            offset += mesh_groups.size() * sizeof(MeshGroup);
+            std::memcpy(ptr + offset, meshes.data(), meshes.size() * sizeof(u32));
+            offset += meshes.size() * sizeof(u32);
+
+            usize mesh_group_offset = sizeof(SceneData);
+            usize meshes_offset = mesh_group_offset + mesh_groups.size() * sizeof(MeshGroup);
+            for(u32 mesh_group_index : dirty_mesh_groups) {
+                const auto& mesh_group = mesh_group_manifest_entries[mesh_group_index];
+
+                cmd_recorder.copy_buffer_to_buffer(daxa::BufferCopyInfo {
+                    .src_buffer = staging_buffer,
+                    .dst_buffer = gpu_mesh_groups.get_state().buffers[0],
+                    .src_offset = mesh_group_offset,
+                    .dst_offset = mesh_group_index * sizeof(MeshGroup),
+                    .size = sizeof(MeshGroup)
+                });
+
+                cmd_recorder.copy_buffer_to_buffer(daxa::BufferCopyInfo {
+                    .src_buffer = staging_buffer,
+                    .dst_buffer = gpu_mesh_indices.get_state().buffers[0],
+                    .src_offset = meshes_offset,
+                    .dst_offset = mesh_group.mesh_manifest_indices_offset * sizeof(u32),
+                    .size = mesh_group.mesh_count * sizeof(u32)
+                });
+
+                mesh_group_offset += sizeof(MeshGroup);
+                meshes_offset += mesh_group.mesh_count * sizeof(u32);
+            }
+        }
 
         daxa::BufferId material_null_buffer = context->create_buffer({
             .size = static_cast<u32>(sizeof(Material)),

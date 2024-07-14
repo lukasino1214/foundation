@@ -24,7 +24,11 @@ f32vec4 fragment_main(Vertex vertex : Vertex) : SV_Target {
     daxa_ImageViewId albedo_texture_id = deref(push.material).albedo_texture_id;
     if(albedo_texture_id.value != 0) {
         f32vec4 albedo = Texture2D<float>::get(albedo_texture_id).Sample(SamplerState::get(deref(push.material).albedo_sampler_id), vertex.uv);
-        if(deref(push.material).alpha_mode == 1 && albedo.a < deref(push.material).alpha_cutoff) { discard; }
+        // if(deref(push.material).alpha_mode == 1 && albedo.a < deref(push.material).alpha_cutoff) { discard; }
+        if(deref(push.material).alpha_mode == 1) {
+            f32 alpha = Texture2D<float>::get(albedo_texture_id).SampleLevel(SamplerState::get(deref(push.material).albedo_sampler_id), vertex.uv, 0).a;
+            if(alpha < deref(push.material).alpha_cutoff) { discard; }
+        }
         color = f32vec4(albedo.rgb, 1.0);
     }
     daxa_ImageViewId emissive_texture_id = deref(push.material).emissive_texture_id;

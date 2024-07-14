@@ -51,6 +51,20 @@ struct Material {
 
 DAXA_DECL_BUFFER_PTR(Material)
 
+struct SceneData {
+    daxa_u32 mesh_groups_count;
+};
+
+DAXA_DECL_BUFFER_PTR(SceneData)
+
+struct MeshGroup {
+    daxa_BufferPtr(daxa_u32) mesh_indices;
+    daxa_u32 count;
+    daxa_u32 padding;
+};
+
+DAXA_DECL_BUFFER_PTR_ALIGN(MeshGroup, 8)
+
 #define MAX_VERTICES_PER_MESHLET (64)
 #define MAX_TRIANGLES_PER_MESHLET (64)
 

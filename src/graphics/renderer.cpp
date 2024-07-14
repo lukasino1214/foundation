@@ -378,13 +378,13 @@ namespace Shaper {
         ImGui::Text("%s", std::format("Total memory usage for images: {} MBs", std::to_string(s_cast<f64>(context->images.total_size) / 1024.0 / 1024.0)).c_str());
         ImGui::Text("%s", std::format("Total memory usage for buffers: {} MBs", std::to_string(s_cast<f64>(context->buffers.total_size) / 1024.0 / 1024.0)).c_str());
         
-        for(auto& resource : context->buffers.resources) {
-            ImGui::Text("%s", std::format("{} : size in {} bytes", resource.first, std::to_string(resource.second.size)).c_str());
-        }
+        // for(auto& resource : context->buffers.resources) {
+        //     ImGui::Text("%s", std::format("{} : size in {} bytes", resource.first, std::to_string(resource.second.size)).c_str());
+        // }
 
-        for(auto& resource : context->images.resources) {
-            ImGui::Text("%s", std::format("{} : size in {} bytes", resource.first, std::to_string(resource.second.size)).c_str());
-        }
+        // for(auto& resource : context->images.resources) {
+        //     ImGui::Text("%s", std::format("{} : size in {} bytes", resource.first, std::to_string(resource.second.size)).c_str());
+        // }
         
         ImGui::End();
     }

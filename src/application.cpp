@@ -11,7 +11,7 @@ namespace Shaper {
         asset_processor{std::make_unique<AssetProcessor>(&context)},
         asset_manager{std::make_unique<AssetManager>(&context, scene.get())},
         renderer{&window, &context, scene.get(), asset_manager.get()},
-        thread_pool{std::make_unique<ThreadPool>(3)},
+        thread_pool{std::make_unique<ThreadPool>(std::thread::hardware_concurrency() - 1)},
         scene_hierarchy_panel{scene.get()} {
 
 
