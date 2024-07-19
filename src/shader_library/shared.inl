@@ -17,6 +17,30 @@ struct ShaderGlobals {
 };
 DAXA_DECL_BUFFER_PTR(ShaderGlobals)
 
+struct DrawIndexedIndirectStruct {
+    daxa_u32 index_count;
+    daxa_u32 instance_count;
+    daxa_u32 first_index;
+    daxa_u32 vertex_offset;
+    daxa_u32 first_instance;
+};
+DAXA_DECL_BUFFER_PTR(DrawIndexedIndirectStruct)
+
+struct DrawIndirectStruct {
+    daxa_u32 vertex_count;
+    daxa_u32 instance_count;
+    daxa_u32 first_vertex;
+    daxa_u32 first_instance;
+};
+DAXA_DECL_BUFFER_PTR(DrawIndirectStruct)
+
+struct DispatchIndirectStruct {
+    daxa_u32 x;
+    daxa_u32 y;
+    daxa_u32 z;
+};
+DAXA_DECL_BUFFER_PTR(DispatchIndirectStruct)
+
 struct TransformInfo {
     daxa_f32mat4x4 model_matrix;
     daxa_f32mat4x4 normal_matrix;
@@ -107,6 +131,19 @@ struct Mesh {
 };
 
 DAXA_DECL_BUFFER_PTR_ALIGN(Mesh, 8)
+
+struct MeshletData {
+    daxa_u32 mesh_index;
+    daxa_u32 mesh_group_index;
+    daxa_u32 meshlet_index;
+};
+DAXA_DECL_BUFFER_PTR(MeshletData)
+
+struct MeshletsData {
+    daxa_u32 count;
+    MeshletData meshlets[MAX_SURVIVING_MESHLETS];
+};
+DAXA_DECL_BUFFER_PTR(MeshletsData)
 
 #if defined(__cplusplus)
 #define SHARED_FUNCTION inline

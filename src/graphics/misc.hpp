@@ -8,25 +8,26 @@ namespace Shaper {
         std::memcpy(arr.value.data(), span.data(), span.size());
     }
 
-    template <typename T_USES_BASE, typename T_PUSH, const char* T_FILE_PATH>
+    template <typename T_USES_BASE, typename T_PUSH, daxa::StringLiteral T_FILE_PATH, daxa::StringLiteral T_ENTRY_POINT>
     struct WriteIndirectComputeDispatchTask : T_USES_BASE {
         T_USES_BASE::AttachmentViews views = {};
         Context* context = {};
         T_PUSH push = {};
 
         static auto pipeline_config_info() -> daxa::ComputePipelineCompileInfo {
-            auto const shader_path_sv = std::string_view(T_FILE_PATH);
+            auto const shader_path_sv = std::string_view(T_FILE_PATH.value, T_FILE_PATH.SIZE);
+            auto const entry_point_sv = std::string_view(T_ENTRY_POINT.value, T_ENTRY_POINT.SIZE);
             daxa::ShaderLanguage lang = shader_path_sv.ends_with(".glsl") ? daxa::ShaderLanguage::GLSL : daxa::ShaderLanguage::SLANG;
             return daxa::ComputePipelineCompileInfo {
                 .shader_info = daxa::ShaderCompileInfo {
                     .source = daxa::ShaderFile { std::filesystem::path(shader_path_sv) },
                     .compile_options = {
-                        .entry_point = std::string("main"),
+                        .entry_point = std::string(entry_point_sv),
                         .language = lang,
                         .defines = {{ std::string(T_USES_BASE::name()) + "_SHADER", "1"} },
                     },
                 },
-                .push_constant_size = static_cast<u32>(sizeof(T_PUSH) + T_USES_BASE::attachment_shader_data_size()),
+                .push_constant_size = static_cast<u32>(sizeof(T_PUSH) + T_USES_BASE::attachment_shader_blob_size()),
                 .name = std::string(T_USES_BASE::name()),
             };
         }
@@ -41,25 +42,26 @@ namespace Shaper {
         }
     };
 
-    template <typename T_USES_BASE, typename T_PUSH, const char* T_FILE_PATH>
+    template <typename T_USES_BASE, typename T_PUSH, daxa::StringLiteral T_FILE_PATH, daxa::StringLiteral T_ENTRY_POINT>
     struct IndirectComputeDispatchTask : T_USES_BASE {
         T_USES_BASE::AttachmentViews views = {};
         Context* context = {};
         T_PUSH push = {};
 
         static auto pipeline_config_info() -> daxa::ComputePipelineCompileInfo {
-            auto const shader_path_sv = std::string_view(T_FILE_PATH);
+            auto const shader_path_sv = std::string_view(T_FILE_PATH.value, T_FILE_PATH.SIZE);
+            auto const entry_point_sv = std::string_view(T_ENTRY_POINT.value, T_ENTRY_POINT.SIZE);
             daxa::ShaderLanguage lang = shader_path_sv.ends_with(".glsl") ? daxa::ShaderLanguage::GLSL : daxa::ShaderLanguage::SLANG;
             return daxa::ComputePipelineCompileInfo {
                 .shader_info = daxa::ShaderCompileInfo {
                     .source = daxa::ShaderFile { std::filesystem::path(shader_path_sv) },
                     .compile_options = {
-                        .entry_point = std::string("main"),
+                        .entry_point = std::string(entry_point_sv),
                         .language = lang,
                         .defines = {{ std::string(T_USES_BASE::name()) + "_SHADER", "1"} },
                     },
                 },
-                .push_constant_size = static_cast<u32>(sizeof(T_PUSH) + T_USES_BASE::attachment_shader_data_size()),
+                .push_constant_size = static_cast<u32>(sizeof(T_PUSH) + T_USES_BASE::attachment_shader_blob_size()),
                 .name = std::string(T_USES_BASE::name()),
             };
         }
@@ -70,7 +72,7 @@ namespace Shaper {
             assign_blob(push.uses, ti.attachment_shader_blob);
             ti.recorder.push_constant(push);
             ti.recorder.dispatch_indirect({
-                .indirect_buffer = ti.get(this->u_command).ids[0],
+                .indirect_buffer = ti.get(this->AT.u_command).ids[0],
             });
             context->gpu_metrics[this->name()]->end(ti.recorder);
         }

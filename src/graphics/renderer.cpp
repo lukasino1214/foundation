@@ -6,6 +6,8 @@
 #include "traditional/tasks/triangle.inl"
 #include "traditional/tasks/render_meshes.inl"
 #include "path_tracing/tasks/raytrace.inl"
+#include "virtual_geometry/tasks/populate_meshlets.inl"
+#include "virtual_geometry/tasks/draw_meshlets.inl"
 
 #include <ImGuizmo.h>
 #include <glm/gtc/type_ptr.hpp>
@@ -76,6 +78,10 @@ namespace Shaper {
         context->gpu_metrics[RayTraceTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
         context->gpu_metrics[TriangleTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
         context->gpu_metrics[RenderMeshesTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
+        context->gpu_metrics[PopulateMeshletsWriteCommandTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
+        context->gpu_metrics[PopulateMeshletsTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
+        context->gpu_metrics[DrawMeshletsWriteCommandTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
+        context->gpu_metrics[DrawMeshletsTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
     }
 
     Renderer::~Renderer() {
@@ -144,7 +150,8 @@ namespace Shaper {
     void Renderer::compile_pipelines() {
         std::vector<std::tuple<std::string_view, daxa::RasterPipelineCompileInfo>> rasters = {
             {TriangleTask::name(), TriangleTask::pipeline_config_info()},
-            {RenderMeshesTask::name(), RenderMeshesTask::pipeline_config_info()}
+            {RenderMeshesTask::name(), RenderMeshesTask::pipeline_config_info()},
+            {DrawMeshletsTask::name(), DrawMeshletsTask::pipeline_config_info()}
         };
 
         for (auto [name, info] : rasters) {
@@ -156,6 +163,9 @@ namespace Shaper {
         std::vector<std::tuple<std::string_view, daxa::ComputePipelineCompileInfo>> computes = {
             {ClearImageTask::name(), ClearImageTask::pipeline_config_info()},
             {RayTraceTask::name(), RayTraceTask::pipeline_config_info()},
+            {PopulateMeshletsWriteCommandTask::name(), PopulateMeshletsWriteCommandTask::pipeline_config_info()},
+            {PopulateMeshletsTask::name(), PopulateMeshletsTask::pipeline_config_info()},
+            {DrawMeshletsWriteCommandTask::name(), DrawMeshletsWriteCommandTask::pipeline_config_info()},
         };
 
         for (auto [name, info] : computes) {
@@ -180,6 +190,10 @@ namespace Shaper {
         render_task_graph.use_persistent_buffer(shader_globals_buffer);
         render_task_graph.use_persistent_buffer(asset_manager->gpu_transforms);
         render_task_graph.use_persistent_buffer(asset_manager->gpu_materials);
+        render_task_graph.use_persistent_buffer(asset_manager->gpu_scene_data);
+        render_task_graph.use_persistent_buffer(asset_manager->gpu_mesh_groups);
+        render_task_graph.use_persistent_buffer(asset_manager->gpu_mesh_indices);
+        render_task_graph.use_persistent_buffer(asset_manager->gpu_meshes);
 
         render_task_graph.add_task({
             .attachments = {
@@ -424,20 +438,59 @@ namespace Shaper {
     void Renderer::build_virtual_geometry_task_graph() {
         if(rendering_mode != Mode::VirtualGeomtery) { return; }
 
-        render_task_graph.add_task(ClearImageTask {
+        auto u_command = render_task_graph.create_transient_buffer(daxa::TaskTransientBufferInfo {
+            .size = glm::max(sizeof(DispatchIndirectStruct), sizeof(DrawIndirectStruct)),
+            .name = "command",
+        });
+
+        auto u_meshlet_data = render_task_graph.create_transient_buffer(daxa::TaskTransientBufferInfo {
+            .size = sizeof(MeshletsData),
+            .name = "meshlets data",
+        });
+
+        render_task_graph.add_task(PopulateMeshletsWriteCommandTask {
             .views = std::array{
-                ClearImage::AT.u_globals | context->shader_globals_buffer,
-                ClearImage::AT.u_image | render_image
+                PopulateMeshletsWriteCommandTask::AT.u_scene_data | asset_manager->gpu_scene_data,
+                PopulateMeshletsWriteCommandTask::AT.u_command | u_command,
+
             },
             .context = context,
-            .push = { .color = { 0.0f, 1.0f, 0.0f } },
-            .dispatch_callback = [this]() -> daxa::DispatchInfo { 
-                return daxa::DispatchInfo{
-                    round_up_div(window->get_width(), 16),
-                    round_up_div(window->get_height(), 16),
-                    1
-                ,};
+        });
+
+        render_task_graph.add_task(PopulateMeshletsTask {
+            .views = std::array{
+                PopulateMeshletsTask::AT.u_scene_data | asset_manager->gpu_scene_data,
+                PopulateMeshletsTask::AT.u_mesh_groups | asset_manager->gpu_mesh_groups,
+                PopulateMeshletsTask::AT.u_mesh_indices | asset_manager->gpu_mesh_indices,
+                PopulateMeshletsTask::AT.u_meshes | asset_manager->gpu_meshes,
+                PopulateMeshletsTask::AT.u_command | u_command,
+                PopulateMeshletsTask::AT.u_meshlets_data | u_meshlet_data,
+
             },
+            .context = context,
+        });
+
+        render_task_graph.add_task(DrawMeshletsWriteCommandTask {
+            .views = std::array{
+                DrawMeshletsWriteCommandTask::AT.u_meshlets_data | u_meshlet_data,
+                DrawMeshletsWriteCommandTask::AT.u_command | u_command,
+
+            },
+            .context = context,
+        });
+
+        render_task_graph.add_task(DrawMeshletsTask {
+            .views = std::array{
+                DrawMeshletsTask::AT.u_meshlets_data | u_meshlet_data,
+                DrawMeshletsTask::AT.u_meshes | asset_manager->gpu_meshes,
+                DrawMeshletsTask::AT.u_transforms | asset_manager->gpu_transforms,
+                DrawMeshletsTask::AT.u_materials | asset_manager->gpu_materials,
+                DrawMeshletsTask::AT.u_globals | context->shader_globals_buffer,
+                DrawMeshletsTask::AT.u_command | u_command,
+                DrawMeshletsTask::AT.u_image | render_image,
+                DrawMeshletsTask::AT.u_depth_image | depth_image
+            },
+            .context = context,
         });
     }
 

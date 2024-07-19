@@ -237,7 +237,6 @@ namespace Shaper {
         std::memcpy(staging_ptr + accumulated_offset, vert_uvs.data(), vertices.size() * sizeof(daxa_f32vec2));
         accumulated_offset += sizeof(daxa_f32vec2) * vertices.size();
         
-        
         mesh.material_index = info.material_manifest_offset + static_cast<u32>(info.asset->meshes[info.gltf_mesh_index].primitives[info.gltf_primitive_index].materialIndex.value());
         mesh.meshlet_count = s_cast<u32>(meshlet_count);
         mesh.vertex_count = s_cast<u32>(vertices.size());

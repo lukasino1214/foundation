@@ -559,6 +559,7 @@ namespace Shaper {
                 mesh_group_offset += sizeof(MeshGroup);
                 meshes_offset += mesh_group.mesh_count * sizeof(u32);
             }
+            dirty_mesh_groups.clear();
         }
 
         daxa::BufferId material_null_buffer = context->create_buffer({
