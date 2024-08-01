@@ -2,6 +2,43 @@
 #include <graphics/helper.hpp>
 
 namespace Shaper {
+    DebugDrawContext::DebugDrawContext(Context* _context) : context{_context} {
+        usize size = sizeof(ShaderDebugBufferHead);
+        size += sizeof(ShaderDebugAABBDraw) * max_aabb_draws;
+
+        this->buffer = context->create_buffer(daxa::BufferInfo {
+            .size = size,
+            .allocate_info = daxa::MemoryFlagBits::DEDICATED_MEMORY,
+            .name = "DebugDrawContext buffer"
+        });
+
+    }
+
+    DebugDrawContext::~DebugDrawContext() {
+        context->destroy_buffer(this->buffer);
+    }
+
+    void DebugDrawContext::update_debug_buffer(daxa::Device& device, daxa::CommandRecorder& recorder, daxa::TransferMemoryPool& allocator) {
+        auto head = ShaderDebugBufferHead {
+            .aabb_draw_indirect_info = {
+                .vertex_count = aabb_vertices,
+                .instance_count = 0,
+                .first_vertex = 0,
+                .first_instance = 0,
+            },
+            .aabb_draws = device.get_device_address(buffer).value() + sizeof(ShaderDebugBufferHead)
+        };
+
+        auto alloc = allocator.allocate_fill(head).value();
+        recorder.copy_buffer_to_buffer({
+            .src_buffer = allocator.buffer(),
+            .dst_buffer = buffer,
+            .src_offset = alloc.buffer_offset,
+            .dst_offset = 0,
+            .size = sizeof(ShaderDebugBufferHead),
+        });
+    }
+
     Context::Context(const AppWindow &window)
         : instance{daxa::create_instance({})},
             device{instance.create_device(daxa::DeviceInfo{
@@ -47,7 +84,9 @@ namespace Shaper {
                             .size = s_cast<u32>(sizeof(ShaderGlobals)),
                             .name = "globals",
                         })},
-            gpu_metric_pool{std::make_unique<GPUMetricPool>(device)} {
+            gpu_metric_pool{std::make_unique<GPUMetricPool>(device)},
+            debug_draw_context{this} {
+        shader_globals.debug = device.get_device_address(debug_draw_context.buffer).value();
     }
 
     Context::~Context() {

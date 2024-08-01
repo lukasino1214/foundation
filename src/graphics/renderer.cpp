@@ -8,6 +8,10 @@
 #include "path_tracing/tasks/raytrace.inl"
 #include "virtual_geometry/tasks/populate_meshlets.inl"
 #include "virtual_geometry/tasks/draw_meshlets.inl"
+#include "virtual_geometry/tasks/cull_meshlets.inl"
+#include "virtual_geometry/tasks/generate_hiz.inl"
+#include "virtual_geometry/tasks/draw_meshlets_only_depth.inl"
+#include "virtual_geometry/tasks/debug.inl"
 
 #include <ImGuizmo.h>
 #include <glm/gtc/type_ptr.hpp>
@@ -31,10 +35,12 @@ namespace Shaper {
         swapchain_image = daxa::TaskImage{{.swapchain_image = true, .name = "swapchain image"}};
         render_image = daxa::TaskImage{{ .name = "render image" }};
         depth_image = daxa::TaskImage{{ .name = "depth image" }};
+        depth_image_2 = daxa::TaskImage{{ .name = "depth image 2" }};
 
         images = {
             render_image,
-            depth_image
+            depth_image,
+            depth_image_2
         };
         frame_buffer_images = {
             {
@@ -53,26 +59,64 @@ namespace Shaper {
                 },
                 depth_image,
             },
+            {
+                {
+                    .format = daxa::Format::D32_SFLOAT,
+                    .usage = daxa::ImageUsageFlagBits::DEPTH_STENCIL_ATTACHMENT | daxa::ImageUsageFlagBits::SHADER_SAMPLED | daxa::ImageUsageFlagBits::TRANSFER_SRC,
+                    .name = depth_image_2.info().name,
+                },
+                depth_image_2,
+            },
         };
 
         rebuild_task_graph();
 
-        context->shader_globals.linear_sampler = context->get_sampler(daxa::SamplerInfo {
-            .address_mode_u = daxa::SamplerAddressMode::REPEAT,
-            .address_mode_v = daxa::SamplerAddressMode::REPEAT,
-            .address_mode_w = daxa::SamplerAddressMode::REPEAT,
-            .name = "linear repeat sampler",
-        });
-
-        context->shader_globals.nearest_sampler = context->get_sampler(daxa::SamplerInfo {
-            .magnification_filter = daxa::Filter::NEAREST,
-            .minification_filter = daxa::Filter::NEAREST,
-            .mipmap_filter = daxa::Filter::NEAREST,
-            .address_mode_u = daxa::SamplerAddressMode::CLAMP_TO_EDGE,
-            .address_mode_v = daxa::SamplerAddressMode::CLAMP_TO_EDGE,
-            .address_mode_w = daxa::SamplerAddressMode::CLAMP_TO_EDGE,
-            .name = "nearest repeat sampler",
-        });
+        context->shader_globals.samplers = {
+            .linear_clamp = context->get_sampler(daxa::SamplerInfo {
+                .name = "linear clamp sampler",
+            }),
+            .linear_repeat = context->get_sampler(daxa::SamplerInfo {
+                .address_mode_u = daxa::SamplerAddressMode::REPEAT,
+                .address_mode_v = daxa::SamplerAddressMode::REPEAT,
+                .address_mode_w = daxa::SamplerAddressMode::REPEAT,
+                .name = "linear repeat sampler",
+            }),
+            .nearest_repeat = context->get_sampler(daxa::SamplerInfo {
+                .magnification_filter = daxa::Filter::NEAREST,
+                .minification_filter = daxa::Filter::NEAREST,
+                .address_mode_u = daxa::SamplerAddressMode::REPEAT,
+                .address_mode_v = daxa::SamplerAddressMode::REPEAT,
+                .address_mode_w = daxa::SamplerAddressMode::REPEAT,
+                .name = "linear repeat sampler",
+            }),
+            .nearest_clamp = context->get_sampler(daxa::SamplerInfo {
+                .magnification_filter = daxa::Filter::NEAREST,
+                .minification_filter = daxa::Filter::NEAREST,
+                .mipmap_filter = daxa::Filter::NEAREST,
+                .name = "nearest clamp sampler",
+            }),
+            .linear_repeat_anisotropy = context->get_sampler(daxa::SamplerInfo {
+                .address_mode_u = daxa::SamplerAddressMode::REPEAT,
+                .address_mode_v = daxa::SamplerAddressMode::REPEAT,
+                .address_mode_w = daxa::SamplerAddressMode::REPEAT,
+                .mip_lod_bias = 0.0f,
+                .enable_anisotropy = true,
+                .max_anisotropy = 16.0f,
+                .name = "linear repeat ani sampler",
+            }),
+            .nearest_repeat_anisotropy = context->get_sampler(daxa::SamplerInfo {
+                .magnification_filter = daxa::Filter::NEAREST,
+                .minification_filter = daxa::Filter::NEAREST,
+                .mipmap_filter = daxa::Filter::LINEAR,
+                .address_mode_u = daxa::SamplerAddressMode::REPEAT,
+                .address_mode_v = daxa::SamplerAddressMode::REPEAT,
+                .address_mode_w = daxa::SamplerAddressMode::REPEAT,
+                .mip_lod_bias = 0.0f,
+                .enable_anisotropy = true,
+                .max_anisotropy = 16.0f,
+                .name = "nearest repeat ani sampler",
+            }),
+        };
 
         context->gpu_metrics[ClearImageTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
         context->gpu_metrics[RayTraceTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
@@ -82,6 +126,12 @@ namespace Shaper {
         context->gpu_metrics[PopulateMeshletsTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
         context->gpu_metrics[DrawMeshletsWriteCommandTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
         context->gpu_metrics[DrawMeshletsTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
+        context->gpu_metrics[CullMeshletsWriteCommandTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
+        context->gpu_metrics[CullMeshletsTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
+        context->gpu_metrics[GenerateHizTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
+        context->gpu_metrics[DrawMeshletsOnlyDepthWriteCommandTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
+        context->gpu_metrics[DrawMeshletsOnlyDepthTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
+        context->gpu_metrics[DebugDrawTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
     }
 
     Renderer::~Renderer() {
@@ -151,7 +201,9 @@ namespace Shaper {
         std::vector<std::tuple<std::string_view, daxa::RasterPipelineCompileInfo>> rasters = {
             {TriangleTask::name(), TriangleTask::pipeline_config_info()},
             {RenderMeshesTask::name(), RenderMeshesTask::pipeline_config_info()},
-            {DrawMeshletsTask::name(), DrawMeshletsTask::pipeline_config_info()}
+            {DrawMeshletsTask::name(), DrawMeshletsTask::pipeline_config_info()},
+            {DrawMeshletsOnlyDepthTask::name(), DrawMeshletsOnlyDepthTask::pipeline_config_info()},
+            {DebugDrawTask::name(), DebugDrawTask::pipeline_config_info()}
         };
 
         for (auto [name, info] : rasters) {
@@ -166,6 +218,10 @@ namespace Shaper {
             {PopulateMeshletsWriteCommandTask::name(), PopulateMeshletsWriteCommandTask::pipeline_config_info()},
             {PopulateMeshletsTask::name(), PopulateMeshletsTask::pipeline_config_info()},
             {DrawMeshletsWriteCommandTask::name(), DrawMeshletsWriteCommandTask::pipeline_config_info()},
+            {CullMeshletsWriteCommandTask::name(), CullMeshletsWriteCommandTask::pipeline_config_info()},
+            {CullMeshletsTask::name(), CullMeshletsTask::pipeline_config_info()},
+            {GenerateHizTask::name(), GenerateHizTask::pipeline_config_info()},
+            {DrawMeshletsOnlyDepthWriteCommandTask::name(), DrawMeshletsOnlyDepthWriteCommandTask::pipeline_config_info()}
         };
 
         for (auto [name, info] : computes) {
@@ -187,6 +243,7 @@ namespace Shaper {
         render_task_graph.use_persistent_image(swapchain_image);
         render_task_graph.use_persistent_image(render_image);
         render_task_graph.use_persistent_image(depth_image);
+        render_task_graph.use_persistent_image(depth_image_2);
         render_task_graph.use_persistent_buffer(shader_globals_buffer);
         render_task_graph.use_persistent_buffer(asset_manager->gpu_transforms);
         render_task_graph.use_persistent_buffer(asset_manager->gpu_materials);
@@ -208,6 +265,7 @@ namespace Shaper {
                     .dst_offset = 0,
                     .size = sizeof(ShaderGlobals),
                 });
+                context->debug_draw_context.update_debug_buffer(context->device, ti.recorder, *ti.allocator);
             },
             .name = "GpuInputUploadTransferTask",
         });
@@ -292,7 +350,7 @@ namespace Shaper {
 
             ImTextureID image = imgui_renderer.create_texture_id(daxa::ImGuiImageContext {
                 .image_view_id = render_image.get_state().images[0].default_view(),
-                .sampler_id = std::bit_cast<daxa::SamplerId>(context->shader_globals.nearest_sampler)
+                .sampler_id = std::bit_cast<daxa::SamplerId>(context->shader_globals.samplers.nearest_clamp)
             });
 
             ImGui::Image(image, size);
@@ -448,6 +506,11 @@ namespace Shaper {
             .name = "meshlets data",
         });
 
+        auto u_culled_meshlet_data = render_task_graph.create_transient_buffer(daxa::TaskTransientBufferInfo {
+            .size = sizeof(MeshletsData),
+            .name = "cull meshlets data",
+        });
+
         render_task_graph.add_task(PopulateMeshletsWriteCommandTask {
             .views = std::array{
                 PopulateMeshletsWriteCommandTask::AT.u_scene_data | asset_manager->gpu_scene_data,
@@ -470,9 +533,73 @@ namespace Shaper {
             .context = context,
         });
 
+        render_task_graph.add_task(DrawMeshletsOnlyDepthWriteCommandTask {
+            .views = std::array{
+                DrawMeshletsOnlyDepthWriteCommandTask::AT.u_meshlets_data | u_culled_meshlet_data,
+                DrawMeshletsOnlyDepthWriteCommandTask::AT.u_command | u_command,
+
+            },
+            .context = context,
+        });
+
+        render_task_graph.add_task(DrawMeshletsOnlyDepthTask {
+            .views = std::array{
+                DrawMeshletsOnlyDepthTask::AT.u_meshlets_data | u_culled_meshlet_data,
+                DrawMeshletsOnlyDepthTask::AT.u_meshes | asset_manager->gpu_meshes,
+                DrawMeshletsOnlyDepthTask::AT.u_transforms | asset_manager->gpu_transforms,
+                DrawMeshletsOnlyDepthTask::AT.u_materials | asset_manager->gpu_materials,
+                DrawMeshletsOnlyDepthTask::AT.u_globals | context->shader_globals_buffer,
+                DrawMeshletsOnlyDepthTask::AT.u_command | u_command,
+                DrawMeshletsOnlyDepthTask::AT.u_depth_image | depth_image
+            },
+            .context = context,
+        });
+
+        daxa_u32vec2 const hiz_size = context->shader_globals.next_lower_po2_render_target_size;
+        u32 mip_count = static_cast<daxa_u32>(std::ceil(std::log2(std::max(hiz_size.x, hiz_size.y))));
+        mip_count = std::min(mip_count, u32(GEN_HIZ_LEVELS_PER_DISPATCH));
+        auto hiz = render_task_graph.create_transient_image({
+            .format = daxa::Format::R32_SFLOAT,
+            .size = {hiz_size.x, hiz_size.y, 1},
+            .mip_level_count = mip_count,
+            .array_layer_count = 1,
+            .sample_count = 1,
+            .name = "hiz",
+        });
+        render_task_graph.add_task(GenerateHizTask{
+            .views = std::array{
+                daxa::attachment_view(GenerateHizTask::AT.u_globals, context->shader_globals_buffer),
+                daxa::attachment_view(GenerateHizTask::AT.u_src, depth_image),
+                daxa::attachment_view(GenerateHizTask::AT.u_mips, hiz),
+            },
+            .context = context
+        });
+
+        render_task_graph.add_task(CullMeshletsWriteCommandTask {
+            .views = std::array{
+                CullMeshletsWriteCommandTask::AT.u_meshlets_data | u_meshlet_data,
+                CullMeshletsWriteCommandTask::AT.u_command | u_command,
+
+            },
+            .context = context,
+        });
+
+        render_task_graph.add_task(CullMeshletsTask {
+            .views = std::array{
+                CullMeshletsTask::AT.u_command | u_command,
+                CullMeshletsTask::AT.u_globals | context->shader_globals_buffer,
+                CullMeshletsTask::AT.u_meshes | asset_manager->gpu_meshes,
+                CullMeshletsTask::AT.u_transforms | asset_manager->gpu_transforms,
+                CullMeshletsTask::AT.u_meshlets_data | u_meshlet_data,
+                CullMeshletsTask::AT.u_culled_meshlets_data | u_culled_meshlet_data,
+                CullMeshletsTask::AT.u_hiz | hiz,
+            },
+            .context = context,
+        });
+
         render_task_graph.add_task(DrawMeshletsWriteCommandTask {
             .views = std::array{
-                DrawMeshletsWriteCommandTask::AT.u_meshlets_data | u_meshlet_data,
+                DrawMeshletsWriteCommandTask::AT.u_meshlets_data | u_culled_meshlet_data,
                 DrawMeshletsWriteCommandTask::AT.u_command | u_command,
 
             },
@@ -481,14 +608,23 @@ namespace Shaper {
 
         render_task_graph.add_task(DrawMeshletsTask {
             .views = std::array{
-                DrawMeshletsTask::AT.u_meshlets_data | u_meshlet_data,
+                DrawMeshletsTask::AT.u_meshlets_data | u_culled_meshlet_data,
                 DrawMeshletsTask::AT.u_meshes | asset_manager->gpu_meshes,
                 DrawMeshletsTask::AT.u_transforms | asset_manager->gpu_transforms,
                 DrawMeshletsTask::AT.u_materials | asset_manager->gpu_materials,
                 DrawMeshletsTask::AT.u_globals | context->shader_globals_buffer,
                 DrawMeshletsTask::AT.u_command | u_command,
                 DrawMeshletsTask::AT.u_image | render_image,
-                DrawMeshletsTask::AT.u_depth_image | depth_image
+                DrawMeshletsTask::AT.u_depth_image | depth_image_2
+            },
+            .context = context,
+        });
+
+        render_task_graph.add_task(DebugDrawTask {
+            .views = std::array{
+                DebugDrawTask::AT.u_globals | context->shader_globals_buffer,
+                DebugDrawTask::AT.u_image | render_image,
+                DebugDrawTask::AT.u_depth_image | depth_image_2,
             },
             .context = context,
         });

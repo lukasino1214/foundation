@@ -40,9 +40,9 @@ struct World {
 [shader("compute")]
 [numthreads(16, 16, 1)]
 void main(u32vec3 pixel : SV_DispatchThreadID) {
-    if(any(pixel.xy >= deref(push.uses.u_globals).resolution)) { return; }
+    if(any(pixel.xy >= deref(push.uses.u_globals).render_target_size)) { return; }
 
-    f32vec2 ray_uv = f32vec2(pixel.xy) / f32vec2(deref(push.uses.u_globals).resolution.xy - 1.0);
+    f32vec2 ray_uv = f32vec2(pixel.xy) / f32vec2(deref(push.uses.u_globals).render_target_size.xy - 1.0);
     f32vec3 origin = mul(deref(push.uses.u_globals).camera_inverse_view_matrix, f32vec4(0.0, 0.0, 0.0, 1.0)).xyz;
     f32vec2 ray_ndc = ray_uv * 2.0 - 1.0;
     f32vec4 ray_view_space = deref(push.uses.u_globals).camera_inverse_projection_matrix * f32vec4(ray_ndc, -1.0, 1.0);

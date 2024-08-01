@@ -44,6 +44,7 @@ namespace Shaper {
         daxa::TaskImage swapchain_image = {};
         daxa::TaskImage render_image = {};
         daxa::TaskImage depth_image = {};
+        daxa::TaskImage depth_image_2 = {};
 
         std::vector<daxa::TaskImage> images = {};
         std::vector<std::pair<daxa::ImageInfo, daxa::TaskImage>> frame_buffer_images = {};

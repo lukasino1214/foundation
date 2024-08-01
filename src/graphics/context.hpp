@@ -5,6 +5,18 @@
 #include <graphics/utils/gpu_metric.hpp>
 
 namespace Shaper {
+    struct Context;
+    struct DebugDrawContext {
+        u32 max_aabb_draws = 128'000;
+        u32 aabb_vertices = 24;
+        daxa::BufferId buffer = {};
+        Context* context = {};
+
+        DebugDrawContext(Context* _context);
+        ~DebugDrawContext();
+        void update_debug_buffer(daxa::Device& device, daxa::CommandRecorder& recorder, daxa::TransferMemoryPool& allocator);
+    };
+
     struct SamplerInfoHasher {
         auto operator()(const daxa::SamplerInfo& info) const -> usize {
             usize hash = 0;
@@ -84,6 +96,8 @@ namespace Shaper {
         std::unordered_map<std::string_view, std::shared_ptr<GPUMetric>> gpu_metrics = {};
 
         std::unordered_map<daxa::SamplerInfo, daxa::SamplerId, SamplerInfoHasher, SamplerInfoEquality> samplers = {};
+
+        DebugDrawContext debug_draw_context;
 
         auto get_sampler(const daxa::SamplerInfo& info) -> daxa::SamplerId;
 

@@ -4,14 +4,14 @@
 namespace Shaper {
     void Camera3D::resize(i32 size_x, i32 size_y) {
         aspect = static_cast<f32>(size_x) / static_cast<f32>(size_y);
-        proj_mat = glm::perspective(glm::radians(fov), aspect, near_clip, far_clip);
-        // const float f = 1.0f / glm::tan(glm::radians(fov) / 2.0f);
-        // proj_mat = {
-        //     f / aspect, 0.0f, 0.0f, 0.0f,
-        //     0.0f, f, 0.0f, 0.0f,
-        //     0.0f, 0.0f, 0.0f, -1.0f,
-        //     0.0f, 0.0f, near_clip, 0.0f
-        // };
+        //proj_mat = glm::perspective(glm::radians(fov), aspect, near_clip, far_clip);
+        const float f = 1.0f / glm::tan(glm::radians(fov) / 2.0f);
+        proj_mat = {
+            f / aspect, 0.0f, 0.0f, 0.0f,
+            0.0f, f, 0.0f, 0.0f,
+            0.0f, 0.0f, 0.0f, -1.0f,
+            0.0f, 0.0f, near_clip, 0.0f
+        };
         proj_mat[1][1] *= -1.0f;
     }
 

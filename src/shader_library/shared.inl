@@ -2,21 +2,6 @@
 #include <daxa/daxa.inl>
 #include "glue.inl"
 
-struct ShaderGlobals {
-    daxa_f32mat4x4 camera_projection_matrix;
-    daxa_f32mat4x4 camera_inverse_projection_matrix;
-    daxa_f32mat4x4 camera_view_matrix;
-    daxa_f32mat4x4 camera_inverse_view_matrix;
-    daxa_f32mat4x4 camera_projection_view_matrix;
-    daxa_f32mat4x4 camera_inverse_projection_view_matrix;
-    daxa_f32vec4 frustum_planes[6];
-    daxa_u32vec2 resolution;
-    daxa_f32vec3 camera_position;
-    daxa_SamplerId linear_sampler;
-    daxa_SamplerId nearest_sampler;
-};
-DAXA_DECL_BUFFER_PTR(ShaderGlobals)
-
 struct DrawIndexedIndirectStruct {
     daxa_u32 index_count;
     daxa_u32 instance_count;
@@ -40,6 +25,48 @@ struct DispatchIndirectStruct {
     daxa_u32 z;
 };
 DAXA_DECL_BUFFER_PTR(DispatchIndirectStruct)
+
+struct ShaderDebugAABBDraw {
+    daxa_f32vec3 position;
+    daxa_f32vec3 size;
+    daxa_f32vec3 color;
+    daxa_u32 coord_space;
+};
+DAXA_DECL_BUFFER_PTR(ShaderDebugAABBDraw)
+
+struct ShaderDebugBufferHead {
+    DrawIndirectStruct aabb_draw_indirect_info;
+    daxa_RWBufferPtr(ShaderDebugAABBDraw) aabb_draws;
+};
+DAXA_DECL_BUFFER_PTR(ShaderDebugBufferHead)
+
+struct Samplers {
+    daxa_SamplerId linear_clamp;
+    daxa_SamplerId linear_repeat;
+    daxa_SamplerId nearest_repeat;
+    daxa_SamplerId nearest_clamp;
+    daxa_SamplerId linear_repeat_anisotropy;
+    daxa_SamplerId nearest_repeat_anisotropy;
+};
+DAXA_DECL_BUFFER_PTR(Samplers)
+
+struct ShaderGlobals {
+    daxa_f32mat4x4 camera_projection_matrix;
+    daxa_f32mat4x4 camera_inverse_projection_matrix;
+    daxa_f32mat4x4 camera_view_matrix;
+    daxa_f32mat4x4 camera_inverse_view_matrix;
+    daxa_f32mat4x4 camera_projection_view_matrix;
+    daxa_f32mat4x4 camera_inverse_projection_view_matrix;
+    daxa_f32vec4 frustum_planes[6];
+    daxa_u32vec2 render_target_size;
+    daxa_f32vec2 render_target_size_inv;
+    daxa_u32vec2 next_lower_po2_render_target_size;
+    daxa_f32vec2 next_lower_po2_render_target_size_inv;
+    daxa_f32vec3 camera_position;
+    Samplers samplers;
+    daxa_BufferPtr(ShaderDebugBufferHead) debug;
+};
+DAXA_DECL_BUFFER_PTR(ShaderGlobals)
 
 struct TransformInfo {
     daxa_f32mat4x4 model_matrix;
@@ -89,8 +116,8 @@ struct MeshGroup {
 
 DAXA_DECL_BUFFER_PTR_ALIGN(MeshGroup, 8)
 
-#define MAX_VERTICES_PER_MESHLET (64)
-#define MAX_TRIANGLES_PER_MESHLET (64)
+#define MAX_VERTICES_PER_MESHLET (124)
+#define MAX_TRIANGLES_PER_MESHLET (124)
 
 #define MAX_MESHES (1u << 10u)
 #define MAX_SURVIVING_MESHLETS 1000000

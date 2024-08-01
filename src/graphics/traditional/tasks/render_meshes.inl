@@ -62,7 +62,7 @@ struct RenderMeshesTask : RenderMeshes::Task {
             .depth_test = { daxa::DepthTestInfo {
                 .depth_attachment_format = daxa::Format::D32_SFLOAT,
                 .enable_depth_write = true,
-                .depth_test_compare_op = daxa::CompareOp::LESS_OR_EQUAL
+                .depth_test_compare_op = daxa::CompareOp::GREATER_OR_EQUAL
             } },
             .raster = {
                 .face_culling = daxa::FaceCullFlagBits::FRONT_BIT
@@ -90,7 +90,7 @@ struct RenderMeshesTask : RenderMeshes::Task {
             .depth_attachment = { daxa::RenderAttachmentInfo {
                 .image_view = ti.get(AT.u_depth_image).ids[0].default_view(),
                 .load_op = daxa::AttachmentLoadOp::CLEAR,
-                .clear_value = daxa::DepthValue { .depth = 1.0f },
+                .clear_value = daxa::DepthValue { .depth = 0.0f },
             }},
             .render_area = {.x = 0, .y = 0, .width = size_x, .height = size_y},
         });

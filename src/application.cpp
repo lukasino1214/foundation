@@ -116,7 +116,20 @@ namespace Shaper {
         this->context.shader_globals.camera_inverse_view_matrix = *reinterpret_cast<daxa_f32mat4x4*>(&inverse_view_matrix);
         this->context.shader_globals.camera_projection_view_matrix = *reinterpret_cast<daxa_f32mat4x4*>(&projection_view_matrix);
         this->context.shader_globals.camera_inverse_projection_view_matrix = *reinterpret_cast<daxa_f32mat4x4*>(&inverse_projection_view);
-        this->context.shader_globals.resolution = { window.get_width(), window.get_height() };
+        auto size = context.device.info_image(renderer.render_image.get_state().images[0]).value().size;
+        this->context.shader_globals.render_target_size = { size.x, size.y };
+        // std::cout << "render_target_size: " << context.shader_globals.render_target_size.x << " " << context.shader_globals.render_target_size.y << std::endl;
+        this->context.shader_globals.render_target_size_inv = {
+            1.0f / s_cast<f32>(context.shader_globals.render_target_size.x),
+            1.0f / s_cast<f32>(context.shader_globals.render_target_size.y),
+        };
+        this->context.shader_globals.next_lower_po2_render_target_size.x = find_next_lower_po2(context.shader_globals.render_target_size.x);
+        this->context.shader_globals.next_lower_po2_render_target_size.y = find_next_lower_po2(context.shader_globals.render_target_size.y);
+        // std::cout << "next_lower_po2_render_target_size: " << context.shader_globals.next_lower_po2_render_target_size.x << " " << context.shader_globals.next_lower_po2_render_target_size.y << std::endl;
+        this->context.shader_globals.next_lower_po2_render_target_size_inv = {
+            1.0f / s_cast<f32>(this->context.shader_globals.next_lower_po2_render_target_size.x),
+            1.0f / s_cast<f32>(this->context.shader_globals.next_lower_po2_render_target_size.y),
+        };
 
         std::array<glm::vec4, 6> planes = {};
         for (i32 i = 0; i < 4; ++i) { planes[0][i] = projection_view_matrix[i][3] + projection_view_matrix[i][0]; }
@@ -129,7 +142,7 @@ namespace Shaper {
         for (u32 i = 0; i < 6; ++i) {
             planes[i] /= glm::length(glm::vec3(planes[i]));
             planes[i].w = -planes[i].w;
-            this->context.shader_globals.frustum_planes[i] = *reinterpret_cast<daxa_f32vec4*>(&planes[i]);
+            context.shader_globals.frustum_planes[i] = *reinterpret_cast<daxa_f32vec4*>(&planes[i]);
         }
 
         this->context.shader_globals.camera_position = *reinterpret_cast<daxa_f32vec3*>(&camera.position);
