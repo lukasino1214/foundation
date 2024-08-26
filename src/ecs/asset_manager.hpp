@@ -10,7 +10,7 @@
 #include "ecs/entity.hpp"
 #include "ecs/scene.hpp"
 
-namespace Shaper {
+namespace foundation {
     struct LoadManifestInfo {
         Entity parent;
         std::filesystem::path path;

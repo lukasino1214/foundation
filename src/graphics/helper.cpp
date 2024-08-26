@@ -1,6 +1,6 @@
 #include <graphics/helper.hpp>
 
-namespace Shaper {
+namespace foundation {
     auto make_task_buffer(Context* context, const daxa::BufferInfo& info) -> daxa::TaskBuffer {
         return daxa::TaskBuffer{daxa::TaskBufferInfo{
             .initial_buffers = daxa::TrackedBuffers{ 

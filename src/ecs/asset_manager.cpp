@@ -13,7 +13,7 @@
 
 #include <math/decompose.hpp>
 
-namespace Shaper {
+namespace foundation {
     AssetManager::AssetManager(Context* _context, Scene* _scene) : context{_context}, scene{_scene} {
         gpu_scene_data = make_task_buffer(context, {
             sizeof(SceneData), 

@@ -1,6 +1,6 @@
 #include <application.hpp>
 
-using namespace Shaper;
+using namespace foundation;
 auto main() -> i32 {
     Application app;
     app.run();

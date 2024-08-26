@@ -2,7 +2,7 @@
 
 #include <graphics/window.hpp>
 
-namespace Shaper {
+namespace foundation {
     struct Camera3D {
         f32 fov = 60.0f, aspect = 1.0f;
         f32 near_clip = 0.1f, far_clip = 1000.0f;

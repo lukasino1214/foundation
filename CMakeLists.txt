@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.21)
-project(shaper)
+project(foundation)
 
 include(cmake/warnings.cmake)
 include(cmake/static_analysis.cmake)
@@ -43,6 +43,7 @@ add_executable(${PROJECT_NAME}
     "src/ui/scene_hierarchy_panel.cpp"
     "src/ui/ui.cpp"
 )
+
 target_precompile_headers(${PROJECT_NAME} PRIVATE "src/pch.hpp")
 
 set_project_warnings(${PROJECT_NAME})
@@ -76,14 +77,13 @@ set(COMPILE_COMMANDS_FILE "${CMAKE_BINARY_DIR}/compile_commands.json")
 set(DESTINATION_FILE "${CMAKE_SOURCE_DIR}/compile_commands.json")
 
 add_custom_command(
-    TARGET shaper POST_BUILD
+    TARGET ${PROJECT_NAME} POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
     "${COMPILE_COMMANDS_FILE}"
     "${DESTINATION_FILE}"
     COMMENT "Copying compile_commands.json to root directory"
 )
 
-# Optionally, you can add this command to all targets
 add_custom_target(copy_compile_commands ALL
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
     "${COMPILE_COMMANDS_FILE}"
@@ -91,5 +91,4 @@ add_custom_target(copy_compile_commands ALL
     COMMENT "Copying compile_commands.json to root directory"
 )
 
-# Ensure the copy happens after the build
-add_dependencies(copy_compile_commands shaper)
+add_dependencies(copy_compile_commands ${PROJECT_NAME})

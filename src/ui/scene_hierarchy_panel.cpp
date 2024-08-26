@@ -8,7 +8,7 @@
 #include <iostream>
 
 
-namespace Shaper {
+namespace foundation {
     template<typename T>
     void SceneHierarchyPanel::draw_component(Entity entity, const std::string_view& component_name) {
         const ImGuiTreeNodeFlags treeNodeFlags = ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_Framed | ImGuiTreeNodeFlags_SpanAvailWidth | ImGuiTreeNodeFlags_AllowItemOverlap | ImGuiTreeNodeFlags_FramePadding;
@@ -185,6 +185,10 @@ namespace Shaper {
 
             if(selected_entity.has_component<MeshComponent>()) {
                 draw_component<MeshComponent>(selected_entity, "Mesh Component");
+            }
+
+            if(selected_entity.has_component<AABBComponent>()) {
+                draw_component<AABBComponent>(selected_entity, "AABB Component");
             }
             
             if (ImGui::BeginPopupContextWindow(0, ImGuiPopupFlags_NoOpenOverItems | ImGuiPopupFlags_MouseButtonRight)) {

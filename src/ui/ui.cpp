@@ -4,7 +4,7 @@
 
 
 
-namespace Shaper {
+namespace foundation {
     const u32 boldFontIndex = 1;
     static i32 s_UIContextID = 0;
     static i32 s_Counter = 0;

@@ -21,7 +21,7 @@ struct TrianglePush {
 #if __cplusplus
 struct TriangleTask : Triangle::Task {
     Triangle::Task::AttachmentViews views = {};
-    Shaper::Context* context = {};
+    foundation::Context* context = {};
     TrianglePush push = {};
 
     void assign_blob(auto & arr, auto const & span) {

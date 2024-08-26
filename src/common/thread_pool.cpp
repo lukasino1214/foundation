@@ -1,6 +1,6 @@
 #include "thread_pool.hpp"
 
-namespace Shaper {
+namespace foundation {
     ThreadPool::~ThreadPool() {
         {
             std::unique_lock lock{shared_data->threadpool_mutex};

@@ -11,7 +11,7 @@
 #include <GLFW/glfw3native.h>
 
 
-namespace Shaper {
+namespace foundation {
     AppWindow::AppWindow(i32 width, i32 height, std::string_view _name)
         : window_state{std::make_unique<WindowState>()},
         name{_name},

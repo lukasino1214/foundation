@@ -5,7 +5,7 @@
 #include <fastgltf/tools.hpp>
 #include <fastgltf/glm_element_traits.hpp>
 
-namespace Shaper {
+namespace foundation {
     AssetProcessor::AssetProcessor(Context* _context) : context{_context}, mesh_upload_mutex{std::make_unique<std::mutex>()} {}
     AssetProcessor::~AssetProcessor() {}
 
@@ -89,12 +89,12 @@ namespace Shaper {
 
         {
             std::vector<u32> optimized_indices(indices.size());
-            meshopt_optimizeVertexCache(optimized_indices.data(), indices.data(), indices.size(), vertices.size());
+            meshopt_optimizeVertexCache(optimized_indices.data(), indices.data(), indices.size(), vertex_count);
             indices = std::move(optimized_indices);
         }
 
         daxa::BufferId staging_buffer = context->create_buffer(daxa::BufferInfo {
-            .size = static_cast<u32>(vertices.size() * sizeof(Vertex) + indices.size() * sizeof(u32)),
+            .size = static_cast<u32>(vertex_count * sizeof(Vertex) + indices.size() * sizeof(u32)),
             .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
             .name = "staging buffer: " + info.asset_path.filename().string() + " mesh " + std::to_string(info.gltf_mesh_index) + " primitive " + std::to_string(info.gltf_primitive_index)
         });
@@ -128,7 +128,7 @@ namespace Shaper {
             indices.data(),
             indices.size(),
             r_cast<const f32*>(vert_positions.data()),
-            s_cast<usize>(vertices.size()),
+            s_cast<usize>(vertex_count),
             sizeof(glm::vec3),
             MAX_VERTICES,
             MAX_TRIANGLES,
@@ -137,6 +137,8 @@ namespace Shaper {
 
         std::vector<BoundingSphere> meshlet_bounds(meshlet_count);
         std::vector<AABB> meshlet_aabbs(meshlet_count);
+        f32vec3 mesh_aabb_max = glm::vec3{std::numeric_limits<f32>::lowest()};
+        f32vec3 mesh_aabb_min = glm::vec3{std::numeric_limits<f32>::max()};
         for (size_t meshlet_i = 0; meshlet_i < meshlet_count; ++meshlet_i) {
             meshopt_Bounds raw_bounds = meshopt_computeMeshletBounds(
                 &meshlet_indirect_vertices[meshlets[meshlet_i].vertex_offset],
@@ -160,9 +162,17 @@ namespace Shaper {
                 max_pos = glm::max(max_pos, pos);
             }
 
-            meshlet_aabbs[meshlet_i].center = std::bit_cast<daxa_f32vec3>( (max_pos + min_pos) * 0.5f );
-            meshlet_aabbs[meshlet_i].extent = std::bit_cast<daxa_f32vec3>( max_pos - min_pos );
+            mesh_aabb_min = glm::min(mesh_aabb_min, min_pos);
+            mesh_aabb_max = glm::max(mesh_aabb_max, max_pos);
+
+            meshlet_aabbs[meshlet_i].center = (max_pos + min_pos) * 0.5f;
+            meshlet_aabbs[meshlet_i].extent =  max_pos - min_pos;
         }
+
+        AABB mesh_aabb = {
+            .center = (mesh_aabb_max + mesh_aabb_min) * 0.5f,
+            .extent =  mesh_aabb_max - mesh_aabb_min,
+        };
 
         const meshopt_Meshlet& last = meshlets[meshlet_count - 1];
         meshlet_indirect_vertices.resize(last.vertex_offset + last.vertex_count);
@@ -175,11 +185,12 @@ namespace Shaper {
             sizeof(AABB) * meshlet_count +
             sizeof(u8) * meshlet_micro_indices.size() +
             sizeof(u32) * meshlet_indirect_vertices.size() +
-            sizeof(daxa_f32vec3) * vertices.size() +
-            sizeof(daxa_f32vec2) * vertices.size() +
-            sizeof(daxa_f32vec3) * vertices.size();
+            sizeof(daxa_f32vec3) * vertex_count +
+            sizeof(daxa_f32vec3) * vertex_count +
+            sizeof(daxa_f32vec2) * vertex_count;
 
         Mesh mesh = {};
+        mesh.aabb = mesh_aabb; 
 
         daxa::DeviceAddress mesh_bda = {};
         daxa::BufferId staging_mesh_buffer = {};
@@ -224,20 +235,20 @@ namespace Shaper {
         accumulated_offset += sizeof(u32) * meshlet_indirect_vertices.size();
         
         mesh.vertex_positions = mesh_bda + accumulated_offset;
-        std::memcpy(staging_ptr + accumulated_offset, vert_positions.data(), vertices.size() * sizeof(daxa_f32vec3));
-        accumulated_offset += sizeof(daxa_f32vec3) * vertices.size();
+        std::memcpy(staging_ptr + accumulated_offset, vert_positions.data(), vertex_count * sizeof(daxa_f32vec3));
+        accumulated_offset += sizeof(daxa_f32vec3) * vertex_count;
         
         mesh.vertex_normals = mesh_bda + accumulated_offset;
-        std::memcpy(staging_ptr + accumulated_offset, vert_normals.data(), vertices.size() * sizeof(daxa_f32vec3));
-        accumulated_offset += sizeof(daxa_f32vec3) * vertices.size();
+        std::memcpy(staging_ptr + accumulated_offset, vert_normals.data(), vertex_count * sizeof(daxa_f32vec3));
+        accumulated_offset += sizeof(daxa_f32vec3) * vertex_count;
 
         mesh.vertex_uvs = mesh_bda + accumulated_offset;
-        std::memcpy(staging_ptr + accumulated_offset, vert_uvs.data(), vertices.size() * sizeof(daxa_f32vec2));
-        accumulated_offset += sizeof(daxa_f32vec2) * vertices.size();
+        std::memcpy(staging_ptr + accumulated_offset, vert_uvs.data(), vertex_count * sizeof(daxa_f32vec2));
+        accumulated_offset += sizeof(daxa_f32vec2) * vertex_count;
         
         mesh.material_index = info.material_manifest_offset + static_cast<u32>(info.asset->meshes[info.gltf_mesh_index].primitives[info.gltf_primitive_index].materialIndex.value());
         mesh.meshlet_count = s_cast<u32>(meshlet_count);
-        mesh.vertex_count = s_cast<u32>(vertices.size());
+        mesh.vertex_count = s_cast<u32>(vertex_count);
 
         {
             std::lock_guard<std::mutex> lock{*mesh_upload_mutex};
@@ -245,7 +256,7 @@ namespace Shaper {
                 .staging_buffer = staging_buffer,
                 .vertex_buffer = vertex_buffer,
                 .index_buffer = index_buffer,
-                .vertex_count = static_cast<u32>(vertices.size()),
+                .vertex_count = static_cast<u32>(vertex_count),
                 .index_count = static_cast<u32>(indices.size()),
                 .staging_mesh_buffer = staging_mesh_buffer,
                 .mesh_buffer = mesh_buffer,

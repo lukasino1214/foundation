@@ -2,7 +2,7 @@
 
 #include <pch.hpp>
 
-namespace Shaper {
+namespace foundation {
     struct GPUMetricPool {
         GPUMetricPool(const daxa::Device& _device);
         ~GPUMetricPool();

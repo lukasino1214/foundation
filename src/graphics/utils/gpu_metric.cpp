@@ -1,6 +1,6 @@
 #include "gpu_metric.hpp"
 
-namespace Shaper {
+namespace foundation {
     GPUMetricPool::GPUMetricPool(const daxa::Device& _device) : device{_device}, timeline_query_pool{device.create_timeline_query_pool(daxa::TimelineQueryPoolInfo {
             .query_count = 2048,
             .name = "gpu metric pool"

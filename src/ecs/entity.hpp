@@ -2,7 +2,7 @@
 
 #include "ecs/scene.hpp"
 
-namespace Shaper {
+namespace foundation {
     struct Entity {
         Entity(flecs::entity _handle, Scene* _scene);
         Entity() = default;

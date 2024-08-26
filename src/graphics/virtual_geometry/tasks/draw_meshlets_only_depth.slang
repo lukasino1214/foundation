@@ -51,7 +51,7 @@ VertexStageOutput vertex_main(u32 vertex_index: SV_VertexID, u32 instance_index 
         const u32 micro_index = get_micro_index(mesh.micro_indices, meshlet.micro_indices_offset + triangle_index * 3 + triangle_corner_index);
         u32 vertex_index = mesh.indirect_vertices[meshlet.indirect_vertex_offset + micro_index];
         vertex_index = min(vertex_index, mesh.vertex_count - 1);
-        
+
         const f32vec4 vertex_position = f32vec4(mesh.vertex_positions[vertex_index], 1);
 
         output.sv_position = mul(deref(push.uses.u_globals).camera_projection_matrix,

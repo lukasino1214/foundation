@@ -24,7 +24,7 @@ struct DebugDrawPush {
 
 struct DebugDrawTask : DebugDraw::Task {
     DebugDraw::Task::AttachmentViews views = {};
-    Shaper::Context* context = {};
+    foundation::Context* context = {};
     DebugDrawPush push = {};
 
     void assign_blob(auto & arr, auto const & span) {
@@ -53,7 +53,7 @@ struct DebugDrawTask : DebugDraw::Task {
                 { .format = daxa::Format::R8G8B8A8_UNORM }
             },
             .raster = {
-                .primitive_topology = daxa::PrimitiveTopology::LINE_STRIP,
+                .primitive_topology = daxa::PrimitiveTopology::LINE_LIST,
                 .primitive_restart_enable = {},
                 .polygon_mode = daxa::PolygonMode::FILL,
                 .face_culling = daxa::FaceCullFlagBits::NONE,

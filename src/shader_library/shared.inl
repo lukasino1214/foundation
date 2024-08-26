@@ -138,8 +138,8 @@ struct BoundingSphere {
 DAXA_DECL_BUFFER_PTR(BoundingSphere)
 
 struct AABB {
-    daxa_f32vec3 center;
-    daxa_f32vec3 extent;
+    f32vec3 center;
+    f32vec3 extent;
 };
 DAXA_DECL_BUFFER_PTR(AABB)
 
@@ -147,6 +147,7 @@ struct Mesh {
     daxa_u32 material_index;
     daxa_u32 meshlet_count;
     daxa_u32 vertex_count;
+    AABB aabb;
     daxa_BufferPtr(Meshlet) meshlets;
     daxa_BufferPtr(BoundingSphere) meshlet_bounds;
     daxa_BufferPtr(AABB) meshlet_aabbs;

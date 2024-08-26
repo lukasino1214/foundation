@@ -3,7 +3,7 @@
 #include <pch.hpp>
 #include <graphics/context.hpp>
 
-namespace Shaper {
+namespace foundation {
     void assign_blob(auto & arr, auto const & span) {
         std::memcpy(arr.value.data(), span.data(), span.size());
     }

@@ -4,7 +4,7 @@
 #include "graphics/context.hpp"
 #include <fastgltf/types.hpp>
 
-namespace Shaper {
+namespace foundation {
     struct LoadMeshInfo {
         std::filesystem::path asset_path = {};
         fastgltf::Asset * asset;

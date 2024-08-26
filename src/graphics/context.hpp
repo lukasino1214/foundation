@@ -4,13 +4,14 @@
 #include <graphics/window.hpp>
 #include <graphics/utils/gpu_metric.hpp>
 
-namespace Shaper {
+namespace foundation {
     struct Context;
     struct DebugDrawContext {
         u32 max_aabb_draws = 128'000;
         u32 aabb_vertices = 24;
         daxa::BufferId buffer = {};
         Context* context = {};
+        std::vector<ShaderDebugAABBDraw> aabbs = {};
 
         DebugDrawContext(Context* _context);
         ~DebugDrawContext();

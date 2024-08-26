@@ -12,7 +12,7 @@
 
 #include <math/decompose.hpp>
 
-namespace Shaper {
+namespace foundation {
     Scene::Scene(const std::string_view& _name, Context* _context, AppWindow* _window) : name{_name}, world{std::make_unique<flecs::world>()}, context{_context}, window{_window} {}
 
     Scene::~Scene() {}
@@ -88,6 +88,14 @@ namespace Shaper {
                     .size = sizeof(TransformInfo),
                 });
             }
+        });
+
+        world->query<AABBComponent>().each([&](AABBComponent& aabb){
+            context->debug_draw_context.aabbs.push_back(ShaderDebugAABBDraw{ 
+                .position = { aabb.position.x, aabb.position.y, aabb.position.z }, 
+                .size = { aabb.extent.x, aabb.extent.y, aabb.extent.z },
+                .color = { aabb.color.x, aabb.color.y, aabb.color.z }
+            });
         });
     }
 }

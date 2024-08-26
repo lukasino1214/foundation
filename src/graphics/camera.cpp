@@ -1,7 +1,7 @@
 #include "camera.hpp"
 #include <glm/gtx/rotate_vector.hpp>
 
-namespace Shaper {
+namespace foundation {
     void Camera3D::resize(i32 size_x, i32 size_y) {
         aspect = static_cast<f32>(size_x) / static_cast<f32>(size_y);
         //proj_mat = glm::perspective(glm::radians(fov), aspect, near_clip, far_clip);

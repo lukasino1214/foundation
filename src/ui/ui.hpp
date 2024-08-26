@@ -8,7 +8,7 @@
 #include <imgui_internal.h>
 
 
-namespace Shaper {
+namespace foundation {
     namespace GUI {
         void generate_ID();
 

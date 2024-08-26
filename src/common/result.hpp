@@ -2,7 +2,7 @@
 
 // #include <pch.hpp>
 
-// namespace Shaper {
+// namespace foundation {
 //     template<typename T>
 //     concept enum_u32 = std::is_enum_v<T> && 
 //                        std::is_same_v<std::underlying_type_t<T>, u32> && 

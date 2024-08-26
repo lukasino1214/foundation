@@ -20,5 +20,5 @@ struct RayTracePush {
 
 #if __cplusplus
 static constexpr inline char const RAY_TRACE_SHADER_PATH[] = "src/graphics/path_tracing/tasks/raytrace.slang";
-using RayTraceTask = Shaper::ComputeDispatchTask<RayTrace::Task, RayTracePush, RAY_TRACE_SHADER_PATH>;
+using RayTraceTask = foundation::ComputeDispatchTask<RayTrace::Task, RayTracePush, RAY_TRACE_SHADER_PATH>;
 #endif

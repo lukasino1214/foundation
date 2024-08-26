@@ -19,7 +19,7 @@ struct DrawMeshletsWriteCommandPush {
 };
 
 #if __cplusplus
-using DrawMeshletsWriteCommandTask = Shaper::WriteIndirectComputeDispatchTask<
+using DrawMeshletsWriteCommandTask = foundation::WriteIndirectComputeDispatchTask<
                                             DrawMeshletsWriteCommand::Task, 
                                             DrawMeshletsWriteCommandPush, 
                                             "src/graphics/virtual_geometry/tasks/draw_meshlets.slang", 
@@ -50,7 +50,7 @@ struct DrawMeshletsPush {
 
 struct DrawMeshletsTask : DrawMeshlets::Task {
     DrawMeshlets::Task::AttachmentViews views = {};
-    Shaper::Context* context = {};
+    foundation::Context* context = {};
     DrawMeshletsPush push = {};
 
     void assign_blob(auto & arr, auto const & span) {

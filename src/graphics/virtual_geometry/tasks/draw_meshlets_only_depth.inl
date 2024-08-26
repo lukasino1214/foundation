@@ -19,7 +19,7 @@ struct DrawMeshletsOnlyDepthWriteCommandPush {
 };
 
 #if __cplusplus
-using DrawMeshletsOnlyDepthWriteCommandTask = Shaper::WriteIndirectComputeDispatchTask<
+using DrawMeshletsOnlyDepthWriteCommandTask = foundation::WriteIndirectComputeDispatchTask<
                                             DrawMeshletsOnlyDepthWriteCommand::Task, 
                                             DrawMeshletsOnlyDepthWriteCommandPush, 
                                             "src/graphics/virtual_geometry/tasks/draw_meshlets_only_depth.slang", 
@@ -46,7 +46,7 @@ struct DrawMeshletsOnlyDepthPush {
 
 struct DrawMeshletsOnlyDepthTask : DrawMeshletsOnlyDepth::Task {
     DrawMeshletsOnlyDepth::Task::AttachmentViews views = {};
-    Shaper::Context* context = {};
+    foundation::Context* context = {};
     DrawMeshletsOnlyDepthPush push = {};
 
     void assign_blob(auto & arr, auto const & span) {

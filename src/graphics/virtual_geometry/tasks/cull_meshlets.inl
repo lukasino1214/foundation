@@ -19,7 +19,7 @@ struct CullMeshletsWriteCommandPush {
 };
 
 #if __cplusplus
-using CullMeshletsWriteCommandTask = Shaper::WriteIndirectComputeDispatchTask<
+using CullMeshletsWriteCommandTask = foundation::WriteIndirectComputeDispatchTask<
                                             CullMeshletsWriteCommand::Task, 
                                             CullMeshletsWriteCommandPush, 
                                             "src/graphics/virtual_geometry/tasks/cull_meshlets.slang", 
@@ -42,7 +42,7 @@ struct CullMeshletsPush {
 };
 
 #if __cplusplus
-using CullMeshletsTask = Shaper::IndirectComputeDispatchTask<
+using CullMeshletsTask = foundation::IndirectComputeDispatchTask<
                                             CullMeshlets::Task, 
                                             CullMeshletsPush, 
                                             "src/graphics/virtual_geometry/tasks/cull_meshlets.slang", 

@@ -8,7 +8,7 @@
 #include <daxa/utils/imgui.hpp>
 #include <ui/scene_hierarchy_panel.hpp>
 
-namespace Shaper {
+namespace foundation {
     struct Renderer {
         enum struct Mode : u32 {
             Traditional,
@@ -44,7 +44,6 @@ namespace Shaper {
         daxa::TaskImage swapchain_image = {};
         daxa::TaskImage render_image = {};
         daxa::TaskImage depth_image = {};
-        daxa::TaskImage depth_image_2 = {};
 
         std::vector<daxa::TaskImage> images = {};
         std::vector<std::pair<daxa::ImageInfo, daxa::TaskImage>> frame_buffer_images = {};

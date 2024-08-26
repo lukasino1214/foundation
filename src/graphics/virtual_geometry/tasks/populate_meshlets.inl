@@ -33,13 +33,13 @@ struct PopulateMeshletsPush {
 };
 
 #if __cplusplus
-using PopulateMeshletsWriteCommandTask = Shaper::WriteIndirectComputeDispatchTask<
+using PopulateMeshletsWriteCommandTask = foundation::WriteIndirectComputeDispatchTask<
                                             PopulateMeshletsWriteCommand::Task, 
                                             PopulateMeshletsWriteCommandPush, 
                                             "src/graphics/virtual_geometry/tasks/populate_meshlets.slang", 
                                             "populate_meshlets_write_command">;
 
-using PopulateMeshletsTask = Shaper::IndirectComputeDispatchTask<
+using PopulateMeshletsTask = foundation::IndirectComputeDispatchTask<
                                             PopulateMeshlets::Task, 
                                             PopulateMeshletsPush, 
                                             "src/graphics/virtual_geometry/tasks/populate_meshlets.slang", 

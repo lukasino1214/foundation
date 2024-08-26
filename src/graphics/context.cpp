@@ -1,7 +1,7 @@
 #include "context.hpp"
 #include <graphics/helper.hpp>
 
-namespace Shaper {
+namespace foundation {
     DebugDrawContext::DebugDrawContext(Context* _context) : context{_context} {
         usize size = sizeof(ShaderDebugBufferHead);
         size += sizeof(ShaderDebugAABBDraw) * max_aabb_draws;
@@ -22,7 +22,7 @@ namespace Shaper {
         auto head = ShaderDebugBufferHead {
             .aabb_draw_indirect_info = {
                 .vertex_count = aabb_vertices,
-                .instance_count = 0,
+                .instance_count = s_cast<u32>(aabbs.size()),
                 .first_vertex = 0,
                 .first_instance = 0,
             },
@@ -37,6 +37,21 @@ namespace Shaper {
             .dst_offset = 0,
             .size = sizeof(ShaderDebugBufferHead),
         });
+
+        if (!aabbs.empty())
+        {
+            u32 size = s_cast<u32>(aabbs.size() * sizeof(ShaderDebugAABBDraw));
+            auto aabb_draws = allocator.allocate(size, 4).value();
+            std::memcpy(aabb_draws.host_address, aabbs.data(), size);
+            recorder.copy_buffer_to_buffer({
+                .src_buffer = allocator.buffer(),
+                .dst_buffer = buffer,
+                .src_offset = aabb_draws.buffer_offset,
+                .dst_offset = sizeof(ShaderDebugBufferHead),
+                .size = size,
+            });
+            aabbs.clear();
+        }
     }
 
     Context::Context(const AppWindow &window)

@@ -3,7 +3,7 @@
 #include <pch.hpp>
 #include "ecs/entity.hpp"
 
-namespace Shaper {
+namespace foundation {
     struct SceneHierarchyPanel {
         explicit SceneHierarchyPanel(Scene* _scene);
         ~SceneHierarchyPanel() = default;

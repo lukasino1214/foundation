@@ -6,7 +6,7 @@ struct Entity;
 struct AppWindow;
 struct Physics;
 
-namespace Shaper {
+namespace foundation {
     struct EntityTag {};
 
     struct LocalTransformComponent {
@@ -51,6 +51,14 @@ namespace Shaper {
 
     struct MeshComponent {
         std::optional<u32> mesh_group_index;
+
+        void draw();
+    };
+
+    struct AABBComponent {
+        glm::vec3 position = { 0.0f, 0.0f, 0.0f };
+        glm::vec3 extent = { 1.0f, 1.0f, 1.0f };
+        glm::vec3 color = { 1.0f, 1.0f, 1.0f };
 
         void draw();
     };

@@ -29,9 +29,9 @@ struct RenderMeshesPush {
 
 struct RenderMeshesTask : RenderMeshes::Task {
     RenderMeshes::Task::AttachmentViews views = {};
-    Shaper::Context* context = {};
-    Shaper::Scene* scene = {};
-    Shaper::AssetManager* asset_manager = {};
+    foundation::Context* context = {};
+    foundation::Scene* scene = {};
+    foundation::AssetManager* asset_manager = {};
     RenderMeshesPush push = {};
 
     void assign_blob(auto & arr, auto const & span) {
@@ -97,7 +97,7 @@ struct RenderMeshesTask : RenderMeshes::Task {
 
         render_cmd.set_pipeline(*context->raster_pipelines.at(RenderMeshes::Task::name()));
 
-        scene->world->query<Shaper::GlobalTransformComponent, Shaper::MeshComponent>().each([&](Shaper::GlobalTransformComponent& tc, Shaper::MeshComponent& mc) {
+        scene->world->query<foundation::GlobalTransformComponent, foundation::MeshComponent>().each([&](foundation::GlobalTransformComponent& tc, foundation::MeshComponent& mc) {
             if(mc.mesh_group_index.has_value()) {
                 const auto& mesh_group_manifest = asset_manager->mesh_group_manifest_entries[mc.mesh_group_index.value()];
                 for(u32 i = 0; i < mesh_group_manifest.mesh_count; i++) {

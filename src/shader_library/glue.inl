@@ -7,6 +7,7 @@ typedef glm::vec3 f32vec3;
 typedef glm::vec4 f32vec4;
 typedef glm::u32vec3 u32vec3;
 typedef daxa_u32 u32;
+typedef daxa_f32 f32;
 
 #define fn auto
 
@@ -25,5 +26,11 @@ daxa_f32vec4 operator* (daxa_f32mat4x4 a, daxa_f32vec4 b) {
 }
 
 #define fn func
+
+#else
+#define u32 daxa_u32
+#define f32 daxa_f32
+#define f32vec2 daxa_f32vec2
+#define f32vec3 daxa_f32vec3
 
 #endif

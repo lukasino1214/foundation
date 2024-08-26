@@ -30,7 +30,7 @@ struct GenerateHizPush {
 #if __cplusplus
 struct GenerateHizTask : GenerateHiz::Task {
     AttachmentViews views = {};
-    Shaper::Context* context = {};
+    foundation::Context* context = {};
 
     static auto pipeline_config_info() -> daxa::ComputePipelineCompileInfo {
         return {

@@ -10,7 +10,7 @@
 #include <graphics/renderer.hpp>
 #include <graphics/context.hpp>
 
-namespace Shaper {
+namespace foundation {
     struct Application {
         Application();
         ~Application();

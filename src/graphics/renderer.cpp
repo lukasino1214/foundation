@@ -18,7 +18,7 @@
 #include <glm/gtx/string_cast.hpp>
 #include <math/decompose.hpp>
 
-namespace Shaper {
+namespace foundation {
     Renderer::Renderer(AppWindow* _window, Context* _context, Scene* _scene, AssetManager* _asset_manager) 
         : window{_window}, context{_context}, scene{_scene}, asset_manager{_asset_manager} {
         ImGui::CreateContext();
@@ -35,12 +35,10 @@ namespace Shaper {
         swapchain_image = daxa::TaskImage{{.swapchain_image = true, .name = "swapchain image"}};
         render_image = daxa::TaskImage{{ .name = "render image" }};
         depth_image = daxa::TaskImage{{ .name = "depth image" }};
-        depth_image_2 = daxa::TaskImage{{ .name = "depth image 2" }};
 
         images = {
             render_image,
             depth_image,
-            depth_image_2
         };
         frame_buffer_images = {
             {
@@ -58,14 +56,6 @@ namespace Shaper {
                     .name = depth_image.info().name,
                 },
                 depth_image,
-            },
-            {
-                {
-                    .format = daxa::Format::D32_SFLOAT,
-                    .usage = daxa::ImageUsageFlagBits::DEPTH_STENCIL_ATTACHMENT | daxa::ImageUsageFlagBits::SHADER_SAMPLED | daxa::ImageUsageFlagBits::TRANSFER_SRC,
-                    .name = depth_image_2.info().name,
-                },
-                depth_image_2,
             },
         };
 
@@ -243,7 +233,6 @@ namespace Shaper {
         render_task_graph.use_persistent_image(swapchain_image);
         render_task_graph.use_persistent_image(render_image);
         render_task_graph.use_persistent_image(depth_image);
-        render_task_graph.use_persistent_image(depth_image_2);
         render_task_graph.use_persistent_buffer(shader_globals_buffer);
         render_task_graph.use_persistent_buffer(asset_manager->gpu_transforms);
         render_task_graph.use_persistent_buffer(asset_manager->gpu_materials);
@@ -284,34 +273,14 @@ namespace Shaper {
         build_virtual_geometry_task_graph();
         build_path_tracing_task_graph();
 
-        // render_task_graph.add_task({
-        //     .attachments = {
-        //         daxa::inl_attachment(daxa::TaskImageAccess::TRANSFER_WRITE, swapchain_image),
-        //         daxa::inl_attachment(daxa::TaskImageAccess::TRANSFER_READ, render_image)
-        //     },
-        //     .task = [&](daxa::TaskInterface ti) {
-        //         auto& info = context->device.info_image(ti.get(daxa::TaskImageAttachmentIndex(0)).ids[0]).value();
-
-        //         ti.recorder.blit_image_to_image(daxa::ImageBlitInfo {
-        //         .src_image = ti.get(daxa::TaskImageAttachmentIndex(1)).ids[0],
-        //         .dst_image = ti.get(daxa::TaskImageAttachmentIndex(0)).ids[0],
-        //         .src_slice = {
-        //             .mip_level = 0,
-        //             .base_array_layer = 0,
-        //             .layer_count = 1,
-        //         },
-        //         .src_offsets = {{{0, 0, 0}, {s_cast<i32>(info.size.x), s_cast<i32>(info.size.y), 1}}},
-        //         .dst_slice = {
-        //             .mip_level = 0,
-        //             .base_array_layer = 0,
-        //             .layer_count = 1,
-        //         },
-        //         .dst_offsets = {{{0, 0, 0}, {s_cast<i32>(info.size.x), s_cast<i32>(info.size.y), 1}}},
-        //         .filter = daxa::Filter::LINEAR,
-        //     });
-        //     },
-        //     .name = "blit",
-        // });
+        render_task_graph.add_task(DebugDrawTask {
+            .views = std::array{
+                DebugDrawTask::AT.u_globals | context->shader_globals_buffer,
+                DebugDrawTask::AT.u_image | render_image,
+                DebugDrawTask::AT.u_depth_image | depth_image,
+            },
+            .context = context,
+        });
 
         render_task_graph.add_task({
             .attachments = {daxa::inl_attachment(daxa::TaskImageAccess::COLOR_ATTACHMENT, swapchain_image)},
@@ -390,53 +359,6 @@ namespace Shaper {
             draw_list->AddLine(*r_cast<ImVec2*>(&origin), end_z, color_z, 2.0f);
             draw_list->AddText(end_z, color_z, "Z");
 
-            // if(!ImGuizmo::IsUsing()) {
-            //     if(window->key_just_pressed(Key::U)) {
-            //         gizmo_type = -1;
-            //     }
-
-            //     if(window->key_just_pressed(Key::I)) {
-            //         gizmo_type = ImGuizmo::OPERATION::TRANSLATE;
-            //     }
-
-            //     if(window->key_just_pressed(Key::O)) {
-            //         gizmo_type = ImGuizmo::OPERATION::ROTATE;
-            //     }
-
-            //     if(window->key_just_pressed(Key::P)) {
-            //         gizmo_type = ImGuizmo::OPERATION::SCALE;
-            //     }
-            // }
-
-            // if(panel.selected_entity && gizmo_type != -1) {
-            //     ImGuizmo::SetOrthographic(false);
-            //     ImGuizmo::SetDrawlist();
-            //     ImGuizmo::SetRect(ImGui::GetWindowPos().x, ImGui::GetWindowPos().y, ImGui::GetWindowWidth(), ImGui::GetWindowHeight());
-
-            //     glm::mat4 mod_mat = panel.selected_entity.get_component<GlobalTransformComponent>()->model_matrix;
-            //     glm::mat4 delta = glm::mat4{1.0};
-            //     glm::mat4 proj = camera.camera.proj_mat;
-            //     proj[1][1] *= -1.0f;
-            //     bool use = ImGuizmo::Manipulate(glm::value_ptr(camera.camera.get_view()), glm::value_ptr(proj), s_cast<ImGuizmo::OPERATION>(gizmo_type), ImGuizmo::WORLD, glm::value_ptr(mod_mat), glm::value_ptr(delta), nullptr, nullptr, nullptr);
-            
-            //     if(ImGuizmo::IsUsing() && use) {
-            //         glm::vec3 translation, rotation, scale;
-
-            //         ImGuizmo::DecomposeMatrixToComponents(glm::value_ptr(delta), &translation[0], &rotation[0], &scale[0]);
-            //         // math::decompose_transform(delta, translation, rotation, scale);
-
-            //         std::cout << glm::to_string(scale) << std::endl;
-
-            //         auto* gtc = panel.selected_entity.get_component<GlobalTransformComponent>();
-            //         auto* ltc = panel.selected_entity.get_component<LocalTransformComponent>();
-            //         ltc->position += translation - ltc->position;
-            //         ltc->rotation += rotation - ltc->rotation;
-            //         ltc->scale += scale - ltc->scale;
-            //         ltc->is_dirty = true;
-            //     }
-            // }
-
-
             ImGui::End();
         };
 
@@ -449,14 +371,6 @@ namespace Shaper {
         ImGui::Begin("Memory Usage");
         ImGui::Text("%s", std::format("Total memory usage for images: {} MBs", std::to_string(s_cast<f64>(context->images.total_size) / 1024.0 / 1024.0)).c_str());
         ImGui::Text("%s", std::format("Total memory usage for buffers: {} MBs", std::to_string(s_cast<f64>(context->buffers.total_size) / 1024.0 / 1024.0)).c_str());
-        
-        // for(auto& resource : context->buffers.resources) {
-        //     ImGui::Text("%s", std::format("{} : size in {} bytes", resource.first, std::to_string(resource.second.size)).c_str());
-        // }
-
-        // for(auto& resource : context->images.resources) {
-        //     ImGui::Text("%s", std::format("{} : size in {} bytes", resource.first, std::to_string(resource.second.size)).c_str());
-        // }
         
         ImGui::End();
     }
@@ -615,16 +529,7 @@ namespace Shaper {
                 DrawMeshletsTask::AT.u_globals | context->shader_globals_buffer,
                 DrawMeshletsTask::AT.u_command | u_command,
                 DrawMeshletsTask::AT.u_image | render_image,
-                DrawMeshletsTask::AT.u_depth_image | depth_image_2
-            },
-            .context = context,
-        });
-
-        render_task_graph.add_task(DebugDrawTask {
-            .views = std::array{
-                DebugDrawTask::AT.u_globals | context->shader_globals_buffer,
-                DebugDrawTask::AT.u_image | render_image,
-                DebugDrawTask::AT.u_depth_image | depth_image_2,
+                DrawMeshletsTask::AT.u_depth_image | depth_image
             },
             .context = context,
         });

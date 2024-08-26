@@ -9,7 +9,7 @@
 
 #include <pch.hpp>
 
-namespace Shaper {
+namespace foundation {
     static constexpr u32 EXIT_CHUNK_CODE = std::numeric_limits<u32>::max();
     static constexpr u32 NO_MORE_CHUNKS_CODE = std::numeric_limits<u32>::max();
     static constexpr u32 EXTERNAL_THREAD_INDEX = std::numeric_limits<u32>::max();

@@ -37,7 +37,7 @@
 
 #include <tracy/Tracy.hpp>
 
-namespace Shaper {
+namespace foundation {
     inline namespace types {
         using u8 = std::uint8_t;
         using u16 = std::uint16_t;
@@ -55,7 +55,7 @@ namespace Shaper {
         using f32 = float;
         using f64 = double;
     }
-} // namespace Shaper::types
+}
 
 #include <shader_library/shared.inl>
 #include <common/result.hpp>

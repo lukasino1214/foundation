@@ -5,7 +5,7 @@
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
 
-namespace Shaper {
+namespace foundation {
     enum struct Key : u32 {
         Space = GLFW_KEY_SPACE,
         Apostrophe = GLFW_KEY_APOSTROPHE,

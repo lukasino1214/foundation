@@ -3,7 +3,7 @@
 #include "graphics/context.hpp"
 #include <flecs.h>
 
-namespace Shaper {
+namespace foundation {
     struct Entity;
 
     struct Scene {

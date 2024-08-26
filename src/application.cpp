@@ -3,9 +3,9 @@
 #include <glm/gtx/string_cast.hpp>
 #include "ecs/components.hpp"
 
-namespace Shaper {
+namespace foundation {
     Application::Application() : 
-        window{1280, 720, "shaper"},
+        window{1280, 720, "foundation"},
         context{this->window},
         scene{std::make_shared<Scene>("scene", &context, &window)},
         asset_processor{std::make_unique<AssetProcessor>(&context)},
@@ -24,7 +24,7 @@ namespace Shaper {
         };
 
         {
-            auto entity = scene->create_entity("sponza");
+            auto entity = scene->create_entity("bistro");
             auto* tc = add_transform(entity);
 
             LoadManifestInfo manifesto {
@@ -37,21 +37,35 @@ namespace Shaper {
             asset_manager->load_model(manifesto);
         }
 
-        for(u32 x = 0; x < 1; x++) {
-            for(u32 y = 0; y < 1; y++) {
-                auto entity = scene->create_entity(std::format("test {} {}", std::to_string(x), std::to_string(y)));
-                auto* tc = add_transform(entity);
-                tc->set_position({30.0 * x, 0.0, 20.0 * y});
+        {
+            auto entity = scene->create_entity("sponza");
+            auto* tc = add_transform(entity);
 
-                LoadManifestInfo manifesto {
-                    .parent = entity,
-                    .path = "assets/models/Sponza/glTF/Sponza.gltf",
-                    .thread_pool = thread_pool,
-                    .asset_processor = asset_processor,
-                };
+            LoadManifestInfo manifesto {
+                .parent = entity,
+                .path = "assets/models/Sponza/glTF/Sponza.gltf",
+                .thread_pool = thread_pool,
+                .asset_processor = asset_processor,
+            };
 
-                asset_manager->load_model(manifesto);
-            }
+            asset_manager->load_model(manifesto);
+        }
+
+        {
+            Entity entity = scene->create_entity("aabb 1");
+            auto* aabb = entity.add_component<AABBComponent>();
+        }
+
+        {
+            Entity entity = scene->create_entity("aabb 2");
+            auto* aabb = entity.add_component<AABBComponent>();
+            aabb->position = { 0.0f, 2.0f, 0.0f };
+        }
+
+        {
+            Entity entity = scene->create_entity("aabb 3");
+            auto* aabb = entity.add_component<AABBComponent>();
+            aabb->position = { 0.0f, 4.0f, 0.0f };
         }
 
         scene->update(delta_time);
