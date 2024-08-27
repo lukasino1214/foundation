@@ -6,12 +6,8 @@
 #include "traditional/tasks/triangle.inl"
 #include "traditional/tasks/render_meshes.inl"
 #include "path_tracing/tasks/raytrace.inl"
-#include "virtual_geometry/tasks/populate_meshlets.inl"
-#include "virtual_geometry/tasks/draw_meshlets.inl"
-#include "virtual_geometry/tasks/cull_meshlets.inl"
-#include "virtual_geometry/tasks/generate_hiz.inl"
-#include "virtual_geometry/tasks/draw_meshlets_only_depth.inl"
 #include "virtual_geometry/tasks/debug.inl"
+#include <graphics/virtual_geometry/virtual_geometry.hpp>
 
 #include <ImGuizmo.h>
 #include <glm/gtc/type_ptr.hpp>
@@ -112,16 +108,8 @@ namespace foundation {
         context->gpu_metrics[RayTraceTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
         context->gpu_metrics[TriangleTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
         context->gpu_metrics[RenderMeshesTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
-        context->gpu_metrics[PopulateMeshletsWriteCommandTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
-        context->gpu_metrics[PopulateMeshletsTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
-        context->gpu_metrics[DrawMeshletsWriteCommandTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
-        context->gpu_metrics[DrawMeshletsTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
-        context->gpu_metrics[CullMeshletsWriteCommandTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
-        context->gpu_metrics[CullMeshletsTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
-        context->gpu_metrics[GenerateHizTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
-        context->gpu_metrics[DrawMeshletsOnlyDepthWriteCommandTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
-        context->gpu_metrics[DrawMeshletsOnlyDepthTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
         context->gpu_metrics[DebugDrawTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
+        register_virtual_geometry_gpu_metrics(context);
     }
 
     Renderer::~Renderer() {
@@ -191,10 +179,10 @@ namespace foundation {
         std::vector<std::tuple<std::string_view, daxa::RasterPipelineCompileInfo>> rasters = {
             {TriangleTask::name(), TriangleTask::pipeline_config_info()},
             {RenderMeshesTask::name(), RenderMeshesTask::pipeline_config_info()},
-            {DrawMeshletsTask::name(), DrawMeshletsTask::pipeline_config_info()},
-            {DrawMeshletsOnlyDepthTask::name(), DrawMeshletsOnlyDepthTask::pipeline_config_info()},
             {DebugDrawTask::name(), DebugDrawTask::pipeline_config_info()}
         };
+        auto virtual_geometry_rasters = get_virtual_geometry_raster_pipelines();
+        rasters.insert(rasters.end(), virtual_geometry_rasters.begin(), virtual_geometry_rasters.end());
 
         for (auto [name, info] : rasters) {
             auto compilation_result = this->context->pipeline_manager.add_raster_pipeline(info);
@@ -205,14 +193,9 @@ namespace foundation {
         std::vector<std::tuple<std::string_view, daxa::ComputePipelineCompileInfo>> computes = {
             {ClearImageTask::name(), ClearImageTask::pipeline_config_info()},
             {RayTraceTask::name(), RayTraceTask::pipeline_config_info()},
-            {PopulateMeshletsWriteCommandTask::name(), PopulateMeshletsWriteCommandTask::pipeline_config_info()},
-            {PopulateMeshletsTask::name(), PopulateMeshletsTask::pipeline_config_info()},
-            {DrawMeshletsWriteCommandTask::name(), DrawMeshletsWriteCommandTask::pipeline_config_info()},
-            {CullMeshletsWriteCommandTask::name(), CullMeshletsWriteCommandTask::pipeline_config_info()},
-            {CullMeshletsTask::name(), CullMeshletsTask::pipeline_config_info()},
-            {GenerateHizTask::name(), GenerateHizTask::pipeline_config_info()},
-            {DrawMeshletsOnlyDepthWriteCommandTask::name(), DrawMeshletsOnlyDepthWriteCommandTask::pipeline_config_info()}
         };
+        auto virtual_geometry_computes = get_virtual_geometry_compute_pipelines();
+        computes.insert(computes.end(), virtual_geometry_computes.begin(), virtual_geometry_computes.end());
 
         for (auto [name, info] : computes) {
             auto compilation_result = this->context->pipeline_manager.add_compute_pipeline(info);
@@ -269,9 +252,18 @@ namespace foundation {
             .name = "SceneUpdateGPU",
         });
 
-        build_tradional_task_graph();
-        build_virtual_geometry_task_graph();
-        build_path_tracing_task_graph();
+        build_virtual_geometry_task_graph(VirtualGeometryTaskInfo {
+            .context = context,
+            .task_graph = render_task_graph,
+            .gpu_scene_data = asset_manager->gpu_scene_data,
+            .gpu_meshes = asset_manager->gpu_meshes,
+            .gpu_materials = asset_manager->gpu_materials,
+            .gpu_transforms = asset_manager->gpu_transforms,
+            .gpu_mesh_groups = asset_manager->gpu_mesh_groups,
+            .gpu_mesh_indices = asset_manager->gpu_mesh_indices,
+            .color_image = render_image,
+            .depth_image = depth_image
+        });
 
         render_task_graph.add_task(DebugDrawTask {
             .views = std::array{
@@ -301,256 +293,15 @@ namespace foundation {
         ImGui::NewFrame();
     }
 
-    void Renderer::ui_update(ControlledCamera3D& camera, f32 delta_time, SceneHierarchyPanel& panel) {
-        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
-
-        auto viewport_window = [&](const std::string_view& name, Mode mode) {
-            ImGui::Begin(name.data());
-            ImVec2 size = ImGui::GetContentRegionAvail();
-            if(viewport_size != *r_cast<glm::vec2*>(&size)) {
-                viewport_size = *r_cast<glm::vec2*>(&size);
-                camera.camera.resize(static_cast<i32>(size.x), static_cast<i32>(size.y));
-                recreate_framebuffer({ size.x, size.y });
-            }
-            if(ImGui::IsWindowFocused()) { switch_mode(mode); }
-            if(ImGui::IsWindowHovered()) { if(window->button_just_pressed(GLFW_MOUSE_BUTTON_1)) { window->capture_cursor(); } }
-            if(window->button_just_released(GLFW_MOUSE_BUTTON_1)) { window->release_cursor(); }
-            if(rendering_mode == mode) { camera.update(*window, delta_time); }
-
-            ImTextureID image = imgui_renderer.create_texture_id(daxa::ImGuiImageContext {
-                .image_view_id = render_image.get_state().images[0].default_view(),
-                .sampler_id = std::bit_cast<daxa::SamplerId>(context->shader_globals.samplers.nearest_clamp)
-            });
-
-            ImGui::Image(image, size);
-
-            f32 length = 24.0f;
-
-            ImVec2 pos = ImGui::GetWindowContentRegionMin();
-
-			pos.x += ImGui::GetWindowPos().x;
-			pos.y += ImGui::GetWindowPos().y;
-
-            glm::vec2 origin = *r_cast<glm::vec2*>(&pos) + glm::vec2{size.x - length - 8.0f,  length + 8.0f};
-
-            auto project_axis = [&](const glm::vec3& axis) -> ImVec2 {
-                return ImVec2(
-                    origin.x + axis.x * length,
-                    origin.y + axis.y * length
-                );
-            };
-
-            auto view_rotation = glm::mat3(camera.camera.view_mat);
-            ImVec2 end_x = project_axis(view_rotation * glm::vec3{1.0f, 0.0f, 0.0f});
-            ImVec2 end_y = project_axis(view_rotation * glm::vec3{0.0f, -1.0f, 0.0f});
-            ImVec2 end_z = project_axis(view_rotation * glm::vec3{0.0f, 0.0f, 1.0f});
-
-            ImDrawList* draw_list = ImGui::GetWindowDrawList();
-            
-            ImU32 color_x = IM_COL32(255, 0, 0, 255);
-            draw_list->AddLine(*r_cast<ImVec2*>(&origin), end_x, color_x, 2.0f);
-            draw_list->AddText(end_x, color_x, "X");
-
-            ImU32 color_y = IM_COL32(0, 255, 0, 255);
-            draw_list->AddLine(*r_cast<ImVec2*>(&origin), end_y, color_y, 2.0f);
-            draw_list->AddText(end_y, color_y, "Y");
-
-            ImU32 color_z = IM_COL32(0, 0, 255, 255);
-            draw_list->AddLine(*r_cast<ImVec2*>(&origin), end_z, color_z, 2.0f);
-            draw_list->AddText(end_z, color_z, "Z");
-
-            ImGui::End();
-        };
-
-        viewport_window("Path Tracing", Mode::PathTracing);
-        viewport_window("Virtual Geometry", Mode::VirtualGeomtery);
-        viewport_window("Traditional", Mode::Traditional);
-
-        ImGui::PopStyleVar();
-
+    void Renderer::ui_update(ControlledCamera3D& camera, f32 delta_time) {
         ImGui::Begin("Memory Usage");
         ImGui::Text("%s", std::format("Total memory usage for images: {} MBs", std::to_string(s_cast<f64>(context->images.total_size) / 1024.0 / 1024.0)).c_str());
         ImGui::Text("%s", std::format("Total memory usage for buffers: {} MBs", std::to_string(s_cast<f64>(context->buffers.total_size) / 1024.0 / 1024.0)).c_str());
-        
         ImGui::End();
     }
 
     void Renderer::ui_render_end() {
         ImGui::Render();
         startup = false;
-    }
-
-    void Renderer::switch_mode(Mode mode) {
-        if(startup || rendering_mode == mode) { return; }
-        rendering_mode = mode;
-        switch(mode) {
-            case Mode::Traditional: { std::println("Traditional"); break; }
-            case Mode::VirtualGeomtery: { std::println("Virtual Geometry"); break; }
-            case Mode::PathTracing: { std::println("Path Tracing"); break; }
-        }
-
-        rebuild_task_graph();
-    }
-
-    void Renderer::build_tradional_task_graph() {
-        if(rendering_mode != Mode::Traditional) { return; }
-
-        render_task_graph.add_task(RenderMeshesTask {
-            .views = std::array{
-                RenderMeshesTask::AT.u_globals | context->shader_globals_buffer,
-                RenderMeshesTask::AT.u_image | render_image,
-                RenderMeshesTask::AT.u_depth_image | depth_image
-            },
-            .context = context,
-            .scene = scene,
-            .asset_manager = asset_manager
-        });
-    }
-
-    void Renderer::build_virtual_geometry_task_graph() {
-        if(rendering_mode != Mode::VirtualGeomtery) { return; }
-
-        auto u_command = render_task_graph.create_transient_buffer(daxa::TaskTransientBufferInfo {
-            .size = glm::max(sizeof(DispatchIndirectStruct), sizeof(DrawIndirectStruct)),
-            .name = "command",
-        });
-
-        auto u_meshlet_data = render_task_graph.create_transient_buffer(daxa::TaskTransientBufferInfo {
-            .size = sizeof(MeshletsData),
-            .name = "meshlets data",
-        });
-
-        auto u_culled_meshlet_data = render_task_graph.create_transient_buffer(daxa::TaskTransientBufferInfo {
-            .size = sizeof(MeshletsData),
-            .name = "cull meshlets data",
-        });
-
-        render_task_graph.add_task(PopulateMeshletsWriteCommandTask {
-            .views = std::array{
-                PopulateMeshletsWriteCommandTask::AT.u_scene_data | asset_manager->gpu_scene_data,
-                PopulateMeshletsWriteCommandTask::AT.u_command | u_command,
-
-            },
-            .context = context,
-        });
-
-        render_task_graph.add_task(PopulateMeshletsTask {
-            .views = std::array{
-                PopulateMeshletsTask::AT.u_scene_data | asset_manager->gpu_scene_data,
-                PopulateMeshletsTask::AT.u_mesh_groups | asset_manager->gpu_mesh_groups,
-                PopulateMeshletsTask::AT.u_mesh_indices | asset_manager->gpu_mesh_indices,
-                PopulateMeshletsTask::AT.u_meshes | asset_manager->gpu_meshes,
-                PopulateMeshletsTask::AT.u_command | u_command,
-                PopulateMeshletsTask::AT.u_meshlets_data | u_meshlet_data,
-
-            },
-            .context = context,
-        });
-
-        render_task_graph.add_task(DrawMeshletsOnlyDepthWriteCommandTask {
-            .views = std::array{
-                DrawMeshletsOnlyDepthWriteCommandTask::AT.u_meshlets_data | u_culled_meshlet_data,
-                DrawMeshletsOnlyDepthWriteCommandTask::AT.u_command | u_command,
-
-            },
-            .context = context,
-        });
-
-        render_task_graph.add_task(DrawMeshletsOnlyDepthTask {
-            .views = std::array{
-                DrawMeshletsOnlyDepthTask::AT.u_meshlets_data | u_culled_meshlet_data,
-                DrawMeshletsOnlyDepthTask::AT.u_meshes | asset_manager->gpu_meshes,
-                DrawMeshletsOnlyDepthTask::AT.u_transforms | asset_manager->gpu_transforms,
-                DrawMeshletsOnlyDepthTask::AT.u_materials | asset_manager->gpu_materials,
-                DrawMeshletsOnlyDepthTask::AT.u_globals | context->shader_globals_buffer,
-                DrawMeshletsOnlyDepthTask::AT.u_command | u_command,
-                DrawMeshletsOnlyDepthTask::AT.u_depth_image | depth_image
-            },
-            .context = context,
-        });
-
-        daxa_u32vec2 const hiz_size = context->shader_globals.next_lower_po2_render_target_size;
-        u32 mip_count = static_cast<daxa_u32>(std::ceil(std::log2(std::max(hiz_size.x, hiz_size.y))));
-        mip_count = std::min(mip_count, u32(GEN_HIZ_LEVELS_PER_DISPATCH));
-        auto hiz = render_task_graph.create_transient_image({
-            .format = daxa::Format::R32_SFLOAT,
-            .size = {hiz_size.x, hiz_size.y, 1},
-            .mip_level_count = mip_count,
-            .array_layer_count = 1,
-            .sample_count = 1,
-            .name = "hiz",
-        });
-        render_task_graph.add_task(GenerateHizTask{
-            .views = std::array{
-                daxa::attachment_view(GenerateHizTask::AT.u_globals, context->shader_globals_buffer),
-                daxa::attachment_view(GenerateHizTask::AT.u_src, depth_image),
-                daxa::attachment_view(GenerateHizTask::AT.u_mips, hiz),
-            },
-            .context = context
-        });
-
-        render_task_graph.add_task(CullMeshletsWriteCommandTask {
-            .views = std::array{
-                CullMeshletsWriteCommandTask::AT.u_meshlets_data | u_meshlet_data,
-                CullMeshletsWriteCommandTask::AT.u_command | u_command,
-
-            },
-            .context = context,
-        });
-
-        render_task_graph.add_task(CullMeshletsTask {
-            .views = std::array{
-                CullMeshletsTask::AT.u_command | u_command,
-                CullMeshletsTask::AT.u_globals | context->shader_globals_buffer,
-                CullMeshletsTask::AT.u_meshes | asset_manager->gpu_meshes,
-                CullMeshletsTask::AT.u_transforms | asset_manager->gpu_transforms,
-                CullMeshletsTask::AT.u_meshlets_data | u_meshlet_data,
-                CullMeshletsTask::AT.u_culled_meshlets_data | u_culled_meshlet_data,
-                CullMeshletsTask::AT.u_hiz | hiz,
-            },
-            .context = context,
-        });
-
-        render_task_graph.add_task(DrawMeshletsWriteCommandTask {
-            .views = std::array{
-                DrawMeshletsWriteCommandTask::AT.u_meshlets_data | u_culled_meshlet_data,
-                DrawMeshletsWriteCommandTask::AT.u_command | u_command,
-
-            },
-            .context = context,
-        });
-
-        render_task_graph.add_task(DrawMeshletsTask {
-            .views = std::array{
-                DrawMeshletsTask::AT.u_meshlets_data | u_culled_meshlet_data,
-                DrawMeshletsTask::AT.u_meshes | asset_manager->gpu_meshes,
-                DrawMeshletsTask::AT.u_transforms | asset_manager->gpu_transforms,
-                DrawMeshletsTask::AT.u_materials | asset_manager->gpu_materials,
-                DrawMeshletsTask::AT.u_globals | context->shader_globals_buffer,
-                DrawMeshletsTask::AT.u_command | u_command,
-                DrawMeshletsTask::AT.u_image | render_image,
-                DrawMeshletsTask::AT.u_depth_image | depth_image
-            },
-            .context = context,
-        });
-    }
-
-    void Renderer::build_path_tracing_task_graph() {
-        if(rendering_mode != Mode::PathTracing) { return; }
-
-        render_task_graph.add_task(RayTraceTask {
-            .views = std::array{
-                RayTrace::AT.u_globals | context->shader_globals_buffer,
-                RayTrace::AT.u_image | render_image
-            },
-            .context = context,
-            .dispatch_callback = [this]() -> daxa::DispatchInfo { 
-                return daxa::DispatchInfo{
-                    round_up_div(window->get_width(), 16),
-                    round_up_div(window->get_height(), 16),
-                    1
-                ,};
-            },
-        });
     }
 }

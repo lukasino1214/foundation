@@ -198,4 +198,46 @@ namespace foundation {
         buffers.resources.erase(name);
     }
 
+    void Context::update_shader_globals(const AppWindow& window, ControlledCamera3D& camera, const glm::uvec2& size) {
+        camera.camera.resize(static_cast<i32>(size.x), static_cast<i32>(size.y));
+
+        glm::mat4 inverse_projection_matrix = glm::inverse(camera.camera.proj_mat);
+        glm::mat4 inverse_view_matrix = glm::inverse(camera.camera.view_mat);
+        glm::mat4 projection_view_matrix = camera.camera.proj_mat * camera.camera.view_mat;
+        glm::mat4 inverse_projection_view = inverse_projection_matrix * inverse_view_matrix;
+
+        shader_globals.camera_projection_matrix = *reinterpret_cast<const daxa_f32mat4x4*>(&camera.camera.proj_mat);
+        shader_globals.camera_inverse_projection_matrix = *reinterpret_cast<daxa_f32mat4x4*>(&inverse_projection_matrix);
+        shader_globals.camera_view_matrix = *reinterpret_cast<const daxa_f32mat4x4*>(&camera.camera.view_mat);
+        shader_globals.camera_inverse_view_matrix = *reinterpret_cast<daxa_f32mat4x4*>(&inverse_view_matrix);
+        shader_globals.camera_projection_view_matrix = *reinterpret_cast<daxa_f32mat4x4*>(&projection_view_matrix);
+        shader_globals.camera_inverse_projection_view_matrix = *reinterpret_cast<daxa_f32mat4x4*>(&inverse_projection_view);
+        shader_globals.render_target_size = { size.x, size.y };
+        shader_globals.render_target_size_inv = {
+            1.0f / s_cast<f32>(shader_globals.render_target_size.x),
+            1.0f / s_cast<f32>(shader_globals.render_target_size.y),
+        };
+        shader_globals.next_lower_po2_render_target_size.x = find_next_lower_po2(shader_globals.render_target_size.x);
+        shader_globals.next_lower_po2_render_target_size.y = find_next_lower_po2(shader_globals.render_target_size.y);
+        shader_globals.next_lower_po2_render_target_size_inv = {
+            1.0f / s_cast<f32>(shader_globals.next_lower_po2_render_target_size.x),
+            1.0f / s_cast<f32>(shader_globals.next_lower_po2_render_target_size.y),
+        };
+
+        std::array<glm::vec4, 6> planes = {};
+        for (i32 i = 0; i < 4; ++i) { planes[0][i] = projection_view_matrix[i][3] + projection_view_matrix[i][0]; }
+        for (i32 i = 0; i < 4; ++i) { planes[1][i] = projection_view_matrix[i][3] - projection_view_matrix[i][0]; }
+        for (i32 i = 0; i < 4; ++i) { planes[2][i] = projection_view_matrix[i][3] + projection_view_matrix[i][1]; }
+        for (i32 i = 0; i < 4; ++i) { planes[3][i] = projection_view_matrix[i][3] - projection_view_matrix[i][1]; }
+        for (i32 i = 0; i < 4; ++i) { planes[4][i] = projection_view_matrix[i][3] + projection_view_matrix[i][2]; }
+        for (i32 i = 0; i < 4; ++i) { planes[5][i] = projection_view_matrix[i][3] - projection_view_matrix[i][2]; }
+
+        for (u32 i = 0; i < 6; ++i) {
+            planes[i] /= glm::length(glm::vec3(planes[i]));
+            planes[i].w = -planes[i].w;
+            shader_globals.frustum_planes[i] = *reinterpret_cast<daxa_f32vec4*>(&planes[i]);
+        }
+
+        shader_globals.camera_position = *reinterpret_cast<const daxa_f32vec3*>(&camera.position);
+    }
 }

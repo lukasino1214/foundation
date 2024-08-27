@@ -2,6 +2,7 @@
 
 #include <pch.hpp>
 #include <graphics/window.hpp>
+#include <graphics/camera.hpp>
 #include <graphics/utils/gpu_metric.hpp>
 
 namespace foundation {
@@ -109,6 +110,8 @@ namespace foundation {
         auto create_buffer(const daxa::BufferInfo& info) -> daxa::BufferId;
         void destroy_buffer(const daxa::BufferId& id);
         void destroy_buffer_deferred(daxa::CommandRecorder& cmd, const daxa::BufferId& id);
+
+        void update_shader_globals(const AppWindow& window, ControlledCamera3D& camera, const glm::uvec2& size);
 
         usize frame_index = 0;
     };

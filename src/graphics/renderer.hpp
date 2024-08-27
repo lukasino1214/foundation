@@ -6,29 +6,17 @@
 #include <graphics/window.hpp>
 #include <graphics/context.hpp>
 #include <daxa/utils/imgui.hpp>
-#include <ui/scene_hierarchy_panel.hpp>
 
 namespace foundation {
     struct Renderer {
-        enum struct Mode : u32 {
-            Traditional,
-            VirtualGeomtery,
-            PathTracing
-        };
-
         Renderer(AppWindow* _window, Context* _context, Scene* _scene, AssetManager* _asset_manager);
         ~Renderer();
 
         void render();
 
         void ui_render_start();
-        void ui_update(ControlledCamera3D& camera, f32 delta_time, SceneHierarchyPanel& panel);
+        void ui_update(ControlledCamera3D& camera, f32 delta_time);
         void ui_render_end();
-
-        void switch_mode(Mode mode);
-        void build_tradional_task_graph();
-        void build_virtual_geometry_task_graph();
-        void build_path_tracing_task_graph();
 
         void window_resized();
 
@@ -54,7 +42,6 @@ namespace foundation {
 
         daxa::ImGuiRenderer imgui_renderer = {};
 
-        Mode rendering_mode = Mode::Traditional;
         bool startup = true;
         glm::vec2 viewport_size = { 0, 0 };
         i32 gizmo_type = 0;

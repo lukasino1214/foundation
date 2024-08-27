@@ -1,7 +1,7 @@
 #pragma once
 
 #include <pch.hpp>
-#include "ecs/entity.hpp"
+#include <ecs/entity.hpp>
 
 namespace foundation {
     struct SceneHierarchyPanel {

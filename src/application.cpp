@@ -10,7 +10,6 @@ namespace foundation {
         scene{std::make_shared<Scene>("scene", &context, &window)},
         asset_processor{std::make_unique<AssetProcessor>(&context)},
         asset_manager{std::make_unique<AssetManager>(&context, scene.get())},
-        renderer{&window, &context, scene.get(), asset_manager.get()},
         thread_pool{std::make_unique<ThreadPool>(std::thread::hardware_concurrency() - 1)},
         scene_hierarchy_panel{scene.get()} {
 
@@ -69,6 +68,9 @@ namespace foundation {
         }
 
         scene->update(delta_time);
+        context.update_shader_globals(window, camera, { 720, 480 });
+        renderer = std::make_unique<Renderer>(&window, &context, scene.get(), asset_manager.get());
+        viewport_panel = ViewportPanel(&context, &window, &renderer->imgui_renderer, [&](const glm::uvec2& size){ renderer->recreate_framebuffer(size); });
     }
 
     Application::~Application() {
@@ -85,7 +87,7 @@ namespace foundation {
             window.update();
 
             if(window.window_state->resize_requested) {
-                renderer.window_resized();
+                renderer->window_resized();
                 window.window_state->resize_requested = false;
             }
 
@@ -105,7 +107,7 @@ namespace foundation {
             }
 
             update();
-            renderer.render();
+            renderer->render();
             FrameMarkEnd("App Run");
         }
 
@@ -115,51 +117,12 @@ namespace foundation {
     void Application::update() {
         ZoneScoped;
 
-        renderer.ui_render_start();
+        renderer->ui_render_start();
         ui_update();
-        renderer.ui_render_end();
-            
-        glm::mat4 inverse_projection_matrix = glm::inverse(camera.camera.proj_mat);
-        glm::mat4 inverse_view_matrix = glm::inverse(camera.camera.view_mat);
-        glm::mat4 projection_view_matrix = camera.camera.proj_mat * camera.camera.view_mat;
-        glm::mat4 inverse_projection_view = inverse_projection_matrix * inverse_view_matrix;
+        renderer->ui_render_end();
 
-        this->context.shader_globals.camera_projection_matrix = *reinterpret_cast<daxa_f32mat4x4*>(&camera.camera.proj_mat);
-        this->context.shader_globals.camera_inverse_projection_matrix = *reinterpret_cast<daxa_f32mat4x4*>(&inverse_projection_matrix);
-        this->context.shader_globals.camera_view_matrix = *reinterpret_cast<daxa_f32mat4x4*>(&camera.camera.view_mat);
-        this->context.shader_globals.camera_inverse_view_matrix = *reinterpret_cast<daxa_f32mat4x4*>(&inverse_view_matrix);
-        this->context.shader_globals.camera_projection_view_matrix = *reinterpret_cast<daxa_f32mat4x4*>(&projection_view_matrix);
-        this->context.shader_globals.camera_inverse_projection_view_matrix = *reinterpret_cast<daxa_f32mat4x4*>(&inverse_projection_view);
-        auto size = context.device.info_image(renderer.render_image.get_state().images[0]).value().size;
-        this->context.shader_globals.render_target_size = { size.x, size.y };
-        // std::cout << "render_target_size: " << context.shader_globals.render_target_size.x << " " << context.shader_globals.render_target_size.y << std::endl;
-        this->context.shader_globals.render_target_size_inv = {
-            1.0f / s_cast<f32>(context.shader_globals.render_target_size.x),
-            1.0f / s_cast<f32>(context.shader_globals.render_target_size.y),
-        };
-        this->context.shader_globals.next_lower_po2_render_target_size.x = find_next_lower_po2(context.shader_globals.render_target_size.x);
-        this->context.shader_globals.next_lower_po2_render_target_size.y = find_next_lower_po2(context.shader_globals.render_target_size.y);
-        // std::cout << "next_lower_po2_render_target_size: " << context.shader_globals.next_lower_po2_render_target_size.x << " " << context.shader_globals.next_lower_po2_render_target_size.y << std::endl;
-        this->context.shader_globals.next_lower_po2_render_target_size_inv = {
-            1.0f / s_cast<f32>(this->context.shader_globals.next_lower_po2_render_target_size.x),
-            1.0f / s_cast<f32>(this->context.shader_globals.next_lower_po2_render_target_size.y),
-        };
-
-        std::array<glm::vec4, 6> planes = {};
-        for (i32 i = 0; i < 4; ++i) { planes[0][i] = projection_view_matrix[i][3] + projection_view_matrix[i][0]; }
-        for (i32 i = 0; i < 4; ++i) { planes[1][i] = projection_view_matrix[i][3] - projection_view_matrix[i][0]; }
-        for (i32 i = 0; i < 4; ++i) { planes[2][i] = projection_view_matrix[i][3] + projection_view_matrix[i][1]; }
-        for (i32 i = 0; i < 4; ++i) { planes[3][i] = projection_view_matrix[i][3] - projection_view_matrix[i][1]; }
-        for (i32 i = 0; i < 4; ++i) { planes[4][i] = projection_view_matrix[i][3] + projection_view_matrix[i][2]; }
-        for (i32 i = 0; i < 4; ++i) { planes[5][i] = projection_view_matrix[i][3] - projection_view_matrix[i][2]; }
-
-        for (u32 i = 0; i < 6; ++i) {
-            planes[i] /= glm::length(glm::vec3(planes[i]));
-            planes[i].w = -planes[i].w;
-            context.shader_globals.frustum_planes[i] = *reinterpret_cast<daxa_f32vec4*>(&planes[i]);
-        }
-
-        this->context.shader_globals.camera_position = *reinterpret_cast<daxa_f32vec3*>(&camera.position);
+        auto size = context.device.info_image(renderer->render_image.get_state().images[0]).value().size;
+        context.update_shader_globals(window, camera, {size.x, size.y});
 
         scene->update(delta_time);
     }
@@ -197,8 +160,9 @@ namespace foundation {
         ImGui::End();
 
         scene_hierarchy_panel.draw();
+        viewport_panel.draw(camera, delta_time, renderer->render_image);
 
-        renderer.ui_update(camera, delta_time, scene_hierarchy_panel);
+        renderer->ui_update(camera, delta_time);
     }
 
 }

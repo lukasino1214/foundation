@@ -1,9 +1,9 @@
 #include "scene_hierarchy_panel.hpp"
 
-#include "ecs/components.hpp"
-#include "ecs/entity.hpp"
+#include <ecs/components.hpp>
+#include <ecs/entity.hpp>
 
-#include "ui/ui.hpp"
+#include <ui/ui.hpp>
 
 #include <iostream>
 
