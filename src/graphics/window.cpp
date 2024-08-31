@@ -63,7 +63,7 @@ namespace foundation {
                 using Fn_RtlGetVersion = void(WINAPI *)(OSVERSIONINFOEX *);
                 Fn_RtlGetVersion fn_RtlGetVersion = nullptr;
                 auto ntdll_dll = LoadLibrary(TEXT("ntdll.dll"));
-                if (ntdll_dll) { fn_RtlGetVersion = (Fn_RtlGetVersion)GetProcAddress(ntdll_dll, "RtlGetVersion"); }
+                if (ntdll_dll) { fn_RtlGetVersion = r_cast<Fn_RtlGetVersion>(GetProcAddress(ntdll_dll, "RtlGetVersion")); }
                 auto version_info = OSVERSIONINFOEX{};
                 version_info.dwOSVersionInfoSize = sizeof(OSVERSIONINFOEX);
                 fn_RtlGetVersion(&version_info);

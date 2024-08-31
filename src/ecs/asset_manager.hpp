@@ -118,11 +118,8 @@ namespace foundation {
 
         Context* context;
         Scene* scene;
-        SceneData scene_data = {};
-        daxa::TaskBuffer gpu_scene_data = {};
         daxa::TaskBuffer gpu_meshes = {};
         daxa::TaskBuffer gpu_materials = {};
-        daxa::TaskBuffer gpu_transforms = {};
         daxa::TaskBuffer gpu_mesh_groups = {};
         daxa::TaskBuffer gpu_mesh_indices = {};
     };

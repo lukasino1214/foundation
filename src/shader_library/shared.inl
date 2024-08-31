@@ -27,10 +27,8 @@ struct DispatchIndirectStruct {
 DAXA_DECL_BUFFER_PTR(DispatchIndirectStruct)
 
 struct ShaderDebugAABBDraw {
-    daxa_f32vec3 position;
-    daxa_f32vec3 size;
     daxa_f32vec3 color;
-    daxa_u32 coord_space;
+    daxa_u32 transform_index;
 };
 DAXA_DECL_BUFFER_PTR(ShaderDebugAABBDraw)
 
@@ -102,11 +100,11 @@ struct Material {
 
 DAXA_DECL_BUFFER_PTR(Material)
 
-struct SceneData {
-    daxa_u32 mesh_groups_count;
+struct GPUSceneData {
+    daxa_u32 entity_count;
 };
 
-DAXA_DECL_BUFFER_PTR(SceneData)
+DAXA_DECL_BUFFER_PTR(GPUSceneData)
 
 struct MeshGroup {
     daxa_BufferPtr(daxa_u32) mesh_indices;
@@ -164,8 +162,15 @@ struct MeshletData {
     daxa_u32 mesh_index;
     daxa_u32 mesh_group_index;
     daxa_u32 meshlet_index;
+    daxa_u32 transform_index;
 };
 DAXA_DECL_BUFFER_PTR(MeshletData)
+
+struct EntityData {
+    daxa_u32 mesh_group_index;
+    daxa_u32 transform_index;
+};
+DAXA_DECL_BUFFER_PTR(EntityData)
 
 struct MeshletsData {
     daxa_u32 count;

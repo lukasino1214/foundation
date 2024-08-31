@@ -15,12 +15,6 @@
 
 namespace foundation {
     AssetManager::AssetManager(Context* _context, Scene* _scene) : context{_context}, scene{_scene} {
-        gpu_scene_data = make_task_buffer(context, {
-            sizeof(SceneData), 
-            daxa::MemoryFlagBits::DEDICATED_MEMORY, 
-            "scene data"
-        });
-
         gpu_meshes = make_task_buffer(context, {
             sizeof(Mesh), 
             daxa::MemoryFlagBits::DEDICATED_MEMORY, 
@@ -31,12 +25,6 @@ namespace foundation {
             sizeof(Material), 
             daxa::MemoryFlagBits::DEDICATED_MEMORY, 
             "materials"
-        });
-
-        gpu_transforms = make_task_buffer(context, {
-            sizeof(TransformInfo),
-            daxa::MemoryFlagBits::DEDICATED_MEMORY,
-            "gpu transforms"
         });
 
         gpu_mesh_groups = make_task_buffer(context, {
@@ -52,10 +40,8 @@ namespace foundation {
         });
     }
     AssetManager::~AssetManager() {
-        context->destroy_buffer(gpu_scene_data.get_state().buffers[0]);
         context->destroy_buffer(gpu_meshes.get_state().buffers[0]);
         context->destroy_buffer(gpu_materials.get_state().buffers[0]);
-        context->destroy_buffer(gpu_transforms.get_state().buffers[0]);
         context->destroy_buffer(gpu_mesh_groups.get_state().buffers[0]);
         context->destroy_buffer(gpu_mesh_indices.get_state().buffers[0]);
 
@@ -247,7 +233,7 @@ namespace foundation {
             TaskInfo info = {};
             LoadMeshTask(const TaskInfo& info) : info{info} { chunk_count = 1; }
 
-            virtual void callback(u32 chunk_index, u32 thread_index) override {
+            virtual void callback(u32, u32) override {
                 info.asset_processor->load_mesh(info.load_info);
             };
         };
@@ -276,7 +262,6 @@ namespace foundation {
                 .asset_local_index = mesh_index,
                 .name = gltf_mesh.name.c_str(),
             });
-            scene_data.mesh_groups_count++;
         }
 
         std::vector<Entity> node_index_to_entity = {};
@@ -287,13 +272,12 @@ namespace foundation {
         for(u32 node_index = 0; node_index < s_cast<u32>(asset->nodes.size()); node_index++) {
             const auto& node = asset->nodes[node_index];
             Entity& parent_entity = node_index_to_entity[node_index];
-            parent_entity.add_component<GlobalTransformComponent>();
-            parent_entity.add_component<LocalTransformComponent>();
-            auto* mesh_component = parent_entity.add_component<MeshComponent>();
             if(node.meshIndex.has_value()) {
+                parent_entity.add_component<GlobalTransformComponent>();
+                parent_entity.add_component<LocalTransformComponent>();
+                auto* mesh_component = parent_entity.add_component<MeshComponent>();
                 mesh_component->mesh_group_index = asset_manifest.mesh_group_manifest_offset + node.meshIndex.value();
-            } else {
-                mesh_component->mesh_group_index = std::nullopt;
+                parent_entity.add_component<RenderInfo>();
             }
 
             if(const auto* trs = std::get_if<fastgltf::Node::TRS>(&node.transform)) {
@@ -314,8 +298,8 @@ namespace foundation {
                 local_transform->set_position(position);
                 local_transform->set_rotation(rotation);
                 local_transform->set_scale(scale);
-            } else if(const auto* trs = std::get_if<fastgltf::Node::TransformMatrix>(&node.transform)) {
-                const glm::mat4 mat = *r_cast<const glm::mat4*>(trs);
+            } else if(const auto* transform_matrix = std::get_if<fastgltf::Node::TransformMatrix>(&node.transform)) {
+                const glm::mat4 mat = *r_cast<const glm::mat4*>(transform_matrix);
                 glm::vec3 position, rotation, scale;
                 math::decompose_transform(mat, position, rotation, scale);
 
@@ -365,9 +349,9 @@ namespace foundation {
             };
 
             TaskInfo info = {};
-            LoadTextureTask(TaskInfo const & info) : info{info} { chunk_count = 1; }
+            explicit LoadTextureTask(TaskInfo const & info) : info{info} { chunk_count = 1; }
 
-            virtual void callback(u32 chunk_index, u32 thread_index) override {
+            virtual void callback(u32, u32) override {
                 info.asset_processor->load_texture(info.load_info);
             };
         };
@@ -397,68 +381,68 @@ namespace foundation {
         }
     }
 
-    void AssetManager::already_loaded_model(LoadManifestInfo& info, const GltfAssetManifestEntry& asset_manifest) {
-        const auto& asset = asset_manifest.gltf_asset;
+    void AssetManager::already_loaded_model(LoadManifestInfo& /*info*/, const GltfAssetManifestEntry& /*asset_manifest*/) {
+        // const auto& asset = asset_manifest.gltf_asset;
         
-        std::vector<Entity> node_index_to_entity = {};
-        for(u32 node_index = 0; node_index < s_cast<u32>(asset->nodes.size()); node_index++) {
-            node_index_to_entity.push_back(scene->create_entity("gltf asset " + std::to_string(gltf_asset_manifest_entries.size()) + " " + std::string{asset->nodes[node_index].name}));
-        }
+        // std::vector<Entity> node_index_to_entity = {};
+        // for(u32 node_index = 0; node_index < s_cast<u32>(asset->nodes.size()); node_index++) {
+        //     node_index_to_entity.push_back(scene->create_entity("gltf asset " + std::to_string(gltf_asset_manifest_entries.size()) + " " + std::string{asset->nodes[node_index].name}));
+        // }
 
-        for(u32 node_index = 0; node_index < s_cast<u32>(asset->nodes.size()); node_index++) {
-            const auto& node = asset->nodes[node_index];
-            Entity& parent_entity = node_index_to_entity[node_index];
-            parent_entity.add_component<GlobalTransformComponent>();
-            parent_entity.add_component<LocalTransformComponent>();
-            auto* mesh_component = parent_entity.add_component<MeshComponent>();
-            if(node.meshIndex.has_value()) {
-                mesh_component->mesh_group_index = asset_manifest.mesh_group_manifest_offset + node.meshIndex.value();
-            } else {
-                mesh_component->mesh_group_index = std::nullopt;
-            }
+        // for(u32 node_index = 0; node_index < s_cast<u32>(asset->nodes.size()); node_index++) {
+        //     const auto& node = asset->nodes[node_index];
+        //     Entity& parent_entity = node_index_to_entity[node_index];
+        //     parent_entity.add_component<GlobalTransformComponent>();
+        //     parent_entity.add_component<LocalTransformComponent>();
+        //     auto* mesh_component = parent_entity.add_component<MeshComponent>();
+        //     if(node.meshIndex.has_value()) {
+        //         mesh_component->mesh_group_index = asset_manifest.mesh_group_manifest_offset + node.meshIndex.value();
+        //     } else {
+        //         mesh_component->mesh_group_index = std::nullopt;
+        //     }
 
-            if(const auto* trs = std::get_if<fastgltf::Node::TRS>(&node.transform)) {
-                glm::quat quat;
-                quat.x = trs->rotation[0];
-                quat.y = trs->rotation[1];
-                quat.z = trs->rotation[2];
-                quat.w = trs->rotation[3];
+        //     if(const auto* trs = std::get_if<fastgltf::Node::TRS>(&node.transform)) {
+        //         glm::quat quat;
+        //         quat.x = trs->rotation[0];
+        //         quat.y = trs->rotation[1];
+        //         quat.z = trs->rotation[2];
+        //         quat.w = trs->rotation[3];
                 
-                glm::mat4 mat = glm::translate(glm::mat4(1.0f), { trs->translation[0], trs->translation[1], trs->translation[2]}) 
-                    * glm::toMat4(quat) 
-                    * glm::scale(glm::mat4(1.0f), { trs->scale[0], trs->scale[1], trs->scale[2]});
+        //         glm::mat4 mat = glm::translate(glm::mat4(1.0f), { trs->translation[0], trs->translation[1], trs->translation[2]}) 
+        //             * glm::toMat4(quat) 
+        //             * glm::scale(glm::mat4(1.0f), { trs->scale[0], trs->scale[1], trs->scale[2]});
                 
-                glm::vec3 position, rotation, scale;
-                math::decompose_transform(mat, position, rotation, scale);
+        //         glm::vec3 position, rotation, scale;
+        //         math::decompose_transform(mat, position, rotation, scale);
 
-                auto* local_transform = parent_entity.get_component<LocalTransformComponent>();
-                local_transform->set_position(position);
-                local_transform->set_rotation(rotation);
-                local_transform->set_scale(scale);
-            } else if(const auto* trs = std::get_if<fastgltf::Node::TransformMatrix>(&node.transform)) {
-                const glm::mat4 mat = *r_cast<const glm::mat4*>(trs);
-                glm::vec3 position, rotation, scale;
-                math::decompose_transform(mat, position, rotation, scale);
+        //         auto* local_transform = parent_entity.get_component<LocalTransformComponent>();
+        //         local_transform->set_position(position);
+        //         local_transform->set_rotation(rotation);
+        //         local_transform->set_scale(scale);
+        //     } else if(const auto* trs = std::get_if<fastgltf::Node::TransformMatrix>(&node.transform)) {
+        //         const glm::mat4 mat = *r_cast<const glm::mat4*>(trs);
+        //         glm::vec3 position, rotation, scale;
+        //         math::decompose_transform(mat, position, rotation, scale);
 
-                auto* local_transform = parent_entity.get_component<LocalTransformComponent>();
-                local_transform->set_position(position);
-                local_transform->set_rotation(rotation);
-                local_transform->set_scale(scale);
-            }
+        //         auto* local_transform = parent_entity.get_component<LocalTransformComponent>();
+        //         local_transform->set_position(position);
+        //         local_transform->set_rotation(rotation);
+        //         local_transform->set_scale(scale);
+        //     }
 
-            for(u32 children_index = 0; children_index < node.children.size(); children_index++) {
-                Entity& child_entity = node_index_to_entity[children_index];
-                child_entity.handle.child_of(parent_entity.handle);
-            }
-        }
+        //     for(u32 children_index = 0; children_index < node.children.size(); children_index++) {
+        //         Entity& child_entity = node_index_to_entity[children_index];
+        //         child_entity.handle.child_of(parent_entity.handle);
+        //     }
+        // }
 
-        for(u32 node_index = 0; node_index < s_cast<u32>(asset->nodes.size()); node_index++) {
-            Entity& entity = node_index_to_entity[node_index];
-            auto parent = entity.handle.parent();
-            if(!parent.null()) {
-                entity.handle.child_of(info.parent.handle);
-            }
-        }
+        // for(u32 node_index = 0; node_index < s_cast<u32>(asset->nodes.size()); node_index++) {
+        //     Entity& entity = node_index_to_entity[node_index];
+        //     auto parent = entity.handle.parent();
+        //     if(!parent.null()) {
+        //         entity.handle.child_of(info.parent.handle);
+        //     }
+        // }
     }
 
     auto AssetManager::record_manifest_update(const RecordManifestUpdateInfo& info) -> daxa::ExecutableCommandList {
@@ -488,7 +472,6 @@ namespace foundation {
 
         realloc(gpu_meshes, s_cast<u32>(mesh_manifest_entries.size() * sizeof(Mesh)));
         realloc(gpu_materials, s_cast<u32>(material_manifest_entries.size() * sizeof(Material)));
-        realloc(gpu_transforms, s_cast<u32>(mesh_group_manifest_entries.size() * sizeof(TransformInfo)));
         realloc(gpu_mesh_groups, s_cast<u32>(mesh_group_manifest_entries.size() * sizeof(MeshGroup)));
         realloc(gpu_mesh_indices, s_cast<u32>(mesh_manifest_entries.size() * sizeof(u32)));
 
@@ -511,7 +494,7 @@ namespace foundation {
                 }
             }
 
-            usize staging_size = sizeof(SceneData) + mesh_groups.size() * sizeof(MeshGroup) + meshes.size() * sizeof(u32);
+            usize staging_size = mesh_groups.size() * sizeof(MeshGroup) + meshes.size() * sizeof(u32);
             daxa::BufferId staging_buffer = context->create_buffer(daxa::BufferInfo {
                 .size = staging_size,
                 .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
@@ -519,23 +502,14 @@ namespace foundation {
             });
             context->destroy_buffer_deferred(cmd_recorder, staging_buffer);
             std::byte* ptr = context->device.get_host_address(staging_buffer).value();
-            *r_cast<SceneData*>(ptr) = scene_data;
-            
-            cmd_recorder.copy_buffer_to_buffer(daxa::BufferCopyInfo {
-                .src_buffer = staging_buffer,
-                .dst_buffer = gpu_scene_data.get_state().buffers[0],
-                .src_offset = 0,
-                .dst_offset = 0,
-                .size = sizeof(SceneData)
-            });
 
-            usize offset = sizeof(SceneData); 
+            usize offset = 0; 
             std::memcpy(ptr + offset, mesh_groups.data(), mesh_groups.size() * sizeof(MeshGroup));
             offset += mesh_groups.size() * sizeof(MeshGroup);
             std::memcpy(ptr + offset, meshes.data(), meshes.size() * sizeof(u32));
             offset += meshes.size() * sizeof(u32);
 
-            usize mesh_group_offset = sizeof(SceneData);
+            usize mesh_group_offset = 0;
             usize meshes_offset = mesh_group_offset + mesh_groups.size() * sizeof(MeshGroup);
             for(u32 mesh_group_index : dirty_mesh_groups) {
                 const auto& mesh_group = mesh_group_manifest_entries[mesh_group_index];

@@ -13,7 +13,23 @@ namespace foundation {
         thread_pool{std::make_unique<ThreadPool>(std::thread::hardware_concurrency() - 1)},
         scene_hierarchy_panel{scene.get()} {
 
+        scene->update(delta_time);
+        context.update_shader_globals(camera, { 720, 480 });
+        renderer = std::make_unique<Renderer>(&window, &context, scene.get(), asset_manager.get());
 
+        struct CompilePipelinesTask : Task {
+            Renderer* renderer = {};
+            explicit CompilePipelinesTask(Renderer* renderer)
+                : renderer{renderer} { chunk_count = 1; }
+
+            void callback(u32, u32) override {
+                renderer->compile_pipelines();
+            }
+        };
+
+        auto compile_pipelines_task = std::make_shared<CompilePipelinesTask>(renderer.get());
+        thread_pool->async_dispatch(compile_pipelines_task);
+    
         last_time_point = std::chrono::steady_clock::now();
         camera.camera.resize(static_cast<i32>(window.get_width()), static_cast<i32>(window.get_height()));
 
@@ -23,22 +39,8 @@ namespace foundation {
         };
 
         {
-            auto entity = scene->create_entity("bistro");
-            auto* tc = add_transform(entity);
-
-            LoadManifestInfo manifesto {
-                .parent = entity,
-                .path = "assets/models/Bistro/Bistro.glb",
-                .thread_pool = thread_pool,
-                .asset_processor = asset_processor,
-            };
-
-            asset_manager->load_model(manifesto);
-        }
-
-        {
             auto entity = scene->create_entity("sponza");
-            auto* tc = add_transform(entity);
+            add_transform(entity);
 
             LoadManifestInfo manifesto {
                 .parent = entity,
@@ -51,26 +53,42 @@ namespace foundation {
         }
 
         {
+            auto entity = scene->create_entity("bistro");
+            add_transform(entity);
+
+            LoadManifestInfo manifesto {
+                .parent = entity,
+                .path = "assets/models/Bistro/Bistro.glb",
+                .thread_pool = thread_pool,
+                .asset_processor = asset_processor,
+            };
+
+            asset_manager->load_model(manifesto);
+        }
+
+        {
             Entity entity = scene->create_entity("aabb 1");
-            auto* aabb = entity.add_component<AABBComponent>();
+            entity.add_component<AABBComponent>();
+            add_transform(entity);
         }
 
         {
             Entity entity = scene->create_entity("aabb 2");
-            auto* aabb = entity.add_component<AABBComponent>();
-            aabb->position = { 0.0f, 2.0f, 0.0f };
+            entity.add_component<AABBComponent>();
+            auto* tc = add_transform(entity);
+            tc->set_position({ 0.0f, 2.0f, 0.0f });
+            tc->set_rotation({ 45.0f, 45.0f, 45.0f });
         }
 
         {
             Entity entity = scene->create_entity("aabb 3");
-            auto* aabb = entity.add_component<AABBComponent>();
-            aabb->position = { 0.0f, 4.0f, 0.0f };
+            entity.add_component<AABBComponent>();
+            auto* tc = add_transform(entity);
+            tc->set_position({ 0.0f, 4.0f, 0.0f });
         }
 
-        scene->update(delta_time);
-        context.update_shader_globals(window, camera, { 720, 480 });
-        renderer = std::make_unique<Renderer>(&window, &context, scene.get(), asset_manager.get());
         viewport_panel = ViewportPanel(&context, &window, &renderer->imgui_renderer, [&](const glm::uvec2& size){ renderer->recreate_framebuffer(size); });
+        thread_pool->block_on(compile_pipelines_task);
     }
 
     Application::~Application() {
@@ -122,7 +140,7 @@ namespace foundation {
         renderer->ui_render_end();
 
         auto size = context.device.info_image(renderer->render_image.get_state().images[0]).value().size;
-        context.update_shader_globals(window, camera, {size.x, size.y});
+        context.update_shader_globals(camera, {size.x, size.y});
 
         scene->update(delta_time);
     }
@@ -148,12 +166,12 @@ namespace foundation {
         }
 
         ImGui::Begin("Performance Statistics");
-        ImGui::Text("test");
         f64 total_time = 0.0;
         for(auto& [key, metric] : context.gpu_metrics) {
             total_time += metric->time_elapsed;
             ImGui::Text("%s : %f ms", key.data(), metric->time_elapsed);
         }
+        ImGui::Text("total time : %f ms", total_time);
         ImGui::End();
 
         ImGui::Begin("File Browser");
@@ -162,7 +180,7 @@ namespace foundation {
         scene_hierarchy_panel.draw();
         viewport_panel.draw(camera, delta_time, renderer->render_image);
 
-        renderer->ui_update(camera, delta_time);
+        renderer->ui_update();
     }
 
 }

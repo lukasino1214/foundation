@@ -14,6 +14,7 @@ namespace foundation {
         Context* context = {};
         daxa::TaskGraph& task_graph;
         daxa::TaskBufferView gpu_scene_data = {};
+        daxa::TaskBufferView gpu_entities_data = {};
         daxa::TaskBufferView gpu_meshes = {};
         daxa::TaskBufferView gpu_materials = {};
         daxa::TaskBufferView gpu_transforms = {};
@@ -83,6 +84,7 @@ namespace foundation {
         info.task_graph.add_task(PopulateMeshletsTask {
             .views = std::array{
                 PopulateMeshletsTask::AT.u_scene_data | info.gpu_scene_data,
+                PopulateMeshletsTask::AT.u_entities_data | info.gpu_entities_data,
                 PopulateMeshletsTask::AT.u_mesh_groups | info.gpu_mesh_groups,
                 PopulateMeshletsTask::AT.u_mesh_indices | info.gpu_mesh_indices,
                 PopulateMeshletsTask::AT.u_meshes | info.gpu_meshes,

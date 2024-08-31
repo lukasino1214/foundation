@@ -105,7 +105,7 @@ struct RenderMeshesTask : RenderMeshes::Task {
                     if(mesh_manifest.traditional_render_info.has_value()) {
                         const auto& render_info = mesh_manifest.traditional_render_info.value();
                         push = RenderMeshesPush {
-                            .transform = context->device.get_device_address(asset_manager->gpu_transforms.get_state().buffers[0]).value() + mc.mesh_group_index.value() * sizeof(TransformInfo),
+                            .transform = context->device.get_device_address(scene->gpu_transforms_pool.task_buffer.get_state().buffers[0]).value() + tc.gpu_handle.index * sizeof(TransformInfo),
                             .vertices = context->device.get_device_address(render_info.vertex_buffer).value(),
                             .material = context->device.get_device_address(asset_manager->gpu_materials.get_state().buffers[0]).value() + render_info.material_manifest_index * sizeof(Material),
                         };

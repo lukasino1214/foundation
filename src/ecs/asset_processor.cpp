@@ -10,9 +10,7 @@ namespace foundation {
     AssetProcessor::~AssetProcessor() {}
 
     template <typename ElemT, bool IS_INDEX_BUFFER>
-    auto load_data(fastgltf::Asset& asset, fastgltf::Accessor& accessor, u32 required_size = 0) {
-        auto& buffer_view = asset.bufferViews[accessor.bufferViewIndex.value()];
-        
+    auto load_data(fastgltf::Asset& asset, fastgltf::Accessor& accessor) {
         std::vector<ElemT> ret(accessor.count);
         if constexpr(IS_INDEX_BUFFER) {
             if (accessor.componentType == fastgltf::ComponentType::UnsignedShort) {
@@ -41,7 +39,7 @@ namespace foundation {
         std::vector<glm::vec3> vert_positions = {};
         auto position_attribute_iter = gltf_primitive.findAttribute("POSITION");
         if(position_attribute_iter != gltf_primitive.attributes.end()) {
-            vert_positions = load_data<glm::vec3, false>(gltf_asset, gltf_asset.accessors[position_attribute_iter->second], 0);
+            vert_positions = load_data<glm::vec3, false>(gltf_asset, gltf_asset.accessors[position_attribute_iter->second]);
         }
 
         auto fill = [](auto& vec, u32 required_size = 0) {
@@ -53,11 +51,11 @@ namespace foundation {
             }
         };
 
-        u32 vertex_count = vert_positions.size();
+        u32 vertex_count = s_cast<u32>(vert_positions.size());
         std::vector<glm::vec3> vert_normals = {};
         auto normal_attribute_iter = gltf_primitive.findAttribute("NORMAL");
         if(normal_attribute_iter != gltf_primitive.attributes.end()) {
-            vert_normals = load_data<glm::vec3, false>(gltf_asset, gltf_asset.accessors[normal_attribute_iter->second], vertex_count);
+            vert_normals = load_data<glm::vec3, false>(gltf_asset, gltf_asset.accessors[normal_attribute_iter->second]);
         } else {
             fill(vert_normals, vertex_count);
         }
@@ -65,7 +63,7 @@ namespace foundation {
         std::vector<glm::vec2> vert_uvs = {};
         auto uvs_attribute_iter = gltf_primitive.findAttribute("TEXCOORD_0");
         if(uvs_attribute_iter != gltf_primitive.attributes.end()) {
-            vert_uvs = load_data<glm::vec2, false>(gltf_asset, gltf_asset.accessors[uvs_attribute_iter->second], vertex_count);
+            vert_uvs = load_data<glm::vec2, false>(gltf_asset, gltf_asset.accessors[uvs_attribute_iter->second]);
         } else {
             fill(vert_uvs, vertex_count);
         }
@@ -176,7 +174,7 @@ namespace foundation {
 
         const meshopt_Meshlet& last = meshlets[meshlet_count - 1];
         meshlet_indirect_vertices.resize(last.vertex_offset + last.vertex_count);
-        meshlet_micro_indices.resize(last.triangle_offset + ((last.triangle_count * 3 + 3) & ~3));
+        meshlet_micro_indices.resize(last.triangle_offset + ((last.triangle_count * 3u + 3u) & ~3u));
         meshlets.resize(meshlet_count);
 
         const u64 total_mesh_buffer_size =
@@ -283,7 +281,7 @@ namespace foundation {
                     assert(false && "Tried accessing a buffer with no data, likely because no buffers were loaded. Perhaps you forgot to specify the LoadExternalBuffers option?");
                     return {};
                 },
-                [](const fastgltf::sources::Fallback& fallback) -> std::span<const std::byte> {
+                [](const fastgltf::sources::Fallback&) -> std::span<const std::byte> {
                     assert(false && "Tried accessing data of a fallback buffer.");
                     return {};
                 },
@@ -305,16 +303,16 @@ namespace foundation {
                 auto content = get_data(gltf_asset.buffers[buffer_view.bufferIndex], buffer_view.byteOffset, buffer_view.byteLength);
                 u8* image_data = stbi_load_from_memory(r_cast<const u8*>(content.data()), s_cast<i32>(content.size_bytes()), &width, &height, &num_channels, 4);
                 if(!image_data) { std::cout << "bozo" << std::endl; }
-                raw_data.resize(width * height * 4);
-                std::memcpy(raw_data.data(), image_data, width * height * 4);
+                raw_data.resize(s_cast<u64>(width * height * 4));
+                std::memcpy(raw_data.data(), image_data, s_cast<u64>(width * height * 4));
                 stbi_image_free(image_data);
             }
             if(const auto* data = std::get_if<fastgltf::sources::URI>(&image.data)) {
                 image_path = info.asset_path.parent_path().string() + '/' + std::string(data->uri.path().begin(), data->uri.path().end());
                 u8* image_data = stbi_load(image_path.c_str(), &width, &height, &num_channels, 4);
                 if(!image_data) { std::cout << "bozo" << std::endl; }
-                raw_data.resize(width * height * 4);
-                std::memcpy(raw_data.data(), image_data, width * height * 4);
+                raw_data.resize(s_cast<u64>(width * height * 4));
+                std::memcpy(raw_data.data(), image_data, s_cast<u64>(width * height * 4));
                 stbi_image_free(image_data);
             }
             if(const auto* data = std::get_if<fastgltf::sources::Vector>(&image.data)) {
@@ -364,7 +362,7 @@ namespace foundation {
             .name = "staging buffer: " + image_path + " " + std::to_string(info.gltf_texture_index)
         }); 
 
-        std::memcpy(context->device.get_host_address(staging_buffer).value(), raw_data.data(), width * height * 4);
+        std::memcpy(context->device.get_host_address(staging_buffer).value(), raw_data.data(), s_cast<u64>(width * height * 4));
 
         {
             std::lock_guard<std::mutex> lock{*texture_upload_mutex};
@@ -390,13 +388,13 @@ namespace foundation {
         auto cmd_recorder = context->device.create_command_recorder(daxa::CommandRecorderInfo { .name = "asset processor upload" });
 
         {
-            ZoneNamedN(mesh_upload_info, "mesh_upload_info", true);
+            ZoneNamedN(mesh_upload_info_, "mesh_upload_info", true);
             for(auto& mesh_upload_info : ret.uploaded_meshes) {
                 context->destroy_buffer_deferred(cmd_recorder, mesh_upload_info.staging_buffer);
                 context->destroy_buffer_deferred(cmd_recorder, mesh_upload_info.staging_mesh_buffer);
 
-                u32 vertex_buffer_size = context->device.info_buffer(mesh_upload_info.vertex_buffer).value().size;
-                u32 index_buffer_size = context->device.info_buffer(mesh_upload_info.index_buffer).value().size;
+                u32 vertex_buffer_size = s_cast<u32>(context->device.info_buffer(mesh_upload_info.vertex_buffer).value().size);
+                u32 index_buffer_size = s_cast<u32>(context->device.info_buffer(mesh_upload_info.index_buffer).value().size);
 
                 cmd_recorder.copy_buffer_to_buffer(daxa::BufferCopyInfo {
                     .src_buffer = mesh_upload_info.staging_buffer,
@@ -432,7 +430,7 @@ namespace foundation {
         }
 
         {
-            ZoneNamedN(texture_upload_info, "texture_upload_info", true);
+            ZoneNamedN(texture_upload_info_, "texture_upload_info", true);
             for(auto& texture_upload_info : ret.uploaded_textures) {
                 context->destroy_buffer_deferred(cmd_recorder, texture_upload_info.staging_buffer);
 

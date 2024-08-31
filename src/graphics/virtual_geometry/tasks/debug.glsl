@@ -31,13 +31,10 @@ void main() {
     const ShaderDebugAABBDraw aabb = deref(deref(deref(push.uses.u_globals).debug).aabb_draws + aabb_idx);
 
     vec4 out_position;
-    const vec3 model_position = aabb_vertex_base_offsets[vertex_idx] * 0.5f * aabb.size + aabb.position;
+    const vec3 vertex_pos = aabb_vertex_base_offsets[vertex_idx] * 0.5f;
+    const vec4 model_position = deref(push.uses.u_transforms[aabb.transforms_handle]).model_matrix * vec4(vertex_pos, 1.0f);
     vtf_color = aabb.color;
-    if(aabb.coord_space == 0) {
-        out_position = deref(push.uses.u_globals).camera_projection_view_matrix * vec4(model_position, 1);
-    } else {
-        out_position = vec4(model_position, 1);
-    }
+    out_position = deref(push.uses.u_globals).camera_projection_view_matrix * vec4(model_position);
     gl_Position = out_position;
 }
 

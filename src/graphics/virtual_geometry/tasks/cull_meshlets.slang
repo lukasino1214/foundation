@@ -170,7 +170,7 @@ void cull_meshlets(u32vec3 thread_index : SV_DispatchThreadID) {
         Mesh mesh = push.uses.u_meshes[meshlet_data.mesh_index];
         AABB aabb = mesh.meshlet_aabbs[meshlet_data.meshlet_index];
 
-        if(is_meshlet_visible(aabb, push.uses.u_transforms[meshlet_data.mesh_group_index].model_matrix)) {
+        if(is_meshlet_visible(aabb, push.uses.u_transforms[meshlet_data.transform_index].model_matrix)) {
             uint index = 0;
             InterlockedAdd(push.uses.u_culled_meshlets_data->count, 1, index);
             push.uses.u_culled_meshlets_data.meshlets[index] = meshlet_data;

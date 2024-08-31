@@ -2,7 +2,6 @@
 
 #include "ecs/asset_manager.hpp"
 #include "ecs/scene.hpp"
-#include "graphics/camera.hpp"
 #include <graphics/window.hpp>
 #include <graphics/context.hpp>
 #include <daxa/utils/imgui.hpp>
@@ -15,7 +14,7 @@ namespace foundation {
         void render();
 
         void ui_render_start();
-        void ui_update(ControlledCamera3D& camera, f32 delta_time);
+        void ui_update();
         void ui_render_end();
 
         void window_resized();

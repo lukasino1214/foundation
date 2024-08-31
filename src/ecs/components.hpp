@@ -1,4 +1,5 @@
 #pragma once
+#include "graphics/utils/cpu_managed_gpu_pool.hpp"
 #include <pch.hpp>
 #include <flecs.h>
 
@@ -35,6 +36,7 @@ namespace foundation {
         glm::mat4 model_matrix{1.0f};
         glm::mat4 normal_matrix{1.0f};
         bool is_dirty = true;
+        CPUManagedGPUPool<TransformInfo>::Handle gpu_handle = {};
 
         auto get_position() -> glm::vec3;
         auto get_rotation() -> glm::vec3;
@@ -61,5 +63,10 @@ namespace foundation {
         glm::vec3 color = { 1.0f, 1.0f, 1.0f };
 
         void draw();
+    };
+
+    struct RenderInfo {
+        CPUManagedGPUPool<EntityData>::Handle gpu_handle = {};
+        bool is_dirty = true;
     };
 }

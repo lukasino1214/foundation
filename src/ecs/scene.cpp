@@ -13,9 +13,19 @@
 #include <math/decompose.hpp>
 
 namespace foundation {
-    Scene::Scene(const std::string_view& _name, Context* _context, AppWindow* _window) : name{_name}, world{std::make_unique<flecs::world>()}, context{_context}, window{_window} {}
+    Scene::Scene(const std::string_view& _name, Context* _context, AppWindow* _window)
+     : name{_name}, world{std::make_unique<flecs::world>()}, context{_context}, window{_window}, 
+        gpu_transforms_pool(context, "gpu_transforms"), gpu_entities_data_pool(context, "gpu_entities_data") {
+        gpu_scene_data = make_task_buffer(context, {
+            sizeof(GPUSceneData), 
+            daxa::MemoryFlagBits::DEDICATED_MEMORY, 
+            "scene data"
+        }); 
+    }
 
-    Scene::~Scene() {}
+    Scene::~Scene() {
+        context->destroy_buffer(gpu_scene_data.get_state().buffers[0]);
+    }
 
     auto Scene::create_entity(const std::string_view& _name) -> Entity {
         flecs::entity e = world->entity(_name.data());
@@ -27,7 +37,7 @@ namespace foundation {
         entity.handle.destruct();
     }
 
-    void Scene::update(f32 delta_time) {
+    void Scene::update(f32 /*delta_time*/) {
         ZoneNamedN(scene_update, "scene update", true);
         
         auto query_transforms = world->query_builder<GlobalTransformComponent, LocalTransformComponent, GlobalTransformComponent*>().term_at(3).cascade(flecs::ChildOf).optional().build();
@@ -68,33 +78,61 @@ namespace foundation {
         });
     }
 
-    void Scene::update_gpu(const daxa::TaskInterface& task_inferface, daxa::TaskBuffer& gpu_transforms) {
+    void Scene::update_gpu(const daxa::TaskInterface& task_interface) {
         ZoneNamedN(scene_update_gpu, "scene update gpu", true);
 
-        auto query_transforms = world->query_builder<GlobalTransformComponent, MeshComponent>().build();
-        query_transforms.each([&](GlobalTransformComponent& gtc, MeshComponent& mesh) {
-            if(gtc.is_dirty && mesh.mesh_group_index.has_value()) {
+        gpu_transforms_pool.update_buffer(task_interface);
+        gpu_entities_data_pool.update_buffer(task_interface);
+
+        {
+            bool scene_data_updated = false;
+            world->each([&](RenderInfo& info, GlobalTransformComponent& tc, MeshComponent&mesh){
+                if(info.is_dirty) {
+                    scene_data_updated = true;
+                    scene_data.entity_count++;
+
+                    EntityData data = {
+                        .mesh_group_index = mesh.mesh_group_index.value(),
+                        .transform_index = tc.gpu_handle.index
+                    };
+
+                    gpu_entities_data_pool.update_handle(task_interface, info.gpu_handle, data);
+
+                    info.is_dirty = false;
+                }
+
+            });
+
+            if(scene_data_updated) {
+                auto alloc = task_interface.allocator->allocate_fill(scene_data).value();
+                task_interface.recorder.copy_buffer_to_buffer(daxa::BufferCopyInfo {
+                    .src_buffer = task_interface.allocator->buffer(),
+                    .dst_buffer = gpu_scene_data.get_state().buffers[0],
+                    .src_offset = alloc.buffer_offset,
+                    .dst_offset = {},
+                    .size = sizeof(GPUSceneData),
+                });
+            }
+        }
+
+        auto query_transforms = world->query_builder<GlobalTransformComponent>().build();
+        query_transforms.each([&](GlobalTransformComponent& gtc) {
+            if(gtc.is_dirty) {
                 gtc.is_dirty = false;
 
-                auto alloc = task_inferface.allocator->allocate_fill(TransformInfo { 
+                TransformInfo data = { 
                     *r_cast<daxa_f32mat4x4*>(&gtc.model_matrix), 
                     *r_cast<daxa_f32mat4x4*>(&gtc.normal_matrix)
-                }).value();
-                task_inferface.recorder.copy_buffer_to_buffer({
-                    .src_buffer = task_inferface.allocator->buffer(),
-                    .dst_buffer = task_inferface.get(gpu_transforms).ids[0],
-                    .src_offset = alloc.buffer_offset,
-                    .dst_offset = mesh.mesh_group_index.value() * sizeof(TransformInfo),
-                    .size = sizeof(TransformInfo),
-                });
+                };
+
+                gpu_transforms_pool.update_handle(task_interface, gtc.gpu_handle, data);
             }
         });
 
-        world->query<AABBComponent>().each([&](AABBComponent& aabb){
+        world->query<GlobalTransformComponent, AABBComponent>().each([&](GlobalTransformComponent& tc,AABBComponent& aabb){
             context->debug_draw_context.aabbs.push_back(ShaderDebugAABBDraw{ 
-                .position = { aabb.position.x, aabb.position.y, aabb.position.z }, 
-                .size = { aabb.extent.x, aabb.extent.y, aabb.extent.z },
-                .color = { aabb.color.x, aabb.color.y, aabb.color.z }
+                .color = { aabb.color.x, aabb.color.y, aabb.color.z },
+                .transform_index = tc.gpu_handle.index
             });
         });
     }

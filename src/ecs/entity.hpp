@@ -1,5 +1,6 @@
 #pragma once
 
+#include "ecs/components.hpp"
 #include "ecs/scene.hpp"
 
 namespace foundation {
@@ -15,7 +16,17 @@ namespace foundation {
         template<typename T>
         auto add_component() -> T* {
             handle.set<T>(T{});
-            return handle.get_mut<T>();
+            T* component =  handle.get_mut<T>();
+
+            if constexpr (std::is_same_v<T, GlobalTransformComponent>) {
+                component->gpu_handle = scene->gpu_transforms_pool.allocate_handle();
+            }
+
+            if constexpr (std::is_same_v<T, RenderInfo>) {
+                component->gpu_handle = scene->gpu_entities_data_pool.allocate_handle();
+            }
+
+            return component;
         }
 
         template<typename T>

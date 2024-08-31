@@ -26,8 +26,6 @@ namespace foundation {
         });
         ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 
-        compile_pipelines();
-
         swapchain_image = daxa::TaskImage{{.swapchain_image = true, .name = "swapchain image"}};
         render_image = daxa::TaskImage{{ .name = "render image" }};
         depth_image = daxa::TaskImage{{ .name = "depth image" }};
@@ -217,9 +215,10 @@ namespace foundation {
         render_task_graph.use_persistent_image(render_image);
         render_task_graph.use_persistent_image(depth_image);
         render_task_graph.use_persistent_buffer(shader_globals_buffer);
-        render_task_graph.use_persistent_buffer(asset_manager->gpu_transforms);
+        render_task_graph.use_persistent_buffer(scene->gpu_transforms_pool.task_buffer);
         render_task_graph.use_persistent_buffer(asset_manager->gpu_materials);
-        render_task_graph.use_persistent_buffer(asset_manager->gpu_scene_data);
+        render_task_graph.use_persistent_buffer(scene->gpu_scene_data);
+        render_task_graph.use_persistent_buffer(scene->gpu_entities_data_pool.task_buffer);
         render_task_graph.use_persistent_buffer(asset_manager->gpu_mesh_groups);
         render_task_graph.use_persistent_buffer(asset_manager->gpu_mesh_indices);
         render_task_graph.use_persistent_buffer(asset_manager->gpu_meshes);
@@ -244,10 +243,10 @@ namespace foundation {
 
         render_task_graph.add_task({
             .attachments = {
-                daxa::inl_attachment(daxa::TaskBufferAccess::TRANSFER_WRITE, asset_manager->gpu_transforms),
+                daxa::inl_attachment(daxa::TaskBufferAccess::TRANSFER_WRITE, scene->gpu_transforms_pool.task_buffer),
             },
             .task = [&](daxa::TaskInterface const &ti) {
-                scene->update_gpu(ti, asset_manager->gpu_transforms);
+                scene->update_gpu(ti);
             },
             .name = "SceneUpdateGPU",
         });
@@ -255,10 +254,11 @@ namespace foundation {
         build_virtual_geometry_task_graph(VirtualGeometryTaskInfo {
             .context = context,
             .task_graph = render_task_graph,
-            .gpu_scene_data = asset_manager->gpu_scene_data,
+            .gpu_scene_data = scene->gpu_scene_data,
+            .gpu_entities_data = scene->gpu_entities_data_pool.task_buffer,
             .gpu_meshes = asset_manager->gpu_meshes,
             .gpu_materials = asset_manager->gpu_materials,
-            .gpu_transforms = asset_manager->gpu_transforms,
+            .gpu_transforms = scene->gpu_transforms_pool.task_buffer,
             .gpu_mesh_groups = asset_manager->gpu_mesh_groups,
             .gpu_mesh_indices = asset_manager->gpu_mesh_indices,
             .color_image = render_image,
@@ -268,6 +268,7 @@ namespace foundation {
         render_task_graph.add_task(DebugDrawTask {
             .views = std::array{
                 DebugDrawTask::AT.u_globals | context->shader_globals_buffer,
+                DebugDrawTask::AT.u_transforms | scene->gpu_transforms_pool.task_buffer,
                 DebugDrawTask::AT.u_image | render_image,
                 DebugDrawTask::AT.u_depth_image | depth_image,
             },
@@ -293,7 +294,7 @@ namespace foundation {
         ImGui::NewFrame();
     }
 
-    void Renderer::ui_update(ControlledCamera3D& camera, f32 delta_time) {
+    void Renderer::ui_update() {
         ImGui::Begin("Memory Usage");
         ImGui::Text("%s", std::format("Total memory usage for images: {} MBs", std::to_string(s_cast<f64>(context->images.total_size) / 1024.0 / 1024.0)).c_str());
         ImGui::Text("%s", std::format("Total memory usage for buffers: {} MBs", std::to_string(s_cast<f64>(context->buffers.total_size) / 1024.0 / 1024.0)).c_str());

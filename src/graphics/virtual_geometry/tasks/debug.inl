@@ -10,6 +10,7 @@
 
 DAXA_DECL_TASK_HEAD_BEGIN(DebugDraw)
 DAXA_TH_BUFFER_PTR(VERTEX_SHADER_READ, daxa_BufferPtr(ShaderGlobals), u_globals)
+DAXA_TH_BUFFER_PTR(VERTEX_SHADER_READ, daxa_BufferPtr(TransformInfo), u_transforms)
 DAXA_TH_IMAGE(COLOR_ATTACHMENT, REGULAR_2D, u_image)
 DAXA_TH_IMAGE_ID(FRAGMENT_SHADER_SAMPLED, REGULAR_2D, u_depth_image)
 DAXA_DECL_TASK_HEAD_END
@@ -34,18 +35,18 @@ struct DebugDrawTask : DebugDraw::Task {
     static auto pipeline_config_info() -> daxa::RasterPipelineCompileInfo {
         return daxa::RasterPipelineCompileInfo {
             .vertex_shader_info = daxa::ShaderCompileInfo {
-                .source = daxa::ShaderSource { daxa::ShaderFile { .path = "src/graphics/virtual_geometry/tasks/debug.glsl" }, },
+                .source = daxa::ShaderSource { daxa::ShaderFile { .path = "src/graphics/virtual_geometry/tasks/debug.slang" }, },
                 .compile_options = {
-                    .entry_point = "main",
-                    .language = daxa::ShaderLanguage::GLSL,
+                    .entry_point = "vertex_main",
+                    .language = daxa::ShaderLanguage::SLANG,
                     .defines = { { std::string{DebugDrawTask::name()} + "_SHADER", "1" } },
                 }
             },
             .fragment_shader_info = daxa::ShaderCompileInfo {
-                .source = daxa::ShaderSource { daxa::ShaderFile { .path = "src/graphics/virtual_geometry/tasks/debug.glsl" }, },
+                .source = daxa::ShaderSource { daxa::ShaderFile { .path = "src/graphics/virtual_geometry/tasks/debug.slang" }, },
                 .compile_options = { 
-                    .entry_point = "main",
-                    .language = daxa::ShaderLanguage::GLSL,
+                    .entry_point = "fragment_main",
+                    .language = daxa::ShaderLanguage::SLANG,
                     .defines = { { std::string{DebugDrawTask::name()} + "_SHADER", "1" } } 
                 }
             },
