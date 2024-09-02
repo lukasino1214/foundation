@@ -46,12 +46,6 @@ namespace foundation {
         context->destroy_buffer(gpu_mesh_indices.get_state().buffers[0]);
 
         for(auto& mesh_manifest : mesh_manifest_entries) {
-            if(!mesh_manifest.traditional_render_info->vertex_buffer.is_empty()) {
-                context->destroy_buffer(mesh_manifest.traditional_render_info->vertex_buffer);
-            }
-            if(!mesh_manifest.traditional_render_info->index_buffer.is_empty()) {
-                context->destroy_buffer(mesh_manifest.traditional_render_info->index_buffer);
-            }
             if(!mesh_manifest.virtual_geometry_render_info->mesh_buffer.is_empty()) {
                 context->destroy_buffer(mesh_manifest.virtual_geometry_render_info->mesh_buffer);
             }
@@ -249,7 +243,6 @@ namespace foundation {
                     .gltf_asset_manifest_index = gltf_asset_manifest_index,
                     .asset_local_mesh_index = mesh_index,
                     .asset_local_primitive_index = primitive_index,
-                    .traditional_render_info = std::nullopt,
                     .virtual_geometry_render_info = std::nullopt
                 });
             }
@@ -576,14 +569,6 @@ namespace foundation {
                 .dst_offset = material_manifest.material_manifest_index * sizeof(Material),
                 .size = sizeof(Material),
             });
-            
-            mesh_manifest.traditional_render_info = MeshManifestEntry::TraditionalRenderInfo {
-                .vertex_buffer = mesh_upload_info.vertex_buffer,
-                .index_buffer = mesh_upload_info.index_buffer,
-                .material_manifest_index = material_manifest.material_manifest_index,
-                .vertex_count = mesh_upload_info.vertex_count,
-                .index_count = mesh_upload_info.index_count,
-            };
 
             mesh_manifest.virtual_geometry_render_info = MeshManifestEntry::VirtualGeometryRenderInfo {
                 .mesh_buffer = mesh_upload_info.mesh_buffer,
@@ -693,10 +678,10 @@ namespace foundation {
                     .emissive_sampler_id = emissive_sampler_id,
                     .metallic_factor = material.metallic_factor,
                     .roughness_factor = material.roughness_factor,
-                    .emissive_factor = *r_cast<daxa_f32vec3*>(&material.emissive_factor),
+                    .emissive_factor = material.emissive_factor,
                     .alpha_mode = material.alpha_mode,
                     .alpha_cutoff = material.alpha_cutoff,
-                    .double_sided = s_cast<daxa_b32>(material.double_sided)
+                    .double_sided = s_cast<b32>(material.double_sided)
                 };
 
                 cmd_recorder.copy_buffer_to_buffer(daxa::BufferCopyInfo {

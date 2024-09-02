@@ -3,16 +3,8 @@
 
 #include <graphics/helper.hpp>
 #include "common/tasks/clear_image.inl"
-#include "traditional/tasks/triangle.inl"
-#include "traditional/tasks/render_meshes.inl"
-#include "path_tracing/tasks/raytrace.inl"
 #include "virtual_geometry/tasks/debug.inl"
 #include <graphics/virtual_geometry/virtual_geometry.hpp>
-
-#include <ImGuizmo.h>
-#include <glm/gtc/type_ptr.hpp>
-#include <glm/gtx/string_cast.hpp>
-#include <math/decompose.hpp>
 
 namespace foundation {
     Renderer::Renderer(AppWindow* _window, Context* _context, Scene* _scene, AssetManager* _asset_manager) 
@@ -103,9 +95,6 @@ namespace foundation {
         };
 
         context->gpu_metrics[ClearImageTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
-        context->gpu_metrics[RayTraceTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
-        context->gpu_metrics[TriangleTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
-        context->gpu_metrics[RenderMeshesTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
         context->gpu_metrics[DebugDrawTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
         register_virtual_geometry_gpu_metrics(context);
     }
@@ -175,8 +164,6 @@ namespace foundation {
 
     void Renderer::compile_pipelines() {
         std::vector<std::tuple<std::string_view, daxa::RasterPipelineCompileInfo>> rasters = {
-            {TriangleTask::name(), TriangleTask::pipeline_config_info()},
-            {RenderMeshesTask::name(), RenderMeshesTask::pipeline_config_info()},
             {DebugDrawTask::name(), DebugDrawTask::pipeline_config_info()}
         };
         auto virtual_geometry_rasters = get_virtual_geometry_raster_pipelines();
@@ -190,7 +177,6 @@ namespace foundation {
 
         std::vector<std::tuple<std::string_view, daxa::ComputePipelineCompileInfo>> computes = {
             {ClearImageTask::name(), ClearImageTask::pipeline_config_info()},
-            {RayTraceTask::name(), RayTraceTask::pipeline_config_info()},
         };
         auto virtual_geometry_computes = get_virtual_geometry_compute_pipelines();
         computes.insert(computes.end(), virtual_geometry_computes.begin(), virtual_geometry_computes.end());

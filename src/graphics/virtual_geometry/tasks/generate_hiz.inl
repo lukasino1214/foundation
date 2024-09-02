@@ -41,6 +41,7 @@ struct GenerateHizTask : GenerateHiz::Task {
     }
 
     void callback(daxa::TaskInterface ti) {
+        context->gpu_metrics[this->name()]->start(ti.recorder);
         ti.recorder.set_pipeline(*context->compute_pipelines.at(GenerateHiz::Task::name()));
         daxa_u32vec2 next_higher_po2_render_target_size = {
             context->shader_globals.next_lower_po2_render_target_size.x,
@@ -56,6 +57,7 @@ struct GenerateHizTask : GenerateHiz::Task {
         std::memcpy(push.uses.value.data(), ti.attachment_shader_blob.data(), ti.attachment_shader_blob.size());
         ti.recorder.push_constant(push);
         ti.recorder.dispatch({.x = dispatch_x, .y = dispatch_y, .z = 1});
+        context->gpu_metrics[this->name()]->end(ti.recorder);
     }
 };
 #endif

@@ -13,8 +13,8 @@
 #include <math/decompose.hpp>
 
 namespace foundation {
-    Scene::Scene(const std::string_view& _name, Context* _context, AppWindow* _window)
-     : name{_name}, world{std::make_unique<flecs::world>()}, context{_context}, window{_window}, 
+    Scene::Scene(const std::string_view& _name, Context* _context, AppWindow* _window, ScriptingEngine* _scripting_engine, FileWatcher* _file_watcher)
+     : name{_name}, world{std::make_unique<flecs::world>()}, context{_context}, window{_window}, scripting_engine{_scripting_engine}, file_watcher{_file_watcher},
         gpu_transforms_pool(context, "gpu_transforms"), gpu_entities_data_pool(context, "gpu_entities_data") {
         gpu_scene_data = make_task_buffer(context, {
             sizeof(GPUSceneData), 
@@ -37,8 +37,26 @@ namespace foundation {
         entity.handle.destruct();
     }
 
-    void Scene::update(f32 /*delta_time*/) {
+    void Scene::update(f32 delta_time) {
         ZoneNamedN(scene_update, "scene update", true);
+
+        file_watcher->update([&](const std::filesystem::path& path){
+            if(path.extension().string() == ".lua") {
+                world->query<ScriptComponent>().each([&](flecs::entity entity, ScriptComponent& script){
+                    if(script.path == path) {
+                        Entity e(entity, this);
+                        scripting_engine->init_script(&script, e, path);
+                    }
+                });
+            }
+        });
+
+        world->query<ScriptComponent>().each([&](ScriptComponent& script){
+            if(script.lua) {
+                auto& lua = *script.lua;
+                lua["update"](delta_time);
+            }
+        });
         
         auto query_transforms = world->query_builder<GlobalTransformComponent, LocalTransformComponent, GlobalTransformComponent*>().term_at(3).cascade(flecs::ChildOf).optional().build();
         query_transforms.each([&](flecs::entity entity, GlobalTransformComponent& gtc, LocalTransformComponent& ltc, GlobalTransformComponent* parent_gtc){
@@ -91,12 +109,10 @@ namespace foundation {
                     scene_data_updated = true;
                     scene_data.entity_count++;
 
-                    EntityData data = {
+                    gpu_entities_data_pool.update_handle(task_interface, info.gpu_handle, {
                         .mesh_group_index = mesh.mesh_group_index.value(),
                         .transform_index = tc.gpu_handle.index
-                    };
-
-                    gpu_entities_data_pool.update_handle(task_interface, info.gpu_handle, data);
+                    });
 
                     info.is_dirty = false;
                 }
@@ -120,18 +136,16 @@ namespace foundation {
             if(gtc.is_dirty) {
                 gtc.is_dirty = false;
 
-                TransformInfo data = { 
-                    *r_cast<daxa_f32mat4x4*>(&gtc.model_matrix), 
-                    *r_cast<daxa_f32mat4x4*>(&gtc.normal_matrix)
-                };
-
-                gpu_transforms_pool.update_handle(task_interface, gtc.gpu_handle, data);
+                gpu_transforms_pool.update_handle(task_interface, gtc.gpu_handle, { 
+                    gtc.model_matrix, 
+                    gtc.normal_matrix
+                });
             }
         });
 
         world->query<GlobalTransformComponent, AABBComponent>().each([&](GlobalTransformComponent& tc,AABBComponent& aabb){
             context->debug_draw_context.aabbs.push_back(ShaderDebugAABBDraw{ 
-                .color = { aabb.color.x, aabb.color.y, aabb.color.z },
+                .color = aabb.color,
                 .transform_index = tc.gpu_handle.index
             });
         });

@@ -9,7 +9,7 @@
 
 namespace foundation {
     namespace math {
-        fn decompose_transform(const glm::mat4 &transform, glm::vec3 &translation, glm::vec3 &rotation, glm::vec3 &scale) -> bool {
+        auto decompose_transform(const glm::mat4 &transform, glm::vec3 &translation, glm::vec3 &rotation, glm::vec3 &scale) -> bool {
             glm::mat4 local_matrix{transform};
 
             if (glm::epsilonEqual(local_matrix[3][3], s_cast<f32>(0), glm::epsilon<f32>())) {

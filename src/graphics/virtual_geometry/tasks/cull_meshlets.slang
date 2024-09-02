@@ -114,7 +114,7 @@ bool is_aabb_inside_plane(in f32vec3 center, in f32vec3 extent, in f32vec4 plane
 }
 
 bool is_meshlet_visible(AABB aabb, daxa_f32mat4x4 model) {
-    const f32vec3 world_aabb_center = (model * f32vec4(aabb.center, 1.0)).xyz;
+    const f32vec3 world_aabb_center = mul(model, f32vec4(aabb.center, 1.0)).xyz;
     const f32vec3 right = model[0].xyz * aabb.extent.x;
     const f32vec3 up = model[1].xyz * aabb.extent.y;
     const f32vec3 forward = (-model[2].xyz) * aabb.extent.z;
@@ -132,13 +132,6 @@ bool is_meshlet_visible(AABB aabb, daxa_f32mat4x4 model) {
         abs(dot(f32vec3(0.0, 0.0, 1.0), up)) +
         abs(dot(f32vec3(0.0, 0.0, 1.0), forward))
     );
-    
-    // ShaderDebugAABBDraw draw;
-    // draw.position = world_aabb_center;
-    // draw.size = world_extent;
-    // draw.color = f32vec3(1.0, 0.0, 0.0);
-    // draw.coord_space = 0;
-    // add_aabb(push.uses.u_globals.debug, draw);
 
     const uint planes = 6;
     for (uint i = 0; i < planes; ++i) {
@@ -146,10 +139,8 @@ bool is_meshlet_visible(AABB aabb, daxa_f32mat4x4 model) {
             return false;
         }
     }
-    // aabb.center = world_aabb_center;
-    // aabb.extent = world_extent;
+
     return !is_ndc_aabb_hiz_depth_visible(calculate_ndc_aabb(model, aabb), push.uses.u_globals->next_lower_po2_render_target_size, push.uses.u_hiz);
-    return true;
 }
 
 [shader("compute")]

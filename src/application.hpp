@@ -10,6 +10,8 @@
 #include <graphics/camera.hpp>
 #include <graphics/renderer.hpp>
 #include <graphics/context.hpp>
+#include <utils/file_watcher.hpp>
+#include <scripting/scripting_engine.hpp>
 
 namespace foundation {
     struct Application {
@@ -22,6 +24,8 @@ namespace foundation {
 
         AppWindow window;
         Context context;
+        FileWatcher file_watcher = {};
+        ScriptingEngine scripting_engine = {};
         std::shared_ptr<Scene> scene;
         std::unique_ptr<AssetProcessor> asset_processor;
         std::unique_ptr<AssetManager> asset_manager;

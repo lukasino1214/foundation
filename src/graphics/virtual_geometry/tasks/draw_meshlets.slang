@@ -1,5 +1,6 @@
 #include "daxa/daxa.inl"
 #include "draw_meshlets.inl"
+#include "../../../shader_library/vertex_compression.inl"
 
 #if defined(DrawMeshletsWriteCommand_SHADER)
 [[vk::push_constant]] DrawMeshletsWriteCommandPush push;
@@ -91,8 +92,7 @@ struct BarycentricDeriv {
     daxa_f32vec3 m_ddy;
 };
 
-BarycentricDeriv calc_bary_and_deriv(daxa_f32vec4 pt0, daxa_f32vec4 pt1, daxa_f32vec4 pt2, daxa_f32vec2 pixelNdc, daxa_f32vec2 winSize)
-{
+BarycentricDeriv calc_bary_and_deriv(daxa_f32vec4 pt0, daxa_f32vec4 pt1, daxa_f32vec4 pt2, daxa_f32vec2 pixelNdc, daxa_f32vec2 winSize) {
     BarycentricDeriv ret;   
     daxa_f32vec3 invW = 1.0f / (daxa_f32vec3(pt0.w, pt1.w, pt2.w)); 
     daxa_f32vec2 ndc0 = pt0.xy * invW.x;
@@ -176,9 +176,9 @@ f32vec4 fragment_main(u32 vis_index : u32, float4 pixel : SV_Position) : SV_Targ
     const BarycentricDeriv derivatives = calc_bary_and_deriv(clip_position[0], clip_position[1], clip_position[2], ndc_xy, f32vec2(push.uses.u_globals->render_target_size));
 
     const daxa_f32vec2[3] uvs = daxa_f32vec2[3](
-        mesh.vertex_uvs[indices[0]],
-        mesh.vertex_uvs[indices[1]],
-        mesh.vertex_uvs[indices[2]]
+        decode_uv(mesh.vertex_uvs[indices[0]]),
+        decode_uv(mesh.vertex_uvs[indices[1]]),
+        decode_uv(mesh.vertex_uvs[indices[2]])
     );
 
     const f32vec3[2] interp_uv = f32vec3[2](
@@ -192,7 +192,28 @@ f32vec4 fragment_main(u32 vis_index : u32, float4 pixel : SV_Position) : SV_Targ
         f32vec2(interp_uv[0].z, interp_uv[1].z)
     );
 
-    f32vec4 color = f32vec4(1.0);
+    const daxa_f32vec3[3] vertex_normals = daxa_f32vec3[3](
+        decode_normal(mesh.vertex_normals[indices[0]]),
+        decode_normal(mesh.vertex_normals[indices[1]]),
+        decode_normal(mesh.vertex_normals[indices[2]])
+    );
+
+    daxa_f32mat4x4 normal_matrix = push.uses.u_transforms[meshlet_data.transform_index].normal_matrix; 
+    const daxa_f32vec4[3] worldspace_vertex_normals = daxa_f32vec4[3](
+        mul(normal_matrix, daxa_f32vec4(vertex_normals[0], 0)),
+        mul(normal_matrix, daxa_f32vec4(vertex_normals[1], 0)),
+        mul(normal_matrix, daxa_f32vec4(vertex_normals[2], 0))
+    );
+
+    f32vec3 normal = normalize(interpolate_attributes(
+        derivatives, f32vec3[3](
+            worldspace_vertex_normals[0].xyz,
+            worldspace_vertex_normals[1].xyz,
+            worldspace_vertex_normals[2].xyz
+        )
+    ));
+
+    f32vec4 color = f32vec4(hsv_to_rgb(f32vec3(f32(meshlet_data.meshlet_index) * M_GOLDEN_CONJ, 0.875, 0.85)), 1.0);
     daxa_ImageViewId albedo_texture_id = push.uses.u_materials[mesh.material_index].albedo_texture_id;
     if(albedo_texture_id.value != 0) {
         f32vec4 albedo = Texture2D<float>::get(albedo_texture_id).SampleGrad(SamplerState::get(push.uses.u_materials[mesh.material_index].albedo_sampler_id), uv_grad.uv, uv_grad.ddx, uv_grad.ddy);
@@ -206,6 +227,6 @@ f32vec4 fragment_main(u32 vis_index : u32, float4 pixel : SV_Position) : SV_Targ
         color += f32vec4(Texture2D<float>::get(emissive_texture_id).SampleGrad(SamplerState::get(push.uses.u_materials[mesh.material_index].emissive_sampler_id), uv_grad.uv, uv_grad.ddx, uv_grad.ddy).rgb, 0);
     }
 
-    return color;
+    return f32vec4(color, 1.0);
 }   
 #endif

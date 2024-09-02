@@ -206,12 +206,12 @@ namespace foundation {
         glm::mat4 projection_view_matrix = camera.camera.proj_mat * camera.camera.view_mat;
         glm::mat4 inverse_projection_view = inverse_projection_matrix * inverse_view_matrix;
 
-        shader_globals.camera_projection_matrix = *reinterpret_cast<const daxa_f32mat4x4*>(&camera.camera.proj_mat);
-        shader_globals.camera_inverse_projection_matrix = *reinterpret_cast<daxa_f32mat4x4*>(&inverse_projection_matrix);
-        shader_globals.camera_view_matrix = *reinterpret_cast<const daxa_f32mat4x4*>(&camera.camera.view_mat);
-        shader_globals.camera_inverse_view_matrix = *reinterpret_cast<daxa_f32mat4x4*>(&inverse_view_matrix);
-        shader_globals.camera_projection_view_matrix = *reinterpret_cast<daxa_f32mat4x4*>(&projection_view_matrix);
-        shader_globals.camera_inverse_projection_view_matrix = *reinterpret_cast<daxa_f32mat4x4*>(&inverse_projection_view);
+        shader_globals.camera_projection_matrix =  camera.camera.proj_mat;
+        shader_globals.camera_inverse_projection_matrix = inverse_projection_matrix;
+        shader_globals.camera_view_matrix = camera.camera.view_mat;
+        shader_globals.camera_inverse_view_matrix = inverse_view_matrix;
+        shader_globals.camera_projection_view_matrix = projection_view_matrix;
+        shader_globals.camera_inverse_projection_view_matrix = inverse_projection_view;
         shader_globals.render_target_size = { size.x, size.y };
         shader_globals.render_target_size_inv = {
             1.0f / s_cast<f32>(shader_globals.render_target_size.x),
@@ -235,9 +235,9 @@ namespace foundation {
         for (u32 i = 0; i < 6; ++i) {
             planes[i] /= glm::length(glm::vec3(planes[i]));
             planes[i].w = -planes[i].w;
-            shader_globals.frustum_planes[i] = *reinterpret_cast<daxa_f32vec4*>(&planes[i]);
+            shader_globals.frustum_planes[i] = planes[i];
         }
 
-        shader_globals.camera_position = *reinterpret_cast<const daxa_f32vec3*>(&camera.position);
+        shader_globals.camera_position = camera.position;
     }
 }

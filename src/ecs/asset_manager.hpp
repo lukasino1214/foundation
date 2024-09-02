@@ -30,14 +30,6 @@ namespace foundation {
     };
 
     struct MeshManifestEntry {
-        struct TraditionalRenderInfo {
-            daxa::BufferId vertex_buffer = {};
-            daxa::BufferId index_buffer = {};
-            u32 material_manifest_index = {};
-            u32 vertex_count = {};
-            u32 index_count = {};
-        };
-
         struct VirtualGeometryRenderInfo {
             daxa::BufferId mesh_buffer = {};
             u32 material_manifest_index = {};
@@ -46,7 +38,6 @@ namespace foundation {
         u32 gltf_asset_manifest_index = {};
         u32 asset_local_mesh_index = {};
         u32 asset_local_primitive_index = {};
-        std::optional<TraditionalRenderInfo> traditional_render_info = {};
         std::optional<VirtualGeometryRenderInfo> virtual_geometry_render_info = {};
     };
 

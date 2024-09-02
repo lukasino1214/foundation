@@ -4,6 +4,7 @@
 #include <meshoptimizer.h>
 #include <fastgltf/tools.hpp>
 #include <fastgltf/glm_element_traits.hpp>
+#include <shader_library/vertex_compression.inl>
 
 namespace foundation {
     AssetProcessor::AssetProcessor(Context* _context) : context{_context}, mesh_upload_mutex{std::make_unique<std::mutex>()} {}
@@ -37,7 +38,7 @@ namespace foundation {
         fastgltf::Primitive& gltf_primitive = gltf_mesh.primitives[info.gltf_primitive_index];
 
         std::vector<glm::vec3> vert_positions = {};
-        auto position_attribute_iter = gltf_primitive.findAttribute("POSITION");
+        auto* position_attribute_iter = gltf_primitive.findAttribute("POSITION");
         if(position_attribute_iter != gltf_primitive.attributes.end()) {
             vert_positions = load_data<glm::vec3, false>(gltf_asset, gltf_asset.accessors[position_attribute_iter->second]);
         }
@@ -52,34 +53,40 @@ namespace foundation {
         };
 
         u32 vertex_count = s_cast<u32>(vert_positions.size());
-        std::vector<glm::vec3> vert_normals = {};
-        auto normal_attribute_iter = gltf_primitive.findAttribute("NORMAL");
-        if(normal_attribute_iter != gltf_primitive.attributes.end()) {
-            vert_normals = load_data<glm::vec3, false>(gltf_asset, gltf_asset.accessors[normal_attribute_iter->second]);
-        } else {
-            fill(vert_normals, vertex_count);
+
+        std::vector<u32> packed_normals = {};
+        {
+            std::vector<glm::vec3> vert_normals = {};
+            auto* normal_attribute_iter = gltf_primitive.findAttribute("NORMAL");
+            if(normal_attribute_iter != gltf_primitive.attributes.end()) {
+                vert_normals = load_data<glm::vec3, false>(gltf_asset, gltf_asset.accessors[normal_attribute_iter->second]);
+            } else {
+                fill(vert_normals, vertex_count);
+            }
+            packed_normals.reserve(packed_normals.size());
+            for(const f32vec3& normal : vert_normals) {
+                packed_normals.push_back(encode_normal(normal));
+            }
         }
 
-        std::vector<glm::vec2> vert_uvs = {};
-        auto uvs_attribute_iter = gltf_primitive.findAttribute("TEXCOORD_0");
-        if(uvs_attribute_iter != gltf_primitive.attributes.end()) {
-            vert_uvs = load_data<glm::vec2, false>(gltf_asset, gltf_asset.accessors[uvs_attribute_iter->second]);
-        } else {
-            fill(vert_uvs, vertex_count);
+        std::vector<u32> packed_uvs = {};
+        {
+            std::vector<glm::vec2> vert_uvs = {};
+            auto* uvs_attribute_iter = gltf_primitive.findAttribute("TEXCOORD_0");
+            if(uvs_attribute_iter != gltf_primitive.attributes.end()) {
+                vert_uvs = load_data<glm::vec2, false>(gltf_asset, gltf_asset.accessors[uvs_attribute_iter->second]);
+            } else {
+                fill(vert_uvs, vertex_count);
+            }
+
+            packed_uvs.reserve(vert_uvs.size());
+            for(const f32vec2& uv : vert_uvs) {
+                packed_uvs.push_back(encode_uv(uv));
+            }
         }
 
         std::vector<u32> indices = {};
         indices = load_data<u32, true>(gltf_asset, gltf_asset.accessors[gltf_primitive.indicesAccessor.value()]);
-
-        std::vector<Vertex> vertices = {};
-        vertices.resize(vertex_count);
-        for(u32 i = 0; i < vertex_count; i++) {
-            vertices[i] = Vertex {
-                .position = *r_cast<daxa_f32vec3*>(&vert_positions[i]),
-                .normal = *r_cast<daxa_f32vec3*>(&vert_normals[i]),
-                .uv = *r_cast<daxa_f32vec2*>(&vert_uvs[i]),
-            };
-        }
 
         constexpr usize MAX_VERTICES = MAX_VERTICES_PER_MESHLET;
         constexpr usize MAX_TRIANGLES = MAX_TRIANGLES_PER_MESHLET;
@@ -90,29 +97,6 @@ namespace foundation {
             meshopt_optimizeVertexCache(optimized_indices.data(), indices.data(), indices.size(), vertex_count);
             indices = std::move(optimized_indices);
         }
-
-        daxa::BufferId staging_buffer = context->create_buffer(daxa::BufferInfo {
-            .size = static_cast<u32>(vertex_count * sizeof(Vertex) + indices.size() * sizeof(u32)),
-            .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
-            .name = "staging buffer: " + info.asset_path.filename().string() + " mesh " + std::to_string(info.gltf_mesh_index) + " primitive " + std::to_string(info.gltf_primitive_index)
-        });
-
-        std::byte* ptr = context->device.get_host_address(staging_buffer).value();
-        std::memcpy(ptr, vertices.data(), vertices.size() * sizeof(Vertex));
-        ptr += vertices.size() * sizeof(Vertex);
-        std::memcpy(ptr, indices.data(), indices.size() * sizeof(u32));
-
-        daxa::BufferId vertex_buffer = context->create_buffer(daxa::BufferInfo {
-            .size = static_cast<u32>(vertices.size() * sizeof(Vertex)),
-            .allocate_info = daxa::MemoryFlagBits::DEDICATED_MEMORY,
-            .name = "vertex buffer: " + info.asset_path.filename().string() + " mesh " + std::to_string(info.gltf_mesh_index) + " primitive " + std::to_string(info.gltf_primitive_index)
-        });
-
-        daxa::BufferId index_buffer = context->create_buffer(daxa::BufferInfo {
-            .size = static_cast<u32>(indices.size() * sizeof(u32)),
-            .allocate_info = daxa::MemoryFlagBits::DEDICATED_MEMORY,
-            .name = "index buffer: " + info.asset_path.filename().string() + " mesh " + std::to_string(info.gltf_mesh_index) + " primitive " + std::to_string(info.gltf_primitive_index)
-        });
 
         size_t max_meshlets = meshopt_buildMeshletsBound(indices.size(), MAX_VERTICES, MAX_TRIANGLES);
         std::vector<meshopt_Meshlet> meshlets(max_meshlets);
@@ -183,9 +167,9 @@ namespace foundation {
             sizeof(AABB) * meshlet_count +
             sizeof(u8) * meshlet_micro_indices.size() +
             sizeof(u32) * meshlet_indirect_vertices.size() +
-            sizeof(daxa_f32vec3) * vertex_count +
-            sizeof(daxa_f32vec3) * vertex_count +
-            sizeof(daxa_f32vec2) * vertex_count;
+            sizeof(f32vec3) * vertex_count +
+            sizeof(u32) * vertex_count +
+            sizeof(u32) * vertex_count;
 
         Mesh mesh = {};
         mesh.aabb = mesh_aabb; 
@@ -233,16 +217,16 @@ namespace foundation {
         accumulated_offset += sizeof(u32) * meshlet_indirect_vertices.size();
         
         mesh.vertex_positions = mesh_bda + accumulated_offset;
-        std::memcpy(staging_ptr + accumulated_offset, vert_positions.data(), vertex_count * sizeof(daxa_f32vec3));
-        accumulated_offset += sizeof(daxa_f32vec3) * vertex_count;
+        std::memcpy(staging_ptr + accumulated_offset, vert_positions.data(), vertex_count * sizeof(f32vec3));
+        accumulated_offset += sizeof(f32vec3) * vertex_count;
         
         mesh.vertex_normals = mesh_bda + accumulated_offset;
-        std::memcpy(staging_ptr + accumulated_offset, vert_normals.data(), vertex_count * sizeof(daxa_f32vec3));
-        accumulated_offset += sizeof(daxa_f32vec3) * vertex_count;
+        std::memcpy(staging_ptr + accumulated_offset, packed_normals.data(), vertex_count * sizeof(u32));
+        accumulated_offset += sizeof(u32) * vertex_count;
 
         mesh.vertex_uvs = mesh_bda + accumulated_offset;
-        std::memcpy(staging_ptr + accumulated_offset, vert_uvs.data(), vertex_count * sizeof(daxa_f32vec2));
-        accumulated_offset += sizeof(daxa_f32vec2) * vertex_count;
+        std::memcpy(staging_ptr + accumulated_offset, packed_uvs.data(), vertex_count * sizeof(u32));
+        accumulated_offset += sizeof(u32) * vertex_count;
         
         mesh.material_index = info.material_manifest_offset + static_cast<u32>(info.asset->meshes[info.gltf_mesh_index].primitives[info.gltf_primitive_index].materialIndex.value());
         mesh.meshlet_count = s_cast<u32>(meshlet_count);
@@ -251,11 +235,6 @@ namespace foundation {
         {
             std::lock_guard<std::mutex> lock{*mesh_upload_mutex};
             mesh_upload_queue.push_back(MeshUploadInfo {
-                .staging_buffer = staging_buffer,
-                .vertex_buffer = vertex_buffer,
-                .index_buffer = index_buffer,
-                .vertex_count = static_cast<u32>(vertex_count),
-                .index_count = static_cast<u32>(indices.size()),
                 .staging_mesh_buffer = staging_mesh_buffer,
                 .mesh_buffer = mesh_buffer,
                 .mesh = mesh,
@@ -390,27 +369,7 @@ namespace foundation {
         {
             ZoneNamedN(mesh_upload_info_, "mesh_upload_info", true);
             for(auto& mesh_upload_info : ret.uploaded_meshes) {
-                context->destroy_buffer_deferred(cmd_recorder, mesh_upload_info.staging_buffer);
                 context->destroy_buffer_deferred(cmd_recorder, mesh_upload_info.staging_mesh_buffer);
-
-                u32 vertex_buffer_size = s_cast<u32>(context->device.info_buffer(mesh_upload_info.vertex_buffer).value().size);
-                u32 index_buffer_size = s_cast<u32>(context->device.info_buffer(mesh_upload_info.index_buffer).value().size);
-
-                cmd_recorder.copy_buffer_to_buffer(daxa::BufferCopyInfo {
-                    .src_buffer = mesh_upload_info.staging_buffer,
-                    .dst_buffer = mesh_upload_info.vertex_buffer,
-                    .src_offset = 0,
-                    .dst_offset = 0,
-                    .size = vertex_buffer_size
-                });
-
-                cmd_recorder.copy_buffer_to_buffer(daxa::BufferCopyInfo {
-                    .src_buffer = mesh_upload_info.staging_buffer,
-                    .dst_buffer = mesh_upload_info.index_buffer,
-                    .src_offset = vertex_buffer_size,
-                    .dst_offset = 0,
-                    .size = index_buffer_size
-                });
 
                 cmd_recorder.copy_buffer_to_buffer(daxa::BufferCopyInfo {
                     .src_buffer = mesh_upload_info.staging_mesh_buffer,

@@ -15,12 +15,6 @@ namespace foundation {
     };
 
     struct MeshUploadInfo {
-        daxa::BufferId staging_buffer = {};
-        daxa::BufferId vertex_buffer = {};
-        daxa::BufferId index_buffer = {};
-        u32 vertex_count = 0;
-        u32 index_count = 0;
-
         daxa::BufferId staging_mesh_buffer = {};
         daxa::BufferId mesh_buffer = {};
 

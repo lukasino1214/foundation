@@ -3,32 +3,32 @@
 #include "glue.inl"
 
 struct DrawIndexedIndirectStruct {
-    daxa_u32 index_count;
-    daxa_u32 instance_count;
-    daxa_u32 first_index;
-    daxa_u32 vertex_offset;
-    daxa_u32 first_instance;
+    u32 index_count;
+    u32 instance_count;
+    u32 first_index;
+    u32 vertex_offset;
+    u32 first_instance;
 };
 DAXA_DECL_BUFFER_PTR(DrawIndexedIndirectStruct)
 
 struct DrawIndirectStruct {
-    daxa_u32 vertex_count;
-    daxa_u32 instance_count;
-    daxa_u32 first_vertex;
-    daxa_u32 first_instance;
+    u32 vertex_count;
+    u32 instance_count;
+    u32 first_vertex;
+    u32 first_instance;
 };
 DAXA_DECL_BUFFER_PTR(DrawIndirectStruct)
 
 struct DispatchIndirectStruct {
-    daxa_u32 x;
-    daxa_u32 y;
-    daxa_u32 z;
+    u32 x;
+    u32 y;
+    u32 z;
 };
 DAXA_DECL_BUFFER_PTR(DispatchIndirectStruct)
 
 struct ShaderDebugAABBDraw {
-    daxa_f32vec3 color;
-    daxa_u32 transform_index;
+    f32vec3 color;
+    u32 transform_index;
 };
 DAXA_DECL_BUFFER_PTR(ShaderDebugAABBDraw)
 
@@ -49,37 +49,29 @@ struct Samplers {
 DAXA_DECL_BUFFER_PTR(Samplers)
 
 struct ShaderGlobals {
-    daxa_f32mat4x4 camera_projection_matrix;
-    daxa_f32mat4x4 camera_inverse_projection_matrix;
-    daxa_f32mat4x4 camera_view_matrix;
-    daxa_f32mat4x4 camera_inverse_view_matrix;
-    daxa_f32mat4x4 camera_projection_view_matrix;
-    daxa_f32mat4x4 camera_inverse_projection_view_matrix;
-    daxa_f32vec4 frustum_planes[6];
-    daxa_u32vec2 render_target_size;
-    daxa_f32vec2 render_target_size_inv;
-    daxa_u32vec2 next_lower_po2_render_target_size;
-    daxa_f32vec2 next_lower_po2_render_target_size_inv;
-    daxa_f32vec3 camera_position;
+    f32mat4x4 camera_projection_matrix;
+    f32mat4x4 camera_inverse_projection_matrix;
+    f32mat4x4 camera_view_matrix;
+    f32mat4x4 camera_inverse_view_matrix;
+    f32mat4x4 camera_projection_view_matrix;
+    f32mat4x4 camera_inverse_projection_view_matrix;
+    f32vec4 frustum_planes[6];
+    u32vec2 render_target_size;
+    f32vec2 render_target_size_inv;
+    u32vec2 next_lower_po2_render_target_size;
+    f32vec2 next_lower_po2_render_target_size_inv;
+    f32vec3 camera_position;
     Samplers samplers;
     daxa_BufferPtr(ShaderDebugBufferHead) debug;
 };
 DAXA_DECL_BUFFER_PTR(ShaderGlobals)
 
 struct TransformInfo {
-    daxa_f32mat4x4 model_matrix;
-    daxa_f32mat4x4 normal_matrix;
+    f32mat4x4 model_matrix;
+    f32mat4x4 normal_matrix;
 };
 
 DAXA_DECL_BUFFER_PTR(TransformInfo)
-
-struct Vertex {
-    daxa_f32vec3 position;
-    daxa_f32vec3 normal;
-    daxa_f32vec2 uv;
-};
-
-DAXA_DECL_BUFFER_PTR(Vertex)
 
 struct Material {
     daxa_ImageViewId albedo_texture_id;
@@ -90,26 +82,26 @@ struct Material {
     daxa_SamplerId roughness_metalness_sampler_id;
     daxa_ImageViewId emissive_texture_id;
     daxa_SamplerId emissive_sampler_id;
-    daxa_f32 metallic_factor;
-    daxa_f32 roughness_factor;
-    daxa_f32vec3 emissive_factor;
-    daxa_u32 alpha_mode;
-    daxa_f32 alpha_cutoff;
-    daxa_b32 double_sided;
+    f32 metallic_factor;
+    f32 roughness_factor;
+    f32vec3 emissive_factor;
+    u32 alpha_mode;
+    f32 alpha_cutoff;
+    b32 double_sided;
 };
 
 DAXA_DECL_BUFFER_PTR(Material)
 
 struct GPUSceneData {
-    daxa_u32 entity_count;
+    u32 entity_count;
 };
 
 DAXA_DECL_BUFFER_PTR(GPUSceneData)
 
 struct MeshGroup {
-    daxa_BufferPtr(daxa_u32) mesh_indices;
-    daxa_u32 count;
-    daxa_u32 padding;
+    daxa_BufferPtr(u32) mesh_indices;
+    u32 count;
+    u32 padding;
 };
 
 DAXA_DECL_BUFFER_PTR_ALIGN(MeshGroup, 8)
@@ -122,16 +114,16 @@ DAXA_DECL_BUFFER_PTR_ALIGN(MeshGroup, 8)
 #define MAX_MATERIALS (1u << 10u)
 
 struct Meshlet {
-    daxa_u32 indirect_vertex_offset;
-    daxa_u32 micro_indices_offset;
-    daxa_u32 vertex_count;
-    daxa_u32 triangle_count;
+    u32 indirect_vertex_offset;
+    u32 micro_indices_offset;
+    u32 vertex_count;
+    u32 triangle_count;
 };
 DAXA_DECL_BUFFER_PTR(Meshlet)
 
 struct BoundingSphere {
-    daxa_f32vec3 center;
-    daxa_f32 radius;
+    f32vec3 center;
+    f32 radius;
 };
 DAXA_DECL_BUFFER_PTR(BoundingSphere)
 
@@ -142,38 +134,38 @@ struct AABB {
 DAXA_DECL_BUFFER_PTR(AABB)
 
 struct Mesh {
-    daxa_u32 material_index;
-    daxa_u32 meshlet_count;
-    daxa_u32 vertex_count;
+    u32 material_index;
+    u32 meshlet_count;
+    u32 vertex_count;
     AABB aabb;
     daxa_BufferPtr(Meshlet) meshlets;
     daxa_BufferPtr(BoundingSphere) meshlet_bounds;
     daxa_BufferPtr(AABB) meshlet_aabbs;
-    daxa_BufferPtr(daxa_u32) micro_indices;
-    daxa_BufferPtr(daxa_u32) indirect_vertices;
-    daxa_BufferPtr(daxa_f32vec3) vertex_positions;
-    daxa_BufferPtr(daxa_f32vec3) vertex_normals;
-    daxa_BufferPtr(daxa_f32vec2) vertex_uvs;
+    daxa_BufferPtr(u32) micro_indices;
+    daxa_BufferPtr(u32) indirect_vertices;
+    daxa_BufferPtr(f32vec3) vertex_positions;
+    daxa_BufferPtr(u32) vertex_normals;
+    daxa_BufferPtr(u32) vertex_uvs;
 };
 
 DAXA_DECL_BUFFER_PTR_ALIGN(Mesh, 8)
 
 struct MeshletData {
-    daxa_u32 mesh_index;
-    daxa_u32 mesh_group_index;
-    daxa_u32 meshlet_index;
-    daxa_u32 transform_index;
+    u32 mesh_index;
+    u32 mesh_group_index;
+    u32 meshlet_index;
+    u32 transform_index;
 };
 DAXA_DECL_BUFFER_PTR(MeshletData)
 
 struct EntityData {
-    daxa_u32 mesh_group_index;
-    daxa_u32 transform_index;
+    u32 mesh_group_index;
+    u32 transform_index;
 };
 DAXA_DECL_BUFFER_PTR(EntityData)
 
 struct MeshletsData {
-    daxa_u32 count;
+    u32 count;
     MeshletData meshlets[MAX_SURVIVING_MESHLETS];
 };
 DAXA_DECL_BUFFER_PTR(MeshletsData)

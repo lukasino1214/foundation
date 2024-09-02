@@ -7,7 +7,8 @@ namespace foundation {
     Application::Application() : 
         window{1280, 720, "foundation"},
         context{this->window},
-        scene{std::make_shared<Scene>("scene", &context, &window)},
+        scripting_engine{&window},
+        scene{std::make_shared<Scene>("scene", &context, &window, &scripting_engine, &file_watcher)},
         asset_processor{std::make_unique<AssetProcessor>(&context)},
         asset_manager{std::make_unique<AssetManager>(&context, scene.get())},
         thread_pool{std::make_unique<ThreadPool>(std::thread::hardware_concurrency() - 1)},
@@ -67,33 +68,61 @@ namespace foundation {
         }
 
         {
-            Entity entity = scene->create_entity("aabb 1");
-            entity.add_component<AABBComponent>();
-            add_transform(entity);
-        }
+            auto cube1 = scene->create_entity("aabb 1");
+            {
+                auto* tc = add_transform(cube1);
+                tc->set_position({0.0f, 0.0, 0.0f});
+                
+                cube1.add_component<AABBComponent>();
+                auto* script = cube1.add_component<ScriptComponent>();
+                script->path = "assets/scripts/test.lua";
+                file_watcher.watch("assets/scripts/test.lua");
+                scripting_engine.init_script(script, cube1, "assets/scripts/test.lua"); 
+            }
 
-        {
-            Entity entity = scene->create_entity("aabb 2");
-            entity.add_component<AABBComponent>();
-            auto* tc = add_transform(entity);
-            tc->set_position({ 0.0f, 2.0f, 0.0f });
-            tc->set_rotation({ 45.0f, 45.0f, 45.0f });
-        }
+            auto cube2 = scene->create_entity("aabb 2");
+            cube2.handle.child_of(cube1.handle);
+            {
+                auto* tc = add_transform(cube2);
+                tc->set_position({0.0f, 2.5, 0.0f});
+                tc->set_scale({0.5f, 0.5, 0.5f});
 
-        {
-            Entity entity = scene->create_entity("aabb 3");
-            entity.add_component<AABBComponent>();
-            auto* tc = add_transform(entity);
-            tc->set_position({ 0.0f, 4.0f, 0.0f });
+                cube2.add_component<AABBComponent>();
+                auto* script = cube2.add_component<ScriptComponent>();
+                script->path = "assets/scripts/test.lua";
+                file_watcher.watch("assets/scripts/test.lua");
+                scripting_engine.init_script(script, cube2, "assets/scripts/test.lua"); 
+            }
+
+            auto cube3 = scene->create_entity("aabb 3");
+            cube3.handle.child_of(cube2.handle);
+            {
+                auto* tc = add_transform(cube3);
+                tc->set_position({0.0f, 2.5, 0.0f});
+                tc->set_scale({0.5f, 0.5, 0.5f});
+
+                cube3.add_component<AABBComponent>();
+                auto* script = cube3.add_component<ScriptComponent>();
+                script->path = "assets/scripts/test.lua";
+                file_watcher.watch("assets/scripts/test.lua");
+                scripting_engine.init_script(script, cube3, "assets/scripts/test.lua"); 
+            }
+
+            auto cube4 = scene->create_entity("aabb 4");
+            cube4.handle.child_of(cube3.handle);
+            {
+                auto* tc = add_transform(cube4);
+                tc->set_position({0.0f, 2.5, 0.0f});
+                tc->set_scale({0.5f, 0.5, 0.5f});
+                cube4.add_component<AABBComponent>();
+            }
         }
 
         viewport_panel = ViewportPanel(&context, &window, &renderer->imgui_renderer, [&](const glm::uvec2& size){ renderer->recreate_framebuffer(size); });
         thread_pool->block_on(compile_pipelines_task);
     }
 
-    Application::~Application() {
-
-    }
+    Application::~Application() {}
 
     auto Application::run() -> i32 {
         while(!window.window_state->close_requested) {

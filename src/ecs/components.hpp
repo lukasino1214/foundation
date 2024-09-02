@@ -2,6 +2,7 @@
 #include "graphics/utils/cpu_managed_gpu_pool.hpp"
 #include <pch.hpp>
 #include <flecs.h>
+#include <sol/sol.hpp>
 
 struct Entity;
 struct AppWindow;
@@ -68,5 +69,10 @@ namespace foundation {
     struct RenderInfo {
         CPUManagedGPUPool<EntityData>::Handle gpu_handle = {};
         bool is_dirty = true;
+    };
+    
+    struct ScriptComponent {
+        std::filesystem::path path = {};
+        std::unique_ptr<sol::state> lua = {};
     };
 }

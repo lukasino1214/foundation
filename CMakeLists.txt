@@ -23,6 +23,8 @@ find_package(flecs CONFIG REQUIRED)
 find_package(fastgltf CONFIG REQUIRED)
 find_package(Tracy CONFIG REQUIRED)
 find_package(imguizmo CONFIG REQUIRED)
+find_package(Lua REQUIRED)
+find_package(sol2 CONFIG REQUIRED)
 
 add_executable(${PROJECT_NAME} 
     "src/main.cpp"
@@ -40,9 +42,12 @@ add_executable(${PROJECT_NAME}
     "src/graphics/helper.cpp"
     "src/graphics/camera.cpp"
     "src/math/decompose.cpp"
+    "src/scripting/scripting_engine.cpp"
     "src/ui/panels/viewport_panel.cpp"
     "src/ui/panels/scene_hierarchy_panel.cpp"
     "src/ui/ui.cpp"
+    "src/utils/file_io.cpp"
+    "src/utils/file_watcher.cpp"
 )
 
 target_precompile_headers(${PROJECT_NAME} PRIVATE "src/pch.hpp")
@@ -67,6 +72,8 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     $<IF:$<TARGET_EXISTS:flecs::flecs>,flecs::flecs,flecs::flecs_static>
     Tracy::TracyClient
     imguizmo::imguizmo
+    ${LUA_LIBRARIES}
+    sol2 
 )
 target_include_directories(${PROJECT_NAME} PRIVATE ${Stb_INCLUDE_DIR})
 

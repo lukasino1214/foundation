@@ -117,9 +117,9 @@ namespace foundation {
             .context = info.context,
         });
 
-        daxa_u32vec2 hiz_size = info.context->shader_globals.next_lower_po2_render_target_size;
+        u32vec2 hiz_size = info.context->shader_globals.next_lower_po2_render_target_size;
         hiz_size = { std::max(hiz_size.x, 1u), std::max(hiz_size.y, 1u) };
-        u32 mip_count = std::max(static_cast<daxa_u32>(std::ceil(std::log2(std::max(hiz_size.x, hiz_size.y)))), 1u);
+        u32 mip_count = std::max(static_cast<u32>(std::ceil(std::log2(std::max(hiz_size.x, hiz_size.y)))), 1u);
         mip_count = std::min(mip_count, u32(GEN_HIZ_LEVELS_PER_DISPATCH));
         auto hiz = info.task_graph.create_transient_image({
             .format = daxa::Format::R32_SFLOAT,
