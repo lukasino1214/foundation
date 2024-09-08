@@ -35,7 +35,7 @@ struct DebugDrawTask : DebugDraw::Task {
     static auto pipeline_config_info() -> daxa::RasterPipelineCompileInfo {
         return daxa::RasterPipelineCompileInfo {
             .vertex_shader_info = daxa::ShaderCompileInfo {
-                .source = daxa::ShaderSource { daxa::ShaderFile { .path = "src/graphics/virtual_geometry/tasks/debug.slang" }, },
+                .source = daxa::ShaderSource { daxa::ShaderFile { .path = "src/graphics/common/tasks/debug.slang" }, },
                 .compile_options = {
                     .entry_point = "vertex_main",
                     .language = daxa::ShaderLanguage::SLANG,
@@ -43,7 +43,7 @@ struct DebugDrawTask : DebugDraw::Task {
                 }
             },
             .fragment_shader_info = daxa::ShaderCompileInfo {
-                .source = daxa::ShaderSource { daxa::ShaderFile { .path = "src/graphics/virtual_geometry/tasks/debug.slang" }, },
+                .source = daxa::ShaderSource { daxa::ShaderFile { .path = "src/graphics/common/tasks/debug.slang" }, },
                 .compile_options = { 
                     .entry_point = "fragment_main",
                     .language = daxa::ShaderLanguage::SLANG,

@@ -227,6 +227,6 @@ f32vec4 fragment_main(u32 vis_index : u32, float4 pixel : SV_Position) : SV_Targ
         color += f32vec4(Texture2D<float>::get(emissive_texture_id).SampleGrad(SamplerState::get(push.uses.u_materials[mesh.material_index].emissive_sampler_id), uv_grad.uv, uv_grad.ddx, uv_grad.ddy).rgb, 0);
     }
 
-    return f32vec4(color, 1.0);
+    return color;
 }   
 #endif

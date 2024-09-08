@@ -5,7 +5,6 @@
 #include <graphics/virtual_geometry/tasks/cull_meshlets.inl>
 #include <graphics/virtual_geometry/tasks/generate_hiz.inl>
 #include <graphics/virtual_geometry/tasks/draw_meshlets_only_depth.inl>
-#include <graphics/virtual_geometry/tasks/debug.inl>
 
 #include <pch.hpp>
 
@@ -34,7 +33,6 @@ namespace foundation {
         context->gpu_metrics[GenerateHizTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
         context->gpu_metrics[DrawMeshletsOnlyDepthWriteCommandTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
         context->gpu_metrics[DrawMeshletsOnlyDepthTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
-        context->gpu_metrics[DebugDrawTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
     }
 
     static inline auto get_virtual_geometry_raster_pipelines() -> std::vector<std::pair<std::string_view, daxa::RasterPipelineCompileInfo>> {

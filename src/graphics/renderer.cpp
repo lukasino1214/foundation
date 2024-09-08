@@ -3,7 +3,7 @@
 
 #include <graphics/helper.hpp>
 #include "common/tasks/clear_image.inl"
-#include "virtual_geometry/tasks/debug.inl"
+#include "common/tasks/debug.inl"
 #include <graphics/virtual_geometry/virtual_geometry.hpp>
 
 namespace foundation {
