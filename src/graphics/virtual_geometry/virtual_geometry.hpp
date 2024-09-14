@@ -5,6 +5,7 @@
 #include <graphics/virtual_geometry/tasks/cull_meshlets.inl>
 #include <graphics/virtual_geometry/tasks/generate_hiz.inl>
 #include <graphics/virtual_geometry/tasks/draw_meshlets_only_depth.inl>
+#include <graphics/virtual_geometry/tasks/resolve_visibility_buffer.inl>
 
 #include <pch.hpp>
 
@@ -21,6 +22,7 @@ namespace foundation {
         daxa::TaskBufferView gpu_mesh_indices = {};
         daxa::TaskImageView color_image = {};
         daxa::TaskImageView depth_image = {};
+        daxa::TaskImageView visibility_image = {};
     };
 
     static inline void register_virtual_geometry_gpu_metrics(Context* context) {
@@ -33,6 +35,7 @@ namespace foundation {
         context->gpu_metrics[GenerateHizTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
         context->gpu_metrics[DrawMeshletsOnlyDepthWriteCommandTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
         context->gpu_metrics[DrawMeshletsOnlyDepthTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
+        context->gpu_metrics[ResolveVisibilityBufferTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
     }
 
     static inline auto get_virtual_geometry_raster_pipelines() -> std::vector<std::pair<std::string_view, daxa::RasterPipelineCompileInfo>> {
@@ -50,7 +53,8 @@ namespace foundation {
             {CullMeshletsWriteCommandTask::name(), CullMeshletsWriteCommandTask::pipeline_config_info()},
             {CullMeshletsTask::name(), CullMeshletsTask::pipeline_config_info()},
             {GenerateHizTask::name(), GenerateHizTask::pipeline_config_info()},
-            {DrawMeshletsOnlyDepthWriteCommandTask::name(), DrawMeshletsOnlyDepthWriteCommandTask::pipeline_config_info()}
+            {DrawMeshletsOnlyDepthWriteCommandTask::name(), DrawMeshletsOnlyDepthWriteCommandTask::pipeline_config_info()},
+            {ResolveVisibilityBufferTask::name(), ResolveVisibilityBufferTask::pipeline_config_info()}
         };
     }
 
@@ -69,6 +73,11 @@ namespace foundation {
             .size = sizeof(MeshletsData),
             .name = "cull meshlets data",
         });
+
+        // auto u_index_buffer = info.task_graph.create_transient_buffer(daxa::TaskTransientBufferInfo {
+        //     .size = sizeof(MeshletIndexBuffer),
+        //     .name = "index buffer"
+        // });
 
         info.task_graph.add_task(PopulateMeshletsWriteCommandTask {
             .views = std::array{
@@ -176,10 +185,30 @@ namespace foundation {
                 DrawMeshletsTask::AT.u_materials | info.gpu_materials,
                 DrawMeshletsTask::AT.u_globals | info.context->shader_globals_buffer,
                 DrawMeshletsTask::AT.u_command | u_command,
-                DrawMeshletsTask::AT.u_image | info.color_image,
+                DrawMeshletsTask::AT.u_image | info.visibility_image,
                 DrawMeshletsTask::AT.u_depth_image | info.depth_image
             },
             .context = info.context,
+        });
+
+        info.task_graph.add_task(ResolveVisibilityBufferTask {
+            .views = std::array{
+                ResolveVisibilityBufferTask::AT.u_globals | info.context->shader_globals_buffer,
+                ResolveVisibilityBufferTask::AT.u_meshlets_data | u_culled_meshlet_data,
+                ResolveVisibilityBufferTask::AT.u_meshes | info.gpu_meshes,
+                ResolveVisibilityBufferTask::AT.u_transforms | info.gpu_transforms,
+                ResolveVisibilityBufferTask::AT.u_materials | info.gpu_materials,
+                ResolveVisibilityBufferTask::AT.u_visibility_image | info.visibility_image,
+                ResolveVisibilityBufferTask::AT.u_image | info.color_image
+            },
+            .context = info.context,
+            .dispatch_callback = [info]() -> daxa::DispatchInfo {
+                return { 
+                    .x = round_up_div(info.context->shader_globals.render_target_size.x, 16),
+                    .y = round_up_div(info.context->shader_globals.render_target_size.y, 16),
+                    .z = 1
+                };
+            }
         });
     }
 }

@@ -76,7 +76,7 @@ struct DrawMeshletsTask : DrawMeshlets::Task {
                 }
             },
             .color_attachments = {
-                { .format = daxa::Format::R8G8B8A8_UNORM }
+                { .format = daxa::Format::R32_UINT }
             },
             .depth_test = { daxa::DepthTestInfo {
                 .depth_attachment_format = daxa::Format::D32_SFLOAT,
@@ -103,7 +103,7 @@ struct DrawMeshletsTask : DrawMeshlets::Task {
                     .layout = daxa::ImageLayout::ATTACHMENT_OPTIMAL,
                     .load_op = daxa::AttachmentLoadOp::CLEAR,
                     .store_op = daxa::AttachmentStoreOp::STORE,
-                    .clear_value = std::array<daxa_f32, 4>{0.0f, 0.0f, 0.0f, 1.0},
+                    .clear_value = std::array<u32, 4>{INVALID_ID, INVALID_ID, INVALID_ID, INVALID_ID},
                 }
             },
             .depth_attachment = { daxa::RenderAttachmentInfo {

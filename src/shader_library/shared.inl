@@ -2,6 +2,8 @@
 #include <daxa/daxa.inl>
 #include "glue.inl"
 
+#define INVALID_ID (~(0u))
+
 struct DrawIndexedIndirectStruct {
     u32 index_count;
     u32 instance_count;
@@ -169,6 +171,12 @@ struct MeshletsData {
     MeshletData meshlets[MAX_SURVIVING_MESHLETS];
 };
 DAXA_DECL_BUFFER_PTR(MeshletsData)
+
+struct MeshletIndexBuffer {
+    u32 count;
+    u32 data[MAX_SURVIVING_MESHLETS * MAX_TRIANGLES_PER_MESHLET];
+};
+DAXA_DECL_BUFFER_PTR(MeshletIndexBuffer)
 
 #if defined(__cplusplus)
 #define SHARED_FUNCTION inline

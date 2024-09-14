@@ -20,6 +20,7 @@ namespace foundation {
 
         swapchain_image = daxa::TaskImage{{.swapchain_image = true, .name = "swapchain image"}};
         render_image = daxa::TaskImage{{ .name = "render image" }};
+        visibility_image = daxa::TaskImage{{ .name = "visibility image" }};
         depth_image = daxa::TaskImage{{ .name = "depth image" }};
 
         images = {
@@ -42,6 +43,14 @@ namespace foundation {
                     .name = depth_image.info().name,
                 },
                 depth_image,
+            },
+            {
+                {
+                    .format = daxa::Format::R32_UINT,
+                    .usage = daxa::ImageUsageFlagBits::TRANSFER_SRC | daxa::ImageUsageFlagBits::COLOR_ATTACHMENT | daxa::ImageUsageFlagBits::SHADER_SAMPLED | daxa::ImageUsageFlagBits::SHADER_STORAGE,
+                    .name = visibility_image.info().name,
+                },
+                visibility_image,
             },
         };
 
@@ -200,6 +209,7 @@ namespace foundation {
         render_task_graph.use_persistent_image(swapchain_image);
         render_task_graph.use_persistent_image(render_image);
         render_task_graph.use_persistent_image(depth_image);
+        render_task_graph.use_persistent_image(visibility_image);
         render_task_graph.use_persistent_buffer(shader_globals_buffer);
         render_task_graph.use_persistent_buffer(scene->gpu_transforms_pool.task_buffer);
         render_task_graph.use_persistent_buffer(asset_manager->gpu_materials);
@@ -248,7 +258,8 @@ namespace foundation {
             .gpu_mesh_groups = asset_manager->gpu_mesh_groups,
             .gpu_mesh_indices = asset_manager->gpu_mesh_indices,
             .color_image = render_image,
-            .depth_image = depth_image
+            .depth_image = depth_image,
+            .visibility_image = visibility_image
         });
 
         render_task_graph.add_task(DebugDrawTask {

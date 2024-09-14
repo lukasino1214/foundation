@@ -16,7 +16,7 @@ void cull_meshlets_write_command() {
     *push.uses.u_command = command;
     printf("meshlets to cull: %u\n", needed_threads);
 }
-#elif defined(CullMeshlets_SHADER) || 1
+#elif defined(CullMeshlets_SHADER)
 [[vk::push_constant]] CullMeshletsPush push;
 
 void add_aabb(ShaderDebugBufferHead* head, ShaderDebugAABBDraw draw) {
