@@ -1,23 +1,21 @@
 #include "daxa/daxa.inl"
 #include "cull_meshlets.inl"
 
-#if defined(CullMeshletsWriteCommand_SHADER)
-[[vk::push_constant]] CullMeshletsWriteCommandPush push;
+[[vk::push_constant]] CullMeshletsWriteCommandPush write_push;
+[[vk::push_constant]] CullMeshletsPush push;
 
 [shader("compute")]
 [numthreads(1, 1, 1)]
 void cull_meshlets_write_command() {
-    const u32 needed_threads = push.uses.u_meshlets_data->count;
+    const u32 needed_threads = write_push.uses.u_meshlets_data->count;
     const u32 needed_workgroups = round_up_div(needed_threads, 16);
     DispatchIndirectStruct command;
     command.x = needed_workgroups;
     command.y = 1;
     command.z = 1;
-    *push.uses.u_command = command;
+    *write_push.uses.u_command = command;
     printf("meshlets to cull: %u\n", needed_threads);
 }
-#elif defined(CullMeshlets_SHADER)
-[[vk::push_constant]] CullMeshletsPush push;
 
 void add_aabb(ShaderDebugBufferHead* head, ShaderDebugAABBDraw draw) {
     u32 index = 0;
@@ -25,8 +23,7 @@ void add_aabb(ShaderDebugBufferHead* head, ShaderDebugAABBDraw draw) {
     head->aabb_draws[index] = draw;
 }
 
-struct NdcAABB
-{
+struct NdcAABB {
     daxa_f32vec3 ndc_min;
     daxa_f32vec3 ndc_max;
 };
@@ -168,4 +165,3 @@ void cull_meshlets(u32vec3 thread_index : SV_DispatchThreadID) {
         }
     }
 }
-#endif

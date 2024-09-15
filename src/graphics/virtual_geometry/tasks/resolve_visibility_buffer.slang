@@ -2,30 +2,7 @@
 #include "resolve_visibility_buffer.inl"
 #include "../../../shader_library/vertex_compression.inl"
 #include "../../../shader_library/visibility_buffer.slang"
-
-u32 get_micro_index(u32* micro_indices, u32 index_offset) {
-    u32 pack_index = index_offset / 4;
-    u32 index_pack = micro_indices[pack_index];
-    u32 in_pack_offset = index_offset % 4;
-    u32 in_pack_shift = in_pack_offset * 8;
-    return (index_pack >> in_pack_shift) & 0xFF;
-}
-
-daxa_u32 get_vertex_index(Mesh mesh, Meshlet meshlet, daxa_u32 triangle_index, daxa_u32 offset) {
-    daxa_BufferPtr(daxa_u32) micro_index_buffer = mesh.micro_indices;
-    const uint micro_index = get_micro_index(micro_index_buffer, meshlet.micro_indices_offset + triangle_index * 3 + offset);
-    uint vertex_index = mesh.indirect_vertices[meshlet.indirect_vertex_offset + micro_index];
-    return min(vertex_index, mesh.vertex_count - 1);
-}
-
-void encode_triangle_id(inout u32 id, in u32 meshlet_index, in u32 triangle_index) {
-    id = (meshlet_index << 8) | (triangle_index);
-}
-
-void decode_triangle_id(in daxa_u32 id, out daxa_u32 meshlet_index, out daxa_u32 triangle_index) {
-    meshlet_index = id >> 8;
-    triangle_index = id & 0xFF;
-}
+#include "../../../shader_library/meshlet.slang"
 
 f32vec3 hsv_to_rgb(in f32vec3 hsv) {
     const f32vec3 rgb = saturate(abs(fmod(hsv.x * 6.0 + f32vec3(0.0, 4.0, 2.0), 6.0) - 3.0) - 1.0);

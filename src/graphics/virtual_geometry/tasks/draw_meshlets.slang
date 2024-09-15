@@ -4,22 +4,20 @@
 #include "../../../shader_library/visibility_buffer.slang"
 #include "../../../shader_library/meshlet.slang"
 
-#if defined(DrawMeshletsWriteCommand_SHADER)
-[[vk::push_constant]] DrawMeshletsWriteCommandPush push;
+[[vk::push_constant]] DrawMeshletsWriteCommandPush write_push;
+[[vk::push_constant]] DrawMeshletsPush push;
 
 [shader("compute")]
 [numthreads(1, 1, 1)]
 void draw_meshlets_write_command() {
     DrawIndirectStruct command;
     command.vertex_count = MAX_TRIANGLES_PER_MESHLET * 3;
-    command.instance_count = push.uses.u_meshlets_data->count;
+    command.instance_count = write_push.uses.u_meshlets_data->count;
     command.first_vertex = 0;
     command.first_instance = 0;
-    *push.uses.u_command = command;
-    printf("survived meshlets count: %i\n", push.uses.u_meshlets_data->count);
+    *write_push.uses.u_command = command;
+    printf("survived meshlets count: %i\n", write_push.uses.u_meshlets_data->count);
 }
-#elif defined(DrawMeshlets_SHADER) || 1
-[[vk::push_constant]] DrawMeshletsPush push;
 
 struct VertexStageOutput {
     u32 vis_index : u32;
@@ -61,4 +59,3 @@ VertexStageOutput vertex_main(u32 vertex_index: SV_VertexID, u32 instance_index 
 void fragment_main(u32 vis_index : u32, f32vec4 position: SV_Position) {
     AtomicMaxU64(tex_rw_u64_table[push.uses.u_visibility_image.index()][u32vec2(position.xy)], encode_visibility_buffer_payload(vis_index, position.z));
 }   
-#endif

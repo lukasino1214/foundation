@@ -2,22 +2,20 @@
 #include "draw_meshlets_only_depth.inl"
 #include "../../../shader_library/meshlet.slang"
 
-#if defined(DrawMeshletsOnlyDepthWriteCommand_SHADER)
-[[vk::push_constant]] DrawMeshletsOnlyDepthWriteCommandPush push;
+[[vk::push_constant]] DrawMeshletsOnlyDepthWriteCommandPush write_push;
+[[vk::push_constant]] DrawMeshletsOnlyDepthPush push;
 
 [shader("compute")]
 [numthreads(1, 1, 1)]
 void draw_meshlets_write_only_depth_command() {
     DrawIndirectStruct command;
     command.vertex_count = MAX_TRIANGLES_PER_MESHLET * 3;
-    command.instance_count = push.uses.u_meshlets_data->count;
+    command.instance_count = write_push.uses.u_meshlets_data->count;
     command.first_vertex = 0;
     command.first_instance = 0;
-    *push.uses.u_command = command;
+    *write_push.uses.u_command = command;
     // printf("survived meshlets count: %i\n", push.uses.u_meshlets_data->count);
 }
-#elif defined(DrawMeshletsOnlyDepth_SHADER)
-[[vk::push_constant]] DrawMeshletsOnlyDepthPush push;
 
 struct VertexStageOutput {
     f32vec4 sv_position : SV_Position;
@@ -62,4 +60,3 @@ f32vec3 hsv_to_rgb(in f32vec3 hsv) {
 [shader("fragment")]
 void fragment_main() {
 }   
-#endif

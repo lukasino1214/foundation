@@ -1,23 +1,22 @@
 #include "daxa/daxa.inl"
 #include "populate_meshlets.inl"
 
-#if defined(PopulateMeshletsWriteCommand_SHADER)
-[[vk::push_constant]] PopulateMeshletsWriteCommandPush push;
+[[vk::push_constant]] PopulateMeshletsWriteCommandPush write_push;
+[[vk::push_constant]] PopulateMeshletsPush push;
 
 [shader("compute")]
 [numthreads(1, 1, 1)]
 void populate_meshlets_write_command() {
-    const u32 needed_threads = push.uses.u_scene_data->entity_count;
+    const u32 needed_threads = write_push.uses.u_scene_data->entity_count;
     const u32 needed_workgroups = round_up_div(needed_threads, 16);
     DispatchIndirectStruct command;
     command.x = needed_workgroups;
     command.y = 1;
     command.z = 1;
-    *push.uses.u_command = command;
-    printf("entity count: %u\n", push.uses.u_scene_data->entity_count);
+    *write_push.uses.u_command = command;
+    printf("entity count: %u\n", write_push.uses.u_scene_data->entity_count);
 }
-#elif defined(PopulateMeshlets_SHADER)
-[[vk::push_constant]] PopulateMeshletsPush push;
+
 
 [shader("compute")]
 [numthreads(16, 1, 1)]
@@ -54,5 +53,3 @@ void populate_meshlets(u32vec3 thread_index : SV_DispatchThreadID) {
         }
     }
 }
-#endif
-
