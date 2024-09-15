@@ -232,6 +232,11 @@ namespace foundation {
         mesh.meshlet_count = s_cast<u32>(meshlet_count);
         mesh.vertex_count = s_cast<u32>(vertex_count);
 
+        u32 triangle_count = {};
+        for(const auto& meshlet : meshlets) {
+            triangle_count += meshlet.triangle_count;
+        }
+
         {
             std::lock_guard<std::mutex> lock{*mesh_upload_mutex};
             mesh_upload_queue.push_back(MeshUploadInfo {
@@ -239,7 +244,10 @@ namespace foundation {
                 .mesh_buffer = mesh_buffer,
                 .mesh = mesh,
                 .manifest_index = info.manifest_index,
-                .material_manifest_offset = info.material_manifest_offset
+                .material_manifest_offset = info.material_manifest_offset,
+                .meshlet_count = s_cast<u32>(meshlet_count),
+                .triangle_count = triangle_count,
+                .vertex_count = vertex_count
             });
         }
     }

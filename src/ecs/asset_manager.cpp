@@ -574,6 +574,10 @@ namespace foundation {
                 .mesh_buffer = mesh_upload_info.mesh_buffer,
                 .material_manifest_index = material_manifest.material_manifest_index,
             };
+
+            total_meshlet_count += mesh_upload_info.meshlet_count;
+            total_triangle_count += mesh_upload_info.triangle_count;
+            total_vertex_count += mesh_upload_info.vertex_count;
         }
 
         if(!info.uploaded_meshes.empty()) {

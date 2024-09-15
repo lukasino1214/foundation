@@ -206,6 +206,13 @@ namespace foundation {
         ImGui::Begin("File Browser");
         ImGui::End();
 
+        ImGui::Begin("Asset Manager Statistics");
+        ImGui::Text("Mesh Count: %u", s_cast<u32>(asset_manager->mesh_manifest_entries.size()));
+        ImGui::Text("Meshlet Count: %u", asset_manager->total_meshlet_count);
+        ImGui::Text("Triangle Count: %u", asset_manager->total_triangle_count);
+        ImGui::Text("Vertex Count: %u", asset_manager->total_vertex_count);
+        ImGui::End();
+
         scene_hierarchy_panel.draw();
         viewport_panel.draw(camera, delta_time, renderer->render_image);
 

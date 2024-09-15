@@ -113,5 +113,9 @@ namespace foundation {
         daxa::TaskBuffer gpu_materials = {};
         daxa::TaskBuffer gpu_mesh_groups = {};
         daxa::TaskBuffer gpu_mesh_indices = {};
+
+        u32 total_meshlet_count = {};
+        u32 total_triangle_count = {};
+        u32 total_vertex_count = {};
     };
 }
