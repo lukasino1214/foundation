@@ -19,6 +19,8 @@ using u32vec2 = glm::uvec2;
 using f32 = daxa_f32;
 using i32 = daxa_i32;
 using u32 = daxa_u32;
+using i64 = daxa_i64;
+using u64 = daxa_u64;
 using b32 = daxa_b32;
 
 #define const_ref(x__) const x__ & 
@@ -56,6 +58,8 @@ typedef daxa_u32vec2 u32vec2;
 typedef daxa_f32 f32;
 typedef daxa_i32 i32;
 typedef daxa_u32 u32;
+typedef daxa_i64 i64;
+typedef daxa_u64 u64;
 typedef daxa_b32 b32;
 
 #define auto func
@@ -116,6 +120,8 @@ auto unpack_snorm_2x16(u32 v) -> f32vec2 {
 #define f32 daxa_f32
 #define i32 daxa_i32
 #define u32 daxa_u32
+#define i64 daxa_i64
+#define u64 daxa_u64
 #define b32 daxa_b32
 
 #define pack_half_2x16 packHalf2x16

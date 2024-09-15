@@ -131,10 +131,10 @@ namespace foundation {
     auto Context::create_image(const daxa::ImageInfo& info) -> daxa::ImageId {
         std::string name = std::string{info.name.c_str().data()};
         auto find = images.resources.find(name);
+        std::lock_guard<std::mutex> lock{*resource_mutex};
         if(find != images.resources.end()) {
             throw std::runtime_error("image collision: " + name);
         } else {
-            std::lock_guard<std::mutex> lock{*resource_mutex};
             daxa::ImageId resource = device.create_image(info);
             u32 size = s_cast<u32>(device.get_memory_requirements(info).size);
             images.resources[name] = ResourceHolder<daxa::ImageId>::Resource { resource, size };
@@ -165,11 +165,11 @@ namespace foundation {
     
     auto Context::create_buffer(const daxa::BufferInfo& info) -> daxa::BufferId {
         std::string name = std::string{info.name.c_str().data()};
+        std::lock_guard<std::mutex> lock{*resource_mutex};
         auto find = buffers.resources.find(name);
         if(find != buffers.resources.end()) {
             throw std::runtime_error("buffer collision: " + name);
         } else {
-            std::lock_guard<std::mutex> lock{*resource_mutex};
             daxa::BufferId resource = device.create_buffer(info);
             u32 size = s_cast<u32>(device.get_memory_requirements(info).size);
             buffers.resources[name] = ResourceHolder<daxa::BufferId>::Resource { resource, size };

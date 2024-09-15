@@ -33,8 +33,7 @@ DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ, daxa_BufferPtr(TransformInfo), u_transfo
 DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ, daxa_BufferPtr(Material), u_materials)
 DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ, daxa_BufferPtr(ShaderGlobals), u_globals)
 DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ, daxa_BufferPtr(DrawIndirectStruct), u_command)
-DAXA_TH_IMAGE_ID(COLOR_ATTACHMENT, REGULAR_2D, u_image)
-DAXA_TH_IMAGE_ID(DEPTH_ATTACHMENT, REGULAR_2D, u_depth_image)
+DAXA_TH_IMAGE_ID(FRAGMENT_SHADER_STORAGE_READ_WRITE_CONCURRENT, REGULAR_2D, u_visibility_image)
 DAXA_DECL_TASK_HEAD_END
 
 struct DrawMeshletsPush {
@@ -75,14 +74,6 @@ struct DrawMeshletsTask : DrawMeshlets::Task {
                     .defines = { { std::string{DrawMeshletsTask::name()} + "_SHADER", "1" } } 
                 }
             },
-            .color_attachments = {
-                { .format = daxa::Format::R32_UINT }
-            },
-            .depth_test = { daxa::DepthTestInfo {
-                .depth_attachment_format = daxa::Format::D32_SFLOAT,
-                .enable_depth_write = true,
-                .depth_test_compare_op = daxa::CompareOp::GREATER_OR_EQUAL
-            } },
             .raster = {
                 .face_culling = daxa::FaceCullFlagBits::FRONT_BIT
             },
@@ -93,24 +84,10 @@ struct DrawMeshletsTask : DrawMeshlets::Task {
 
     void callback(daxa::TaskInterface ti) {
         context->gpu_metrics[this->name()]->start(ti.recorder);
-        u32 size_x = ti.device.info_image(ti.get(AT.u_image).ids[0]).value().size.x;
-        u32 size_y = ti.device.info_image(ti.get(AT.u_image).ids[0]).value().size.y;
+        u32 size_x = ti.device.info_image(ti.get(AT.u_visibility_image).ids[0]).value().size.x;
+        u32 size_y = ti.device.info_image(ti.get(AT.u_visibility_image).ids[0]).value().size.y;
 
         auto render_cmd = std::move(ti.recorder).begin_renderpass(daxa::RenderPassBeginInfo {
-            .color_attachments = {
-                daxa::RenderAttachmentInfo {
-                    .image_view = ti.get(AT.u_image).ids[0].default_view(),
-                    .layout = daxa::ImageLayout::ATTACHMENT_OPTIMAL,
-                    .load_op = daxa::AttachmentLoadOp::CLEAR,
-                    .store_op = daxa::AttachmentStoreOp::STORE,
-                    .clear_value = std::array<u32, 4>{INVALID_ID, INVALID_ID, INVALID_ID, INVALID_ID},
-                }
-            },
-            .depth_attachment = { daxa::RenderAttachmentInfo {
-                .image_view = ti.get(AT.u_depth_image).ids[0].default_view(),
-                .load_op = daxa::AttachmentLoadOp::CLEAR,
-                .clear_value = daxa::DepthValue { .depth = 0.0f },
-            }},
             .render_area = {.x = 0, .y = 0, .width = size_x, .height = size_y},
         });
 

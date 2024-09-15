@@ -1,5 +1,6 @@
 #include "daxa/daxa.inl"
 #include "draw_meshlets_only_depth.inl"
+#include "../../../shader_library/meshlet.slang"
 
 #if defined(DrawMeshletsOnlyDepthWriteCommand_SHADER)
 [[vk::push_constant]] DrawMeshletsOnlyDepthWriteCommandPush push;
@@ -21,18 +22,6 @@ void draw_meshlets_write_only_depth_command() {
 struct VertexStageOutput {
     f32vec4 sv_position : SV_Position;
 };
-
-u32 get_micro_index(u32* micro_indices, u32 index_offset) {
-    u32 pack_index = index_offset / 4;
-    u32 index_pack = micro_indices[pack_index];
-    u32 in_pack_offset = index_offset % 4;
-    u32 in_pack_shift = in_pack_offset * 8;
-    return (index_pack >> in_pack_shift) & 0xFF;
-}
-
-void encode_triangle_id(inout u32 id, in u32 meshlet_index, in u32 triangle_index) {
-    id = (meshlet_index << 8) | (triangle_index);
-}
 
 [shader("vertex")]
 VertexStageOutput vertex_main(u32 vertex_index: SV_VertexID, u32 instance_index : SV_InstanceID) {

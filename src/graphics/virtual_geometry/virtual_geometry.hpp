@@ -74,11 +74,6 @@ namespace foundation {
             .name = "cull meshlets data",
         });
 
-        // auto u_index_buffer = info.task_graph.create_transient_buffer(daxa::TaskTransientBufferInfo {
-        //     .size = sizeof(MeshletIndexBuffer),
-        //     .name = "index buffer"
-        // });
-
         info.task_graph.add_task(PopulateMeshletsWriteCommandTask {
             .views = std::array{
                 PopulateMeshletsWriteCommandTask::AT.u_scene_data | info.gpu_scene_data,
@@ -177,6 +172,17 @@ namespace foundation {
             .context = info.context,
         });
 
+        info.task_graph.add_task({
+            .attachments = {daxa::inl_attachment(daxa::TaskImageAccess::TRANSFER_WRITE, info.visibility_image)},
+            .task = [&](daxa::TaskInterface ti) {
+                ti.recorder.clear_image({
+                    .clear_value = std::array<daxa_u32, 4>{INVALID_ID, 0, 0, 0},
+                    .dst_image = ti.get(daxa::TaskImageAttachmentIndex(0)).ids[0],
+                });
+            },
+            .name = "clear visibility image",
+        });
+
         info.task_graph.add_task(DrawMeshletsTask {
             .views = std::array{
                 DrawMeshletsTask::AT.u_meshlets_data | u_culled_meshlet_data,
@@ -185,8 +191,7 @@ namespace foundation {
                 DrawMeshletsTask::AT.u_materials | info.gpu_materials,
                 DrawMeshletsTask::AT.u_globals | info.context->shader_globals_buffer,
                 DrawMeshletsTask::AT.u_command | u_command,
-                DrawMeshletsTask::AT.u_image | info.visibility_image,
-                DrawMeshletsTask::AT.u_depth_image | info.depth_image
+                DrawMeshletsTask::AT.u_visibility_image | info.visibility_image
             },
             .context = info.context,
         });

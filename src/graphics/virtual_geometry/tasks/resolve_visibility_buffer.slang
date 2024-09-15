@@ -1,6 +1,7 @@
 #include "daxa/daxa.inl"
 #include "resolve_visibility_buffer.inl"
 #include "../../../shader_library/vertex_compression.inl"
+#include "../../../shader_library/visibility_buffer.slang"
 
 u32 get_micro_index(u32* micro_indices, u32 index_offset) {
     u32 pack_index = index_offset / 4;
@@ -118,8 +119,11 @@ daxa_f32vec3 interpolate_attributes(in BarycentricDeriv derivatives, in f32vec3[
 void main(u32vec3 pixel : SV_DispatchThreadID) {
     if(any(pixel.xy >= deref(push.uses.u_globals).render_target_size)) { return; }
 
-    u32 vis_index = RWTexture2D<u32>::get(push.uses.u_visibility_image).Load(pixel.xy).x;
-    if(vis_index == INVALID_ID) {
+    daxa_u32 vis_index = 0;
+    daxa_u32 depth = 0;
+    decode_visibility_buffer_payload(tex_rw_u64_table[push.uses.u_visibility_image.index()][pixel.xy], vis_index, depth);
+
+    if(vis_index == INVALID_ID || depth == 0) {
         RWTexture2D<f32vec4> image = RWTexture2D<f32>::get(push.uses.u_image);
         image[pixel.xy] = f32vec4(0.0f, 0.0f, 0.0f, 1.0f);
         return;
@@ -258,6 +262,6 @@ void main(u32vec3 pixel : SV_DispatchThreadID) {
     }
 
     RWTexture2D<f32vec4> image = RWTexture2D<f32>::get(push.uses.u_image);
-    color = f32vec4(normal * 0.5 + 0.5, 1.0f);
+    // color = f32vec4(normal * 0.5 + 0.5, 1.0f);
     image[pixel.xy] = color;
 }
