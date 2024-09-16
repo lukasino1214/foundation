@@ -105,6 +105,7 @@ namespace foundation {
         std::vector<MaterialManifestEntry> material_manifest_entries = {};
         std::vector<MeshManifestEntry> mesh_manifest_entries = {};
         std::vector<MeshGroupManifestEntry> mesh_group_manifest_entries = {};
+        std::vector<u32> dirty_meshes = {};
         std::vector<u32> dirty_mesh_groups = {};
 
         Context* context;
@@ -113,6 +114,9 @@ namespace foundation {
         daxa::TaskBuffer gpu_materials = {};
         daxa::TaskBuffer gpu_mesh_groups = {};
         daxa::TaskBuffer gpu_mesh_indices = {};
+
+        daxa::TaskBuffer gpu_meshlet_data = {};
+        daxa::TaskBuffer gpu_culled_meshlet_data = {};
 
         u32 total_meshlet_count = {};
         u32 total_triangle_count = {};

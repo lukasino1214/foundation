@@ -218,6 +218,8 @@ namespace foundation {
         render_task_graph.use_persistent_buffer(asset_manager->gpu_mesh_groups);
         render_task_graph.use_persistent_buffer(asset_manager->gpu_mesh_indices);
         render_task_graph.use_persistent_buffer(asset_manager->gpu_meshes);
+        render_task_graph.use_persistent_buffer(asset_manager->gpu_meshlet_data);
+        render_task_graph.use_persistent_buffer(asset_manager->gpu_culled_meshlet_data);
 
         render_task_graph.add_task({
             .attachments = {
@@ -257,6 +259,8 @@ namespace foundation {
             .gpu_transforms = scene->gpu_transforms_pool.task_buffer,
             .gpu_mesh_groups = asset_manager->gpu_mesh_groups,
             .gpu_mesh_indices = asset_manager->gpu_mesh_indices,
+            .gpu_meshlet_data = asset_manager->gpu_meshlet_data,
+            .gpu_culled_meshlet_data = asset_manager->gpu_culled_meshlet_data,
             .color_image = render_image,
             .depth_image = depth_image,
             .visibility_image = visibility_image

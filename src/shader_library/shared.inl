@@ -168,7 +168,7 @@ DAXA_DECL_BUFFER_PTR(EntityData)
 
 struct MeshletsData {
     u32 count;
-    MeshletData meshlets[MAX_SURVIVING_MESHLETS];
+    daxa_BufferPtr(MeshletData) meshlets;
 };
 DAXA_DECL_BUFFER_PTR(MeshletsData)
 

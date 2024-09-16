@@ -38,12 +38,26 @@ namespace foundation {
             daxa::MemoryFlagBits::DEDICATED_MEMORY,
             "mesh indices"
         });
+
+        gpu_meshlet_data = make_task_buffer(context, {
+            sizeof(MeshletsData),
+            daxa::MemoryFlagBits::DEDICATED_MEMORY,
+            "meshlet data"
+        });
+
+        gpu_culled_meshlet_data = make_task_buffer(context, {
+            sizeof(MeshletsData),
+            daxa::MemoryFlagBits::DEDICATED_MEMORY,
+            "culled meshlet data"
+        });
     }
     AssetManager::~AssetManager() {
         context->destroy_buffer(gpu_meshes.get_state().buffers[0]);
         context->destroy_buffer(gpu_materials.get_state().buffers[0]);
         context->destroy_buffer(gpu_mesh_groups.get_state().buffers[0]);
         context->destroy_buffer(gpu_mesh_indices.get_state().buffers[0]);
+        context->destroy_buffer(gpu_meshlet_data.get_state().buffers[0]);
+        context->destroy_buffer(gpu_culled_meshlet_data.get_state().buffers[0]);
 
         for(auto& mesh_manifest : mesh_manifest_entries) {
             if(!mesh_manifest.virtual_geometry_render_info->mesh_buffer.is_empty()) {
@@ -239,6 +253,7 @@ namespace foundation {
             mesh_manifest_entries.reserve(mesh_manifest_entries.size() + gltf_mesh.primitives.size());
             
             for(u32 primitive_index = 0; primitive_index < gltf_mesh.primitives.size(); primitive_index++) {
+                dirty_meshes.push_back(s_cast<u32>(mesh_manifest_entries.size()));
                 mesh_manifest_entries.push_back(MeshManifestEntry {
                     .gltf_asset_manifest_index = gltf_asset_manifest_index,
                     .asset_local_mesh_index = mesh_index,
@@ -463,10 +478,76 @@ namespace foundation {
             }
         };
 
+        auto realloc_special = [&](daxa::TaskBuffer& task_buffer, u32 new_size) {
+            daxa::BufferId buffer = task_buffer.get_state().buffers[0];
+            auto info = context->device.info_buffer(buffer).value();
+            if(info.size < new_size) {
+                context->destroy_buffer_deferred(cmd_recorder, buffer);
+                std::println("INFO: {} resized from {} bytes to {} bytes", std::string{info.name.c_str().data()}, std::to_string(info.size), std::to_string(new_size));
+                u32 old_size = s_cast<u32>(info.size);
+                info.size = new_size;
+                daxa::BufferId new_buffer = context->create_buffer(info);
+
+                MeshletsData data = {
+                    .count = 0,
+                    .meshlets = context->device.get_device_address(new_buffer).value() + sizeof(MeshletsData)
+                };
+
+                daxa::BufferId staging_buffer = context->create_buffer(daxa::BufferInfo {
+                    .size = sizeof(MeshletsData),
+                    .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
+                    .name = std::string{"staging"} + std::string{info.name.c_str().data()}
+                });
+                context->destroy_buffer_deferred(cmd_recorder, staging_buffer);
+                std::memcpy(context->device.get_host_address(staging_buffer).value(), &data, sizeof(MeshletsData));
+                cmd_recorder.copy_buffer_to_buffer({
+                    .src_buffer = staging_buffer,
+                    .dst_buffer = new_buffer,
+                    .src_offset = 0,
+                    .dst_offset = 0,
+                    .size = sizeof(MeshletsData),
+                });
+
+                task_buffer.set_buffers({ .buffers=std::array{new_buffer} });
+            }
+        };
+
+        for(const auto& mesh_upload_info : info.uploaded_meshes) {
+            total_meshlet_count += mesh_upload_info.meshlet_count;
+            total_triangle_count += mesh_upload_info.triangle_count;
+            total_vertex_count += mesh_upload_info.vertex_count;
+        }
+
         realloc(gpu_meshes, s_cast<u32>(mesh_manifest_entries.size() * sizeof(Mesh)));
         realloc(gpu_materials, s_cast<u32>(material_manifest_entries.size() * sizeof(Material)));
         realloc(gpu_mesh_groups, s_cast<u32>(mesh_group_manifest_entries.size() * sizeof(MeshGroup)));
         realloc(gpu_mesh_indices, s_cast<u32>(mesh_manifest_entries.size() * sizeof(u32)));
+        realloc_special(gpu_meshlet_data, total_meshlet_count * sizeof(MeshletData) + sizeof(MeshletsData));
+        realloc_special(gpu_culled_meshlet_data, total_meshlet_count * sizeof(MeshletData) + sizeof(MeshletsData));
+
+        if(!dirty_meshes.empty()) {
+            Mesh mesh = {};
+
+            daxa::BufferId staging_buffer = context->create_buffer(daxa::BufferInfo {
+                .size = sizeof(Mesh),
+                .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
+                .name = "staging buffer meshes"
+            });
+            context->destroy_buffer_deferred(cmd_recorder, staging_buffer);
+            std::memcpy(context->device.get_host_address(staging_buffer).value(), &mesh, sizeof(Mesh));
+
+            for(const u32 mesh_index : dirty_meshes) {
+                cmd_recorder.copy_buffer_to_buffer(daxa::BufferCopyInfo {
+                    .src_buffer = staging_buffer,
+                    .dst_buffer = gpu_meshes.get_state().buffers[0],
+                    .src_offset = 0,
+                    .dst_offset = mesh_index * sizeof(Mesh),
+                    .size = sizeof(Mesh)
+                });
+            }
+            
+            dirty_meshes = {};
+        }
 
         if(!dirty_mesh_groups.empty()) {
             std::vector<MeshGroup> mesh_groups = {};
@@ -574,10 +655,6 @@ namespace foundation {
                 .mesh_buffer = mesh_upload_info.mesh_buffer,
                 .material_manifest_index = material_manifest.material_manifest_index,
             };
-
-            total_meshlet_count += mesh_upload_info.meshlet_count;
-            total_triangle_count += mesh_upload_info.triangle_count;
-            total_vertex_count += mesh_upload_info.vertex_count;
         }
 
         if(!info.uploaded_meshes.empty()) {
