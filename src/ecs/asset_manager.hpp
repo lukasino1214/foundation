@@ -117,6 +117,7 @@ namespace foundation {
 
         daxa::TaskBuffer gpu_meshlet_data = {};
         daxa::TaskBuffer gpu_culled_meshlet_data = {};
+        daxa::TaskBuffer gpu_meshlet_index_buffer = {};
 
         u32 total_meshlet_count = {};
         u32 total_triangle_count = {};

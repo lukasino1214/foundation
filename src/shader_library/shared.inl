@@ -174,7 +174,7 @@ DAXA_DECL_BUFFER_PTR(MeshletsData)
 
 struct MeshletIndexBuffer {
     u32 count;
-    u32 data[MAX_SURVIVING_MESHLETS * MAX_TRIANGLES_PER_MESHLET];
+    daxa_BufferPtr(u32) indices;
 };
 DAXA_DECL_BUFFER_PTR(MeshletIndexBuffer)
 

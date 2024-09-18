@@ -50,6 +50,12 @@ namespace foundation {
             daxa::MemoryFlagBits::DEDICATED_MEMORY,
             "culled meshlet data"
         });
+
+        gpu_meshlet_index_buffer = make_task_buffer(context, {
+            sizeof(MeshletsData),
+            daxa::MemoryFlagBits::DEDICATED_MEMORY,
+            "meshlet index buffer"
+        });
     }
     AssetManager::~AssetManager() {
         context->destroy_buffer(gpu_meshes.get_state().buffers[0]);
@@ -58,6 +64,7 @@ namespace foundation {
         context->destroy_buffer(gpu_mesh_indices.get_state().buffers[0]);
         context->destroy_buffer(gpu_meshlet_data.get_state().buffers[0]);
         context->destroy_buffer(gpu_culled_meshlet_data.get_state().buffers[0]);
+        context->destroy_buffer(gpu_meshlet_index_buffer.get_state().buffers[0]);
 
         for(auto& mesh_manifest : mesh_manifest_entries) {
             if(!mesh_manifest.virtual_geometry_render_info->mesh_buffer.is_empty()) {
@@ -478,7 +485,7 @@ namespace foundation {
             }
         };
 
-        auto realloc_special = [&](daxa::TaskBuffer& task_buffer, u32 new_size) {
+        auto realloc_special = [&](daxa::TaskBuffer& task_buffer, u32 new_size, auto lambda) {
             daxa::BufferId buffer = task_buffer.get_state().buffers[0];
             auto info = context->device.info_buffer(buffer).value();
             if(info.size < new_size) {
@@ -488,24 +495,21 @@ namespace foundation {
                 info.size = new_size;
                 daxa::BufferId new_buffer = context->create_buffer(info);
 
-                MeshletsData data = {
-                    .count = 0,
-                    .meshlets = context->device.get_device_address(new_buffer).value() + sizeof(MeshletsData)
-                };
+                auto data = lambda(new_buffer);
 
                 daxa::BufferId staging_buffer = context->create_buffer(daxa::BufferInfo {
-                    .size = sizeof(MeshletsData),
+                    .size = sizeof(decltype(data)),
                     .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
                     .name = std::string{"staging"} + std::string{info.name.c_str().data()}
                 });
                 context->destroy_buffer_deferred(cmd_recorder, staging_buffer);
-                std::memcpy(context->device.get_host_address(staging_buffer).value(), &data, sizeof(MeshletsData));
+                std::memcpy(context->device.get_host_address(staging_buffer).value(), &data, sizeof(decltype(data)));
                 cmd_recorder.copy_buffer_to_buffer({
                     .src_buffer = staging_buffer,
                     .dst_buffer = new_buffer,
                     .src_offset = 0,
                     .dst_offset = 0,
-                    .size = sizeof(MeshletsData),
+                    .size = sizeof(decltype(data)),
                 });
 
                 task_buffer.set_buffers({ .buffers=std::array{new_buffer} });
@@ -522,8 +526,24 @@ namespace foundation {
         realloc(gpu_materials, s_cast<u32>(material_manifest_entries.size() * sizeof(Material)));
         realloc(gpu_mesh_groups, s_cast<u32>(mesh_group_manifest_entries.size() * sizeof(MeshGroup)));
         realloc(gpu_mesh_indices, s_cast<u32>(mesh_manifest_entries.size() * sizeof(u32)));
-        realloc_special(gpu_meshlet_data, total_meshlet_count * sizeof(MeshletData) + sizeof(MeshletsData));
-        realloc_special(gpu_culled_meshlet_data, total_meshlet_count * sizeof(MeshletData) + sizeof(MeshletsData));
+        realloc_special(gpu_meshlet_data, total_meshlet_count * sizeof(MeshletData) + sizeof(MeshletsData), [&](const daxa::BufferId& buffer) -> MeshletsData {
+            return MeshletsData {
+                .count = 0,
+                .meshlets = context->device.get_device_address(buffer).value() + sizeof(MeshletsData)
+            };
+        });
+        realloc_special(gpu_culled_meshlet_data, total_meshlet_count * sizeof(MeshletData) + sizeof(MeshletsData), [&](const daxa::BufferId& buffer) -> MeshletsData {
+            return MeshletsData {
+                .count = 0,
+                .meshlets = context->device.get_device_address(buffer).value() + sizeof(MeshletsData)
+            };
+        });
+        realloc_special(gpu_meshlet_index_buffer, total_triangle_count * sizeof(u32) + sizeof(MeshletIndexBuffer), [&](const daxa::BufferId& buffer) -> MeshletIndexBuffer {
+            return MeshletIndexBuffer {
+                .count = 0,
+                .indices = context->device.get_device_address(buffer).value() + sizeof(MeshletIndexBuffer)
+            };
+        });
 
         if(!dirty_meshes.empty()) {
             Mesh mesh = {};

@@ -11,8 +11,8 @@
 [numthreads(1, 1, 1)]
 void draw_meshlets_write_command() {
     DrawIndirectStruct command;
-    command.vertex_count = MAX_TRIANGLES_PER_MESHLET * 3;
-    command.instance_count = write_push.uses.u_meshlets_data->count;
+    command.vertex_count = write_push.uses.u_index_buffer->count * 3;
+    command.instance_count = 1;
     command.first_vertex = 0;
     command.first_instance = 0;
     *write_push.uses.u_command = command;
@@ -27,8 +27,11 @@ struct VertexStageOutput {
 [shader("vertex")]
 VertexStageOutput vertex_main(u32 vertex_index: SV_VertexID, u32 instance_index : SV_InstanceID) {
     const u32 triangle_corner_index = vertex_index % 3;
-    const u32 inst_meshlet_index = instance_index;
-    const u32 triangle_index = vertex_index / 3;
+    u32 inst_meshlet_index;
+    u32 triangle_index;
+    u32 data = push.uses.u_index_buffer->indices[vertex_index / 3];
+    
+    decode_triangle_id(data, inst_meshlet_index, triangle_index);
 
     MeshletData meshlet_data = push.uses.u_meshlets_data->meshlets[inst_meshlet_index];
     Mesh mesh = push.uses.u_meshes[meshlet_data.mesh_index];

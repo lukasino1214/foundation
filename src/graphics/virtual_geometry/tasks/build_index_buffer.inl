@@ -19,7 +19,7 @@ struct BuildIndexBufferWriteCommandPush {
 };
 
 #if __cplusplus
-using BuidIndexBufferWriteCommandTask = foundation::WriteIndirectComputeDispatchTask<
+using BuildIndexBufferWriteCommandTask = foundation::WriteIndirectComputeDispatchTask<
                                             BuildIndexBufferWriteCommand::Task, 
                                             BuildIndexBufferWriteCommandPush, 
                                             "src/graphics/virtual_geometry/tasks/build_index_buffer.slang", 
