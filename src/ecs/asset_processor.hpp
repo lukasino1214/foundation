@@ -14,10 +14,27 @@ namespace foundation {
         u32 manifest_index = {};
     };
 
+    struct ProcessedMeshInfo {
+        AABB mesh_aabb = {};
+        std::vector<f32vec3> positions = {};
+        std::vector<u32> normals = {};
+        std::vector<u32> uvs = {};
+        std::vector<Meshlet> meshlets = {};
+        std::vector<BoundingSphere> bounding_spheres = {};
+        std::vector<AABB> aabbs = {};
+        std::vector<u8> micro_indices = {};
+        std::vector<u32> indirect_vertices = {};
+    };
+
+    struct MeshBuffers {
+        daxa::BufferId staging_mesh_buffer = {};
+        daxa::BufferId mesh_buffer = {};
+        Mesh mesh = {};
+    };
+
     struct MeshUploadInfo {
         daxa::BufferId staging_mesh_buffer = {};
         daxa::BufferId mesh_buffer = {};
-
         Mesh mesh = {};
 
         u32 manifest_index = {};
@@ -57,6 +74,9 @@ namespace foundation {
         void load_texture(const LoadTextureInfo& info);
 
         auto record_gpu_load_processing_commands() -> RecordCommands;
+
+        static auto process_mesh(const LoadMeshInfo& info) -> ProcessedMeshInfo;
+        static auto create_mesh_buffers(Context* context, const LoadMeshInfo& info, const ProcessedMeshInfo& processed_info) -> MeshBuffers;
 
         Context* context;
 

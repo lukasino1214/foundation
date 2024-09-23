@@ -9,7 +9,7 @@
 
 #define GLFW_EXPOSE_NATIVE_WIN32
 #include <GLFW/glfw3native.h>
-
+#include <stb_image.h>
 
 namespace foundation {
     AppWindow::AppWindow(i32 width, i32 height, std::string_view _name)
@@ -53,6 +53,21 @@ namespace foundation {
             auto *state = reinterpret_cast<WindowState *>(glfwGetWindowUserPointer(window));
             state->focused = (focused != 0); 
         });
+
+        {
+            i32 x = 0;
+            i32 y = 0;
+            const auto pixels = stbi_load("assets/icons/froge.png", &x, &y, nullptr, 4);
+            if (pixels != nullptr) {
+                const auto image = GLFWimage{
+                    .width  = x,
+                    .height = y,
+                    .pixels = pixels,
+                };
+                glfwSetWindowIcon(glfw_handle, 1, &image);
+                stbi_image_free(pixels);
+            }
+        }
 
     #if defined(_WIN32)
         {

@@ -5,7 +5,7 @@
 
 namespace foundation {
     Application::Application() : 
-        window{1280, 720, "foundation"},
+        window{1280, 720, "Foundation"},
         context{this->window},
         scripting_engine{&window},
         scene{std::make_shared<Scene>("scene", &context, &window, &scripting_engine, &file_watcher)},

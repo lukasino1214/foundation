@@ -491,7 +491,6 @@ namespace foundation {
             if(info.size < new_size) {
                 context->destroy_buffer_deferred(cmd_recorder, buffer);
                 std::println("INFO: {} resized from {} bytes to {} bytes", std::string{info.name.c_str().data()}, std::to_string(info.size), std::to_string(new_size));
-                u32 old_size = s_cast<u32>(info.size);
                 info.size = new_size;
                 daxa::BufferId new_buffer = context->create_buffer(info);
 

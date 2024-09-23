@@ -17,6 +17,7 @@ namespace foundation {
             .context = ImGui::GetCurrentContext()
         });
         ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+        ImGui::GetStyle().WindowMenuButtonPosition = ImGuiDir_None;
 
         swapchain_image = daxa::TaskImage{{.swapchain_image = true, .name = "swapchain image"}};
         render_image = daxa::TaskImage{{ .name = "render image" }};
