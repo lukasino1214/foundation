@@ -6,6 +6,64 @@ include(cmake/static_analysis.cmake)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+if(NOT ("${CMAKE_SIZEOF_VOID_P}" EQUAL 8))
+  message(WARNING "The NVTT samples require a 64-bit build.")
+  return()
+endif()
+
+if(WIN32)
+  if(NOT ("${CMAKE_VS_PLATFORM_TOOLSET}" MATCHES "v14*"))
+    message(WARNING "As of this writing, the NVTT C++ API is only guaranteed to be compatible with MSVC v14x (e.g. v142, Visual Studio 2019) toolsets. You may get unexpected results running the C++ samples, but any C samples should work.")
+  endif()
+endif()
+
+# Find NVTT.
+if(NOT NVTT_DIR)
+  set(_SEARCH_PATHS "$ENV{NVTT_DIR}" "${CMAKE_CURRENT_LIST_DIR}" "${CMAKE_CURRENT_LIST_DIR}/.." "${CMAKE_CURRENT_LIST_DIR}/../nvtt" "C:/Program Files/NVIDIA Corporation/NVIDIA Texture Tools" "D:/Program Files/NVIDIA Corporation/NVIDIA Texture Tools")
+  
+  foreach(_PATH ${_SEARCH_PATHS})
+    file(GLOB _DLL_POSSIBILITIES "${_PATH}/nvtt*.dll" "${_PATH}/libnvtt.so.*")
+    if(_DLL_POSSIBILITIES) # If this folder contains a DLL matching the NVTT DLL pattern
+      set(NVTT_DIR "${_PATH}")
+      break()
+    endif()
+  endforeach()
+  
+  if(NOT NVTT_DIR)
+    message(WARNING "NVTT not found! Please install NVTT from https://developer.nvidia.com/nvidia-texture-tools-exporter and set the CMake NVTT_DIR variable to the folder containing nvtt*.dll (e.g. C:\\Program Files\\NVIDIA Corporation\\NVIDIA Texture Tools).")
+    return()
+  endif()
+endif()
+
+# Get the NVTT shared library name.
+file(GLOB _NVTT_SL_POSSIBILITIES "${NVTT_DIR}/nvtt*.dll" "${NVTT_DIR}/libnvtt.so.*")
+if(NOT _NVTT_SL_POSSIBILITIES)
+  message(WARNING "NVTT_DIR didn't contain an NVTT shared library of the form nvtt*.dll or libnvtt.so.*! Is NVTT_DIR set correctly? NVTT_DIR was ${NVTT_DIR}")
+  return()
+else()
+  list(LENGTH _NVTT_SL_POSSIBILITIES _NVTT_SL_POSSIBILITIES_LEN)
+  math(EXPR _NVTT_SL_IDX ${_NVTT_SL_POSSIBILITIES_LEN}-1)
+  list(GET _NVTT_SL_POSSIBILITIES ${_NVTT_SL_IDX} _NVTT_SL)
+endif()
+
+# Find the NVTT linker library on Windows.
+if(WIN32)
+  if(NOT NVTT_LIB)
+    file(GLOB _NVTT_LIB_ALL "${NVTT_DIR}/lib/x64-v*/nvtt*.lib")
+    if(NOT _NVTT_LIB_ALL)
+      message(WARNING "Found nvtt.dll in ${NVTT_DIR}, but was unable to find nvtt.lib in ${NVTT_DIR}/lib/... ! Please check the NVTT directory and this CMake script to see if the path is correct.")
+      return()
+    endif()
+    list(LENGTH _NVTT_LIB_ALL _NVTT_LIB_LEN)
+    math(EXPR _NVTT_LIB_IDX ${_NVTT_LIB_LEN}-1)
+    list(GET _NVTT_LIB_ALL ${_NVTT_LIB_IDX} NVTT_LIB)
+  endif()
+endif()
+
+# Print out information to help with error reports.
+message(STATUS "NVTT Shared Library: ${_NVTT_SL}")
+message(STATUS "NVTT .lib (Windows): ${NVTT_LIB}")
+
 find_package(VulkanMemoryAllocator CONFIG REQUIRED)
 find_package(glslang CONFIG REQUIRED)
 find_package(Vulkan REQUIRED)
@@ -60,6 +118,11 @@ add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
 
 target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_23)
 target_include_directories(${PROJECT_NAME} PRIVATE "src")
+if(WIN32)
+    target_link_libraries(${PROJECT_NAME} PRIVATE "${NVTT_LIB}")
+else()
+    target_link_libraries(${PROJECT_NAME} PRIVATE "${_NVTT_SL}")
+endif()
 target_link_libraries(${PROJECT_NAME} PRIVATE 
     daxa::daxa 
     glfw 
@@ -73,9 +136,10 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     Tracy::TracyClient
     imguizmo::imguizmo
     ${LUA_LIBRARIES}
-    sol2 
+    sol2
 )
 target_include_directories(${PROJECT_NAME} PRIVATE ${Stb_INCLUDE_DIR})
+target_include_directories(${PROJECT_NAME} PRIVATE "${NVTT_DIR}/include")
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
     target_link_libraries(${PROJECT_NAME} PRIVATE Dwmapi)
@@ -99,4 +163,13 @@ add_custom_target(copy_compile_commands ALL
     COMMENT "Copying compile_commands.json to root directory"
 )
 
+add_custom_command(
+    TARGET ${PROJECT_NAME}
+    POST_BUILD
+    COMMAND cmake -E copy_if_different "${_NVTT_SL}" "$<TARGET_FILE_DIR:${PROJECT_NAME}>")
+
 add_dependencies(copy_compile_commands ${PROJECT_NAME})
+
+
+install(FILES "${_NVTT_SL}" CONFIGURATIONS Debug DESTINATION "bin_${ARCH}_debug")
+install(FILES "${_NVTT_SL}" CONFIGURATIONS Release DESTINATION "bin_${ARCH}")

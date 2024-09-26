@@ -3,17 +3,9 @@
 #include <mutex>
 #include "graphics/context.hpp"
 #include <fastgltf/types.hpp>
+#include <utils/byte_utils.hpp>
 
 namespace foundation {
-    struct LoadMeshInfo {
-        std::filesystem::path asset_path = {};
-        fastgltf::Asset * asset;
-        u32 gltf_mesh_index = {};
-        u32 gltf_primitive_index = {};
-        u32 material_manifest_offset = {};
-        u32 manifest_index = {};
-    };
-
     struct ProcessedMeshInfo {
         AABB mesh_aabb = {};
         std::vector<f32vec3> positions = {};
@@ -24,6 +16,42 @@ namespace foundation {
         std::vector<AABB> aabbs = {};
         std::vector<u8> micro_indices = {};
         std::vector<u32> indirect_vertices = {};
+
+        static void serialize(ByteWriter& writer, const ProcessedMeshInfo& value) {
+            writer.write(value.mesh_aabb);
+            writer.write(value.positions);
+            writer.write(value.normals);
+            writer.write(value.uvs);
+            writer.write(value.meshlets);
+            writer.write(value.bounding_spheres);
+            writer.write(value.aabbs);
+            writer.write(value.micro_indices);
+            writer.write(value.indirect_vertices);
+        }
+
+        static auto deserialize(ByteReader& reader) -> ProcessedMeshInfo { 
+            ProcessedMeshInfo value = {};
+            reader.read(value.mesh_aabb);
+            reader.read(value.positions);
+            reader.read(value.normals);
+            reader.read(value.uvs);
+            reader.read(value.meshlets);
+            reader.read(value.bounding_spheres);
+            reader.read(value.aabbs);
+            reader.read(value.micro_indices);
+            reader.read(value.indirect_vertices);
+            return value;    
+        }
+    };
+
+    struct LoadMeshInfo {
+        std::filesystem::path asset_path = {};
+        fastgltf::Asset * asset;
+        u32 gltf_mesh_index = {};
+        u32 gltf_primitive_index = {};
+        u32 material_manifest_offset = {};
+        u32 manifest_index = {};
+        ProcessedMeshInfo processed_mesh_info = {};
     };
 
     struct MeshBuffers {
@@ -70,7 +98,7 @@ namespace foundation {
         AssetProcessor(Context* _context);
         ~AssetProcessor();
 
-        void load_mesh(const LoadMeshInfo& info);
+        void load_gltf_mesh(const LoadMeshInfo& info);
         void load_texture(const LoadTextureInfo& info);
 
         auto record_gpu_load_processing_commands() -> RecordCommands;

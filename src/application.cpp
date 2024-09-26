@@ -30,6 +30,18 @@ namespace foundation {
 
         auto compile_pipelines_task = std::make_shared<CompilePipelinesTask>(renderer.get());
         thread_pool->async_dispatch(compile_pipelines_task);
+
+        struct RebuildFileTask : Task {
+            AssetManager* asset_manager = {};
+            LoadManifestInfo info;
+            std::filesystem::path path = {};
+            explicit RebuildFileTask(AssetManager* _asset_manager, const LoadManifestInfo& _info, const std::filesystem::path& _path)
+                : asset_manager{_asset_manager}, info{_info}, path{_path} { chunk_count = 1; }
+
+            void callback(u32, u32) override {
+                asset_manager->convert_gltf_to_binary(info, path);
+            }
+        };
     
         last_time_point = std::chrono::steady_clock::now();
         camera.camera.resize(static_cast<i32>(window.get_width()), static_cast<i32>(window.get_height()));
@@ -50,8 +62,25 @@ namespace foundation {
                 .asset_processor = asset_processor,
             };
 
+            // asset_manager->convert_gltf_to_binary(manifesto, "assets/binary/sponza.bmodel");
+
             asset_manager->load_model(manifesto);
         }
+
+        // {
+        //     auto entity = scene->create_entity("sponza bin");
+        //     add_transform(entity);
+
+        //     LoadManifestInfo manifesto {
+        //         .parent = entity,
+        //         .path = "assets/binary/sponza.bmodel",
+        //         .thread_pool = thread_pool,
+        //         .asset_processor = asset_processor,
+        //     };
+        
+
+        //     asset_manager->load_model_binary(manifesto);
+        // }
 
         {
             auto entity = scene->create_entity("bistro");
@@ -63,6 +92,8 @@ namespace foundation {
                 .thread_pool = thread_pool,
                 .asset_processor = asset_processor,
             };
+
+        // asset_manager->convert_gltf_to_binary(manifesto, "assets/binary/Bistro.bmodel");
 
             asset_manager->load_model(manifesto);
         }

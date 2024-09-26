@@ -230,9 +230,14 @@ namespace foundation {
         };
     }
 
-    void AssetProcessor::load_mesh(const LoadMeshInfo& info) {
+    void AssetProcessor::load_gltf_mesh(const LoadMeshInfo& info) {
         ZoneScoped;
-        ProcessedMeshInfo processed_info = process_mesh(info);
+        ProcessedMeshInfo processed_info = {};
+        if(!processed_info.positions.empty()) {
+            processed_info = process_mesh(info);
+        } else {
+            processed_info = info.processed_mesh_info;
+        }
         MeshBuffers mesh_buffers = create_mesh_buffers(context, info, processed_info);
 
         u32 triangle_count = {};

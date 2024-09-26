@@ -18,7 +18,7 @@ namespace foundation {
 
         template<typename T>
         auto read(T& value) {
-            value = read<T>();
+            value = std::move(read<T>());
         }
 
         template<typename T>
@@ -36,9 +36,25 @@ namespace foundation {
             assert(offset + sizeof(u32) <= size);
             u32 vec_size = read<u32>();
             value.resize(vec_size);
-            u32 byte_size = vec_size * sizeof(T);
-            char* ptr = r_cast<char*>(read_raw(s_cast<usize>(byte_size)));
-            std::memcpy(value.data(), ptr, byte_size);
+            if constexpr(HasDeserialize<T>) {
+                for(u32 i = 0; i < value.size(); i++) { read(value[i]); }
+            } else {
+                u32 byte_size = vec_size * sizeof(T);
+                char* ptr = r_cast<char*>(read_raw(s_cast<usize>(byte_size)));
+                std::memcpy(value.data(), ptr, byte_size);
+            }
+        }
+
+        template<typename T>
+        void read(std::optional<T>& value) {
+            value = std::nullopt;
+            bool has_value = false;
+            read(has_value);
+            if(has_value) {
+                T capture_value;
+                read(capture_value);
+                value = capture_value;
+            }
         }
 
         void read(std::string& value) {
@@ -79,12 +95,24 @@ namespace foundation {
         template<typename T>
         void write(const std::vector<T>& value) {
             write(s_cast<u32>(value.size()));
-            write(value.data(), value.size() * sizeof(T));
+            if constexpr(HasDeserialize<T>) {
+                for(const auto& v : value) { write(v); }
+            } else {
+                write(value.data(), value.size() * sizeof(T));
+            }
         }
 
         void write(const std::string& value) {
             write(s_cast<u32>(value.size()));
             write(value.data(), value.size());
+        }
+
+        template<typename T>
+        void write(const std::optional<T>& value) {
+            write(value.has_value());
+            if(value.has_value()) {
+                write(value.value());
+            }
         }
     };
 }
