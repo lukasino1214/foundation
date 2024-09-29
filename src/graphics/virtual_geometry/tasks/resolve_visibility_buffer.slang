@@ -239,6 +239,6 @@ void main(u32vec3 pixel : SV_DispatchThreadID) {
     }
 
     RWTexture2D<f32vec4> image = RWTexture2D<f32>::get(push.uses.u_image);
-    // color = f32vec4(normal * 0.5 + 0.5, 1.0f);
+    color = f32vec4(normal * 0.5 + 0.5, 1.0f);
     image[pixel.xy] = color;
 }

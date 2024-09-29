@@ -44,6 +44,32 @@ namespace foundation {
         }
     };
 
+    struct MyBinaryTextureFormat {
+        u32 width = {};
+        u32 height = {};
+        u32 depth = {};
+        daxa::Format format = {};
+        std::vector<std::vector<std::byte>> mipmaps = {};
+
+        static void serialize(ByteWriter& writer, const MyBinaryTextureFormat& value) {
+            writer.write(value.width);
+            writer.write(value.height);
+            writer.write(value.depth);
+            writer.write(value.format);
+            writer.write(value.mipmaps);
+        }
+
+        static auto deserialize(ByteReader& reader) -> MyBinaryTextureFormat { 
+            MyBinaryTextureFormat value = {};
+            reader.read(value.width);
+            reader.read(value.height);
+            reader.read(value.depth);
+            reader.read(value.format);
+            reader.read(value.mipmaps);
+            return value;    
+        }
+    };
+
     struct LoadMeshInfo {
         std::filesystem::path asset_path = {};
         fastgltf::Asset * asset;
@@ -79,9 +105,16 @@ namespace foundation {
         u32 gltf_texture_index = {};
         u32 texture_manifest_index = {};
         bool load_as_srgb = {};
+        std::filesystem::path image_path = {};
+    };
+
+    struct TextureOffsets {
+        u32 size = {};
+        u32 offset = {};
     };
 
     struct TextureUploadInfo {
+        std::vector<TextureOffsets> offsets = {};
         daxa::BufferId staging_buffer = {};
         daxa::ImageId dst_image = {};
         daxa::SamplerId sampler = {};

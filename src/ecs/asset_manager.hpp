@@ -84,16 +84,19 @@ namespace foundation {
         };
         std::vector<BinaryMaterialIndex> material_indices = {};
         std::string name = {};
+        std::string file_path = {};
 
         static void serialize(ByteWriter& writer, const BinaryTexture& value) {
             writer.write(value.material_indices);
             writer.write(value.name);
+            writer.write(value.file_path);
         }
 
         static auto deserialize(ByteReader& reader) -> BinaryTexture { 
             BinaryTexture value = {};
             reader.read(value.material_indices);
             reader.read(value.name);
+            reader.read(value.file_path);
             return value;    
         }
     };

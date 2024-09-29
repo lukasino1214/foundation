@@ -62,25 +62,9 @@ namespace foundation {
                 .asset_processor = asset_processor,
             };
 
-            // asset_manager->convert_gltf_to_binary(manifesto, "assets/binary/sponza.bmodel");
-
+            // asset_manager->convert_gltf_to_binary(manifesto, "assets/binary/Sponza/Sponza.bmodel");
             asset_manager->load_model(manifesto);
         }
-
-        // {
-        //     auto entity = scene->create_entity("sponza bin");
-        //     add_transform(entity);
-
-        //     LoadManifestInfo manifesto {
-        //         .parent = entity,
-        //         .path = "assets/binary/sponza.bmodel",
-        //         .thread_pool = thread_pool,
-        //         .asset_processor = asset_processor,
-        //     };
-        
-
-        //     asset_manager->load_model_binary(manifesto);
-        // }
 
         {
             auto entity = scene->create_entity("bistro");
@@ -93,8 +77,7 @@ namespace foundation {
                 .asset_processor = asset_processor,
             };
 
-        // asset_manager->convert_gltf_to_binary(manifesto, "assets/binary/Bistro.bmodel");
-
+            // asset_manager->convert_gltf_to_binary(manifesto, "assets/binary/Bistro/Bistro.bmodel");
             asset_manager->load_model(manifesto);
         }
 

@@ -14,6 +14,10 @@
 #include <math/decompose.hpp>
 #include <utils/byte_utils.hpp>
 #include <fstream>
+#include <random>
+#include <stb_image.h>
+#include <nvtt/nvtt.h>
+#include <zstd.h>
 
 namespace foundation {
     AssetManager::AssetManager(Context* _context, Scene* _scene) : context{_context}, scene{_scene} {
@@ -104,7 +108,12 @@ namespace foundation {
         data.resize(size);
         file.read(r_cast<char*>(data.data()), size); 
 
-        ByteReader byte_reader{ data.data(), data.size() };
+        std::vector<std::byte> uncompressed_data = {};
+        usize uncompressed_data_size = ZSTD_getFrameContentSize(data.data(), data.size());
+        uncompressed_data.resize(uncompressed_data_size);
+        uncompressed_data_size = ZSTD_decompress(uncompressed_data.data(), uncompressed_data.size(), data.data(), data.size());
+
+        ByteReader byte_reader{ uncompressed_data.data(), uncompressed_data.size() };
 
         BinaryHeader header = {};
         byte_reader.read(header.name);
@@ -343,6 +352,7 @@ namespace foundation {
                         .gltf_texture_index = gltf_texture_index,
                         .texture_manifest_index = texture_manifest_index,
                         .load_as_srgb = used_as_albedo,
+                        .image_path = asset_manifest.path.parent_path() / binary_textures[gltf_texture_index].file_path,
                     },
                     .asset_processor = info.asset_processor.get(),
                 }), TaskPriority::LOW);
@@ -430,11 +440,166 @@ namespace foundation {
             });
         }
 
+        std::random_device random_device;
+        std::mt19937_64 engine(random_device());
+        std::uniform_int_distribution<uint64_t> uniform_distributation;
+        nvtt::Context context(true);
+
+        struct CustomOutputHandler : public nvtt::OutputHandler {
+            CustomOutputHandler() = default;
+            CustomOutputHandler(const CustomOutputHandler&) = delete;
+            CustomOutputHandler& operator=(const CustomOutputHandler&) = delete;
+            CustomOutputHandler(CustomOutputHandler&&) = delete;
+            CustomOutputHandler& operator=(CustomOutputHandler&&) = delete;
+            virtual ~CustomOutputHandler() {}
+
+            virtual void beginImage(int size, int width, int height, int depth, int face, int miplevel) override {
+                data.resize(size);
+            }
+
+            virtual bool writeData(const void* ptr, int size) {
+                std::memcpy(data.data(), ptr, size);
+                return true;
+            }
+
+            virtual void endImage() {
+
+            }
+
+            std::vector<std::byte> data = {};
+        };
+
+        struct CustomErrorHandler : public nvtt::ErrorHandler {
+            void error(nvtt::Error e) override {
+                std::println("{}", std::to_string(e));
+            }
+        };
+
+        std::unique_ptr<CustomErrorHandler> error_handler = std::make_unique<CustomErrorHandler>();
+
         std::vector<BinaryTexture> binary_textures = {};
         for (u32 i = 0; i < static_cast<u32>(asset->images.size()); ++i) {
+            std::vector<std::byte> raw_data = {};
+            i32 width = 0;
+            i32 height = 0;
+            i32 num_channels = 0;
+            std::string image_path = info.path.parent_path().string();
+
+            auto get_data = [&](const fastgltf::Buffer& buffer, std::size_t byteOffset, std::size_t byteLength) {
+                return std::visit(fastgltf::visitor {
+                    [](auto&) -> std::span<const std::byte> {
+                        assert(false && "Tried accessing a buffer with no data, likely because no buffers were loaded. Perhaps you forgot to specify the LoadExternalBuffers option?");
+                        return {};
+                    },
+                    [](const fastgltf::sources::Fallback&) -> std::span<const std::byte> {
+                        assert(false && "Tried accessing data of a fallback buffer.");
+                        return {};
+                    },
+                    [&](const fastgltf::sources::Vector& vec) -> std::span<const std::byte> {
+                        return std::span(reinterpret_cast<const std::byte*>(vec.bytes.data()), vec.bytes.size());
+                    },
+                    [&](const fastgltf::sources::ByteView& bv) -> std::span<const std::byte> {
+                        return bv.bytes;
+                    },
+                }, buffer.data).subspan(byteOffset, byteLength);
+            };
+
+            const auto& image = asset->images[i];
+
+            {
+                if(const auto* data = std::get_if<std::monostate>(&image.data)) {
+                    std::cout << "std::monostate" << std::endl;
+                }
+                if(const auto* data = std::get_if<fastgltf::sources::BufferView>(&image.data)) {
+                    auto& buffer_view = asset->bufferViews[data->bufferViewIndex];
+                    auto content = get_data(asset->buffers[buffer_view.bufferIndex], buffer_view.byteOffset, buffer_view.byteLength);
+                    u8* image_data = stbi_load_from_memory(r_cast<const u8*>(content.data()), s_cast<i32>(content.size_bytes()), &width, &height, &num_channels, 4);
+                    if(!image_data) { std::cout << "bozo" << std::endl; }
+                    raw_data.resize(s_cast<u64>(width * height * 4));
+                    std::memcpy(raw_data.data(), image_data, s_cast<u64>(width * height * 4));
+                    stbi_image_free(image_data);
+                }
+                if(const auto* data = std::get_if<fastgltf::sources::URI>(&image.data)) {
+                    image_path = info.path.parent_path().string() + '/' + std::string(data->uri.path().begin(), data->uri.path().end());
+                    u8* image_data = stbi_load(image_path.c_str(), &width, &height, &num_channels, 4);
+                    if(!image_data) { std::cout << "bozo" << std::endl; }
+                    raw_data.resize(s_cast<u64>(width * height * 4));
+                    std::memcpy(raw_data.data(), image_data, s_cast<u64>(width * height * 4));
+                    stbi_image_free(image_data);
+                }
+                if(const auto* data = std::get_if<fastgltf::sources::Vector>(&image.data)) {
+                    std::cout << "fastgltf::sources::Vector" << std::endl;
+                }
+                if(const auto* data = std::get_if<fastgltf::sources::CustomBuffer>(&image.data)) {
+                    std::cout << "fastgltf::sources::CustomBuffer" << std::endl;
+                }
+                if(const auto* data = std::get_if<fastgltf::sources::ByteView>(&image.data)) {
+                    std::cout << "fastgltf::sources::ByteView" << std::endl;
+                }
+            }
+
+            std::string file_name = std::to_string(uniform_distributation(engine))+ ".btexture";
+            auto binary_image_path = output_path;
+            binary_image_path = binary_image_path.parent_path() / file_name;
+            
+            for(u32 p = 0; p < raw_data.size(); p += 4) {
+                std::swap(raw_data[p], raw_data[p+2]);
+            }
+        
+
+            nvtt::Surface nvtt_image;
+            assert(nvtt_image.setImage(nvtt::InputFormat_BGRA_8UB, width, height, 1, raw_data.data()) && "setImage");
+
+            nvtt::CompressionOptions compression_options;
+            compression_options.setFormat(nvtt::Format_BC7);
+            compression_options.setQuality(nvtt::Quality_Normal);
+
+            nvtt::OutputOptions output_options;
+            std::unique_ptr<CustomOutputHandler> output_handler = std::make_unique<CustomOutputHandler>();
+            output_options.setOutputHandler(output_handler.get());
+            output_options.setErrorHandler(error_handler.get());
+            MyBinaryTextureFormat format {
+                .width = static_cast<u32>(width),
+                .height = static_cast<u32>(height),
+                .depth = 1,
+                .format = daxa::Format::BC7_UNORM_BLOCK,
+                .mipmaps = {}
+            };
+
+            const int num_mipmaps = nvtt_image.countMipmaps();
+            for(int mip = 0; mip < num_mipmaps; mip++) {
+                context.compress(nvtt_image, 0 /* face */, mip, compression_options, output_options);
+                format.mipmaps.push_back(output_handler->data);
+
+                if(mip == num_mipmaps - 1) { break; }
+
+                nvtt_image.toLinearFromSrgb();
+                nvtt_image.premultiplyAlpha();
+                nvtt_image.buildNextMipmap(nvtt::MipmapFilter_Box);
+                nvtt_image.demultiplyAlpha();
+                nvtt_image.toSrgb();
+            }
+
+
+            std::vector<std::byte> compressed_data = {};
+            usize file_size = {}; 
+            {
+                ByteWriter image_writer = {};
+                image_writer.write(format);
+                usize compressed_data_size = ZSTD_compressBound(image_writer.data.size());
+                compressed_data.resize(compressed_data_size);
+                file_size = ZSTD_compress(compressed_data.data(), compressed_data.size(), image_writer.data.data(), image_writer.data.size(), 14);
+            }
+
+
+            std::ofstream file(binary_image_path.string().c_str(), std::ios_base::trunc | std::ios_base::binary);
+            file.write(r_cast<char const *>(compressed_data.data()), static_cast<std::streamsize>(file_size));
+            file.close();
+
             binary_textures.push_back(BinaryTexture{
                 .material_indices = {}, 
                 .name = std::string{asset->images[i].name.c_str()},
+                .file_path = file_name
             });
         }
 
@@ -533,29 +698,34 @@ namespace foundation {
             });
         }
 
-        BinaryHeader header = {
-            .name = "binary model",
-            .version = 0
-        };
 
-        ByteWriter byte_writer;
-        byte_writer.write(header.name);
-        byte_writer.write(header.version);
-
-        byte_writer.write(binary_textures);
-        byte_writer.write(binary_materials);
-        byte_writer.write(binary_nodes);
-        byte_writer.write(binary_mesh_groups);
-        byte_writer.write(binary_meshes);
-
-        std::println("writer {}", byte_writer.data.size());
-
-    
+        std::vector<std::byte> compressed_data = {};
+        usize file_size = {};
         {
-            std::ofstream file(output_path.string().c_str(), std::ios_base::trunc | std::ios_base::binary);
-            file.write(r_cast<char const *>(byte_writer.data.data()), static_cast<std::streamsize>(byte_writer.data.size()));
-            file.close();
+            BinaryHeader header = {
+                .name = "binary model",
+                .version = 0
+            };
+
+            ByteWriter byte_writer;
+            byte_writer.write(header.name);
+            byte_writer.write(header.version);
+
+            byte_writer.write(binary_textures);
+            byte_writer.write(binary_materials);
+            byte_writer.write(binary_nodes);
+            byte_writer.write(binary_mesh_groups);
+            byte_writer.write(binary_meshes);
+
+            std::println("writer {}", byte_writer.data.size());
+            usize compressed_data_size = ZSTD_compressBound(byte_writer.data.size());
+            compressed_data.resize(compressed_data_size);
+            file_size = ZSTD_compress(compressed_data.data(), compressed_data_size, byte_writer.data.data(), byte_writer.data.size(), 14);
         }
+    
+        std::ofstream file(output_path.string().c_str(), std::ios_base::trunc | std::ios_base::binary);
+        file.write(r_cast<char const *>(compressed_data.data()), static_cast<std::streamsize>(file_size));
+        file.close();
     }
 
     auto AssetManager::record_manifest_update(const RecordManifestUpdateInfo& info) -> daxa::ExecutableCommandList {

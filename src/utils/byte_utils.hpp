@@ -36,13 +36,14 @@ namespace foundation {
             assert(offset + sizeof(u32) <= size);
             u32 vec_size = read<u32>();
             value.resize(vec_size);
-            if constexpr(HasDeserialize<T>) {
-                for(u32 i = 0; i < value.size(); i++) { read(value[i]); }
-            } else {
-                u32 byte_size = vec_size * sizeof(T);
-                char* ptr = r_cast<char*>(read_raw(s_cast<usize>(byte_size)));
-                std::memcpy(value.data(), ptr, byte_size);
-            }
+            for(u32 i = 0; i < value.size(); i++) { read(value[i]); }
+            // if constexpr(HasDeserialize<T>) {
+            //     for(u32 i = 0; i < value.size(); i++) { read(value[i]); }
+            // } else {
+            //     u32 byte_size = vec_size * sizeof(T);
+            //     char* ptr = r_cast<char*>(read_raw(s_cast<usize>(byte_size)));
+            //     std::memcpy(value.data(), ptr, byte_size);
+            // }
         }
 
         template<typename T>
@@ -95,11 +96,12 @@ namespace foundation {
         template<typename T>
         void write(const std::vector<T>& value) {
             write(s_cast<u32>(value.size()));
-            if constexpr(HasDeserialize<T>) {
-                for(const auto& v : value) { write(v); }
-            } else {
-                write(value.data(), value.size() * sizeof(T));
-            }
+            for(const auto& v : value) { write(v); }
+            // if constexpr(HasDeserialize<T>) {
+            //     for(const auto& v : value) { write(v); }
+            // } else {
+            //     write(value.data(), value.size() * sizeof(T));
+            // }
         }
 
         void write(const std::string& value) {

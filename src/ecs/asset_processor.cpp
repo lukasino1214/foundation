@@ -5,6 +5,8 @@
 #include <fastgltf/tools.hpp>
 #include <fastgltf/glm_element_traits.hpp>
 #include <shader_library/vertex_compression.inl>
+#include <fstream>
+#include <zstd.h>
 
 namespace foundation {
     AssetProcessor::AssetProcessor(Context* _context) : context{_context}, mesh_upload_mutex{std::make_unique<std::mutex>()} {}
@@ -262,76 +264,38 @@ namespace foundation {
 
     void AssetProcessor::load_texture(const LoadTextureInfo& info) {
         ZoneScoped;
-        fastgltf::Asset const & gltf_asset = *info.asset;
-        fastgltf::Image const & image = gltf_asset.images.at(info.gltf_texture_index);
-        std::vector<std::byte> raw_data = {};
-        i32 width = 0;
-        i32 height = 0;
-        i32 num_channels = 0;
-        std::string image_path = info.asset_path.parent_path().string();
 
-        auto get_data = [&](const fastgltf::Buffer& buffer, std::size_t byteOffset, std::size_t byteLength) {
-            return std::visit(fastgltf::visitor {
-                [](auto&) -> std::span<const std::byte> {
-                    assert(false && "Tried accessing a buffer with no data, likely because no buffers were loaded. Perhaps you forgot to specify the LoadExternalBuffers option?");
-                    return {};
-                },
-                [](const fastgltf::sources::Fallback&) -> std::span<const std::byte> {
-                    assert(false && "Tried accessing data of a fallback buffer.");
-                    return {};
-                },
-                [&](const fastgltf::sources::Vector& vec) -> std::span<const std::byte> {
-                    return std::span(reinterpret_cast<const std::byte*>(vec.bytes.data()), vec.bytes.size());
-                },
-                [&](const fastgltf::sources::ByteView& bv) -> std::span<const std::byte> {
-                    return bv.bytes;
-                },
-            }, buffer.data).subspan(byteOffset, byteLength);
-        };
-
+        std::vector<std::byte> uncompressed_data = {};
+        usize uncompressed_data_size = {};
         {
-            if(const auto* data = std::get_if<std::monostate>(&image.data)) {
-                std::cout << "std::monostate" << std::endl;
-            }
-            if(const auto* data = std::get_if<fastgltf::sources::BufferView>(&image.data)) {
-                auto& buffer_view = gltf_asset.bufferViews[data->bufferViewIndex];
-                auto content = get_data(gltf_asset.buffers[buffer_view.bufferIndex], buffer_view.byteOffset, buffer_view.byteLength);
-                u8* image_data = stbi_load_from_memory(r_cast<const u8*>(content.data()), s_cast<i32>(content.size_bytes()), &width, &height, &num_channels, 4);
-                if(!image_data) { std::cout << "bozo" << std::endl; }
-                raw_data.resize(s_cast<u64>(width * height * 4));
-                std::memcpy(raw_data.data(), image_data, s_cast<u64>(width * height * 4));
-                stbi_image_free(image_data);
-            }
-            if(const auto* data = std::get_if<fastgltf::sources::URI>(&image.data)) {
-                image_path = info.asset_path.parent_path().string() + '/' + std::string(data->uri.path().begin(), data->uri.path().end());
-                u8* image_data = stbi_load(image_path.c_str(), &width, &height, &num_channels, 4);
-                if(!image_data) { std::cout << "bozo" << std::endl; }
-                raw_data.resize(s_cast<u64>(width * height * 4));
-                std::memcpy(raw_data.data(), image_data, s_cast<u64>(width * height * 4));
-                stbi_image_free(image_data);
-            }
-            if(const auto* data = std::get_if<fastgltf::sources::Vector>(&image.data)) {
-                std::cout << "fastgltf::sources::Vector" << std::endl;
-            }
-            if(const auto* data = std::get_if<fastgltf::sources::CustomBuffer>(&image.data)) {
-                std::cout << "fastgltf::sources::CustomBuffer" << std::endl;
-            }
-            if(const auto* data = std::get_if<fastgltf::sources::ByteView>(&image.data)) {
-                std::cout << "fastgltf::sources::ByteView" << std::endl;
-            }
+            std::ifstream file(info.image_path, std::ios::binary);
+            auto size = std::filesystem::file_size(info.image_path);
+            std::vector<std::byte> data = {};
+            data.resize(size);
+            file.read(r_cast<char*>(data.data()), size); 
+
+            uncompressed_data_size = ZSTD_getFrameContentSize(data.data(), data.size());
+            uncompressed_data.resize(uncompressed_data_size);
+            uncompressed_data_size = ZSTD_decompress(uncompressed_data.data(), uncompressed_data.size(), data.data(), data.size());
         }
 
-        u32 mip_levels = static_cast<u32>(std::floor(std::log2(std::max(width, height)))) + 1;
-        daxa::Format daxa_format = info.load_as_srgb ? daxa::Format::R8G8B8A8_SRGB : daxa::Format::R8G8B8A8_UNORM;
+        MyBinaryTextureFormat texture;
+        {
+            ByteReader reader(uncompressed_data.data(), uncompressed_data_size);
+            reader.read(texture);
+        }
+        
+        u32 mip_levels = s_cast<u32>(texture.mipmaps.size());
+        daxa::Format daxa_format = info.load_as_srgb ? daxa::Format::BC7_SRGB_BLOCK : daxa::Format::BC7_UNORM_BLOCK;
         daxa::ImageId daxa_image = context->create_image(daxa::ImageInfo {
             .dimensions = 2,
             .format = daxa_format,
-            .size = {static_cast<u32>(width), static_cast<u32>(height), 1},
+            .size = { texture.width, texture.height, 1},
             .mip_level_count = mip_levels,
             .array_layer_count = 1,
             .sample_count = 1,
             .usage = daxa::ImageUsageFlagBits::SHADER_SAMPLED | daxa::ImageUsageFlagBits::TRANSFER_DST | daxa::ImageUsageFlagBits::TRANSFER_SRC,
-            .name = "image: " + image_path + " " + std::to_string(info.gltf_texture_index),
+            .name = "image: " + info.image_path.string() + " " + std::to_string(info.gltf_texture_index),
         });
 
         daxa::SamplerId daxa_sampler = context->get_sampler({
@@ -351,17 +315,31 @@ namespace foundation {
             .enable_unnormalized_coordinates = false,
         });
 
+        u32 _size = {};
+        std::vector<TextureOffsets> offsets = {};
+
+        for(const auto& mipmap : texture.mipmaps) {
+            offsets.push_back({
+                .size = s_cast<u32>(mipmap.size()),
+                .offset = _size
+            });
+            _size += mipmap.size();
+        }
+
         daxa::BufferId staging_buffer = context->create_buffer(daxa::BufferInfo {
-            .size = static_cast<u32>(width * height * 4),
+            .size = _size,
             .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
-            .name = "staging buffer: " + image_path + " " + std::to_string(info.gltf_texture_index)
+            .name = "staging buffer: " + info.image_path.string() + " " + std::to_string(info.gltf_texture_index)
         }); 
 
-        std::memcpy(context->device.get_host_address(staging_buffer).value(), raw_data.data(), s_cast<u64>(width * height * 4));
+        for(u32 i = 0; i < offsets.size(); i++) {
+            std::memcpy(context->device.get_host_address(staging_buffer).value() + offsets[i].offset, texture.mipmaps[i].data(), s_cast<u64>(offsets[i].size));
+        }
 
         {
             std::lock_guard<std::mutex> lock{*texture_upload_mutex};
             texture_upload_queue.push_back(TextureUploadInfo{
+                .offsets = offsets,
                 .staging_buffer = staging_buffer,
                 .dst_image = daxa_image,
                 .sampler = daxa_sampler,
@@ -411,6 +389,12 @@ namespace foundation {
 
                 auto image_info = context->device.info_image(texture_upload_info.dst_image).value();
 
+                std::array<i32, 3> mip_size = {
+                    static_cast<i32>(image_info.size.x),
+                    static_cast<i32>(image_info.size.y),
+                    static_cast<i32>(image_info.size.z),
+                };
+
                 cmd_recorder.pipeline_barrier_image_transition({
                     .src_access = daxa::AccessConsts::TRANSFER_READ_WRITE,
                     .dst_access = daxa::AccessConsts::READ_WRITE,
@@ -425,45 +409,7 @@ namespace foundation {
                     .image_id = texture_upload_info.dst_image,
                 });
 
-                cmd_recorder.copy_buffer_to_image({
-                    .buffer = texture_upload_info.staging_buffer,
-                    .buffer_offset = 0,
-                    .image = texture_upload_info.dst_image,
-                    .image_layout = daxa::ImageLayout::TRANSFER_DST_OPTIMAL,
-                    .image_slice = {
-                        .mip_level = 0,
-                        .base_array_layer = 0,
-                        .layer_count = 1,
-                    },
-                    .image_offset = { 0, 0, 0 },
-                    .image_extent = { image_info.size.x, image_info.size.y, 1 }
-                });
-
-                cmd_recorder.pipeline_barrier({
-                    .src_access = daxa::AccessConsts::HOST_WRITE,
-                    .dst_access = daxa::AccessConsts::TRANSFER_READ,
-                });
-
-                std::array<i32, 3> mip_size = {
-                    static_cast<i32>(image_info.size.x),
-                    static_cast<i32>(image_info.size.y),
-                    static_cast<i32>(image_info.size.z),
-                };
-
-                for(u32 i = 1; i < image_info.mip_level_count; i++) {
-                    cmd_recorder.pipeline_barrier_image_transition({
-                        .src_access = daxa::AccessConsts::TRANSFER_WRITE,
-                        .dst_access = daxa::AccessConsts::BLIT_READ,
-                        .src_layout = daxa::ImageLayout::TRANSFER_DST_OPTIMAL,
-                        .dst_layout = daxa::ImageLayout::TRANSFER_SRC_OPTIMAL,
-                        .image_slice = {
-                            .base_mip_level = i - 1,
-                            .level_count = 1,
-                            .base_array_layer = 0,
-                            .layer_count = 1,
-                        },
-                        .image_id = texture_upload_info.dst_image,
-                    });
+                for(u32 i = 0; i < texture_upload_info.offsets.size(); i++) {
 
                     std::array<i32, 3> next_mip_size = {
                         std::max<i32>(1, mip_size[0] / 2),
@@ -471,40 +417,21 @@ namespace foundation {
                         std::max<i32>(1, mip_size[2] / 2),
                     };
 
-                    cmd_recorder.blit_image_to_image({
-                        .src_image = texture_upload_info.dst_image,
-                        .src_image_layout = daxa::ImageLayout::TRANSFER_SRC_OPTIMAL,
-                        .dst_image = texture_upload_info.dst_image,
-                        .dst_image_layout = daxa::ImageLayout::TRANSFER_DST_OPTIMAL,
-                        .src_slice = {
-                            .mip_level = i - 1,
-                            .base_array_layer = 0,
-                            .layer_count = 1,
-                        },
-                        .src_offsets = {{{0, 0, 0}, {mip_size[0], mip_size[1], mip_size[2]}}},
-                        .dst_slice = {
+                    cmd_recorder.copy_buffer_to_image({
+                        .buffer = texture_upload_info.staging_buffer,
+                        .buffer_offset = texture_upload_info.offsets[i].offset,
+                        .image = texture_upload_info.dst_image,
+                        .image_layout = daxa::ImageLayout::TRANSFER_DST_OPTIMAL,
+                        .image_slice = {
                             .mip_level = i,
                             .base_array_layer = 0,
                             .layer_count = 1,
                         },
-                        .dst_offsets = {{{0, 0, 0}, {next_mip_size[0], next_mip_size[1], next_mip_size[2]}}},
-                        .filter = daxa::Filter::LINEAR,
+                        .image_offset = { 0, 0, 0 },
+                        .image_extent = { s_cast<u32>(mip_size[0]), s_cast<u32>(mip_size[1]), s_cast<u32>(mip_size[2]) }
                     });
 
-                    cmd_recorder.pipeline_barrier_image_transition({
-                        .src_access = daxa::AccessConsts::TRANSFER_WRITE,
-                        .dst_access = daxa::AccessConsts::BLIT_READ,
-                        .src_layout = daxa::ImageLayout::TRANSFER_SRC_OPTIMAL,
-                        .dst_layout = daxa::ImageLayout::READ_ONLY_OPTIMAL,
-                        .image_slice = {
-                            .base_mip_level = i - 1,
-                            .level_count = 1,
-                            .base_array_layer = 0,
-                            .layer_count = 1,
-                        },
-                        .image_id = texture_upload_info.dst_image,
-                    });
-                    
+
                     mip_size = next_mip_size;
                 }
 
@@ -514,8 +441,8 @@ namespace foundation {
                     .src_layout = daxa::ImageLayout::TRANSFER_DST_OPTIMAL,
                     .dst_layout = daxa::ImageLayout::READ_ONLY_OPTIMAL,
                     .image_slice = {
-                        .base_mip_level = image_info.mip_level_count - 1,
-                        .level_count = 1,
+                        .base_mip_level = 0,
+                        .level_count = image_info.mip_level_count,
                         .base_array_layer = 0,
                         .layer_count = 1,
                     },
