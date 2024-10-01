@@ -277,6 +277,7 @@ namespace foundation {
             uncompressed_data_size = ZSTD_getFrameContentSize(data.data(), data.size());
             uncompressed_data.resize(uncompressed_data_size);
             uncompressed_data_size = ZSTD_decompress(uncompressed_data.data(), uncompressed_data.size(), data.data(), data.size());
+            uncompressed_data.resize(uncompressed_data_size);
         }
 
         MyBinaryTextureFormat texture;
@@ -286,7 +287,7 @@ namespace foundation {
         }
         
         u32 mip_levels = s_cast<u32>(texture.mipmaps.size());
-        daxa::Format daxa_format = info.load_as_srgb ? daxa::Format::BC7_SRGB_BLOCK : daxa::Format::BC7_UNORM_BLOCK;
+        daxa::Format daxa_format = texture.format;
         daxa::ImageId daxa_image = context->create_image(daxa::ImageInfo {
             .dimensions = 2,
             .format = daxa_format,

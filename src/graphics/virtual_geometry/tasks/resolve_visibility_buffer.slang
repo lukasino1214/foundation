@@ -182,7 +182,9 @@ void main(u32vec3 pixel : SV_DispatchThreadID) {
 
     daxa_ImageViewId normal_texture_id = push.uses.u_materials[mesh.material_index].normal_texture_id;
     if(normal_texture_id.value != 0) {
-        f32vec3 sampled_normal = Texture2D<float>::get(normal_texture_id).SampleGrad(SamplerState::get(push.uses.u_materials[mesh.material_index].normal_sampler_id), uv_grad.uv, uv_grad.ddx, uv_grad.ddy).xyz * 2.0 - 1.0;
+        // f32vec3 sampled_normal = Texture2D<float>::get(normal_texture_id).SampleGrad(SamplerState::get(push.uses.u_materials[mesh.material_index].normal_sampler_id), uv_grad.uv, uv_grad.ddx, uv_grad.ddy).xyz * 2.0 - 1.0;
+        f32vec2 raw_normal =  Texture2D<float>::get(normal_texture_id).SampleGrad(SamplerState::get(push.uses.u_materials[mesh.material_index].normal_sampler_id), uv_grad.uv, uv_grad.ddx, uv_grad.ddy).xy * 2.0f - 1.0f;
+        f32vec3 sampled_normal = f32vec3(raw_normal, sqrt(clamp(1.0f - dot(raw_normal, raw_normal), 0.0, 1.0)));
 
         daxa_f32vec2 uv_ddx = visgeo_interpolate_vec2(
             derivatives.m_ddx, 

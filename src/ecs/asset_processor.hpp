@@ -6,6 +6,21 @@
 #include <utils/byte_utils.hpp>
 
 namespace foundation {
+    enum struct MaterialType : u32 {
+        GltfAlbedo,
+        GltfNormal,
+        GltfRoughnessMetallic, // roughness stored in blue channel and metallic stored in green channel
+        GltfEmissive,
+
+        CompressedAlbedo, // BC1 only 3 channels
+        CompressedAlphaMask, // BC4 optional alpha mask
+        CompressedNormal, // BC5 compressed to 2 channels using orthographic compression
+        CompressedMetallic, // BC4
+        CompressedRoughness, // BC4
+        CompressedEmissive, // BC1
+        None
+    };
+
     struct ProcessedMeshInfo {
         AABB mesh_aabb = {};
         std::vector<f32vec3> positions = {};

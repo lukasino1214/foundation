@@ -11,7 +11,7 @@
 #include "ecs/scene.hpp"
 
 namespace foundation {
-        struct BinaryHeader {
+    struct BinaryHeader {
         std::string name = {};
         u32 version = {};
     };
@@ -58,26 +58,17 @@ namespace foundation {
 
     struct BinaryTexture {
         struct BinaryMaterialIndex {
-            bool albedo = {};
-            bool normal = {};
-            bool roughness_metalness = {};
-            bool emissive = {};
+            MaterialType material_type = MaterialType::None;
             u32 material_index = {};
 
             static void serialize(ByteWriter& writer, const BinaryMaterialIndex& value) {
-                writer.write(value.albedo);
-                writer.write(value.normal);
-                writer.write(value.roughness_metalness);
-                writer.write(value.emissive);
+                writer.write(value.material_type);
                 writer.write(value.material_index);
             }
 
             static auto deserialize(ByteReader& reader) -> BinaryMaterialIndex { 
                 BinaryMaterialIndex value = {};
-                reader.read(value.albedo);
-                reader.read(value.normal);
-                reader.read(value.roughness_metalness);
-                reader.read(value.emissive);
+                reader.read(value.material_type);
                 reader.read(value.material_index);
                 return value;    
             }
@@ -204,10 +195,7 @@ namespace foundation {
 
     struct TextureManifestEntry {
         struct MaterialManifestIndex {
-            bool albedo = {};
-            bool normal = {};
-            bool roughness_metalness = {};
-            bool emissive = {};
+            MaterialType material_type = MaterialType::None;
             u32 material_manifest_index = {};
         };
         u32 gltf_asset_manifest_index = {};
