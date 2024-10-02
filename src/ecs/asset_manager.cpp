@@ -203,7 +203,8 @@ namespace foundation {
                 .albedo_info = make_texture_info(material.albedo_info),
                 .alpha_mask_info = make_texture_info(material.alpha_mask_info),
                 .normal_info = make_texture_info(material.normal_info),
-                .roughness_metalness_info = make_texture_info(material.roughness_metalness_info),
+                .roughness_info = make_texture_info(material.roughness_info),
+                .metalness_info = make_texture_info(material.metalness_info),
                 .emissive_info = make_texture_info(material.emissive_info),
                 .metallic_factor = material.metallic_factor,
                 .roughness_factor = material.roughness_factor,
@@ -894,6 +895,96 @@ namespace foundation {
                 }
 
                 binary_textures[i].file_path = create_file(texture);
+            } else if(preferred_material_type == MaterialType::GltfRoughnessMetallic) {
+                std::vector<std::byte> roughness = {};
+                roughness.resize(raw_data.size());
+
+                std::vector<std::byte> metalness = {};
+                metalness.resize(raw_data.size());
+
+                for(u32 pixel = 0; pixel < raw_data.size(); pixel += 4) {
+                    roughness[pixel + 0] = raw_data[pixel + 1];
+                    roughness[pixel + 1] = std::byte{0};
+                    roughness[pixel + 2] = std::byte{0};
+                    roughness[pixel + 3] = std::byte{0};
+
+                    metalness[pixel + 0] = raw_data[pixel + 2];
+                    metalness[pixel + 1] = std::byte{0};
+                    metalness[pixel + 2] = std::byte{0};
+                    metalness[pixel + 3] = std::byte{0};
+                }
+
+                nvtt::Surface nvtt_roughness_image = create_nvtt_image(width, height, roughness);
+                nvtt::Surface nvtt_metalness_image = create_nvtt_image(width, height, metalness);
+                nvtt::Format compressed_format = nvtt::Format_BC4;
+                daxa::Format daxa_format = daxa::Format::BC4_UNORM_BLOCK;
+
+                NVTTSettings nvtt_settings = {};
+                create_nvtt_settings(nvtt_settings, compressed_format);
+
+                MyBinaryTextureFormat roughness_texture {
+                    .width = static_cast<u32>(width),
+                    .height = static_cast<u32>(height),
+                    .depth = 1,
+                    .format = daxa_format,
+                    .mipmaps = {}
+                };
+
+                MyBinaryTextureFormat metalness_texture {
+                    .width = static_cast<u32>(width),
+                    .height = static_cast<u32>(height),
+                    .depth = 1,
+                    .format = daxa_format,
+                    .mipmaps = {}
+                };
+
+                const i32 num_mipmaps = nvtt_roughness_image.countMipmaps();
+                for(i32 mip = 0; mip < num_mipmaps; mip++) {
+                    context.compress(nvtt_roughness_image, 0, mip, nvtt_settings.compression_options, nvtt_settings.output_options);
+                    roughness_texture.mipmaps.push_back(nvtt_settings.output_handler->data);
+                    context.compress(nvtt_metalness_image, 0, mip, nvtt_settings.compression_options, nvtt_settings.output_options);
+                    metalness_texture.mipmaps.push_back(nvtt_settings.output_handler->data);
+
+                    if(mip == num_mipmaps - 1) { break; }
+
+                    nvtt_roughness_image.buildNextMipmap(nvtt::MipmapFilter_Box);
+                    nvtt_metalness_image.buildNextMipmap(nvtt::MipmapFilter_Box);
+                }
+
+                std::string roughness_file_path = create_file(roughness_texture);
+                std::string metalness_file_path = create_file(metalness_texture);
+
+                // convert to roughness
+                BinaryTexture& roughness_metallic_texture = binary_textures[i];
+                roughness_metallic_texture.file_path = roughness_file_path;
+                u32 metalness_texture_index = s_cast<u32>(binary_textures.size());
+                BinaryTexture binary_metalness_texture = BinaryTexture{
+                    .material_indices = {},
+                    .name = {},
+                    .file_path = metalness_file_path,
+                };
+
+                for(auto& material_index : roughness_metallic_texture.material_indices) {
+                    material_index.material_type = MaterialType::CompressedRoughness;
+                    binary_metalness_texture.material_indices.push_back(BinaryTexture::BinaryMaterialIndex {
+                        .material_type = MaterialType::CompressedMetalness,
+                        .material_index = material_index.material_index
+                    });
+
+                    BinaryMaterial& binary_material = binary_materials[material_index.material_index];
+                    binary_material.roughness_info = BinaryMaterial::BinaryTextureInfo {
+                        .texture_index = binary_material.roughness_metalness_info->texture_index,
+                        .sampler_index = 0
+                    };
+                    binary_material.metalness_info = BinaryMaterial::BinaryTextureInfo {
+                        .texture_index = metalness_texture_index,
+                        .sampler_index = 0
+                    };
+
+                    binary_material.roughness_metalness_info = std::nullopt;
+                }
+
+                binary_textures.push_back(binary_metalness_texture);
             } else {
                 nvtt::Surface nvtt_image = create_nvtt_image(width, height, raw_data);
                 nvtt::Format compressed_format = nvtt::Format_BC7;
@@ -1143,8 +1234,10 @@ namespace foundation {
                 .alpha_mask_sampler_id = {},
                 .normal_texture_id = {},
                 .normal_sampler_id = {},
-                .roughness_metalness_texture_id = {},
-                .roughness_metalness_sampler_id = {},
+                .roughness_texture_id = {},
+                .roughness_sampler_id = {},
+                .metalness_texture_id = {},
+                .metalness_sampler_id = {},
                 .emissive_texture_id = {},
                 .emissive_sampler_id = {},
                 .metallic_factor = 1.0f,
@@ -1219,8 +1312,11 @@ namespace foundation {
                 if (material_using_texture_info.material_type == MaterialType::GltfNormal) {
                     material_entry.normal_info->texture_manifest_index = texture_upload_info.manifest_index;
                 }
-                if (material_using_texture_info.material_type == MaterialType::GltfRoughnessMetallic) {
-                    material_entry.roughness_metalness_info->texture_manifest_index = texture_upload_info.manifest_index;
+                if (material_using_texture_info.material_type == MaterialType::CompressedRoughness) {
+                    material_entry.roughness_info->texture_manifest_index = texture_upload_info.manifest_index;
+                }
+                if (material_using_texture_info.material_type == MaterialType::CompressedMetalness) {
+                    material_entry.metalness_info->texture_manifest_index = texture_upload_info.manifest_index;
                 }
                 if (material_using_texture_info.material_type == MaterialType::GltfEmissive) {
                     material_entry.emissive_info->texture_manifest_index = texture_upload_info.manifest_index;
@@ -1248,8 +1344,10 @@ namespace foundation {
                 daxa::SamplerId alpha_mask_sampler_id = {};
                 daxa::ImageId normal_image_id = {};
                 daxa::SamplerId normal_sampler_id = {};
-                daxa::ImageId roughness_metalness_image_id = {};
-                daxa::SamplerId roughness_metalness_sampler_id = {};
+                daxa::ImageId roughness_image_id = {};
+                daxa::SamplerId roughness_sampler_id = {};
+                daxa::ImageId metalness_image_id = {};
+                daxa::SamplerId metalness_sampler_id = {};
                 daxa::ImageId emissive_image_id = {};
                 daxa::SamplerId emissive_sampler_id = {};
 
@@ -1268,10 +1366,15 @@ namespace foundation {
                     normal_image_id = texture_entry.image_id;
                     normal_sampler_id = texture_entry.sampler_id;
                 }
-                if (material.roughness_metalness_info.has_value()) {
-                    auto const & texture_entry = material_texture_manifest_entries.at(material.roughness_metalness_info.value().texture_manifest_index);
-                    roughness_metalness_image_id = texture_entry.image_id;
-                    roughness_metalness_sampler_id = texture_entry.sampler_id;
+                if (material.roughness_info.has_value()) {
+                    auto const & texture_entry = material_texture_manifest_entries.at(material.roughness_info.value().texture_manifest_index);
+                    roughness_image_id = texture_entry.image_id;
+                    roughness_sampler_id = texture_entry.sampler_id;
+                }
+                if (material.metalness_info.has_value()) {
+                    auto const & texture_entry = material_texture_manifest_entries.at(material.metalness_info.value().texture_manifest_index);
+                    metalness_image_id = texture_entry.image_id;
+                    metalness_sampler_id = texture_entry.sampler_id;
                 }
                 if (material.emissive_info.has_value()) {
                     auto const & texture_entry = material_texture_manifest_entries.at(material.emissive_info.value().texture_manifest_index);
@@ -1286,8 +1389,10 @@ namespace foundation {
                     .alpha_mask_sampler_id = alpha_mask_sampler_id,
                     .normal_texture_id = normal_image_id.default_view(),
                     .normal_sampler_id = normal_sampler_id,
-                    .roughness_metalness_texture_id = roughness_metalness_image_id.default_view(),
-                    .roughness_metalness_sampler_id = roughness_metalness_sampler_id,
+                    .roughness_texture_id = roughness_image_id.default_view(),
+                    .roughness_sampler_id = roughness_sampler_id,
+                    .metalness_texture_id = metalness_image_id.default_view(),
+                    .metalness_sampler_id = metalness_sampler_id,
                     .emissive_texture_id = emissive_image_id.default_view(),
                     .emissive_sampler_id = emissive_sampler_id,
                     .metallic_factor = material.metallic_factor,

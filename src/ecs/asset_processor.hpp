@@ -15,7 +15,7 @@ namespace foundation {
         CompressedAlbedo, // BC1 only 3 channels
         CompressedAlphaMask, // BC4 optional alpha mask
         CompressedNormal, // BC5 compressed to 2 channels using orthographic compression
-        CompressedMetallic, // BC4
+        CompressedMetalness, // BC4
         CompressedRoughness, // BC4
         CompressedEmissive, // BC1
         None

@@ -113,6 +113,8 @@ namespace foundation {
         std::optional<BinaryTextureInfo> alpha_mask_info = {};
         std::optional<BinaryTextureInfo> normal_info = {};
         std::optional<BinaryTextureInfo> roughness_metalness_info = {};
+        std::optional<BinaryTextureInfo> roughness_info = {};
+        std::optional<BinaryTextureInfo> metalness_info = {};
         std::optional<BinaryTextureInfo> emissive_info = {};
         f32 metallic_factor;
         f32 roughness_factor;
@@ -126,7 +128,8 @@ namespace foundation {
             writer.write(value.albedo_info);
             writer.write(value.alpha_mask_info);
             writer.write(value.normal_info);
-            writer.write(value.roughness_metalness_info);
+            writer.write(value.roughness_info);
+            writer.write(value.metalness_info);
             writer.write(value.emissive_info);
             writer.write(value.metallic_factor);
             writer.write(value.roughness_factor);
@@ -142,7 +145,8 @@ namespace foundation {
             reader.read(value.albedo_info);
             reader.read(value.alpha_mask_info);
             reader.read(value.normal_info);
-            reader.read(value.roughness_metalness_info);
+            reader.read(value.roughness_info);
+            reader.read(value.metalness_info);
             reader.read(value.emissive_info);
             reader.read(value.metallic_factor);
             reader.read(value.roughness_factor);
@@ -217,7 +221,8 @@ namespace foundation {
         std::optional<TextureInfo> albedo_info = {};
         std::optional<TextureInfo> alpha_mask_info = {};
         std::optional<TextureInfo> normal_info = {};
-        std::optional<TextureInfo> roughness_metalness_info = {};
+        std::optional<TextureInfo> roughness_info = {};
+        std::optional<TextureInfo> metalness_info = {};
         std::optional<TextureInfo> emissive_info = {};
         f32 metallic_factor;
         f32 roughness_factor;

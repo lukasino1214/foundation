@@ -246,5 +246,17 @@ void main(u32vec3 pixel : SV_DispatchThreadID) {
 
     RWTexture2D<f32vec4> image = RWTexture2D<f32>::get(push.uses.u_image);
     // color = f32vec4(normal * 0.5 + 0.5, 1.0f);
+
+    // color = f32vec4(0.0, 0.0, 0.0, 1.0);
+    // daxa_ImageViewId roughness_texture_id = push.uses.u_materials[mesh.material_index].roughness_texture_id;
+    // if(roughness_texture_id.value != 0) {
+    //     color.r = Texture2D<float>::get(roughness_texture_id).SampleGrad(SamplerState::get(push.uses.u_materials[mesh.material_index].roughness_sampler_id), uv_grad.uv, uv_grad.ddx, uv_grad.ddy).r;
+    // }
+
+    // daxa_ImageViewId metalness_texture_id = push.uses.u_materials[mesh.material_index].metalness_texture_id;
+    // if(metalness_texture_id.value != 0) {
+    //     color.g = Texture2D<float>::get(metalness_texture_id).SampleGrad(SamplerState::get(push.uses.u_materials[mesh.material_index].metalness_sampler_id), uv_grad.uv, uv_grad.ddx, uv_grad.ddy).r;
+    // }
+
     image[pixel.xy] = color;
 }

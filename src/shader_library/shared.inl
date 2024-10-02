@@ -82,8 +82,10 @@ struct Material {
     daxa_SamplerId alpha_mask_sampler_id;
     daxa_ImageViewId normal_texture_id;
     daxa_SamplerId normal_sampler_id;
-    daxa_ImageViewId roughness_metalness_texture_id;
-    daxa_SamplerId roughness_metalness_sampler_id;
+    daxa_ImageViewId roughness_texture_id;
+    daxa_SamplerId roughness_sampler_id;
+    daxa_ImageViewId metalness_texture_id;
+    daxa_SamplerId metalness_sampler_id;
     daxa_ImageViewId emissive_texture_id;
     daxa_SamplerId emissive_sampler_id;
     f32 metallic_factor;
