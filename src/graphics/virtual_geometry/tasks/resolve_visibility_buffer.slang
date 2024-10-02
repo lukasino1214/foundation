@@ -230,10 +230,14 @@ void main(u32vec3 pixel : SV_DispatchThreadID) {
     daxa_ImageViewId albedo_texture_id = push.uses.u_materials[mesh.material_index].albedo_texture_id;
     if(albedo_texture_id.value != 0) {
         f32vec4 albedo = Texture2D<float>::get(albedo_texture_id).SampleGrad(SamplerState::get(push.uses.u_materials[mesh.material_index].albedo_sampler_id), uv_grad.uv, uv_grad.ddx, uv_grad.ddy);
-        // if(push.uses.u_materials[mesh.material_index].alpha_mode == 1) {
-        //     if(albedo.a < push.uses.u_materials[mesh.material_index].alpha_cutoff) { return; }
-        // }
         color = f32vec4(albedo.rgb, 1.0);
+    }
+    daxa_ImageViewId alpha_mask_texture_id = push.uses.u_materials[mesh.material_index].alpha_mask_texture_id;
+    if(alpha_mask_texture_id.value != 0) {
+        f32 alpha = Texture2D<float>::get(alpha_mask_texture_id).SampleGrad(SamplerState::get(push.uses.u_materials[mesh.material_index].alpha_mask_sampler_id), uv_grad.uv, uv_grad.ddx, uv_grad.ddy).x;
+        if(push.uses.u_materials[mesh.material_index].alpha_mode == 1) {
+            if(alpha < push.uses.u_materials[mesh.material_index].alpha_cutoff) { color = f32vec4(1.0, 0.0, 0.0, 1.0); }
+        }
     }
     daxa_ImageViewId emissive_texture_id = push.uses.u_materials[mesh.material_index].emissive_texture_id;
     if(emissive_texture_id.value != 0) {
@@ -241,6 +245,6 @@ void main(u32vec3 pixel : SV_DispatchThreadID) {
     }
 
     RWTexture2D<f32vec4> image = RWTexture2D<f32>::get(push.uses.u_image);
-    color = f32vec4(normal * 0.5 + 0.5, 1.0f);
+    // color = f32vec4(normal * 0.5 + 0.5, 1.0f);
     image[pixel.xy] = color;
 }

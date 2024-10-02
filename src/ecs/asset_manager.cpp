@@ -163,7 +163,7 @@ namespace foundation {
         const auto& asset_manifest = gltf_asset_manifest_entries.back();
         const std::unique_ptr<fastgltf::Asset>& asset = asset_manifest.gltf_asset;
 
-        for (u32 i = 0; i < static_cast<u32>(asset->images.size()); ++i) {
+        for (u32 i = 0; i < static_cast<u32>(binary_textures.size()); ++i) {
             std::vector<TextureManifestEntry::MaterialManifestIndex> indices = {};
             indices.reserve(binary_textures[i].material_indices.size());
             for(const auto& v : binary_textures[i].material_indices) {
@@ -201,6 +201,7 @@ namespace foundation {
             const BinaryMaterial& material = binary_materials[material_index];
             material_manifest_entries.push_back(MaterialManifestEntry{
                 .albedo_info = make_texture_info(material.albedo_info),
+                .alpha_mask_info = make_texture_info(material.alpha_mask_info),
                 .normal_info = make_texture_info(material.normal_info),
                 .roughness_metalness_info = make_texture_info(material.roughness_metalness_info),
                 .emissive_info = make_texture_info(material.emissive_info),
@@ -332,7 +333,7 @@ namespace foundation {
             };
         };
 
-        for (u32 gltf_texture_index = 0; gltf_texture_index < static_cast<u32>(asset->images.size()); gltf_texture_index++) {
+        for (u32 gltf_texture_index = 0; gltf_texture_index < static_cast<u32>(binary_textures.size()); gltf_texture_index++) {
             auto const texture_manifest_index = gltf_texture_index + asset_manifest.texture_manifest_offset;
             auto const & texture_manifest_entry = material_texture_manifest_entries.at(texture_manifest_index);
             bool used_as_albedo = false;
@@ -587,21 +588,6 @@ namespace foundation {
             i32 num_channels = 0;
             std::string image_path = info.path.parent_path().string();
 
-            // MaterialType material_type = binary_texture.material_indices[0].material_type;
-            // for(u32 material_index = 1; material_index < binary_texture.material_indices.size(); material_index++) {
-            //     const MaterialType temp = binary_texture.material_indices[material_index].material_type;
-            //     if(material_type != temp) {
-            //         if((material_type == MaterialType::GltfAlbedo && temp == MaterialType::GltfEmissive) ||
-            //            (material_type == MaterialType::GltfEmissive && temp == MaterialType::GltfAlbedo)
-            //         ) {
-
-            //         } else {
-            //             std::println("explode first {} different {}", std::to_string(s_cast<u32>(material_type)), std::to_string(s_cast<u32>(temp)));
-            //             std::abort();
-            //         }
-            //     }
-            // }
-
             const auto& binary_texture = binary_textures[i];
             std::vector<MaterialType> cached_material_types = {};
             MaterialType preferred_material_type = MaterialType::None;
@@ -785,54 +771,70 @@ namespace foundation {
                     binary_textures[i].file_path = create_file(texture);
                 }
 
-
-                // if(create_alpha_mask) {
-                //     std::vector<std::byte> alpha_mask = {};
-                //     alpha_mask.resize(albedo.size());
+                if(create_alpha_mask) {
+                    std::vector<std::byte> alpha_mask = {};
+                    alpha_mask.resize(albedo.size());
                     
-                //     for(u32 pixel = 0; pixel < albedo.size(); pixel += 4) {
-                //         alpha_mask[pixel + 0] = raw_data[pixel + 3];
-                //         alpha_mask[pixel + 1] = std::byte{0};
-                //         alpha_mask[pixel + 2] = std::byte{0};
-                //         alpha_mask[pixel + 3] = std::byte{0};
-                //     }
+                    for(u32 pixel = 0; pixel < albedo.size(); pixel += 4) {
+                        alpha_mask[pixel + 0] = raw_data[pixel + 3];
+                        alpha_mask[pixel + 1] = std::byte{0};
+                        alpha_mask[pixel + 2] = std::byte{0};
+                        alpha_mask[pixel + 3] = std::byte{0};
+                    }
 
-                //     nvtt::Surface nvtt_image = create_nvtt_image(width, height, alpha_mask);
-                //     nvtt::Format compressed_format = nvtt::Format_BC4;
-                //     daxa::Format daxa_format = daxa::Format::BC4_UNORM_BLOCK;
+                    nvtt::Surface nvtt_image = create_nvtt_image(width, height, alpha_mask);
+                    nvtt::Format compressed_format = nvtt::Format_BC4;
+                    daxa::Format daxa_format = daxa::Format::BC4_UNORM_BLOCK;
 
-                //     NVTTSettings nvtt_settings = {};
-                //     create_nvtt_settings(nvtt_settings, compressed_format);
+                    NVTTSettings nvtt_settings = {};
+                    create_nvtt_settings(nvtt_settings, compressed_format);
 
-                //     MyBinaryTextureFormat texture {
-                //         .width = static_cast<u32>(width),
-                //         .height = static_cast<u32>(height),
-                //         .depth = 1,
-                //         .format = daxa_format,
-                //         .mipmaps = {}
-                //     };
+                    MyBinaryTextureFormat texture {
+                        .width = static_cast<u32>(width),
+                        .height = static_cast<u32>(height),
+                        .depth = 1,
+                        .format = daxa_format,
+                        .mipmaps = {}
+                    };
 
-                //     const i32 num_mipmaps = nvtt_image.countMipmaps();
-                //     for(i32 mip = 0; mip < num_mipmaps; mip++) {
-                //         context.compress(nvtt_image, 0, mip, nvtt_settings.compression_options, nvtt_settings.output_options);
-                //         texture.mipmaps.push_back(nvtt_settings.output_handler->data);
+                    const i32 num_mipmaps = nvtt_image.countMipmaps();
+                    for(i32 mip = 0; mip < num_mipmaps; mip++) {
+                        context.compress(nvtt_image, 0, mip, nvtt_settings.compression_options, nvtt_settings.output_options);
+                        texture.mipmaps.push_back(nvtt_settings.output_handler->data);
 
-                //         if(mip == num_mipmaps - 1) { break; }
+                        if(mip == num_mipmaps - 1) { break; }
 
-                //         nvtt_image.buildNextMipmap(nvtt::MipmapFilter_Box);
-                //     }
+                        nvtt_image.buildNextMipmap(nvtt::MipmapFilter_Box);
+                    }
 
-                //     std::string file_name = create_file(texture);
+                    std::string file_name = create_file(texture);
 
-                //     const BinaryTexture& albedo_texture = binary_textures[i];
-                //     u32 alpha_mask_texture_index = s_cast<u32>(binary_textures.size());
-                //     binary_textures.push_back(BinaryTexture{
-                //         .material_indices = albedo_texture.material_indices,
-                //         .name = {},
-                //         .file_path = file_name,
-                //     });
-                //     // binary_textures[i].file_path = create_file(texture);
-                // }
+                    const BinaryTexture& albedo_texture = binary_textures[i];
+                    u32 alpha_mask_texture_index = s_cast<u32>(binary_textures.size());
+                    BinaryTexture alpha_mask_texture = BinaryTexture{
+                        .material_indices = {},
+                        .name = {},
+                        .file_path = file_name,
+                    };
+
+                    for(const auto& material_index : albedo_texture.material_indices) {
+                        auto& material = binary_materials[material_index.material_index];
+                        
+                        if(material.alpha_mode != 0) {
+                            material.alpha_mask_info = BinaryMaterial::BinaryTextureInfo {
+                                .texture_index = alpha_mask_texture_index,
+                                .sampler_index = 0
+                            };
+
+                            alpha_mask_texture.material_indices.push_back(BinaryTexture::BinaryMaterialIndex{
+                                .material_type = MaterialType::CompressedAlphaMask,
+                                .material_index = material_index.material_index
+                            });
+                        }
+                    }
+
+                    binary_textures.push_back(alpha_mask_texture);
+                }
             } else if(preferred_material_type == MaterialType::GltfNormal) {
                 nvtt::Surface nvtt_image = create_nvtt_image(width, height, raw_data);
                 nvtt::Format compressed_format = nvtt::Format_BC5;
@@ -1137,6 +1139,8 @@ namespace foundation {
             Material material {
                 .albedo_texture_id = {},
                 .albedo_sampler_id = {},
+                .alpha_mask_texture_id = {},
+                .alpha_mask_sampler_id = {},
                 .normal_texture_id = {},
                 .normal_sampler_id = {},
                 .roughness_metalness_texture_id = {},
@@ -1209,6 +1213,9 @@ namespace foundation {
                 if (material_using_texture_info.material_type == MaterialType::GltfAlbedo) {
                     material_entry.albedo_info->texture_manifest_index = texture_upload_info.manifest_index;
                 }
+                if (material_using_texture_info.material_type == MaterialType::CompressedAlphaMask) {
+                    material_entry.alpha_mask_info->texture_manifest_index = texture_upload_info.manifest_index;
+                }
                 if (material_using_texture_info.material_type == MaterialType::GltfNormal) {
                     material_entry.normal_info->texture_manifest_index = texture_upload_info.manifest_index;
                 }
@@ -1237,6 +1244,8 @@ namespace foundation {
                 MaterialManifestEntry& material = material_manifest_entries.at(dirty_material_manifest_indices.at(dirty_materials_index));
                 daxa::ImageId albedo_image_id = {};
                 daxa::SamplerId albedo_sampler_id = {};
+                daxa::ImageId alpha_mask_image_id = {};
+                daxa::SamplerId alpha_mask_sampler_id = {};
                 daxa::ImageId normal_image_id = {};
                 daxa::SamplerId normal_sampler_id = {};
                 daxa::ImageId roughness_metalness_image_id = {};
@@ -1248,6 +1257,11 @@ namespace foundation {
                     auto const & texture_entry = material_texture_manifest_entries.at(material.albedo_info.value().texture_manifest_index);
                     albedo_image_id = texture_entry.image_id;
                     albedo_sampler_id = texture_entry.sampler_id;
+                }
+                if (material.alpha_mask_info.has_value()) {
+                    auto const & texture_entry = material_texture_manifest_entries.at(material.alpha_mask_info.value().texture_manifest_index);
+                    alpha_mask_image_id = texture_entry.image_id;
+                    alpha_mask_sampler_id = texture_entry.sampler_id;
                 }
                 if (material.normal_info.has_value()) {
                     auto const & texture_entry = material_texture_manifest_entries.at(material.normal_info.value().texture_manifest_index);
@@ -1268,6 +1282,8 @@ namespace foundation {
                 ptr[dirty_materials_index] = {
                     .albedo_texture_id = albedo_image_id.default_view(),
                     .albedo_sampler_id = albedo_sampler_id,
+                    .alpha_mask_texture_id = alpha_mask_image_id.default_view(),
+                    .alpha_mask_sampler_id = alpha_mask_sampler_id,
                     .normal_texture_id = normal_image_id.default_view(),
                     .normal_sampler_id = normal_sampler_id,
                     .roughness_metalness_texture_id = roughness_metalness_image_id.default_view(),
