@@ -690,63 +690,228 @@ namespace foundation {
                     std::cout << "fastgltf::sources::ByteView" << std::endl;
                 }
             }
-            
-            for(u32 p = 0; p < raw_data.size(); p += 4) {
-                std::swap(raw_data[p], raw_data[p+2]);
-            }
-        
 
-            nvtt::Surface nvtt_image;
-            assert(nvtt_image.setImage(nvtt::InputFormat_BGRA_8UB, width, height, 1, raw_data.data()) && "setImage");
-
-            nvtt::Format compressed_format = {};
-            daxa::Format daxa_format = {};
-            if(preferred_material_type == MaterialType::GltfNormal) {
-                compressed_format = nvtt::Format_BC5;
-                daxa_format = daxa::Format::BC5_UNORM_BLOCK;
-            } else {
-                compressed_format = nvtt::Format_BC7;
-                if(preferred_material_type == MaterialType::GltfAlbedo || preferred_material_type == MaterialType::GltfEmissive) {
-                    daxa_format = daxa::Format::BC7_SRGB_BLOCK;
-                } else {
-                    daxa_format = daxa::Format::BC7_UNORM_BLOCK;
+            auto create_nvtt_image = [](i32 width, i32 height, std::vector<std::byte>& data) -> nvtt::Surface {
+                for(u32 p = 0; p < data.size(); p += 4) {
+                    std::swap(data[p], data[p+2]);
                 }
-            }
 
-            nvtt::CompressionOptions compression_options;
-            compression_options.setFormat(compressed_format);
-            compression_options.setQuality(nvtt::Quality_Normal);
-
-            nvtt::OutputOptions output_options;
-            std::unique_ptr<CustomOutputHandler> output_handler = std::make_unique<CustomOutputHandler>();
-            output_options.setOutputHandler(output_handler.get());
-            output_options.setErrorHandler(error_handler.get());
-            MyBinaryTextureFormat format {
-                .width = static_cast<u32>(width),
-                .height = static_cast<u32>(height),
-                .depth = 1,
-                .format = daxa_format,
-                .mipmaps = {}
+                nvtt::Surface nvtt_image;
+                nvtt_image.setImage(nvtt::InputFormat_BGRA_8UB, width, height, 1, data.data());
+                return nvtt_image;
             };
 
-            const int num_mipmaps = nvtt_image.countMipmaps();
-            if(preferred_material_type == MaterialType::GltfNormal) {
-                nvtt_image.setNormalMap(true);
-                for(int mip = 0; mip < num_mipmaps; mip++) {
+            struct NVTTSettings {
+                nvtt::CompressionOptions compression_options = {};
+                std::unique_ptr<CustomOutputHandler> output_handler = {};
+                nvtt::OutputOptions output_options = {};
+            };
+
+            auto create_nvtt_settings = [&error_handler](NVTTSettings& nvtt_settings, nvtt::Format nvtt_format) {
+                nvtt_settings.compression_options.setFormat(nvtt_format);
+                nvtt_settings.compression_options.setQuality(nvtt::Quality_Normal);
+                nvtt_settings.output_handler = std::make_unique<CustomOutputHandler>();
+                nvtt_settings.output_options.setOutputHandler(nvtt_settings.output_handler.get());
+                nvtt_settings.output_options.setErrorHandler(error_handler.get());
+            };
+
+            auto create_file = [&uniform_distributation, &engine, &output_path](const MyBinaryTextureFormat& texture) -> std::string {
+                std::vector<std::byte> compressed_data = {};
+                usize compressed_data_size = {};
+                {
+                    ByteWriter image_writer = {};
+                    image_writer.write(texture);
+                    compressed_data_size = ZSTD_compressBound(image_writer.data.size());
+                    compressed_data.resize(compressed_data_size);
+                    compressed_data_size = ZSTD_compress(compressed_data.data(), compressed_data.size(), image_writer.data.data(), image_writer.data.size(), 14);
+                    compressed_data.resize(compressed_data_size);
+                }
+
+                std::string file_name = std::to_string(uniform_distributation(engine))+ ".btexture";
+                auto binary_image_path = output_path;
+                binary_image_path = binary_image_path.parent_path() / file_name;
+
+                while(std::filesystem::exists(binary_image_path)) {
+                    file_name = std::to_string(uniform_distributation(engine))+ ".btexture";
+                    binary_image_path = output_path;
+                    binary_image_path = binary_image_path.parent_path() / file_name;
+                }
+
+                std::ofstream file(binary_image_path.string().c_str(), std::ios_base::trunc | std::ios_base::binary);
+                file.write(r_cast<char const *>(compressed_data.data()), static_cast<std::streamsize>(compressed_data_size));
+                file.close();
+                return file_name;
+            };
+
+            if(preferred_material_type == MaterialType::GltfAlbedo) {
+                std::vector<std::byte> albedo = {};
+                albedo.resize(raw_data.size());
+
+                for(u32 pixel = 0; pixel < albedo.size(); pixel += 4) {
+                    albedo[pixel + 0] = raw_data[pixel + 0];
+                    albedo[pixel + 1] = raw_data[pixel + 1];
+                    albedo[pixel + 2] = raw_data[pixel + 2];
+                    albedo[pixel + 3] = std::byte{255};
+                }
+
+                {
+                    nvtt::Surface nvtt_image = create_nvtt_image(width, height, albedo);
+                    nvtt::Format compressed_format = nvtt::Format_BC1;
+                    daxa::Format daxa_format = daxa::Format::BC1_RGB_SRGB_BLOCK;
+
+                    NVTTSettings nvtt_settings = {};
+                    create_nvtt_settings(nvtt_settings, compressed_format);
+
+                    MyBinaryTextureFormat texture {
+                        .width = static_cast<u32>(width),
+                        .height = static_cast<u32>(height),
+                        .depth = 1,
+                        .format = daxa_format,
+                        .mipmaps = {}
+                    };
+
+                    const i32 num_mipmaps = nvtt_image.countMipmaps();
+                    for(i32 mip = 0; mip < num_mipmaps; mip++) {
+                        context.compress(nvtt_image, 0, mip, nvtt_settings.compression_options, nvtt_settings.output_options);
+                        texture.mipmaps.push_back(nvtt_settings.output_handler->data);
+
+                        if(mip == num_mipmaps - 1) { break; }
+
+                        nvtt_image.toLinearFromSrgb();
+                        nvtt_image.buildNextMipmap(nvtt::MipmapFilter_Box);
+                        nvtt_image.toSrgb();
+                    }
+
+                    binary_textures[i].file_path = create_file(texture);
+                }
+
+
+                // if(create_alpha_mask) {
+                //     std::vector<std::byte> alpha_mask = {};
+                //     alpha_mask.resize(albedo.size());
+                    
+                //     for(u32 pixel = 0; pixel < albedo.size(); pixel += 4) {
+                //         alpha_mask[pixel + 0] = raw_data[pixel + 3];
+                //         alpha_mask[pixel + 1] = std::byte{0};
+                //         alpha_mask[pixel + 2] = std::byte{0};
+                //         alpha_mask[pixel + 3] = std::byte{0};
+                //     }
+
+                //     nvtt::Surface nvtt_image = create_nvtt_image(width, height, alpha_mask);
+                //     nvtt::Format compressed_format = nvtt::Format_BC4;
+                //     daxa::Format daxa_format = daxa::Format::BC4_UNORM_BLOCK;
+
+                //     NVTTSettings nvtt_settings = {};
+                //     create_nvtt_settings(nvtt_settings, compressed_format);
+
+                //     MyBinaryTextureFormat texture {
+                //         .width = static_cast<u32>(width),
+                //         .height = static_cast<u32>(height),
+                //         .depth = 1,
+                //         .format = daxa_format,
+                //         .mipmaps = {}
+                //     };
+
+                //     const i32 num_mipmaps = nvtt_image.countMipmaps();
+                //     for(i32 mip = 0; mip < num_mipmaps; mip++) {
+                //         context.compress(nvtt_image, 0, mip, nvtt_settings.compression_options, nvtt_settings.output_options);
+                //         texture.mipmaps.push_back(nvtt_settings.output_handler->data);
+
+                //         if(mip == num_mipmaps - 1) { break; }
+
+                //         nvtt_image.buildNextMipmap(nvtt::MipmapFilter_Box);
+                //     }
+
+                //     std::string file_name = create_file(texture);
+
+                //     const BinaryTexture& albedo_texture = binary_textures[i];
+                //     u32 alpha_mask_texture_index = s_cast<u32>(binary_textures.size());
+                //     binary_textures.push_back(BinaryTexture{
+                //         .material_indices = albedo_texture.material_indices,
+                //         .name = {},
+                //         .file_path = file_name,
+                //     });
+                //     // binary_textures[i].file_path = create_file(texture);
+                // }
+            } else if(preferred_material_type == MaterialType::GltfNormal) {
+                nvtt::Surface nvtt_image = create_nvtt_image(width, height, raw_data);
+                nvtt::Format compressed_format = nvtt::Format_BC5;
+                daxa::Format daxa_format = daxa::Format::BC5_UNORM_BLOCK;
+
+                NVTTSettings nvtt_settings = {};
+                create_nvtt_settings(nvtt_settings, compressed_format);
+
+                MyBinaryTextureFormat texture {
+                    .width = static_cast<u32>(width),
+                    .height = static_cast<u32>(height),
+                    .depth = 1,
+                    .format = daxa_format,
+                    .mipmaps = {}
+                };
+
+                const i32 num_mipmaps = nvtt_image.countMipmaps();
+                for(i32 mip = 0; mip < num_mipmaps; mip++) {
                     nvtt_image.normalizeNormalMap();
                     nvtt::Surface temp = nvtt_image;
                     temp.transformNormals(nvtt::NormalTransform_Orthographic);
-                    context.compress(temp, 0 /* face */, mip, compression_options, output_options);
-                    format.mipmaps.push_back(output_handler->data);
+                    context.compress(temp, 0, mip, nvtt_settings.compression_options, nvtt_settings.output_options);
+                    texture.mipmaps.push_back(nvtt_settings.output_handler->data);
 
                     if(mip == num_mipmaps - 1) { break; }
 
                     nvtt_image.buildNextMipmap(nvtt::MipmapFilter_Box);
                 }
+
+                binary_textures[i].file_path = create_file(texture);
+            } else if(preferred_material_type == MaterialType::GltfEmissive) {
+                nvtt::Surface nvtt_image = create_nvtt_image(width, height, raw_data);
+                nvtt::Format compressed_format = nvtt::Format_BC1;
+                daxa::Format daxa_format = daxa::Format::BC1_RGB_SRGB_BLOCK;
+
+                NVTTSettings nvtt_settings = {};
+                create_nvtt_settings(nvtt_settings, compressed_format);
+
+                MyBinaryTextureFormat texture {
+                    .width = static_cast<u32>(width),
+                    .height = static_cast<u32>(height),
+                    .depth = 1,
+                    .format = daxa_format,
+                    .mipmaps = {}
+                };
+
+                const i32 num_mipmaps = nvtt_image.countMipmaps();
+                for(i32 mip = 0; mip < num_mipmaps; mip++) {
+                    context.compress(nvtt_image, 0, mip, nvtt_settings.compression_options, nvtt_settings.output_options);
+                    texture.mipmaps.push_back(nvtt_settings.output_handler->data);
+
+                    if(mip == num_mipmaps - 1) { break; }
+
+                    nvtt_image.toLinearFromSrgb();
+                    nvtt_image.buildNextMipmap(nvtt::MipmapFilter_Box);
+                    nvtt_image.toSrgb();
+                }
+
+                binary_textures[i].file_path = create_file(texture);
             } else {
-                for(int mip = 0; mip < num_mipmaps; mip++) {
-                    context.compress(nvtt_image, 0 /* face */, mip, compression_options, output_options);
-                    format.mipmaps.push_back(output_handler->data);
+                nvtt::Surface nvtt_image = create_nvtt_image(width, height, raw_data);
+                nvtt::Format compressed_format = nvtt::Format_BC7;
+                daxa::Format daxa_format = (preferred_material_type == MaterialType::GltfAlbedo || preferred_material_type == MaterialType::GltfEmissive) ? daxa::Format::BC7_SRGB_BLOCK : daxa::Format::BC7_UNORM_BLOCK;
+
+                NVTTSettings nvtt_settings = {};
+                create_nvtt_settings(nvtt_settings, compressed_format);
+
+                MyBinaryTextureFormat texture {
+                    .width = static_cast<u32>(width),
+                    .height = static_cast<u32>(height),
+                    .depth = 1,
+                    .format = daxa_format,
+                    .mipmaps = {}
+                };
+
+                const i32 num_mipmaps = nvtt_image.countMipmaps();
+                for(i32 mip = 0; mip < num_mipmaps; mip++) {
+                    context.compress(nvtt_image, 0, mip, nvtt_settings.compression_options, nvtt_settings.output_options);
+                    texture.mipmaps.push_back(nvtt_settings.output_handler->data);
 
                     if(mip == num_mipmaps - 1) { break; }
 
@@ -756,33 +921,10 @@ namespace foundation {
                     nvtt_image.demultiplyAlpha();
                     nvtt_image.toSrgb();
                 }
+
+                binary_textures[i].file_path = create_file(texture);
             }
 
-            std::vector<std::byte> compressed_data = {};
-            usize compressed_data_size = {};
-            {
-                ByteWriter image_writer = {};
-                image_writer.write(format);
-                compressed_data_size = ZSTD_compressBound(image_writer.data.size());
-                compressed_data.resize(compressed_data_size);
-                compressed_data_size = ZSTD_compress(compressed_data.data(), compressed_data.size(), image_writer.data.data(), image_writer.data.size(), 14);
-                compressed_data.resize(compressed_data_size);
-            }
-
-            std::string file_name = std::to_string(uniform_distributation(engine))+ ".btexture";
-            auto binary_image_path = output_path;
-            binary_image_path = binary_image_path.parent_path() / file_name;
-
-            while(std::filesystem::exists(binary_image_path)) {
-                file_name = std::to_string(uniform_distributation(engine))+ ".btexture";
-                binary_image_path = output_path;
-                binary_image_path = binary_image_path.parent_path() / file_name;
-            }
-
-            std::ofstream file(binary_image_path.string().c_str(), std::ios_base::trunc | std::ios_base::binary);
-            file.write(r_cast<char const *>(compressed_data.data()), static_cast<std::streamsize>(compressed_data_size));
-            file.close();
-            binary_textures[i].file_path = file_name;
             std::println("[{} / {}] - image with path: {} - done", i+1, asset->images.size(), image_path);
         }
 
