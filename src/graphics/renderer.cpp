@@ -27,6 +27,7 @@ namespace foundation {
         images = {
             render_image,
             depth_image,
+            visibility_image
         };
         frame_buffer_images = {
             {

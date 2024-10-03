@@ -16,6 +16,20 @@ namespace foundation {
         u32 version = {};
     };
 
+    struct BinaryMesh {
+        std::string file_path = {};
+
+        static void serialize(ByteWriter& writer, const BinaryMesh& value) {
+            writer.write(value.file_path);
+        }
+
+        static auto deserialize(ByteReader& reader) -> BinaryMesh { 
+            BinaryMesh value = {};
+            reader.read(value.file_path);
+            return value;    
+        }
+    };
+
     struct BinaryMeshGroup {
         u32 mesh_offset = {};
         u32 mesh_count = {};
@@ -177,7 +191,8 @@ namespace foundation {
         Entity parent;
         std::vector<BinaryNode> binary_nodes = {};
         std::vector<BinaryMeshGroup> binary_mesh_groups = {};
-        std::vector<ProcessedMeshInfo> binary_meshes = {};
+        std::vector<BinaryMesh> binary_meshes = {};
+        std::vector<BinaryTexture> binary_textures = {};
     };
 
     struct MeshManifestEntry {

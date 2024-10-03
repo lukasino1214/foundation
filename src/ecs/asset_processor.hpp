@@ -92,7 +92,7 @@ namespace foundation {
         u32 gltf_primitive_index = {};
         u32 material_manifest_offset = {};
         u32 manifest_index = {};
-        ProcessedMeshInfo processed_mesh_info = {};
+        std::filesystem::path file_path = {};
     };
 
     struct MeshBuffers {

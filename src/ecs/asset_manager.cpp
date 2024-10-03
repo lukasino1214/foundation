@@ -124,7 +124,7 @@ namespace foundation {
         std::vector<BinaryMaterial> binary_materials = {};
         std::vector<BinaryNode> binary_nodes = {};
         std::vector<BinaryMeshGroup> binary_mesh_groups = {};
-        std::vector<ProcessedMeshInfo> binary_meshes = {};
+        std::vector<BinaryMesh> binary_meshes = {};
 
         byte_reader.read(binary_textures);
         byte_reader.read(binary_materials);
@@ -157,6 +157,7 @@ namespace foundation {
                 .binary_nodes = binary_nodes,
                 .binary_mesh_groups = binary_mesh_groups,
                 .binary_meshes = binary_meshes,
+                .binary_textures = binary_textures,
             });
         }
 
@@ -312,7 +313,7 @@ namespace foundation {
                         .gltf_primitive_index = primitive_index,
                         .material_manifest_offset = material_manifest_offset,
                         .manifest_index = mesh_group_manifest.mesh_manifest_indices_offset + primitive_index,
-                        .processed_mesh_info = binary_meshes[binary_mesh_groups[mesh_index].mesh_offset + primitive_index]
+                        .file_path = asset_manifest.path.parent_path() / binary_meshes[binary_mesh_groups[mesh_index].mesh_offset + primitive_index].file_path
                     },
                     .asset_processor = info.asset_processor.get(),
                 }), TaskPriority::LOW);
@@ -415,7 +416,11 @@ namespace foundation {
         }
 
         std::vector<BinaryMeshGroup> binary_mesh_groups = {};
-        std::vector<ProcessedMeshInfo> binary_meshes = {};
+        std::vector<BinaryMesh> binary_meshes = {};
+
+        std::random_device random_device;
+        std::mt19937_64 engine(random_device());
+        std::uniform_int_distribution<uint64_t> uniform_distributation;
 
         for(u32 mesh_index = 0; mesh_index < asset->meshes.size(); mesh_index++) {
             const auto& gltf_mesh = asset->meshes.at(mesh_index);
@@ -424,14 +429,46 @@ namespace foundation {
             binary_meshes.reserve(binary_meshes.size() + gltf_mesh.primitives.size());
             
             for(u32 primitive_index = 0; primitive_index < gltf_mesh.primitives.size(); primitive_index++) {
-                binary_meshes.push_back(AssetProcessor::process_mesh({
-                    .asset_path = info.path,
-                    .asset = asset.get(),
-                    .gltf_mesh_index = mesh_index,
-                    .gltf_primitive_index = primitive_index,
-                    .material_manifest_offset = 0,
-                    .manifest_index = 0,
-                }));
+
+                std::vector<std::byte> compressed_data = {};
+                usize compressed_data_size = {};
+                {
+                    ProcessedMeshInfo processed_mesh_info = AssetProcessor::process_mesh({
+                        .asset_path = info.path,
+                        .asset = asset.get(),
+                        .gltf_mesh_index = mesh_index,
+                        .gltf_primitive_index = primitive_index,
+                        .material_manifest_offset = 0,
+                        .manifest_index = 0,
+                    });
+
+                    ByteWriter mesh_writer = {};
+                    mesh_writer.write(processed_mesh_info);
+
+                    compressed_data_size = ZSTD_compressBound(mesh_writer.data.size());
+                    compressed_data.resize(compressed_data_size);
+                    compressed_data_size = ZSTD_compress(compressed_data.data(), compressed_data.size(), mesh_writer.data.data(), mesh_writer.data.size(), 14);
+                    compressed_data.resize(compressed_data_size);
+                }
+
+                std::string file_name = std::to_string(uniform_distributation(engine))+ ".bmesh";
+                auto binary_mesh_path = output_path;
+                binary_mesh_path = binary_mesh_path.parent_path() / file_name;
+
+                while(std::filesystem::exists(binary_mesh_path)) {
+                    file_name = std::to_string(uniform_distributation(engine))+ ".bmesh";
+                    binary_mesh_path = output_path;
+                    binary_mesh_path = binary_mesh_path.parent_path() / file_name;
+                }
+
+                std::ofstream file(binary_mesh_path.string().c_str(), std::ios_base::trunc | std::ios_base::binary);
+                file.write(r_cast<char const *>(compressed_data.data()), static_cast<std::streamsize>(compressed_data_size));
+                file.close();
+
+                binary_meshes.push_back(BinaryMesh {
+                    .file_path = file_name
+                });
+
                 std::println("mesh group: [{} / {}] - mesh: [{} / {}] - done", mesh_index+1, asset->meshes.size(), primitive_index+1, gltf_mesh.primitives.size());
             }
 
@@ -441,9 +478,6 @@ namespace foundation {
             });
         }
 
-        std::random_device random_device;
-        std::mt19937_64 engine(random_device());
-        std::uniform_int_distribution<uint64_t> uniform_distributation;
         nvtt::Context context(true);
 
         struct CustomOutputHandler : public nvtt::OutputHandler {

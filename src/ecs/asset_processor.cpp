@@ -234,12 +234,28 @@ namespace foundation {
 
     void AssetProcessor::load_gltf_mesh(const LoadMeshInfo& info) {
         ZoneScoped;
-        ProcessedMeshInfo processed_info = {};
-        if(!processed_info.positions.empty()) {
-            processed_info = process_mesh(info);
-        } else {
-            processed_info = info.processed_mesh_info;
+
+        std::vector<std::byte> uncompressed_data = {};
+        usize uncompressed_data_size = {};
+        {
+            std::ifstream file(info.file_path, std::ios::binary);
+            auto size = std::filesystem::file_size(info.file_path);
+            std::vector<std::byte> data = {};
+            data.resize(size);
+            file.read(r_cast<char*>(data.data()), size); 
+
+            uncompressed_data_size = ZSTD_getFrameContentSize(data.data(), data.size());
+            uncompressed_data.resize(uncompressed_data_size);
+            uncompressed_data_size = ZSTD_decompress(uncompressed_data.data(), uncompressed_data.size(), data.data(), data.size());
+            uncompressed_data.resize(uncompressed_data_size);
         }
+
+        ProcessedMeshInfo processed_info = {};
+        {
+            ByteReader reader(uncompressed_data.data(), uncompressed_data_size);
+            reader.read(processed_info);
+        }
+
         MeshBuffers mesh_buffers = create_mesh_buffers(context, info, processed_info);
 
         u32 triangle_count = {};
