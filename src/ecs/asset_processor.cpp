@@ -221,7 +221,7 @@ namespace foundation {
         memcpy_data(mesh.vertex_normals, processed_info.normals);
         memcpy_data(mesh.vertex_uvs, processed_info.uvs);
         
-        mesh.material_index = info.material_manifest_offset + static_cast<u32>(info.asset->meshes[info.gltf_mesh_index].primitives[info.gltf_primitive_index].materialIndex.value());
+        mesh.material_index = info.material_manifest_offset + s_cast<u32>(info.asset->meshes[info.gltf_mesh_index].primitives[info.gltf_primitive_index].materialIndex.value());
         mesh.meshlet_count = s_cast<u32>(processed_info.meshlets.size());
         mesh.vertex_count = s_cast<u32>(processed_info.positions.size());
 
@@ -328,7 +328,7 @@ namespace foundation {
             .enable_compare = false,
             .compare_op = daxa::CompareOp::ALWAYS,
             .min_lod = 0.0f,
-            .max_lod = static_cast<f32>(mip_levels),
+            .max_lod = s_cast<f32>(mip_levels),
             .enable_unnormalized_coordinates = false,
         });
 
@@ -407,9 +407,9 @@ namespace foundation {
                 auto image_info = context->device.info_image(texture_upload_info.dst_image).value();
 
                 std::array<i32, 3> mip_size = {
-                    static_cast<i32>(image_info.size.x),
-                    static_cast<i32>(image_info.size.y),
-                    static_cast<i32>(image_info.size.z),
+                    s_cast<i32>(image_info.size.x),
+                    s_cast<i32>(image_info.size.y),
+                    s_cast<i32>(image_info.size.z),
                 };
 
                 cmd_recorder.pipeline_barrier_image_transition({

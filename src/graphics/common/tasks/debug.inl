@@ -67,7 +67,7 @@ struct DebugDrawTask : DebugDraw::Task {
                 .depth_bias_slope_factor = 0.0f,
                 .line_width = 1.7f,
             },
-            .push_constant_size = static_cast<u32>(sizeof(DebugDrawPush) + DebugDrawTask::Task::attachment_shader_blob_size()),
+            .push_constant_size = s_cast<u32>(sizeof(DebugDrawPush) + DebugDrawTask::Task::attachment_shader_blob_size()),
             .name = std::string{DebugDrawTask::name()}
         };
     }

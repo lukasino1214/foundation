@@ -4,7 +4,7 @@ namespace foundation {
     GPUMetricPool::GPUMetricPool(const daxa::Device& _device) : device{_device}, timeline_query_pool{device.create_timeline_query_pool(daxa::TimelineQueryPoolInfo {
             .query_count = 2048,
             .name = "gpu metric pool"
-    })}, timestamp_period(static_cast<f64>(device.properties().limits.timestamp_period)) {}
+    })}, timestamp_period(s_cast<f64>(device.properties().limits.timestamp_period)) {}
 
     GPUMetricPool::~GPUMetricPool() {}
 
@@ -40,6 +40,6 @@ namespace foundation {
         std::vector<u64> timestamps = gpu_metric_pool->timeline_query_pool.get_query_results(index, 2);
 
         if(timestamps[1] == 0 || timestamps[3] == 0) { return; }
-        time_elapsed = static_cast<f64>(timestamps[2] - timestamps[0]) / gpu_metric_pool->timestamp_period * 1e-6;
+        time_elapsed = s_cast<f64>(timestamps[2] - timestamps[0]) / gpu_metric_pool->timestamp_period * 1e-6;
     }
 }

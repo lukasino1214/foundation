@@ -13,7 +13,7 @@ namespace foundation {
         ImVec2 size = ImGui::GetContentRegionAvail();
         if(viewport_size != *r_cast<glm::vec2*>(&size)) {
             viewport_size = *r_cast<glm::vec2*>(&size);
-            camera.camera.resize(static_cast<i32>(size.x), static_cast<i32>(size.y));
+            camera.camera.resize(s_cast<i32>(size.x), s_cast<i32>(size.y));
             resize_callback({ size.x, size.y });
         }
 

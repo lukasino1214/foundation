@@ -35,18 +35,18 @@ namespace foundation {
         glfwSetKeyCallback(this->glfw_handle, [](GLFWwindow* window_ptr, i32 key, i32, i32 action, i32){
             if (key == -1) { return; }
             auto *state = reinterpret_cast<WindowState *>(glfwGetWindowUserPointer(window_ptr));
-            state->key_down[static_cast<u32>(key)] = action != GLFW_RELEASE;
+            state->key_down[s_cast<u32>(key)] = action != GLFW_RELEASE;
         });
 
         glfwSetMouseButtonCallback(this->glfw_handle, [](GLFWwindow* window_ptr, i32 key, i32 action, i32){
             auto *state = reinterpret_cast<WindowState *>(glfwGetWindowUserPointer(window_ptr));
-            state->mouse_button_down[static_cast<u32>(key)] = action != GLFW_RELEASE;
+            state->mouse_button_down[s_cast<u32>(key)] = action != GLFW_RELEASE;
         });
 
         glfwSetCursorPosCallback(this->glfw_handle, [](GLFWwindow* window_ptr, f64 x, f64 y) {
             auto *state = reinterpret_cast<WindowState *>(glfwGetWindowUserPointer(window_ptr));
-            state->cursor_change_x = static_cast<i32>(std::floor(x)) - state->old_cursor_pos_x;
-            state->cursor_change_y = static_cast<i32>(std::floor(y)) - state->old_cursor_pos_y;
+            state->cursor_change_x = s_cast<i32>(std::floor(x)) - state->old_cursor_pos_x;
+            state->cursor_change_y = s_cast<i32>(std::floor(y)) - state->old_cursor_pos_y;
         });
 
         glfwSetWindowFocusCallback(this->glfw_handle, [](GLFWwindow *window, int focused) {
@@ -71,7 +71,7 @@ namespace foundation {
 
     #if defined(_WIN32)
         {
-            auto hwnd = static_cast<HWND>(glfwGetWin32Window(glfw_handle));
+            auto hwnd = s_cast<HWND>(glfwGetWin32Window(glfw_handle));
             BOOL value = true;
             DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &value, sizeof(value));
             auto is_windows11_or_greater = []() -> bool {
@@ -159,41 +159,41 @@ namespace foundation {
     }
 
     auto AppWindow::key_pressed(Key key) const -> bool {
-        return window_state->key_down[static_cast<u32>(key)];
+        return window_state->key_down[s_cast<u32>(key)];
     }
 
     auto AppWindow::key_just_pressed(Key key) const -> bool {
-        return !this->window_state->key_down_old[static_cast<u32>(key)] && this->window_state->key_down[static_cast<u32>(key)];
+        return !this->window_state->key_down_old[s_cast<u32>(key)] && this->window_state->key_down[s_cast<u32>(key)];
     }
 
     auto AppWindow::key_just_released(Key key) const -> bool {
-        return this->window_state->key_down_old[static_cast<u32>(key)] && !this->window_state->key_down[static_cast<u32>(key)];
+        return this->window_state->key_down_old[s_cast<u32>(key)] && !this->window_state->key_down[s_cast<u32>(key)];
     }
 
     auto AppWindow::button_pressed(Button button) const -> bool {
-        return this->window_state->mouse_button_down[static_cast<u32>(button)];
+        return this->window_state->mouse_button_down[s_cast<u32>(button)];
     }
 
     auto AppWindow::button_just_pressed(Button button) const -> bool {
-        return !this->window_state->mouse_button_down_old[static_cast<u32>(button)] && this->window_state->mouse_button_down[static_cast<u32>(button)];
+        return !this->window_state->mouse_button_down_old[s_cast<u32>(button)] && this->window_state->mouse_button_down[s_cast<u32>(button)];
     }
 
     auto AppWindow::button_just_released(Button button) const -> bool {
-        return this->window_state->mouse_button_down_old[static_cast<u32>(button)] && !this->window_state->mouse_button_down[static_cast<u32>(button)];
+        return this->window_state->mouse_button_down_old[s_cast<u32>(button)] && !this->window_state->mouse_button_down[s_cast<u32>(button)];
     }
 
     auto AppWindow::get_cursor_x() const -> i32 {
         f64 x = {};
         f64 y = {};
         glfwGetCursorPos(this->glfw_handle, &x, &y);
-        return static_cast<i32>(std::floor(x));
+        return s_cast<i32>(std::floor(x));
     }
 
     auto AppWindow::get_cursor_y() const -> i32 {
         f64 x = {};
         f64 y = {};
         glfwGetCursorPos(this->glfw_handle, &x, &y);
-        return static_cast<i32>(std::floor(y));
+        return s_cast<i32>(std::floor(y));
     }
 
     auto AppWindow::get_cursor_change_x() const -> i32 {
@@ -245,27 +245,27 @@ namespace foundation {
         i32 old_width = {};
         i32 old_height = {};
         glfwGetWindowSize(this->glfw_handle, &old_width, &old_height);
-        glfwSetWindowSize(this->glfw_handle, static_cast<i32>(width), old_height);
+        glfwSetWindowSize(this->glfw_handle, s_cast<i32>(width), old_height);
     }
 
     void AppWindow::set_height(u32 height) const {
         i32 old_width = {};
         i32 old_height = {};
         glfwGetWindowSize(this->glfw_handle, &old_width, &old_height);
-        glfwSetWindowSize(this->glfw_handle, old_width, static_cast<i32>(height));
+        glfwSetWindowSize(this->glfw_handle, old_width, s_cast<i32>(height));
     }
 
     auto AppWindow::get_width() const -> u32 {
         i32 width = {};
         i32 height = {};
         glfwGetWindowSize(this->glfw_handle, &width, &height);
-        return static_cast<u32>(width);
+        return s_cast<u32>(width);
     }
 
     auto AppWindow::get_height() const -> u32 {
         i32 width = {};
         i32 height = {};
         glfwGetWindowSize(this->glfw_handle, &width, &height);
-        return static_cast<u32>(height);
+        return s_cast<u32>(height);
     }
 }

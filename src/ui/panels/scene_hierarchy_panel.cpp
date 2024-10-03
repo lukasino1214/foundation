@@ -19,7 +19,7 @@ namespace foundation {
 
             f32 line_height = GImGui->Font->FontSize + GImGui->Style.FramePadding.y * 2.0f;
 
-            bool open = ImGui::TreeNodeEx(reinterpret_cast<void*>(typeid(T).hash_code() << static_cast<uint32_t>(entity.handle)), treeNodeFlags, "%s", component_name.data());
+            bool open = ImGui::TreeNodeEx(reinterpret_cast<void*>(typeid(T).hash_code() << s_cast<uint32_t>(entity.handle)), treeNodeFlags, "%s", component_name.data());
             ImGui::PopStyleVar();
 
             ImGui::SameLine(content_region_available.x - line_height * 0.5f);

@@ -93,11 +93,11 @@ namespace foundation {
         auto* mc = info.parent.add_component<ModelComponent>();
         mc->path = info.path;
 
-        u32 const gltf_asset_manifest_index = static_cast<u32>(gltf_asset_manifest_entries.size());
-        u32 const texture_manifest_offset = static_cast<u32>(material_texture_manifest_entries.size());
-        u32 const material_manifest_offset = static_cast<u32>(material_manifest_entries.size());
-        u32 const mesh_manifest_offset = static_cast<u32>(mesh_manifest_entries.size());
-        u32 const mesh_group_manifest_offset = static_cast<u32>(mesh_group_manifest_entries.size());
+        u32 const gltf_asset_manifest_index = s_cast<u32>(gltf_asset_manifest_entries.size());
+        u32 const texture_manifest_offset = s_cast<u32>(material_texture_manifest_entries.size());
+        u32 const material_manifest_offset = s_cast<u32>(material_manifest_entries.size());
+        u32 const mesh_manifest_offset = s_cast<u32>(mesh_manifest_entries.size());
+        u32 const mesh_group_manifest_offset = s_cast<u32>(mesh_group_manifest_entries.size());
 
         std::filesystem::path binary_path = info.path;
         binary_path.replace_extension("bmodel");
@@ -164,7 +164,7 @@ namespace foundation {
         const auto& asset_manifest = gltf_asset_manifest_entries.back();
         const std::unique_ptr<fastgltf::Asset>& asset = asset_manifest.gltf_asset;
 
-        for (u32 i = 0; i < static_cast<u32>(binary_textures.size()); ++i) {
+        for (u32 i = 0; i < s_cast<u32>(binary_textures.size()); ++i) {
             std::vector<TextureManifestEntry::MaterialManifestIndex> indices = {};
             indices.reserve(binary_textures[i].material_indices.size());
             for(const auto& v : binary_textures[i].material_indices) {
@@ -187,10 +187,10 @@ namespace foundation {
         auto gltf_texture_to_manifest_texture_index = [&](u32 const texture_index) -> std::optional<u32> {
             const bool gltf_texture_has_image_index = asset->textures.at(texture_index).imageIndex.has_value();
             if (!gltf_texture_has_image_index) { return std::nullopt; }
-            else { return static_cast<u32>(asset->textures.at(texture_index).imageIndex.value()) + texture_manifest_offset; }
+            else { return s_cast<u32>(asset->textures.at(texture_index).imageIndex.value()) + texture_manifest_offset; }
         };
 
-        for (u32 material_index = 0; material_index < static_cast<u32>(asset->materials.size()); material_index++) {
+        for (u32 material_index = 0; material_index < s_cast<u32>(asset->materials.size()); material_index++) {
             auto make_texture_info = [texture_manifest_offset](const std::optional<BinaryMaterial::BinaryTextureInfo>& info) -> std::optional<MaterialManifestEntry::TextureInfo> {
                 if(!info.has_value()) { return std::nullopt; }
                 return std::make_optional(MaterialManifestEntry::TextureInfo {
@@ -335,7 +335,7 @@ namespace foundation {
             };
         };
 
-        for (u32 gltf_texture_index = 0; gltf_texture_index < static_cast<u32>(binary_textures.size()); gltf_texture_index++) {
+        for (u32 gltf_texture_index = 0; gltf_texture_index < s_cast<u32>(binary_textures.size()); gltf_texture_index++) {
             auto const texture_manifest_index = gltf_texture_index + asset_manifest.texture_manifest_offset;
             auto const & texture_manifest_entry = material_texture_manifest_entries.at(texture_manifest_index);
             bool used_as_albedo = false;
@@ -462,7 +462,7 @@ namespace foundation {
                 }
 
                 std::ofstream file(binary_mesh_path.string().c_str(), std::ios_base::trunc | std::ios_base::binary);
-                file.write(r_cast<char const *>(compressed_data.data()), static_cast<std::streamsize>(compressed_data_size));
+                file.write(r_cast<char const *>(compressed_data.data()), s_cast<std::streamsize>(compressed_data_size));
                 file.close();
 
                 binary_meshes.push_back(BinaryMesh {
@@ -513,7 +513,7 @@ namespace foundation {
         std::unique_ptr<CustomErrorHandler> error_handler = std::make_unique<CustomErrorHandler>();
 
         std::vector<BinaryTexture> binary_textures = {};
-        for (u32 i = 0; i < static_cast<u32>(asset->images.size()); ++i) {
+        for (u32 i = 0; i < s_cast<u32>(asset->images.size()); ++i) {
             binary_textures.push_back(BinaryTexture{
                 .material_indices = {}, 
                 .name = std::string{asset->images[i].name.c_str()},
@@ -524,11 +524,11 @@ namespace foundation {
         auto gltf_texture_to_texture_index = [&](u32 const texture_index) -> std::optional<u32> {
             const bool gltf_texture_has_image_index = asset->textures.at(texture_index).imageIndex.has_value();
             if (!gltf_texture_has_image_index) { return std::nullopt; }
-            else { return static_cast<u32>(asset->textures.at(texture_index).imageIndex.value()); }
+            else { return s_cast<u32>(asset->textures.at(texture_index).imageIndex.value()); }
         };
 
         std::vector<BinaryMaterial> binary_materials = {};
-        for(u32 material_index = 0; material_index < static_cast<u32>(asset->materials.size()); material_index++) {
+        for(u32 material_index = 0; material_index < s_cast<u32>(asset->materials.size()); material_index++) {
             auto const & material = asset->materials.at(material_index);
             u32 const material_manifest_index = material_index;
             bool const has_normal_texture = material.normalTexture.has_value();
@@ -540,7 +540,7 @@ namespace foundation {
             std::optional<BinaryMaterial::BinaryTextureInfo> roughnes_metalness_info = {};
             std::optional<BinaryMaterial::BinaryTextureInfo> emissive_info = {};
             if (has_albedo_texture) {
-                u32 const texture_index = static_cast<u32>(material.pbrData.baseColorTexture.value().textureIndex);
+                u32 const texture_index = s_cast<u32>(material.pbrData.baseColorTexture.value().textureIndex);
                 auto const has_index = gltf_texture_to_texture_index(texture_index).has_value();
                 if (has_index) {
                     albedo_texture_info = BinaryMaterial::BinaryTextureInfo {
@@ -556,7 +556,7 @@ namespace foundation {
             }
 
             if (has_normal_texture) {
-                u32 const texture_index = static_cast<u32>(material.normalTexture.value().textureIndex);
+                u32 const texture_index = s_cast<u32>(material.normalTexture.value().textureIndex);
                 bool const has_index = gltf_texture_to_texture_index(texture_index).has_value();
                 if (has_index) {
                     normal_texture_info = BinaryMaterial::BinaryTextureInfo {
@@ -572,7 +572,7 @@ namespace foundation {
             }
 
             if (has_roughness_metalness_texture) {
-                u32 const texture_index = static_cast<u32>(material.pbrData.metallicRoughnessTexture.value().textureIndex);
+                u32 const texture_index = s_cast<u32>(material.pbrData.metallicRoughnessTexture.value().textureIndex);
                 bool const has_index = gltf_texture_to_texture_index(texture_index).has_value();
                 if (has_index) {
                     roughnes_metalness_info = BinaryMaterial::BinaryTextureInfo {
@@ -587,7 +587,7 @@ namespace foundation {
                 }
             }
             if (has_emissive_texture) {
-                u32 const texture_index = static_cast<u32>(material.emissiveTexture.value().textureIndex);
+                u32 const texture_index = s_cast<u32>(material.emissiveTexture.value().textureIndex);
                 bool const has_index = gltf_texture_to_texture_index(texture_index).has_value();
                 if (has_index) {
                     emissive_info = BinaryMaterial::BinaryTextureInfo {
@@ -616,7 +616,7 @@ namespace foundation {
             });
         }
 
-        for (u32 i = 0; i < static_cast<u32>(asset->images.size()); ++i) {
+        for (u32 i = 0; i < s_cast<u32>(asset->images.size()); ++i) {
             std::vector<std::byte> raw_data = {};
             i32 width = 0;
             i32 height = 0;
@@ -759,7 +759,7 @@ namespace foundation {
                 }
 
                 std::ofstream file(binary_image_path.string().c_str(), std::ios_base::trunc | std::ios_base::binary);
-                file.write(r_cast<char const *>(compressed_data.data()), static_cast<std::streamsize>(compressed_data_size));
+                file.write(r_cast<char const *>(compressed_data.data()), s_cast<std::streamsize>(compressed_data_size));
                 file.close();
                 return file_name;
             };
@@ -784,8 +784,8 @@ namespace foundation {
                     create_nvtt_settings(nvtt_settings, compressed_format);
 
                     MyBinaryTextureFormat texture {
-                        .width = static_cast<u32>(width),
-                        .height = static_cast<u32>(height),
+                        .width = s_cast<u32>(width),
+                        .height = s_cast<u32>(height),
                         .depth = 1,
                         .format = daxa_format,
                         .mipmaps = {}
@@ -825,8 +825,8 @@ namespace foundation {
                     create_nvtt_settings(nvtt_settings, compressed_format);
 
                     MyBinaryTextureFormat texture {
-                        .width = static_cast<u32>(width),
-                        .height = static_cast<u32>(height),
+                        .width = s_cast<u32>(width),
+                        .height = s_cast<u32>(height),
                         .depth = 1,
                         .format = daxa_format,
                         .mipmaps = {}
@@ -879,8 +879,8 @@ namespace foundation {
                 create_nvtt_settings(nvtt_settings, compressed_format);
 
                 MyBinaryTextureFormat texture {
-                    .width = static_cast<u32>(width),
-                    .height = static_cast<u32>(height),
+                    .width = s_cast<u32>(width),
+                    .height = s_cast<u32>(height),
                     .depth = 1,
                     .format = daxa_format,
                     .mipmaps = {}
@@ -909,8 +909,8 @@ namespace foundation {
                 create_nvtt_settings(nvtt_settings, compressed_format);
 
                 MyBinaryTextureFormat texture {
-                    .width = static_cast<u32>(width),
-                    .height = static_cast<u32>(height),
+                    .width = s_cast<u32>(width),
+                    .height = s_cast<u32>(height),
                     .depth = 1,
                     .format = daxa_format,
                     .mipmaps = {}
@@ -957,16 +957,16 @@ namespace foundation {
                 create_nvtt_settings(nvtt_settings, compressed_format);
 
                 MyBinaryTextureFormat roughness_texture {
-                    .width = static_cast<u32>(width),
-                    .height = static_cast<u32>(height),
+                    .width = s_cast<u32>(width),
+                    .height = s_cast<u32>(height),
                     .depth = 1,
                     .format = daxa_format,
                     .mipmaps = {}
                 };
 
                 MyBinaryTextureFormat metalness_texture {
-                    .width = static_cast<u32>(width),
-                    .height = static_cast<u32>(height),
+                    .width = s_cast<u32>(width),
+                    .height = s_cast<u32>(height),
                     .depth = 1,
                     .format = daxa_format,
                     .mipmaps = {}
@@ -1028,8 +1028,8 @@ namespace foundation {
                 create_nvtt_settings(nvtt_settings, compressed_format);
 
                 MyBinaryTextureFormat texture {
-                    .width = static_cast<u32>(width),
-                    .height = static_cast<u32>(height),
+                    .width = s_cast<u32>(width),
+                    .height = s_cast<u32>(height),
                     .depth = 1,
                     .format = daxa_format,
                     .mipmaps = {}
@@ -1081,7 +1081,7 @@ namespace foundation {
         }
     
         std::ofstream file(output_path.string().c_str(), std::ios_base::trunc | std::ios_base::binary);
-        file.write(r_cast<char const *>(compressed_data.data()), static_cast<std::streamsize>(compressed_data_size));
+        file.write(r_cast<char const *>(compressed_data.data()), s_cast<std::streamsize>(compressed_data_size));
         file.close();
     }
 
@@ -1255,7 +1255,7 @@ namespace foundation {
         }
 
         daxa::BufferId material_null_buffer = context->create_buffer({
-            .size = static_cast<u32>(sizeof(Material)),
+            .size = s_cast<u32>(sizeof(Material)),
             .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
             .name = "material null buffer",
         });
@@ -1288,7 +1288,7 @@ namespace foundation {
         for(auto& mesh_upload_info : info.uploaded_meshes) {
             auto& mesh_manifest = mesh_manifest_entries[mesh_upload_info.manifest_index];
             auto& gltf_asset_manifest = gltf_asset_manifest_entries[mesh_manifest.gltf_asset_manifest_index];
-            u32 material_index = mesh_upload_info.material_manifest_offset + static_cast<u32>(gltf_asset_manifest.gltf_asset->meshes[mesh_manifest.asset_local_mesh_index].primitives[mesh_manifest.asset_local_primitive_index].materialIndex.value());
+            u32 material_index = mesh_upload_info.material_manifest_offset + s_cast<u32>(gltf_asset_manifest.gltf_asset->meshes[mesh_manifest.asset_local_mesh_index].primitives[mesh_manifest.asset_local_primitive_index].materialIndex.value());
             auto& material_manifest = material_manifest_entries.at(material_index);
 
             cmd_recorder.copy_buffer_to_buffer(daxa::BufferCopyInfo {
@@ -1364,7 +1364,7 @@ namespace foundation {
 
         if(!dirty_material_manifest_indices.empty()) {
             daxa::BufferId staging_buffer = context->create_buffer({
-                .size = static_cast<u32>(dirty_material_manifest_indices.size() * sizeof(Material)),
+                .size = s_cast<u32>(dirty_material_manifest_indices.size() * sizeof(Material)),
                 .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
                 .name = "staging buffer material manifest",
             });

@@ -3,7 +3,7 @@
 
 namespace foundation {
     void Camera3D::resize(i32 size_x, i32 size_y) {
-        aspect = static_cast<f32>(size_x) / static_cast<f32>(size_y);
+        aspect = s_cast<f32>(size_x) / s_cast<f32>(size_y);
         //proj_mat = glm::perspective(glm::radians(fov), aspect, near_clip, far_clip);
         const float f = 1.0f / glm::tan(glm::radians(fov) / 2.0f);
         proj_mat = {
@@ -25,8 +25,8 @@ namespace foundation {
 
     void ControlledCamera3D::update(AppWindow& window, f32 dt) {
         if(window.is_cursor_captured()) {
-            rotation.x += static_cast<f32>(window.get_cursor_change_x()) * mouse_sens * 0.0001f * camera.fov;
-            rotation.y += static_cast<f32>(window.get_cursor_change_y()) * mouse_sens * 0.0001f * camera.fov;
+            rotation.x += s_cast<f32>(window.get_cursor_change_x()) * mouse_sens * 0.0001f * camera.fov;
+            rotation.y += s_cast<f32>(window.get_cursor_change_y()) * mouse_sens * 0.0001f * camera.fov;
         }
 
         constexpr auto MAX_ROT = 1.56825555556f;
@@ -40,15 +40,15 @@ namespace foundation {
         glm::vec3 move_direction = glm::vec3{ 0.0f };
 
         if(window.is_cursor_captured()) { 
-            if (window.key_pressed(static_cast<Key>(keybinds.move_pz))) { move_direction += forward_direction; }
-            if (window.key_pressed(static_cast<Key>(keybinds.move_nz))) { move_direction -= forward_direction; }
-            if (window.key_pressed(static_cast<Key>(keybinds.move_nx))) { move_direction += right_direction; }
-            if (window.key_pressed(static_cast<Key>(keybinds.move_px))) { move_direction -= right_direction; }
-            if (window.key_pressed(static_cast<Key>(keybinds.move_py))) { move_direction += up_direction; }
-            if (window.key_pressed(static_cast<Key>(keybinds.move_ny))) { move_direction -= up_direction; }
+            if (window.key_pressed(s_cast<Key>(keybinds.move_pz))) { move_direction += forward_direction; }
+            if (window.key_pressed(s_cast<Key>(keybinds.move_nz))) { move_direction -= forward_direction; }
+            if (window.key_pressed(s_cast<Key>(keybinds.move_nx))) { move_direction += right_direction; }
+            if (window.key_pressed(s_cast<Key>(keybinds.move_px))) { move_direction -= right_direction; }
+            if (window.key_pressed(s_cast<Key>(keybinds.move_py))) { move_direction += up_direction; }
+            if (window.key_pressed(s_cast<Key>(keybinds.move_ny))) { move_direction -= up_direction; }
         }
 
-        position += move_direction * dt * (window.key_pressed(static_cast<Key>(keybinds.toggle_sprint)) ? sprint_speed : 2.0f) * 7.5f;
+        position += move_direction * dt * (window.key_pressed(s_cast<Key>(keybinds.toggle_sprint)) ? sprint_speed : 2.0f) * 7.5f;
         camera.view_mat = glm::lookAt(position, position + forward_direction, glm::vec3{0.0f, 1.0f, 0.0f});
     }
 }

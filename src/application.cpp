@@ -44,7 +44,7 @@ namespace foundation {
         };
     
         last_time_point = std::chrono::steady_clock::now();
-        camera.camera.resize(static_cast<i32>(window.get_width()), static_cast<i32>(window.get_height()));
+        camera.camera.resize(s_cast<i32>(window.get_width()), s_cast<i32>(window.get_height()));
 
         auto add_transform = [](Entity entity) -> LocalTransformComponent* {
             entity.add_component<GlobalTransformComponent>();

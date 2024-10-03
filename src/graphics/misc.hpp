@@ -27,7 +27,7 @@ namespace foundation {
                         .defines = {{ std::string(T_USES_BASE::name()) + "_SHADER", "1"} },
                     },
                 },
-                .push_constant_size = static_cast<u32>(sizeof(T_PUSH) + T_USES_BASE::attachment_shader_blob_size()),
+                .push_constant_size = s_cast<u32>(sizeof(T_PUSH) + T_USES_BASE::attachment_shader_blob_size()),
                 .name = std::string(T_USES_BASE::name()),
             };
         }
@@ -61,7 +61,7 @@ namespace foundation {
                         .defines = {{ std::string(T_USES_BASE::name()) + "_SHADER", "1"} },
                     },
                 },
-                .push_constant_size = static_cast<u32>(sizeof(T_PUSH) + T_USES_BASE::attachment_shader_blob_size()),
+                .push_constant_size = s_cast<u32>(sizeof(T_PUSH) + T_USES_BASE::attachment_shader_blob_size()),
                 .name = std::string(T_USES_BASE::name()),
             };
         }
@@ -97,7 +97,7 @@ namespace foundation {
                         .defines = {{ std::string(T_USES_BASE::name()) + "_SHADER", "1"} },
                     },
                 },
-                .push_constant_size = static_cast<u32>(sizeof(T_PUSH) + T_USES_BASE::attachment_shader_blob_size()),
+                .push_constant_size = s_cast<u32>(sizeof(T_PUSH) + T_USES_BASE::attachment_shader_blob_size()),
                 .name = std::string(T_USES_BASE::name()),
             };
         }

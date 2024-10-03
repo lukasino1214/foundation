@@ -59,7 +59,7 @@ namespace foundation {
         }
 
         void show_tooltip(const char* tooltip) {
-            if (static_cast<bool>(tooltip) && ImGui::IsItemHovered() && GImGui->HoveredIdTimer > 1.0f) {
+            if (s_cast<bool>(tooltip) && ImGui::IsItemHovered() && GImGui->HoveredIdTimer > 1.0f) {
                 ImGui::BeginTooltip();
                 ImGui::TextUnformatted(tooltip);
                 ImGui::EndTooltip();
@@ -209,7 +209,7 @@ namespace foundation {
                 flags |= ImGuiInputTextFlags_AutoSelectAll | ImGuiInputTextFlags_NoMarkEdited; // We call MarkItemEdited() ourselves by comparing the actual data rather than the string.
 
                 bool value_changed = false;
-                if (step != static_cast<T>(0)) {
+                if (step != s_cast<T>(0)) {
                     const f32 button_size = ImGui::GetFrameHeight();
 
                     ImGui::BeginGroup(); // The only purpose of the group here is to allow the caller to query item data e.g. IsItemActive()
@@ -228,13 +228,13 @@ namespace foundation {
                     ImGui::SameLine(0, style.ItemInnerSpacing.x);
                     if (ImGui::ButtonEx("-", ImVec2(button_size, button_size), button_flags))
                     {
-                        value_reference -= g.IO.KeyCtrl ? static_cast<T>(stepFast) : static_cast<T>(step);
+                        value_reference -= g.IO.KeyCtrl ? s_cast<T>(stepFast) : s_cast<T>(step);
                         value_changed = true;
                     }
                     ImGui::SameLine(0, style.ItemInnerSpacing.x);
                     if (ImGui::ButtonEx("+", ImVec2(button_size, button_size), button_flags))
                     {
-                        value_reference += g.IO.KeyCtrl ? static_cast<T>(stepFast) : static_cast<T>(step);
+                        value_reference += g.IO.KeyCtrl ? s_cast<T>(stepFast) : s_cast<T>(step);
                         value_changed = true;
                     }
                     if (flags & ImGuiInputTextFlags_ReadOnly) { ImGui::EndDisabled(); }

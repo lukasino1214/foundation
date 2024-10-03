@@ -157,24 +157,24 @@ namespace foundation {
             "y", &glm::vec3::y, 
             "z", &glm::vec3::z,
             sol::meta_function::addition, sol::overload(
-                static_cast<glm::vec3 (*)(const glm::vec3&, const glm::vec3&)>(glm::operator+),
-                static_cast<glm::vec3 (*)(const glm::vec3&, float)>(glm::operator+),
-                static_cast<glm::vec3 (*)(float, const glm::vec3&)>(glm::operator+)
+                s_cast<glm::vec3 (*)(const glm::vec3&, const glm::vec3&)>(glm::operator+),
+                s_cast<glm::vec3 (*)(const glm::vec3&, float)>(glm::operator+),
+                s_cast<glm::vec3 (*)(float, const glm::vec3&)>(glm::operator+)
             ),
             sol::meta_function::subtraction, sol::overload(
-                static_cast<glm::vec3 (*)(const glm::vec3&, const glm::vec3&)>(glm::operator-),
-                static_cast<glm::vec3 (*)(const glm::vec3&, float)>(glm::operator-),
-                static_cast<glm::vec3 (*)(float, const glm::vec3&)>(glm::operator-)
+                s_cast<glm::vec3 (*)(const glm::vec3&, const glm::vec3&)>(glm::operator-),
+                s_cast<glm::vec3 (*)(const glm::vec3&, float)>(glm::operator-),
+                s_cast<glm::vec3 (*)(float, const glm::vec3&)>(glm::operator-)
             ),
             sol::meta_function::multiplication, sol::overload(
-                static_cast<glm::vec3 (*)(const glm::vec3&, const glm::vec3&)>(glm::operator*),
-                static_cast<glm::vec3 (*)(const glm::vec3&, float)>(glm::operator*),
-                static_cast<glm::vec3 (*)(float, const glm::vec3&)>(glm::operator*)
+                s_cast<glm::vec3 (*)(const glm::vec3&, const glm::vec3&)>(glm::operator*),
+                s_cast<glm::vec3 (*)(const glm::vec3&, float)>(glm::operator*),
+                s_cast<glm::vec3 (*)(float, const glm::vec3&)>(glm::operator*)
             ),
             sol::meta_function::division, sol::overload(
-                static_cast<glm::vec3 (*)(const glm::vec3&, const glm::vec3&)>(glm::operator/),
-                    static_cast<glm::vec3 (*)(const glm::vec3&, float)>(glm::operator/),
-                    static_cast<glm::vec3 (*)(float, const glm::vec3&)>(glm::operator/)
+                s_cast<glm::vec3 (*)(const glm::vec3&, const glm::vec3&)>(glm::operator/),
+                    s_cast<glm::vec3 (*)(const glm::vec3&, float)>(glm::operator/),
+                    s_cast<glm::vec3 (*)(float, const glm::vec3&)>(glm::operator/)
             ),
             sol::meta_function::equal_to, [](const glm::vec3& a, const glm::vec3& b) -> bool { return a == b; }
         );

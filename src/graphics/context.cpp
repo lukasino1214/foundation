@@ -199,7 +199,7 @@ namespace foundation {
     }
 
     void Context::update_shader_globals(ControlledCamera3D& camera, const glm::uvec2& size) {
-        camera.camera.resize(static_cast<i32>(size.x), static_cast<i32>(size.y));
+        camera.camera.resize(s_cast<i32>(size.x), s_cast<i32>(size.y));
 
         glm::mat4 inverse_projection_matrix = glm::inverse(camera.camera.proj_mat);
         glm::mat4 inverse_view_matrix = glm::inverse(camera.camera.view_mat);
