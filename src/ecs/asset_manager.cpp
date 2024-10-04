@@ -102,72 +102,52 @@ namespace foundation {
         std::filesystem::path binary_path = info.path;
         binary_path.replace_extension("bmodel");
 
-        std::ifstream file(binary_path, std::ios::binary);
-        auto size = std::filesystem::file_size(binary_path);
-        std::vector<std::byte> data = {};
-        data.resize(size);
-        file.read(r_cast<char*>(data.data()), size); 
-
-        std::vector<std::byte> uncompressed_data = {};
-        usize uncompressed_data_size = ZSTD_getFrameContentSize(data.data(), data.size());
-        uncompressed_data.resize(uncompressed_data_size);
-        uncompressed_data_size = ZSTD_decompress(uncompressed_data.data(), uncompressed_data.size(), data.data(), data.size());
-        uncompressed_data.resize(uncompressed_data_size);
-
-        ByteReader byte_reader{ uncompressed_data.data(), uncompressed_data.size() };
-
-        BinaryHeader header = {};
-        byte_reader.read(header.name);
-        byte_reader.read(header.version);
-
-        std::vector<BinaryTexture> binary_textures = {};
-        std::vector<BinaryMaterial> binary_materials = {};
-        std::vector<BinaryNode> binary_nodes = {};
-        std::vector<BinaryMeshGroup> binary_mesh_groups = {};
-        std::vector<BinaryMesh> binary_meshes = {};
-
-        byte_reader.read(binary_textures);
-        byte_reader.read(binary_materials);
-        byte_reader.read(binary_nodes);
-        byte_reader.read(binary_mesh_groups);
-        byte_reader.read(binary_meshes);
 
         {
-            fastgltf::Parser parser{};
-            fastgltf::Options gltf_options = fastgltf::Options::DontRequireValidAssetMember | fastgltf::Options::AllowDouble | fastgltf::Options::LoadGLBBuffers | fastgltf::Options::LoadExternalBuffers;
+            std::ifstream file(binary_path, std::ios::binary);
+            auto size = std::filesystem::file_size(binary_path);
+            std::vector<std::byte> data = {};
+            data.resize(size);
+            file.read(r_cast<char*>(data.data()), size); 
 
-            fastgltf::GltfDataBuffer data;
-            data.loadFromFile(info.path);
-            fastgltf::GltfType type = fastgltf::determineGltfFileType(&data);
-            fastgltf::Asset asset;
-            if (type == fastgltf::GltfType::glTF) {
-                asset = std::move(parser.loadGLTF(&data, info.path.parent_path(), gltf_options).get());
-            } else if (type == fastgltf::GltfType::GLB) {
-                asset = std::move(parser.loadBinaryGLTF(&data, info.path.parent_path(), gltf_options).get());
-            }
+            std::vector<std::byte> uncompressed_data = {};
+            usize uncompressed_data_size = ZSTD_getFrameContentSize(data.data(), data.size());
+            uncompressed_data.resize(uncompressed_data_size);
+            uncompressed_data_size = ZSTD_decompress(uncompressed_data.data(), uncompressed_data.size(), data.data(), data.size());
+            uncompressed_data.resize(uncompressed_data_size);
+
+            ByteReader byte_reader{ uncompressed_data.data(), uncompressed_data.size() };
+
+            BinaryHeader header = {};
+            byte_reader.read(header.name);
+            byte_reader.read(header.version);
+
+            BinaryAssetInfo asset = {};
+            byte_reader.read(asset.textures);
+            byte_reader.read(asset.materials);
+            byte_reader.read(asset.nodes);
+            byte_reader.read(asset.mesh_groups);
+            byte_reader.read(asset.meshes);
 
             gltf_asset_manifest_entries.push_back(GltfAssetManifestEntry {
                 .path = info.path,
-                .gltf_asset = std::make_unique<fastgltf::Asset>(std::move(asset)),
                 .texture_manifest_offset = texture_manifest_offset,
                 .material_manifest_offset = material_manifest_offset,
                 .mesh_manifest_offset = mesh_manifest_offset,
                 .mesh_group_manifest_offset = mesh_group_manifest_offset,
                 .parent = info.parent,
-                .binary_nodes = binary_nodes,
-                .binary_mesh_groups = binary_mesh_groups,
-                .binary_meshes = binary_meshes,
-                .binary_textures = binary_textures,
+                .asset = std::make_unique<BinaryAssetInfo>(std::move(asset)),
             });
         }
 
         const auto& asset_manifest = gltf_asset_manifest_entries.back();
-        const std::unique_ptr<fastgltf::Asset>& asset = asset_manifest.gltf_asset;
+        const auto& asset = asset_manifest.asset;
 
-        for (u32 i = 0; i < s_cast<u32>(binary_textures.size()); ++i) {
+        for (u32 i = 0; i < s_cast<u32>(asset->textures.size()); ++i) {
             std::vector<TextureManifestEntry::MaterialManifestIndex> indices = {};
-            indices.reserve(binary_textures[i].material_indices.size());
-            for(const auto& v : binary_textures[i].material_indices) {
+            const BinaryTexture& texture = asset->textures[i];
+            indices.reserve(texture.material_indices.size());
+            for(const auto& v : texture.material_indices) {
                 indices.push_back({
                     .material_type = v.material_type,
                     .material_manifest_index = v.material_index + material_manifest_offset,
@@ -180,15 +160,9 @@ namespace foundation {
                 .material_manifest_indices = indices, 
                 .image_id = {},
                 .sampler_id = {}, 
-                .name = binary_textures[i].name,
+                .name = texture.name,
             });
         }
-
-        auto gltf_texture_to_manifest_texture_index = [&](u32 const texture_index) -> std::optional<u32> {
-            const bool gltf_texture_has_image_index = asset->textures.at(texture_index).imageIndex.has_value();
-            if (!gltf_texture_has_image_index) { return std::nullopt; }
-            else { return s_cast<u32>(asset->textures.at(texture_index).imageIndex.value()) + texture_manifest_offset; }
-        };
 
         for (u32 material_index = 0; material_index < s_cast<u32>(asset->materials.size()); material_index++) {
             auto make_texture_info = [texture_manifest_offset](const std::optional<BinaryMaterial::BinaryTextureInfo>& info) -> std::optional<MaterialManifestEntry::TextureInfo> {
@@ -199,7 +173,7 @@ namespace foundation {
                 });
             };
 
-            const BinaryMaterial& material = binary_materials[material_index];
+            const BinaryMaterial& material = asset->materials[material_index];
             material_manifest_entries.push_back(MaterialManifestEntry{
                 .albedo_info = make_texture_info(material.albedo_info),
                 .alpha_mask_info = make_texture_info(material.alpha_mask_info),
@@ -235,18 +209,18 @@ namespace foundation {
             };
         };
 
-        for(u32 mesh_index = 0; mesh_index < asset->meshes.size(); mesh_index++) {
-            const auto& gltf_mesh = asset->meshes.at(mesh_index);
+        for(u32 mesh_group_index = 0; mesh_group_index < asset->mesh_groups.size(); mesh_group_index++) {
+            const auto& mesh_group = asset->mesh_groups.at(mesh_group_index);
 
             u32 mesh_manifest_indices_offset = s_cast<u32>(mesh_manifest_entries.size());
-            mesh_manifest_entries.reserve(mesh_manifest_entries.size() + gltf_mesh.primitives.size());
+            mesh_manifest_entries.reserve(mesh_manifest_entries.size() + mesh_group.mesh_count);
             
-            for(u32 primitive_index = 0; primitive_index < gltf_mesh.primitives.size(); primitive_index++) {
+            for(u32 mesh_index = 0; mesh_index < mesh_group.mesh_count; mesh_index++) {
                 dirty_meshes.push_back(s_cast<u32>(mesh_manifest_entries.size()));
                 mesh_manifest_entries.push_back(MeshManifestEntry {
                     .gltf_asset_manifest_index = gltf_asset_manifest_index,
-                    .asset_local_mesh_index = mesh_index,
-                    .asset_local_primitive_index = primitive_index,
+                    .asset_local_mesh_index = mesh_group_index,
+                    .asset_local_primitive_index = mesh_index,
                     .virtual_geometry_render_info = std::nullopt
                 });
             }
@@ -254,20 +228,20 @@ namespace foundation {
             dirty_mesh_groups.push_back(s_cast<u32>(mesh_group_manifest_entries.size()));
             mesh_group_manifest_entries.push_back(MeshGroupManifestEntry {
                 .mesh_manifest_indices_offset = mesh_manifest_indices_offset,
-                .mesh_count = s_cast<u32>(gltf_mesh.primitives.size()),
+                .mesh_count = mesh_group.mesh_count,
                 .gltf_asset_manifest_index = gltf_asset_manifest_index,
-                .asset_local_index = mesh_index,
-                .name = gltf_mesh.name.c_str(),
+                .asset_local_index = mesh_group_index,
+                .name = {},
             });
         }
 
         std::vector<Entity> node_index_to_entity = {};
-        for(u32 node_index = 0; node_index < s_cast<u32>(binary_nodes.size()); node_index++) {
-            node_index_to_entity.push_back(scene->create_entity("gltf asset " + std::to_string(gltf_asset_manifest_entries.size()) + " " + std::string{binary_nodes[node_index].name}));
+        for(u32 node_index = 0; node_index < s_cast<u32>(asset->nodes.size()); node_index++) {
+            node_index_to_entity.push_back(scene->create_entity("gltf asset " + std::to_string(gltf_asset_manifest_entries.size()) + " " + std::string{asset->nodes[node_index].name}));
         }
 
-        for(u32 node_index = 0; node_index < s_cast<u32>(binary_nodes.size()); node_index++) {
-            const auto& node = binary_nodes[node_index];
+        for(u32 node_index = 0; node_index < s_cast<u32>(asset->nodes.size()); node_index++) {
+            const auto& node = asset->nodes[node_index];
             Entity& parent_entity = node_index_to_entity[node_index];
             if(node.mesh_index.has_value()) {
                 parent_entity.add_component<GlobalTransformComponent>();
@@ -301,19 +275,19 @@ namespace foundation {
             }
         }
 
-        for(u32 mesh_index = 0; mesh_index < asset->meshes.size(); mesh_index++) {
-            const auto& gltf_mesh = asset->meshes.at(mesh_index);
-            const auto& mesh_group_manifest = mesh_group_manifest_entries[mesh_group_manifest_offset + mesh_index];
-            for(u32 primitive_index = 0; primitive_index < gltf_mesh.primitives.size(); primitive_index++) {
+        for(u32 mesh_group_index = 0; mesh_group_index < asset->mesh_groups.size(); mesh_group_index++) {
+            const auto& mesh_group = asset->mesh_groups.at(mesh_group_index);
+            const auto& mesh_group_manifest = mesh_group_manifest_entries[mesh_group_manifest_offset + mesh_group_index];
+            for(u32 mesh_index = 0; mesh_index < mesh_group.mesh_count; mesh_index++) {
                 info.thread_pool->async_dispatch(std::make_shared<LoadMeshTask>(LoadMeshTask::TaskInfo{
                     .load_info = {
                         .asset_path = info.path,
                         .asset = asset.get(),
-                        .gltf_mesh_index = mesh_index,
-                        .gltf_primitive_index = primitive_index,
+                        .gltf_mesh_index = mesh_group_index,
+                        .gltf_primitive_index = mesh_index,
                         .material_manifest_offset = material_manifest_offset,
-                        .manifest_index = mesh_group_manifest.mesh_manifest_indices_offset + primitive_index,
-                        .file_path = asset_manifest.path.parent_path() / binary_meshes[binary_mesh_groups[mesh_index].mesh_offset + primitive_index].file_path
+                        .manifest_index = mesh_group_manifest.mesh_manifest_indices_offset + mesh_index,
+                        .file_path = asset_manifest.path.parent_path() / asset->meshes[mesh_group.mesh_offset + mesh_index].file_path
                     },
                     .asset_processor = info.asset_processor.get(),
                 }), TaskPriority::LOW);
@@ -335,7 +309,7 @@ namespace foundation {
             };
         };
 
-        for (u32 gltf_texture_index = 0; gltf_texture_index < s_cast<u32>(binary_textures.size()); gltf_texture_index++) {
+        for (u32 gltf_texture_index = 0; gltf_texture_index < s_cast<u32>(asset->textures.size()); gltf_texture_index++) {
             auto const texture_manifest_index = gltf_texture_index + asset_manifest.texture_manifest_offset;
             auto const & texture_manifest_entry = material_texture_manifest_entries.at(texture_manifest_index);
             bool used_as_albedo = false;
@@ -349,11 +323,11 @@ namespace foundation {
                 std::make_shared<LoadTextureTask>(LoadTextureTask::TaskInfo{
                     .load_info = {
                         .asset_path = asset_manifest.path,
-                        .asset = asset_manifest.gltf_asset.get(),
+                        .asset = asset.get(),
                         .gltf_texture_index = gltf_texture_index,
                         .texture_manifest_index = texture_manifest_index,
                         .load_as_srgb = used_as_albedo,
-                        .image_path = asset_manifest.path.parent_path() / binary_textures[gltf_texture_index].file_path,
+                        .image_path = asset_manifest.path.parent_path() / asset->textures[gltf_texture_index].file_path,
                     },
                     .asset_processor = info.asset_processor.get(),
                 }), TaskPriority::LOW);
@@ -434,12 +408,9 @@ namespace foundation {
                 usize compressed_data_size = {};
                 {
                     ProcessedMeshInfo processed_mesh_info = AssetProcessor::process_mesh({
-                        .asset_path = info.path,
                         .asset = asset.get(),
                         .gltf_mesh_index = mesh_index,
                         .gltf_primitive_index = primitive_index,
-                        .material_manifest_offset = 0,
-                        .manifest_index = 0,
                     });
 
                     ByteWriter mesh_writer = {};
@@ -466,6 +437,7 @@ namespace foundation {
                 file.close();
 
                 binary_meshes.push_back(BinaryMesh {
+                    .material_index = gltf_mesh.primitives[primitive_index].materialIndex.has_value() ? std::make_optional(s_cast<u32>(gltf_mesh.primitives[primitive_index].materialIndex.value())) : std::nullopt,
                     .file_path = file_name
                 });
 
@@ -474,7 +446,8 @@ namespace foundation {
 
             binary_mesh_groups.push_back({
                 .mesh_offset = mesh_offset,
-                .mesh_count = s_cast<u32>(gltf_mesh.primitives.size())
+                .mesh_count = s_cast<u32>(gltf_mesh.primitives.size()),
+                .name = gltf_mesh.name.c_str()
             });
         }
 
@@ -488,18 +461,9 @@ namespace foundation {
             CustomOutputHandler& operator=(CustomOutputHandler&&) = delete;
             virtual ~CustomOutputHandler() {}
 
-            virtual void beginImage(int size, int width, int height, int depth, int face, int miplevel) override {
-                data.resize(size);
-            }
-
-            virtual bool writeData(const void* ptr, int size) {
-                std::memcpy(data.data(), ptr, size);
-                return true;
-            }
-
-            virtual void endImage() {
-
-            }
+            virtual void beginImage(int size, int width, int height, int depth, int face, int miplevel) override { data.resize(size); }
+            virtual bool writeData(const void* ptr, int size) { std::memcpy(data.data(), ptr, size); return true; }
+            virtual void endImage() {}
 
             std::vector<std::byte> data = {};
         };
@@ -736,7 +700,7 @@ namespace foundation {
                 nvtt_settings.output_options.setErrorHandler(error_handler.get());
             };
 
-            auto create_file = [&uniform_distributation, &engine, &output_path](const MyBinaryTextureFormat& texture) -> std::string {
+            auto create_file = [&uniform_distributation, &engine, &output_path](const BinaryTextureFileFormat& texture) -> std::string {
                 std::vector<std::byte> compressed_data = {};
                 usize compressed_data_size = {};
                 {
@@ -783,7 +747,7 @@ namespace foundation {
                     NVTTSettings nvtt_settings = {};
                     create_nvtt_settings(nvtt_settings, compressed_format);
 
-                    MyBinaryTextureFormat texture {
+                    BinaryTextureFileFormat texture {
                         .width = s_cast<u32>(width),
                         .height = s_cast<u32>(height),
                         .depth = 1,
@@ -824,7 +788,7 @@ namespace foundation {
                     NVTTSettings nvtt_settings = {};
                     create_nvtt_settings(nvtt_settings, compressed_format);
 
-                    MyBinaryTextureFormat texture {
+                    BinaryTextureFileFormat texture {
                         .width = s_cast<u32>(width),
                         .height = s_cast<u32>(height),
                         .depth = 1,
@@ -878,7 +842,7 @@ namespace foundation {
                 NVTTSettings nvtt_settings = {};
                 create_nvtt_settings(nvtt_settings, compressed_format);
 
-                MyBinaryTextureFormat texture {
+                BinaryTextureFileFormat texture {
                     .width = s_cast<u32>(width),
                     .height = s_cast<u32>(height),
                     .depth = 1,
@@ -908,7 +872,7 @@ namespace foundation {
                 NVTTSettings nvtt_settings = {};
                 create_nvtt_settings(nvtt_settings, compressed_format);
 
-                MyBinaryTextureFormat texture {
+                BinaryTextureFileFormat texture {
                     .width = s_cast<u32>(width),
                     .height = s_cast<u32>(height),
                     .depth = 1,
@@ -956,7 +920,7 @@ namespace foundation {
                 NVTTSettings nvtt_settings = {};
                 create_nvtt_settings(nvtt_settings, compressed_format);
 
-                MyBinaryTextureFormat roughness_texture {
+                BinaryTextureFileFormat roughness_texture {
                     .width = s_cast<u32>(width),
                     .height = s_cast<u32>(height),
                     .depth = 1,
@@ -964,7 +928,7 @@ namespace foundation {
                     .mipmaps = {}
                 };
 
-                MyBinaryTextureFormat metalness_texture {
+                BinaryTextureFileFormat metalness_texture {
                     .width = s_cast<u32>(width),
                     .height = s_cast<u32>(height),
                     .depth = 1,
@@ -1027,7 +991,7 @@ namespace foundation {
                 NVTTSettings nvtt_settings = {};
                 create_nvtt_settings(nvtt_settings, compressed_format);
 
-                MyBinaryTextureFormat texture {
+                BinaryTextureFileFormat texture {
                     .width = s_cast<u32>(width),
                     .height = s_cast<u32>(height),
                     .depth = 1,
@@ -1261,26 +1225,13 @@ namespace foundation {
         });
         context->destroy_buffer_deferred(cmd_recorder, material_null_buffer);
         {
-            Material material {
-                .albedo_texture_id = {},
-                .albedo_sampler_id = {},
-                .alpha_mask_texture_id = {},
-                .alpha_mask_sampler_id = {},
-                .normal_texture_id = {},
-                .normal_sampler_id = {},
-                .roughness_texture_id = {},
-                .roughness_sampler_id = {},
-                .metalness_texture_id = {},
-                .metalness_sampler_id = {},
-                .emissive_texture_id = {},
-                .emissive_sampler_id = {},
-                .metallic_factor = 1.0f,
-                .roughness_factor = 1.0f,
-                .emissive_factor = { 0.0f, 0.0f, 0.0f },
-                .alpha_mode = 0,
-                .alpha_cutoff = 0.5f,
-                .double_sided = 0u
-            };
+            Material material = {};
+            material.metallic_factor = 1.0f;
+            material.roughness_factor = 1.0f;
+            material.emissive_factor = { 0.0f, 0.0f, 0.0f };
+            material.alpha_mode = 0;
+            material.alpha_cutoff = 0.5f;
+            material.double_sided = 0u;
 
             std::memcpy(context->device.get_host_address_as<Material>(material_null_buffer).value(), &material, sizeof(Material));
         }
@@ -1288,7 +1239,7 @@ namespace foundation {
         for(auto& mesh_upload_info : info.uploaded_meshes) {
             auto& mesh_manifest = mesh_manifest_entries[mesh_upload_info.manifest_index];
             auto& gltf_asset_manifest = gltf_asset_manifest_entries[mesh_manifest.gltf_asset_manifest_index];
-            u32 material_index = mesh_upload_info.material_manifest_offset + s_cast<u32>(gltf_asset_manifest.gltf_asset->meshes[mesh_manifest.asset_local_mesh_index].primitives[mesh_manifest.asset_local_primitive_index].materialIndex.value());
+            u32 material_index = mesh_upload_info.material_manifest_offset + gltf_asset_manifest.asset->meshes[gltf_asset_manifest.asset->mesh_groups[mesh_manifest.asset_local_mesh_index].mesh_offset + mesh_manifest.asset_local_primitive_index].material_index.value();
             auto& material_manifest = material_manifest_entries.at(material_index);
 
             cmd_recorder.copy_buffer_to_buffer(daxa::BufferCopyInfo {
@@ -1372,70 +1323,46 @@ namespace foundation {
             Material* ptr = context->device.get_host_address_as<Material>(staging_buffer).value();
             for (u32 dirty_materials_index = 0; dirty_materials_index < dirty_material_manifest_indices.size(); dirty_materials_index++) {
                 MaterialManifestEntry& material = material_manifest_entries.at(dirty_material_manifest_indices.at(dirty_materials_index));
-                daxa::ImageId albedo_image_id = {};
-                daxa::SamplerId albedo_sampler_id = {};
-                daxa::ImageId alpha_mask_image_id = {};
-                daxa::SamplerId alpha_mask_sampler_id = {};
-                daxa::ImageId normal_image_id = {};
-                daxa::SamplerId normal_sampler_id = {};
-                daxa::ImageId roughness_image_id = {};
-                daxa::SamplerId roughness_sampler_id = {};
-                daxa::ImageId metalness_image_id = {};
-                daxa::SamplerId metalness_sampler_id = {};
-                daxa::ImageId emissive_image_id = {};
-                daxa::SamplerId emissive_sampler_id = {};
+                Material gpu_material = {};
+                gpu_material.metallic_factor = material.metallic_factor;
+                gpu_material.roughness_factor = material.roughness_factor;
+                gpu_material.emissive_factor = material.emissive_factor;
+                gpu_material.alpha_mode = material.alpha_mode;
+                gpu_material.alpha_cutoff = material.alpha_cutoff;
+                gpu_material.double_sided = s_cast<b32>(material.double_sided);
 
                 if (material.albedo_info.has_value()) {
                     auto const & texture_entry = material_texture_manifest_entries.at(material.albedo_info.value().texture_manifest_index);
-                    albedo_image_id = texture_entry.image_id;
-                    albedo_sampler_id = texture_entry.sampler_id;
+                    gpu_material.albedo_image_id = texture_entry.image_id.default_view();
+                    gpu_material.albedo_sampler_id = texture_entry.sampler_id;
                 }
                 if (material.alpha_mask_info.has_value()) {
                     auto const & texture_entry = material_texture_manifest_entries.at(material.alpha_mask_info.value().texture_manifest_index);
-                    alpha_mask_image_id = texture_entry.image_id;
-                    alpha_mask_sampler_id = texture_entry.sampler_id;
+                    gpu_material.alpha_mask_image_id = texture_entry.image_id.default_view();
+                    gpu_material.alpha_mask_sampler_id = texture_entry.sampler_id;
                 }
                 if (material.normal_info.has_value()) {
                     auto const & texture_entry = material_texture_manifest_entries.at(material.normal_info.value().texture_manifest_index);
-                    normal_image_id = texture_entry.image_id;
-                    normal_sampler_id = texture_entry.sampler_id;
+                    gpu_material.normal_image_id = texture_entry.image_id.default_view();
+                    gpu_material.normal_sampler_id = texture_entry.sampler_id;
                 }
                 if (material.roughness_info.has_value()) {
                     auto const & texture_entry = material_texture_manifest_entries.at(material.roughness_info.value().texture_manifest_index);
-                    roughness_image_id = texture_entry.image_id;
-                    roughness_sampler_id = texture_entry.sampler_id;
+                    gpu_material.roughness_image_id = texture_entry.image_id.default_view();
+                    gpu_material.roughness_sampler_id = texture_entry.sampler_id;
                 }
                 if (material.metalness_info.has_value()) {
                     auto const & texture_entry = material_texture_manifest_entries.at(material.metalness_info.value().texture_manifest_index);
-                    metalness_image_id = texture_entry.image_id;
-                    metalness_sampler_id = texture_entry.sampler_id;
+                    gpu_material.metalness_image_id = texture_entry.image_id.default_view();
+                    gpu_material.metalness_sampler_id = texture_entry.sampler_id;
                 }
                 if (material.emissive_info.has_value()) {
                     auto const & texture_entry = material_texture_manifest_entries.at(material.emissive_info.value().texture_manifest_index);
-                    emissive_image_id = texture_entry.image_id;
-                    emissive_sampler_id = texture_entry.sampler_id;
+                    gpu_material.emissive_image_id = texture_entry.image_id.default_view();
+                    gpu_material.emissive_sampler_id = texture_entry.sampler_id;
                 }
 
-                ptr[dirty_materials_index] = {
-                    .albedo_texture_id = albedo_image_id.default_view(),
-                    .albedo_sampler_id = albedo_sampler_id,
-                    .alpha_mask_texture_id = alpha_mask_image_id.default_view(),
-                    .alpha_mask_sampler_id = alpha_mask_sampler_id,
-                    .normal_texture_id = normal_image_id.default_view(),
-                    .normal_sampler_id = normal_sampler_id,
-                    .roughness_texture_id = roughness_image_id.default_view(),
-                    .roughness_sampler_id = roughness_sampler_id,
-                    .metalness_texture_id = metalness_image_id.default_view(),
-                    .metalness_sampler_id = metalness_sampler_id,
-                    .emissive_texture_id = emissive_image_id.default_view(),
-                    .emissive_sampler_id = emissive_sampler_id,
-                    .metallic_factor = material.metallic_factor,
-                    .roughness_factor = material.roughness_factor,
-                    .emissive_factor = material.emissive_factor,
-                    .alpha_mode = material.alpha_mode,
-                    .alpha_cutoff = material.alpha_cutoff,
-                    .double_sided = s_cast<b32>(material.double_sided)
-                };
+                ptr[dirty_materials_index] = gpu_material;
 
                 cmd_recorder.copy_buffer_to_buffer(daxa::BufferCopyInfo {
                     .src_buffer = staging_buffer,

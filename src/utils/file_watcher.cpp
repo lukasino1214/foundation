@@ -1,10 +1,6 @@
 #include <utils/file_watcher.hpp>
 
 namespace foundation {
-    // void FileWatcher::register_function(FileType type, const Function& fn, void* user_data) {
-    //     function_table.insert({type.value, FunctionRecord { fn, user_data}});
-    // }
-
     void FileWatcher::watch(const std::filesystem::path& path) {
         if(std::filesystem::exists(path)) {
             std::filesystem::file_time_type last_write = std::filesystem::last_write_time(path);
@@ -25,8 +21,6 @@ namespace foundation {
                 if(debug_print) { std::println("{} was updated", path.string()); }
                 record.last_write = last_write;
                 fn(path);
-                // const FunctionRecord& function_record = function_table[record.type.value];
-                // function_record.function(path, function_record.ptr);
             }
         }
     }

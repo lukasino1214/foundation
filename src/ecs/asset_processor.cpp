@@ -33,7 +33,7 @@ namespace foundation {
         return ret;
     }
 
-    auto AssetProcessor::process_mesh(const LoadMeshInfo &info) -> ProcessedMeshInfo {
+    auto AssetProcessor::process_mesh(const ProcessMeshInfo &info) -> ProcessedMeshInfo {
         fastgltf::Asset& gltf_asset = *info.asset;
         fastgltf::Mesh& gltf_mesh = info.asset->meshes[info.gltf_mesh_index];
         fastgltf::Primitive& gltf_primitive = gltf_mesh.primitives[info.gltf_primitive_index];
@@ -176,7 +176,30 @@ namespace foundation {
         };
     }
 
-    auto AssetProcessor::create_mesh_buffers(Context* context, const LoadMeshInfo& info, const ProcessedMeshInfo& processed_info) -> MeshBuffers {
+    void AssetProcessor::load_gltf_mesh(const LoadMeshInfo& info) {
+        ZoneScoped;
+
+        std::vector<std::byte> uncompressed_data = {};
+        usize uncompressed_data_size = {};
+        {
+            std::ifstream file(info.file_path, std::ios::binary);
+            auto size = std::filesystem::file_size(info.file_path);
+            std::vector<std::byte> data = {};
+            data.resize(size);
+            file.read(r_cast<char*>(data.data()), size); 
+
+            uncompressed_data_size = ZSTD_getFrameContentSize(data.data(), data.size());
+            uncompressed_data.resize(uncompressed_data_size);
+            uncompressed_data_size = ZSTD_decompress(uncompressed_data.data(), uncompressed_data.size(), data.data(), data.size());
+            uncompressed_data.resize(uncompressed_data_size);
+        }
+
+        ProcessedMeshInfo processed_info = {};
+        {
+            ByteReader reader(uncompressed_data.data(), uncompressed_data_size);
+            reader.read(processed_info);
+        }
+
         const u64 total_mesh_buffer_size =
             sizeof(Meshlet) * processed_info.meshlets.size() +
             sizeof(BoundingSphere) * processed_info.meshlets.size() +
@@ -221,42 +244,9 @@ namespace foundation {
         memcpy_data(mesh.vertex_normals, processed_info.normals);
         memcpy_data(mesh.vertex_uvs, processed_info.uvs);
         
-        mesh.material_index = info.material_manifest_offset + s_cast<u32>(info.asset->meshes[info.gltf_mesh_index].primitives[info.gltf_primitive_index].materialIndex.value());
+        mesh.material_index = info.material_manifest_offset + info.asset->meshes[info.asset->mesh_groups[info.gltf_mesh_index].mesh_offset + info.gltf_primitive_index].material_index.value();
         mesh.meshlet_count = s_cast<u32>(processed_info.meshlets.size());
         mesh.vertex_count = s_cast<u32>(processed_info.positions.size());
-
-        return {
-            .staging_mesh_buffer = staging_mesh_buffer,
-            .mesh_buffer = mesh_buffer,
-            .mesh = mesh,
-        };
-    }
-
-    void AssetProcessor::load_gltf_mesh(const LoadMeshInfo& info) {
-        ZoneScoped;
-
-        std::vector<std::byte> uncompressed_data = {};
-        usize uncompressed_data_size = {};
-        {
-            std::ifstream file(info.file_path, std::ios::binary);
-            auto size = std::filesystem::file_size(info.file_path);
-            std::vector<std::byte> data = {};
-            data.resize(size);
-            file.read(r_cast<char*>(data.data()), size); 
-
-            uncompressed_data_size = ZSTD_getFrameContentSize(data.data(), data.size());
-            uncompressed_data.resize(uncompressed_data_size);
-            uncompressed_data_size = ZSTD_decompress(uncompressed_data.data(), uncompressed_data.size(), data.data(), data.size());
-            uncompressed_data.resize(uncompressed_data_size);
-        }
-
-        ProcessedMeshInfo processed_info = {};
-        {
-            ByteReader reader(uncompressed_data.data(), uncompressed_data_size);
-            reader.read(processed_info);
-        }
-
-        MeshBuffers mesh_buffers = create_mesh_buffers(context, info, processed_info);
 
         u32 triangle_count = {};
         for(const auto& meshlet : processed_info.meshlets) {
@@ -266,9 +256,9 @@ namespace foundation {
         {
             std::lock_guard<std::mutex> lock{*mesh_upload_mutex};
             mesh_upload_queue.push_back(MeshUploadInfo {
-                .staging_mesh_buffer = mesh_buffers.staging_mesh_buffer,
-                .mesh_buffer = mesh_buffers.mesh_buffer,
-                .mesh = mesh_buffers.mesh,
+                .staging_mesh_buffer = staging_mesh_buffer,
+                .mesh_buffer = mesh_buffer,
+                .mesh = mesh,
                 .manifest_index = info.manifest_index,
                 .material_manifest_offset = info.material_manifest_offset,
                 .meshlet_count = s_cast<u32>(processed_info.meshlets.size()),
@@ -296,7 +286,7 @@ namespace foundation {
             uncompressed_data.resize(uncompressed_data_size);
         }
 
-        MyBinaryTextureFormat texture;
+        BinaryTextureFileFormat texture;
         {
             ByteReader reader(uncompressed_data.data(), uncompressed_data_size);
             reader.read(texture);

@@ -76,17 +76,17 @@ struct TransformInfo {
 DAXA_DECL_BUFFER_PTR(TransformInfo)
 
 struct Material {
-    daxa_ImageViewId albedo_texture_id;
+    daxa_ImageViewId albedo_image_id;
     daxa_SamplerId albedo_sampler_id;
-    daxa_ImageViewId alpha_mask_texture_id;
+    daxa_ImageViewId alpha_mask_image_id;
     daxa_SamplerId alpha_mask_sampler_id;
-    daxa_ImageViewId normal_texture_id;
+    daxa_ImageViewId normal_image_id;
     daxa_SamplerId normal_sampler_id;
-    daxa_ImageViewId roughness_texture_id;
+    daxa_ImageViewId roughness_image_id;
     daxa_SamplerId roughness_sampler_id;
-    daxa_ImageViewId metalness_texture_id;
+    daxa_ImageViewId metalness_image_id;
     daxa_SamplerId metalness_sampler_id;
-    daxa_ImageViewId emissive_texture_id;
+    daxa_ImageViewId emissive_image_id;
     daxa_SamplerId emissive_sampler_id;
     f32 metallic_factor;
     f32 roughness_factor;

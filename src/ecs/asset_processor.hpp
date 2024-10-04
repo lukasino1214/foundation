@@ -3,24 +3,9 @@
 #include <mutex>
 #include "graphics/context.hpp"
 #include <fastgltf/types.hpp>
-#include <utils/byte_utils.hpp>
+#include <ecs/binary_assets.hpp>
 
 namespace foundation {
-    enum struct MaterialType : u32 {
-        GltfAlbedo,
-        GltfNormal,
-        GltfRoughnessMetallic, // roughness stored in blue channel and metallic stored in green channel
-        GltfEmissive,
-
-        CompressedAlbedo, // BC1 only 3 channels
-        CompressedAlphaMask, // BC4 optional alpha mask
-        CompressedNormal, // BC5 compressed to 2 channels using orthographic compression
-        CompressedMetalness, // BC4
-        CompressedRoughness, // BC4
-        CompressedEmissive, // BC1
-        None
-    };
-
     struct ProcessedMeshInfo {
         AABB mesh_aabb = {};
         std::vector<f32vec3> positions = {};
@@ -59,35 +44,15 @@ namespace foundation {
         }
     };
 
-    struct MyBinaryTextureFormat {
-        u32 width = {};
-        u32 height = {};
-        u32 depth = {};
-        daxa::Format format = {};
-        std::vector<std::vector<std::byte>> mipmaps = {};
-
-        static void serialize(ByteWriter& writer, const MyBinaryTextureFormat& value) {
-            writer.write(value.width);
-            writer.write(value.height);
-            writer.write(value.depth);
-            writer.write(value.format);
-            writer.write(value.mipmaps);
-        }
-
-        static auto deserialize(ByteReader& reader) -> MyBinaryTextureFormat { 
-            MyBinaryTextureFormat value = {};
-            reader.read(value.width);
-            reader.read(value.height);
-            reader.read(value.depth);
-            reader.read(value.format);
-            reader.read(value.mipmaps);
-            return value;    
-        }
+    struct ProcessMeshInfo {
+        fastgltf::Asset * asset;
+        u32 gltf_mesh_index = {};
+        u32 gltf_primitive_index = {};
     };
 
     struct LoadMeshInfo {
         std::filesystem::path asset_path = {};
-        fastgltf::Asset * asset;
+        BinaryAssetInfo* asset = {};
         u32 gltf_mesh_index = {};
         u32 gltf_primitive_index = {};
         u32 material_manifest_offset = {};
@@ -116,7 +81,7 @@ namespace foundation {
 
     struct LoadTextureInfo {
         std::filesystem::path asset_path = {};
-        fastgltf::Asset * asset;
+        BinaryAssetInfo* asset = {};
         u32 gltf_texture_index = {};
         u32 texture_manifest_index = {};
         bool load_as_srgb = {};
@@ -151,8 +116,7 @@ namespace foundation {
 
         auto record_gpu_load_processing_commands() -> RecordCommands;
 
-        static auto process_mesh(const LoadMeshInfo& info) -> ProcessedMeshInfo;
-        static auto create_mesh_buffers(Context* context, const LoadMeshInfo& info, const ProcessedMeshInfo& processed_info) -> MeshBuffers;
+        static auto process_mesh(const ProcessMeshInfo& info) -> ProcessedMeshInfo;
 
         Context* context;
 

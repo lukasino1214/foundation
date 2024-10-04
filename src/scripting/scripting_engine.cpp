@@ -197,17 +197,9 @@ namespace foundation {
             "get_scale", &GlobalTransformComponent::get_scale
         );
 
-        // lua->new_usertype<CameraComponent>("CameraComponent",
-        //     "camera", &CameraComponent::camera,
-        //     "get_forward_direction", &CameraComponent::get_forward_direction,
-        //     "get_right_direction", &CameraComponent::get_right_direction,
-        //     "get_up_direction", &CameraComponent::get_up_direction
-        // );
-
         lua->new_usertype<Entity>("Entity", 
             "get_local_transform_component", &Entity::get_component<LocalTransformComponent>,
             "get_global_transform_component", &Entity::get_component<GlobalTransformComponent>
-            // "get_camera_component", &Entity::get_component<CameraComponent>
         );
 
         lua->set("entity", entity);
