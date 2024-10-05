@@ -105,6 +105,7 @@ add_executable(${PROJECT_NAME}
     "src/ui/panels/scene_hierarchy_panel.cpp"
     "src/ui/ui.cpp"
     "src/utils/file_io.cpp"
+    "src/utils/zstd.cpp"
     "src/utils/file_watcher.cpp"
 )
 

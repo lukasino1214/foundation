@@ -20,6 +20,7 @@ namespace foundation {
                 glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
                 return glfwCreateWindow(width, height, name.data(), nullptr, nullptr);
             }()} {
+        ZoneScoped;
         glfwSetWindowUserPointer(this->glfw_handle, window_state.get());
 
         glfwSetWindowCloseCallback(this->glfw_handle, [](GLFWwindow* window_ptr) {

@@ -35,6 +35,7 @@
 #define d_cast dynamic_cast
 #define r_cast reinterpret_cast
 
+#define TRACY_NO_INSTRUMENT
 #include <tracy/Tracy.hpp>
 
 namespace foundation {
@@ -54,6 +55,8 @@ namespace foundation {
 
         using f32 = float;
         using f64 = double;
+
+        using byte = std::byte;
     }
 }
 

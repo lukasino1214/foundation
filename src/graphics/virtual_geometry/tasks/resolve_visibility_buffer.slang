@@ -236,7 +236,7 @@ void main(u32vec3 pixel : SV_DispatchThreadID) {
     if(alpha_mask_image_id.value != 0) {
         f32 alpha = Texture2D<float>::get(alpha_mask_image_id).SampleGrad(SamplerState::get(push.uses.u_materials[mesh.material_index].alpha_mask_sampler_id), uv_grad.uv, uv_grad.ddx, uv_grad.ddy).x;
         if(push.uses.u_materials[mesh.material_index].alpha_mode == 1) {
-            if(alpha < push.uses.u_materials[mesh.material_index].alpha_cutoff) { color = f32vec4(1.0, 0.0, 0.0, 1.0); }
+            if(alpha < push.uses.u_materials[mesh.material_index].alpha_cutoff) { color = f32vec4(0.0, 0.05, 0.0, 1.0); }
         }
     }
     daxa_ImageViewId emissive_image_id = push.uses.u_materials[mesh.material_index].emissive_image_id;
@@ -245,6 +245,11 @@ void main(u32vec3 pixel : SV_DispatchThreadID) {
     }
 
     RWTexture2D<f32vec4> image = RWTexture2D<f32>::get(push.uses.u_image);
+    f32 mip_map = log2(max(length(uv_grad.ddx * 65536u), length(uv_grad.ddy * 65536u)));
+    const uint resolution0 = 65536u >> uint(max(0, mip_map));
+	const uint resolution1 = 65536u >> uint(max(0, mip_map));
+    color = f32vec4(f32vec3(mip_map / 12.0f), 1.0f);
+
     // color = f32vec4(normal * 0.5 + 0.5, 1.0f);
 
     // color = f32vec4(0.0, 0.0, 0.0, 1.0);

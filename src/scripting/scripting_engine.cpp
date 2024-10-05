@@ -5,6 +5,7 @@
 
 namespace foundation {
     void ScriptingEngine::init_script(ScriptComponent* script, Entity entity, const std::filesystem::path& path) {
+        ZoneScoped;
         auto lua = std::make_unique<sol::state>();
         lua->open_libraries(sol::lib::base);
 
@@ -204,7 +205,7 @@ namespace foundation {
 
         lua->set("entity", entity);
         lua->set("window", window);
-        auto result = lua->safe_script(load_file_to_string(path.string()), sol::script_pass_on_error);
+        auto result = lua->safe_script(read_file_to_string(path), sol::script_pass_on_error);
         if(!result.valid()) {
             std::println("failed to load script!");
             std::println("{}", sol::error{result}.what());

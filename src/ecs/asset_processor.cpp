@@ -5,12 +5,737 @@
 #include <fastgltf/tools.hpp>
 #include <fastgltf/glm_element_traits.hpp>
 #include <shader_library/vertex_compression.inl>
-#include <fstream>
-#include <zstd.h>
+#include <random>
+#include <nvtt/nvtt.h>
+#include <utils/zstd.hpp>
+#include <fastgltf/parser.hpp>
+#include <fastgltf/types.hpp>
+
+#include <glm/ext/quaternion_geometric.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtx/quaternion.hpp>
+
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtx/matrix_decompose.hpp>
+
+#include <math/decompose.hpp>
+#include <utils/file_io.hpp>
 
 namespace foundation {
-    AssetProcessor::AssetProcessor(Context* _context) : context{_context}, mesh_upload_mutex{std::make_unique<std::mutex>()} {}
+    AssetProcessor::AssetProcessor(Context* _context) : context{_context}, mesh_upload_mutex{std::make_unique<std::mutex>()} { ZoneScoped; }
     AssetProcessor::~AssetProcessor() {}
+
+    void AssetProcessor::convert_gltf_to_binary(const std::filesystem::path& input_path, const std::filesystem::path& output_path) {
+        if(!std::filesystem::exists(input_path)) {
+            throw std::runtime_error("couldnt not find model: " + input_path.string());
+        }
+
+        std::unique_ptr<fastgltf::Asset> asset = {};
+        {
+            fastgltf::Parser parser{};
+            fastgltf::Options gltf_options = fastgltf::Options::DontRequireValidAssetMember | fastgltf::Options::AllowDouble | fastgltf::Options::LoadGLBBuffers | fastgltf::Options::LoadExternalBuffers;
+
+            fastgltf::GltfDataBuffer data;
+            data.loadFromFile(input_path);
+            fastgltf::GltfType type = fastgltf::determineGltfFileType(&data);
+            fastgltf::Asset fastgltf_asset;
+            if (type == fastgltf::GltfType::glTF) {
+                fastgltf_asset = std::move(parser.loadGLTF(&data, input_path.parent_path(), gltf_options).get());
+            } else if (type == fastgltf::GltfType::GLB) {
+                fastgltf_asset = std::move(parser.loadBinaryGLTF(&data, input_path.parent_path(), gltf_options).get());
+            }
+
+            asset = std::make_unique<fastgltf::Asset>(std::move(fastgltf_asset));
+        }
+
+        std::vector<BinaryNode> binary_nodes = {};
+        for(const auto& node : asset->nodes) {
+            std::vector<u32> children = {};
+            for(usize child : node.children) {
+                children.push_back(s_cast<u32>(child));
+            }
+
+            glm::mat4 transform = {};
+
+            if(const auto* trs = std::get_if<fastgltf::Node::TRS>(&node.transform)) {
+                glm::quat quat;
+                quat.x = trs->rotation[0];
+                quat.y = trs->rotation[1];
+                quat.z = trs->rotation[2];
+                quat.w = trs->rotation[3];
+                
+                transform = glm::translate(glm::mat4(1.0f), { trs->translation[0], trs->translation[1], trs->translation[2]}) 
+                    * glm::toMat4(quat) 
+                    * glm::scale(glm::mat4(1.0f), { trs->scale[0], trs->scale[1], trs->scale[2]});
+            } else if(const auto* transform_matrix = std::get_if<fastgltf::Node::TransformMatrix>(&node.transform)) {
+                transform = *r_cast<const glm::mat4*>(transform_matrix);
+            }
+
+            binary_nodes.push_back(BinaryNode {
+                .mesh_index = node.meshIndex.has_value() ? std::make_optional(s_cast<u32>(node.meshIndex.value())) : std::nullopt,
+                .transform = transform,
+                .children = children,
+                .name = std::string{node.name.c_str()},
+            });
+        }
+
+        std::vector<BinaryMeshGroup> binary_mesh_groups = {};
+        std::vector<BinaryMesh> binary_meshes = {};
+
+        std::random_device random_device;
+        std::mt19937_64 engine(random_device());
+        std::uniform_int_distribution<uint64_t> uniform_distributation;
+
+        for(u32 mesh_index = 0; mesh_index < asset->meshes.size(); mesh_index++) {
+            const auto& gltf_mesh = asset->meshes.at(mesh_index);
+
+            u32 mesh_offset = s_cast<u32>(binary_meshes.size());
+            binary_meshes.reserve(binary_meshes.size() + gltf_mesh.primitives.size());
+            
+            for(u32 primitive_index = 0; primitive_index < gltf_mesh.primitives.size(); primitive_index++) {
+
+                std::vector<std::byte> compressed_data = {};
+
+                {
+                    ProcessedMeshInfo processed_mesh_info = AssetProcessor::process_mesh({
+                        .asset = asset.get(),
+                        .gltf_mesh_index = mesh_index,
+                        .gltf_primitive_index = primitive_index,
+                    });
+
+                    ByteWriter mesh_writer = {};
+                    mesh_writer.write(processed_mesh_info);
+
+                    compressed_data = zstd_compress(mesh_writer.data, 14);
+                }
+
+                std::string file_name = std::to_string(uniform_distributation(engine))+ ".bmesh";
+                auto binary_mesh_path = output_path;
+                binary_mesh_path = binary_mesh_path.parent_path() / file_name;
+
+                while(std::filesystem::exists(binary_mesh_path)) {
+                    file_name = std::to_string(uniform_distributation(engine))+ ".bmesh";
+                    binary_mesh_path = output_path;
+                    binary_mesh_path = binary_mesh_path.parent_path() / file_name;
+                }
+
+                write_bytes_to_file(compressed_data, binary_mesh_path);
+
+                binary_meshes.push_back(BinaryMesh {
+                    .material_index = gltf_mesh.primitives[primitive_index].materialIndex.has_value() ? std::make_optional(s_cast<u32>(gltf_mesh.primitives[primitive_index].materialIndex.value())) : std::nullopt,
+                    .file_path = file_name
+                });
+
+                std::println("mesh group: [{} / {}] - mesh: [{} / {}] - done", mesh_index+1, asset->meshes.size(), primitive_index+1, gltf_mesh.primitives.size());
+            }
+
+            binary_mesh_groups.push_back({
+                .mesh_offset = mesh_offset,
+                .mesh_count = s_cast<u32>(gltf_mesh.primitives.size()),
+                .name = gltf_mesh.name.c_str()
+            });
+        }
+
+        nvtt::Context context(true);
+
+        struct CustomOutputHandler : public nvtt::OutputHandler {
+            CustomOutputHandler() = default;
+            CustomOutputHandler(const CustomOutputHandler&) = delete;
+            CustomOutputHandler& operator=(const CustomOutputHandler&) = delete;
+            CustomOutputHandler(CustomOutputHandler&&) = delete;
+            CustomOutputHandler& operator=(CustomOutputHandler&&) = delete;
+            virtual ~CustomOutputHandler() {}
+
+            virtual void beginImage(int size, int width, int height, int depth, int face, int miplevel) override { data.resize(size); }
+            virtual bool writeData(const void* ptr, int size) { std::memcpy(data.data(), ptr, size); return true; }
+            virtual void endImage() {}
+
+            std::vector<std::byte> data = {};
+        };
+
+        struct CustomErrorHandler : public nvtt::ErrorHandler {
+            void error(nvtt::Error e) override {
+                std::println("{}", std::to_string(e));
+            }
+        };
+
+        std::unique_ptr<CustomErrorHandler> error_handler = std::make_unique<CustomErrorHandler>();
+
+        std::vector<BinaryTexture> binary_textures = {};
+        for (u32 i = 0; i < s_cast<u32>(asset->images.size()); ++i) {
+            binary_textures.push_back(BinaryTexture{
+                .material_indices = {}, 
+                .name = std::string{asset->images[i].name.c_str()},
+                .file_path = {}
+            });
+        }
+
+        auto gltf_texture_to_texture_index = [&](u32 const texture_index) -> std::optional<u32> {
+            const bool gltf_texture_has_image_index = asset->textures.at(texture_index).imageIndex.has_value();
+            if (!gltf_texture_has_image_index) { return std::nullopt; }
+            else { return s_cast<u32>(asset->textures.at(texture_index).imageIndex.value()); }
+        };
+
+        std::vector<BinaryMaterial> binary_materials = {};
+        for(u32 material_index = 0; material_index < s_cast<u32>(asset->materials.size()); material_index++) {
+            auto const & material = asset->materials.at(material_index);
+            u32 const material_manifest_index = material_index;
+            bool const has_normal_texture = material.normalTexture.has_value();
+            bool const has_albedo_texture = material.pbrData.baseColorTexture.has_value();
+            bool const has_roughness_metalness_texture = material.pbrData.metallicRoughnessTexture.has_value();
+            bool const has_emissive_texture = material.emissiveTexture.has_value();
+            std::optional<BinaryMaterial::BinaryTextureInfo> albedo_texture_info = {};
+            std::optional<BinaryMaterial::BinaryTextureInfo> normal_texture_info = {};
+            std::optional<BinaryMaterial::BinaryTextureInfo> roughnes_metalness_info = {};
+            std::optional<BinaryMaterial::BinaryTextureInfo> emissive_info = {};
+            if (has_albedo_texture) {
+                u32 const texture_index = s_cast<u32>(material.pbrData.baseColorTexture.value().textureIndex);
+                auto const has_index = gltf_texture_to_texture_index(texture_index).has_value();
+                if (has_index) {
+                    albedo_texture_info = BinaryMaterial::BinaryTextureInfo {
+                        .texture_index = gltf_texture_to_texture_index(texture_index).value(),
+                        .sampler_index = 0, 
+                    };
+
+                    binary_textures.at(albedo_texture_info->texture_index).material_indices.push_back({
+                        .material_type = MaterialType::GltfAlbedo,
+                        .material_index = material_manifest_index,
+                    });
+                }
+            }
+
+            if (has_normal_texture) {
+                u32 const texture_index = s_cast<u32>(material.normalTexture.value().textureIndex);
+                bool const has_index = gltf_texture_to_texture_index(texture_index).has_value();
+                if (has_index) {
+                    normal_texture_info = BinaryMaterial::BinaryTextureInfo {
+                        .texture_index = gltf_texture_to_texture_index(texture_index).value(),
+                        .sampler_index = 0, 
+                    };
+
+                    binary_textures.at(normal_texture_info->texture_index).material_indices.push_back({
+                        .material_type = MaterialType::GltfNormal,
+                        .material_index = material_manifest_index,
+                    });
+                }
+            }
+
+            if (has_roughness_metalness_texture) {
+                u32 const texture_index = s_cast<u32>(material.pbrData.metallicRoughnessTexture.value().textureIndex);
+                bool const has_index = gltf_texture_to_texture_index(texture_index).has_value();
+                if (has_index) {
+                    roughnes_metalness_info = BinaryMaterial::BinaryTextureInfo {
+                        .texture_index = gltf_texture_to_texture_index(texture_index).value(),
+                        .sampler_index = 0,
+                    };
+
+                    binary_textures.at(roughnes_metalness_info->texture_index).material_indices.push_back({
+                        .material_type = MaterialType::GltfRoughnessMetallic,
+                        .material_index = material_manifest_index,
+                    });
+                }
+            }
+            if (has_emissive_texture) {
+                u32 const texture_index = s_cast<u32>(material.emissiveTexture.value().textureIndex);
+                bool const has_index = gltf_texture_to_texture_index(texture_index).has_value();
+                if (has_index) {
+                    emissive_info = BinaryMaterial::BinaryTextureInfo {
+                        .texture_index = gltf_texture_to_texture_index(texture_index).value(),
+                        .sampler_index = 0,
+                    };
+
+                    binary_textures.at(emissive_info->texture_index).material_indices.push_back({
+                        .material_type = MaterialType::GltfEmissive,
+                        .material_index = material_manifest_index,
+                    });
+                }
+            }
+            binary_materials.push_back(BinaryMaterial{
+                .albedo_info = albedo_texture_info,
+                .normal_info = normal_texture_info,
+                .roughness_metalness_info = roughnes_metalness_info,
+                .emissive_info = emissive_info,
+                .metallic_factor = material.pbrData.metallicFactor,
+                .roughness_factor = material.pbrData.roughnessFactor,
+                .emissive_factor = { material.emissiveFactor[0], material.emissiveFactor[1], material.emissiveFactor[2] },
+                .alpha_mode = s_cast<u32>(material.alphaMode),
+                .alpha_cutoff = material.alphaCutoff,
+                .double_sided = material.doubleSided,
+                .name = std::string{material.name.c_str()},
+            });
+        }
+
+        for (u32 i = 0; i < s_cast<u32>(asset->images.size()); ++i) {
+            std::vector<std::byte> raw_data = {};
+            i32 width = 0;
+            i32 height = 0;
+            i32 num_channels = 0;
+            std::string image_path = input_path.parent_path().string();
+
+            const auto& binary_texture = binary_textures[i];
+            std::vector<MaterialType> cached_material_types = {};
+            MaterialType preferred_material_type = MaterialType::None;
+            for(const auto& material_index : binary_texture.material_indices) {
+                bool found = false;
+
+                for(MaterialType cached_material_type : cached_material_types) {
+                    if(material_index.material_type == cached_material_type) {
+                        found = true;
+                    } else if((cached_material_type == MaterialType::GltfAlbedo && material_index.material_type == MaterialType::GltfEmissive) ||
+                              (cached_material_type == MaterialType::GltfEmissive && material_index.material_type == MaterialType::GltfAlbedo)) {
+                        preferred_material_type = MaterialType::GltfAlbedo;
+                    } else {
+                        std::println("explode first {} different {}", std::to_string(s_cast<u32>(cached_material_type)), std::to_string(s_cast<u32>(material_index.material_type)));
+                        std::abort();
+                    }
+                }
+
+                if(!found) { cached_material_types.push_back(material_index.material_type); }
+            }
+
+            if(preferred_material_type == MaterialType::None) {
+                if(cached_material_types.size() != 1) {
+                    std::println("explode");
+                    std::abort();
+                } else {
+                    preferred_material_type = cached_material_types[0];
+                }
+            }
+
+            bool create_alpha_mask = false;
+            for(const auto& material_index : binary_texture.material_indices) {
+                const auto& material = binary_materials[material_index.material_index];
+                create_alpha_mask |= material.alpha_mode != 0;
+            }
+
+            auto get_data = [&](const fastgltf::Buffer& buffer, std::size_t byteOffset, std::size_t byteLength) {
+                return std::visit(fastgltf::visitor {
+                    [](auto&) -> std::span<const std::byte> {
+                        assert(false && "Tried accessing a buffer with no data, likely because no buffers were loaded. Perhaps you forgot to specify the LoadExternalBuffers option?");
+                        return {};
+                    },
+                    [](const fastgltf::sources::Fallback&) -> std::span<const std::byte> {
+                        assert(false && "Tried accessing data of a fallback buffer.");
+                        return {};
+                    },
+                    [&](const fastgltf::sources::Vector& vec) -> std::span<const std::byte> {
+                        return std::span(reinterpret_cast<const std::byte*>(vec.bytes.data()), vec.bytes.size());
+                    },
+                    [&](const fastgltf::sources::ByteView& bv) -> std::span<const std::byte> {
+                        return bv.bytes;
+                    },
+                }, buffer.data).subspan(byteOffset, byteLength);
+            };
+
+            const auto& image = asset->images[i];
+
+            {
+                if(const auto* data = std::get_if<std::monostate>(&image.data)) {
+                    std::cout << "std::monostate" << std::endl;
+                }
+                if(const auto* data = std::get_if<fastgltf::sources::BufferView>(&image.data)) {
+                    auto& buffer_view = asset->bufferViews[data->bufferViewIndex];
+                    auto content = get_data(asset->buffers[buffer_view.bufferIndex], buffer_view.byteOffset, buffer_view.byteLength);
+                    u8* image_data = stbi_load_from_memory(r_cast<const u8*>(content.data()), s_cast<i32>(content.size_bytes()), &width, &height, &num_channels, 4);
+                    if(!image_data) { std::cout << "bozo" << std::endl; }
+                    raw_data.resize(s_cast<u64>(width * height * 4));
+                    std::memcpy(raw_data.data(), image_data, s_cast<u64>(width * height * 4));
+                    stbi_image_free(image_data);
+                }
+                if(const auto* data = std::get_if<fastgltf::sources::URI>(&image.data)) {
+                    image_path = input_path.parent_path().string() + '/' + std::string(data->uri.path().begin(), data->uri.path().end());
+                    u8* image_data = stbi_load(image_path.c_str(), &width, &height, &num_channels, 4);
+                    if(!image_data) { std::cout << "bozo" << std::endl; }
+                    raw_data.resize(s_cast<u64>(width * height * 4));
+                    std::memcpy(raw_data.data(), image_data, s_cast<u64>(width * height * 4));
+                    stbi_image_free(image_data);
+                }
+                if(const auto* data = std::get_if<fastgltf::sources::Vector>(&image.data)) {
+                    std::cout << "fastgltf::sources::Vector" << std::endl;
+                }
+                if(const auto* data = std::get_if<fastgltf::sources::CustomBuffer>(&image.data)) {
+                    std::cout << "fastgltf::sources::CustomBuffer" << std::endl;
+                }
+                if(const auto* data = std::get_if<fastgltf::sources::ByteView>(&image.data)) {
+                    std::cout << "fastgltf::sources::ByteView" << std::endl;
+                }
+            }
+
+            auto create_nvtt_image = [](i32 width, i32 height, std::vector<std::byte>& data) -> nvtt::Surface {
+                for(u32 p = 0; p < data.size(); p += 4) {
+                    std::swap(data[p], data[p+2]);
+                }
+
+                nvtt::Surface nvtt_image;
+                nvtt_image.setImage(nvtt::InputFormat_BGRA_8UB, width, height, 1, data.data());
+                return nvtt_image;
+            };
+
+            struct NVTTSettings {
+                nvtt::CompressionOptions compression_options = {};
+                std::unique_ptr<CustomOutputHandler> output_handler = {};
+                nvtt::OutputOptions output_options = {};
+            };
+
+            auto create_nvtt_settings = [&error_handler](NVTTSettings& nvtt_settings, nvtt::Format nvtt_format) {
+                nvtt_settings.compression_options.setFormat(nvtt_format);
+                nvtt_settings.compression_options.setQuality(nvtt::Quality_Normal);
+                nvtt_settings.output_handler = std::make_unique<CustomOutputHandler>();
+                nvtt_settings.output_options.setOutputHandler(nvtt_settings.output_handler.get());
+                nvtt_settings.output_options.setErrorHandler(error_handler.get());
+            };
+
+            auto create_file = [&uniform_distributation, &engine, &output_path](const BinaryTextureFileFormat& texture) -> std::string {
+                std::vector<std::byte> compressed_data = {};
+                {
+                    ByteWriter image_writer = {};
+                    image_writer.write(texture);
+                    compressed_data = zstd_compress(image_writer.data, 14);
+                }
+
+                std::string file_name = std::to_string(uniform_distributation(engine))+ ".btexture";
+                auto binary_image_path = output_path;
+                binary_image_path = binary_image_path.parent_path() / file_name;
+
+                while(std::filesystem::exists(binary_image_path)) {
+                    file_name = std::to_string(uniform_distributation(engine))+ ".btexture";
+                    binary_image_path = output_path;
+                    binary_image_path = binary_image_path.parent_path() / file_name;
+                }
+
+                write_bytes_to_file(compressed_data, binary_image_path);
+                return file_name;
+            };
+
+            if(preferred_material_type == MaterialType::GltfAlbedo) {
+                std::vector<std::byte> albedo = {};
+                albedo.resize(raw_data.size());
+
+                for(u32 pixel = 0; pixel < albedo.size(); pixel += 4) {
+                    albedo[pixel + 0] = raw_data[pixel + 0];
+                    albedo[pixel + 1] = raw_data[pixel + 1];
+                    albedo[pixel + 2] = raw_data[pixel + 2];
+                    albedo[pixel + 3] = std::byte{255};
+                }
+
+                {
+                    nvtt::Surface nvtt_image = create_nvtt_image(width, height, albedo);
+                    nvtt::Format compressed_format = nvtt::Format_BC1;
+                    daxa::Format daxa_format = daxa::Format::BC1_RGB_SRGB_BLOCK;
+
+                    NVTTSettings nvtt_settings = {};
+                    create_nvtt_settings(nvtt_settings, compressed_format);
+
+                    BinaryTextureFileFormat texture {
+                        .width = s_cast<u32>(width),
+                        .height = s_cast<u32>(height),
+                        .depth = 1,
+                        .format = daxa_format,
+                        .mipmaps = {}
+                    };
+
+                    const i32 num_mipmaps = nvtt_image.countMipmaps();
+                    for(i32 mip = 0; mip < num_mipmaps; mip++) {
+                        context.compress(nvtt_image, 0, mip, nvtt_settings.compression_options, nvtt_settings.output_options);
+                        texture.mipmaps.push_back(nvtt_settings.output_handler->data);
+
+                        if(mip == num_mipmaps - 1) { break; }
+
+                        nvtt_image.toLinearFromSrgb();
+                        nvtt_image.buildNextMipmap(nvtt::MipmapFilter_Box);
+                        nvtt_image.toSrgb();
+                    }
+
+                    binary_textures[i].file_path = create_file(texture);
+                }
+
+                if(create_alpha_mask) {
+                    std::vector<std::byte> alpha_mask = {};
+                    alpha_mask.resize(albedo.size());
+                    f32 average_alpha = [&]() -> f32 {
+                        f32 alpha_sum = 0.0f;
+                        u32 alpha_count = 0;
+                        for(const auto& material_index : binary_textures[i].material_indices) {
+                            const BinaryMaterial& binary_material = binary_materials[material_index.material_index];
+                            if(binary_material.alpha_mode == 1) {
+                                alpha_sum += binary_material.alpha_cutoff;
+                                alpha_count += 1;
+                            }
+                        }
+
+                        return alpha_sum / s_cast<f32>(alpha_count);
+                    }();
+                    
+                    for(u32 pixel = 0; pixel < albedo.size(); pixel += 4) {
+                        alpha_mask[pixel + 0] = raw_data[pixel + 3];
+                        alpha_mask[pixel + 1] = std::byte{0};
+                        alpha_mask[pixel + 2] = std::byte{0};
+                        alpha_mask[pixel + 3] = std::byte{0};
+                    }
+
+                    nvtt::Surface nvtt_image = create_nvtt_image(width, height, alpha_mask);
+                    nvtt::Format compressed_format = nvtt::Format_BC4;
+                    daxa::Format daxa_format = daxa::Format::BC4_UNORM_BLOCK;
+
+                    NVTTSettings nvtt_settings = {};
+                    create_nvtt_settings(nvtt_settings, compressed_format);
+
+                    BinaryTextureFileFormat texture {
+                        .width = s_cast<u32>(width),
+                        .height = s_cast<u32>(height),
+                        .depth = 1,
+                        .format = daxa_format,
+                        .mipmaps = {}
+                    };
+
+                    const i32 num_mipmaps = nvtt_image.countMipmaps();
+                    const f32 coverage = nvtt_image.alphaTestCoverage(average_alpha, 0);
+                    for(i32 mip = 0; mip < num_mipmaps; mip++) {
+                        context.compress(nvtt_image, 0, mip, nvtt_settings.compression_options, nvtt_settings.output_options);
+                        texture.mipmaps.push_back(nvtt_settings.output_handler->data);
+
+                        if(mip == num_mipmaps - 1) { break; }
+
+                        nvtt_image.scaleAlphaToCoverage(coverage, average_alpha);
+                        nvtt_image.buildNextMipmap(nvtt::MipmapFilter_Kaiser);
+                    }
+
+                    std::string file_name = create_file(texture);
+
+                    const BinaryTexture& albedo_texture = binary_textures[i];
+                    u32 alpha_mask_texture_index = s_cast<u32>(binary_textures.size());
+                    BinaryTexture alpha_mask_texture = BinaryTexture{
+                        .material_indices = {},
+                        .name = {},
+                        .file_path = file_name,
+                    };
+
+                    for(const auto& material_index : albedo_texture.material_indices) {
+                        auto& material = binary_materials[material_index.material_index];
+                        
+                        if(material.alpha_mode != 0) {
+                            material.alpha_mask_info = BinaryMaterial::BinaryTextureInfo {
+                                .texture_index = alpha_mask_texture_index,
+                                .sampler_index = 0
+                            };
+
+                            alpha_mask_texture.material_indices.push_back(BinaryTexture::BinaryMaterialIndex{
+                                .material_type = MaterialType::CompressedAlphaMask,
+                                .material_index = material_index.material_index
+                            });
+                        }
+                    }
+
+                    binary_textures.push_back(alpha_mask_texture);
+                }
+            } else if(preferred_material_type == MaterialType::GltfNormal) {
+                nvtt::Surface nvtt_image = create_nvtt_image(width, height, raw_data);
+                nvtt::Format compressed_format = nvtt::Format_BC5;
+                daxa::Format daxa_format = daxa::Format::BC5_UNORM_BLOCK;
+
+                NVTTSettings nvtt_settings = {};
+                create_nvtt_settings(nvtt_settings, compressed_format);
+
+                BinaryTextureFileFormat texture {
+                    .width = s_cast<u32>(width),
+                    .height = s_cast<u32>(height),
+                    .depth = 1,
+                    .format = daxa_format,
+                    .mipmaps = {}
+                };
+
+                const i32 num_mipmaps = nvtt_image.countMipmaps();
+                for(i32 mip = 0; mip < num_mipmaps; mip++) {
+                    nvtt_image.normalizeNormalMap();
+                    nvtt::Surface temp = nvtt_image;
+                    temp.transformNormals(nvtt::NormalTransform_Orthographic);
+                    context.compress(temp, 0, mip, nvtt_settings.compression_options, nvtt_settings.output_options);
+                    texture.mipmaps.push_back(nvtt_settings.output_handler->data);
+
+                    if(mip == num_mipmaps - 1) { break; }
+
+                    nvtt_image.buildNextMipmap(nvtt::MipmapFilter_Box);
+                }
+
+                binary_textures[i].file_path = create_file(texture);
+            } else if(preferred_material_type == MaterialType::GltfEmissive) {
+                nvtt::Surface nvtt_image = create_nvtt_image(width, height, raw_data);
+                nvtt::Format compressed_format = nvtt::Format_BC1;
+                daxa::Format daxa_format = daxa::Format::BC1_RGB_SRGB_BLOCK;
+
+                NVTTSettings nvtt_settings = {};
+                create_nvtt_settings(nvtt_settings, compressed_format);
+
+                BinaryTextureFileFormat texture {
+                    .width = s_cast<u32>(width),
+                    .height = s_cast<u32>(height),
+                    .depth = 1,
+                    .format = daxa_format,
+                    .mipmaps = {}
+                };
+
+                const i32 num_mipmaps = nvtt_image.countMipmaps();
+                for(i32 mip = 0; mip < num_mipmaps; mip++) {
+                    context.compress(nvtt_image, 0, mip, nvtt_settings.compression_options, nvtt_settings.output_options);
+                    texture.mipmaps.push_back(nvtt_settings.output_handler->data);
+
+                    if(mip == num_mipmaps - 1) { break; }
+
+                    nvtt_image.toLinearFromSrgb();
+                    nvtt_image.buildNextMipmap(nvtt::MipmapFilter_Box);
+                    nvtt_image.toSrgb();
+                }
+
+                binary_textures[i].file_path = create_file(texture);
+            } else if(preferred_material_type == MaterialType::GltfRoughnessMetallic) {
+                std::vector<std::byte> roughness = {};
+                roughness.resize(raw_data.size());
+
+                std::vector<std::byte> metalness = {};
+                metalness.resize(raw_data.size());
+
+                for(u32 pixel = 0; pixel < raw_data.size(); pixel += 4) {
+                    roughness[pixel + 0] = raw_data[pixel + 1];
+                    roughness[pixel + 1] = std::byte{0};
+                    roughness[pixel + 2] = std::byte{0};
+                    roughness[pixel + 3] = std::byte{0};
+
+                    metalness[pixel + 0] = raw_data[pixel + 2];
+                    metalness[pixel + 1] = std::byte{0};
+                    metalness[pixel + 2] = std::byte{0};
+                    metalness[pixel + 3] = std::byte{0};
+                }
+
+                nvtt::Surface nvtt_roughness_image = create_nvtt_image(width, height, roughness);
+                nvtt::Surface nvtt_metalness_image = create_nvtt_image(width, height, metalness);
+                nvtt::Format compressed_format = nvtt::Format_BC4;
+                daxa::Format daxa_format = daxa::Format::BC4_UNORM_BLOCK;
+
+                NVTTSettings nvtt_settings = {};
+                create_nvtt_settings(nvtt_settings, compressed_format);
+
+                BinaryTextureFileFormat roughness_texture {
+                    .width = s_cast<u32>(width),
+                    .height = s_cast<u32>(height),
+                    .depth = 1,
+                    .format = daxa_format,
+                    .mipmaps = {}
+                };
+
+                BinaryTextureFileFormat metalness_texture {
+                    .width = s_cast<u32>(width),
+                    .height = s_cast<u32>(height),
+                    .depth = 1,
+                    .format = daxa_format,
+                    .mipmaps = {}
+                };
+
+                const i32 num_mipmaps = nvtt_roughness_image.countMipmaps();
+                for(i32 mip = 0; mip < num_mipmaps; mip++) {
+                    context.compress(nvtt_roughness_image, 0, mip, nvtt_settings.compression_options, nvtt_settings.output_options);
+                    roughness_texture.mipmaps.push_back(nvtt_settings.output_handler->data);
+                    context.compress(nvtt_metalness_image, 0, mip, nvtt_settings.compression_options, nvtt_settings.output_options);
+                    metalness_texture.mipmaps.push_back(nvtt_settings.output_handler->data);
+
+                    if(mip == num_mipmaps - 1) { break; }
+
+                    nvtt_roughness_image.buildNextMipmap(nvtt::MipmapFilter_Box);
+                    nvtt_metalness_image.buildNextMipmap(nvtt::MipmapFilter_Box);
+                }
+
+                std::string roughness_file_path = create_file(roughness_texture);
+                std::string metalness_file_path = create_file(metalness_texture);
+
+                // convert to roughness
+                BinaryTexture& roughness_metallic_texture = binary_textures[i];
+                roughness_metallic_texture.file_path = roughness_file_path;
+                u32 metalness_texture_index = s_cast<u32>(binary_textures.size());
+                BinaryTexture binary_metalness_texture = BinaryTexture{
+                    .material_indices = {},
+                    .name = {},
+                    .file_path = metalness_file_path,
+                };
+
+                for(auto& material_index : roughness_metallic_texture.material_indices) {
+                    material_index.material_type = MaterialType::CompressedRoughness;
+                    binary_metalness_texture.material_indices.push_back(BinaryTexture::BinaryMaterialIndex {
+                        .material_type = MaterialType::CompressedMetalness,
+                        .material_index = material_index.material_index
+                    });
+
+                    BinaryMaterial& binary_material = binary_materials[material_index.material_index];
+                    binary_material.roughness_info = BinaryMaterial::BinaryTextureInfo {
+                        .texture_index = binary_material.roughness_metalness_info->texture_index,
+                        .sampler_index = 0
+                    };
+                    binary_material.metalness_info = BinaryMaterial::BinaryTextureInfo {
+                        .texture_index = metalness_texture_index,
+                        .sampler_index = 0
+                    };
+
+                    binary_material.roughness_metalness_info = std::nullopt;
+                }
+
+                binary_textures.push_back(binary_metalness_texture);
+            } else {
+                nvtt::Surface nvtt_image = create_nvtt_image(width, height, raw_data);
+                nvtt::Format compressed_format = nvtt::Format_BC7;
+                daxa::Format daxa_format = (preferred_material_type == MaterialType::GltfAlbedo || preferred_material_type == MaterialType::GltfEmissive) ? daxa::Format::BC7_SRGB_BLOCK : daxa::Format::BC7_UNORM_BLOCK;
+
+                NVTTSettings nvtt_settings = {};
+                create_nvtt_settings(nvtt_settings, compressed_format);
+
+                BinaryTextureFileFormat texture {
+                    .width = s_cast<u32>(width),
+                    .height = s_cast<u32>(height),
+                    .depth = 1,
+                    .format = daxa_format,
+                    .mipmaps = {}
+                };
+
+                const i32 num_mipmaps = nvtt_image.countMipmaps();
+                for(i32 mip = 0; mip < num_mipmaps; mip++) {
+                    context.compress(nvtt_image, 0, mip, nvtt_settings.compression_options, nvtt_settings.output_options);
+                    texture.mipmaps.push_back(nvtt_settings.output_handler->data);
+
+                    if(mip == num_mipmaps - 1) { break; }
+
+                    nvtt_image.toLinearFromSrgb();
+                    nvtt_image.premultiplyAlpha();
+                    nvtt_image.buildNextMipmap(nvtt::MipmapFilter_Box);
+                    nvtt_image.demultiplyAlpha();
+                    nvtt_image.toSrgb();
+                }
+
+                binary_textures[i].file_path = create_file(texture);
+            }
+
+            std::println("[{} / {}] - image with path: {} - done", i+1, asset->images.size(), image_path);
+        }
+
+        std::vector<std::byte> compressed_data = {};
+        {
+            BinaryHeader header = {
+                .name = "binary model",
+                .version = 0
+            };
+
+            ByteWriter byte_writer;
+            byte_writer.write(header.name);
+            byte_writer.write(header.version);
+
+            byte_writer.write(binary_textures);
+            byte_writer.write(binary_materials);
+            byte_writer.write(binary_nodes);
+            byte_writer.write(binary_mesh_groups);
+            byte_writer.write(binary_meshes);
+
+            std::println("writer {}", byte_writer.data.size());
+            compressed_data = zstd_compress(byte_writer.data, 14);
+        }
+    
+        write_bytes_to_file(compressed_data, output_path);
+    }
 
     template <typename ElemT, bool IS_INDEX_BUFFER>
     auto load_data(fastgltf::Asset& asset, fastgltf::Accessor& accessor) {
@@ -180,23 +905,14 @@ namespace foundation {
         ZoneScoped;
 
         std::vector<std::byte> uncompressed_data = {};
-        usize uncompressed_data_size = {};
         {
-            std::ifstream file(info.file_path, std::ios::binary);
-            auto size = std::filesystem::file_size(info.file_path);
-            std::vector<std::byte> data = {};
-            data.resize(size);
-            file.read(r_cast<char*>(data.data()), size); 
-
-            uncompressed_data_size = ZSTD_getFrameContentSize(data.data(), data.size());
-            uncompressed_data.resize(uncompressed_data_size);
-            uncompressed_data_size = ZSTD_decompress(uncompressed_data.data(), uncompressed_data.size(), data.data(), data.size());
-            uncompressed_data.resize(uncompressed_data_size);
+            std::vector<byte> data = read_file_to_bytes(info.file_path);
+            uncompressed_data = zstd_decompress(data);
         }
 
         ProcessedMeshInfo processed_info = {};
         {
-            ByteReader reader(uncompressed_data.data(), uncompressed_data_size);
+            ByteReader reader(uncompressed_data.data(), uncompressed_data.size());
             reader.read(processed_info);
         }
 
@@ -216,12 +932,12 @@ namespace foundation {
         daxa::BufferId staging_mesh_buffer = context->create_buffer(daxa::BufferInfo {
             .size = s_cast<daxa::usize>(total_mesh_buffer_size),
             .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
-            .name = "mesh buffer: " + info.asset_path.filename().string() + " mesh " + std::to_string(info.gltf_mesh_index) + " primitive " + std::to_string(info.gltf_primitive_index) + " staging",
+            .name = "mesh buffer: " + info.asset_path.filename().string() + " mesh " + std::to_string(info.mesh_group_index) + " primitive " + std::to_string(info.mesh_index) + " staging",
         });
         
         daxa::BufferId mesh_buffer = context->create_buffer(daxa::BufferInfo {
             .size = s_cast<daxa::usize>(total_mesh_buffer_size),
-            .name = "mesh buffer: " + info.asset_path.filename().string() + " mesh " + std::to_string(info.gltf_mesh_index) + " primitive " + std::to_string(info.gltf_primitive_index)
+            .name = "mesh buffer: " + info.asset_path.filename().string() + " mesh " + std::to_string(info.mesh_group_index) + " primitive " + std::to_string(info.mesh_index)
         });
 
         daxa::DeviceAddress mesh_bda = context->device.get_device_address(std::bit_cast<daxa::BufferId>(mesh_buffer)).value();
@@ -244,7 +960,7 @@ namespace foundation {
         memcpy_data(mesh.vertex_normals, processed_info.normals);
         memcpy_data(mesh.vertex_uvs, processed_info.uvs);
         
-        mesh.material_index = info.material_manifest_offset + info.asset->meshes[info.asset->mesh_groups[info.gltf_mesh_index].mesh_offset + info.gltf_primitive_index].material_index.value();
+        mesh.material_index = info.material_manifest_offset + info.asset->meshes[info.asset->mesh_groups[info.mesh_group_index].mesh_offset + info.mesh_index].material_index.value();
         mesh.meshlet_count = s_cast<u32>(processed_info.meshlets.size());
         mesh.vertex_count = s_cast<u32>(processed_info.positions.size());
 
@@ -272,23 +988,14 @@ namespace foundation {
         ZoneScoped;
 
         std::vector<std::byte> uncompressed_data = {};
-        usize uncompressed_data_size = {};
         {
-            std::ifstream file(info.image_path, std::ios::binary);
-            auto size = std::filesystem::file_size(info.image_path);
-            std::vector<std::byte> data = {};
-            data.resize(size);
-            file.read(r_cast<char*>(data.data()), size); 
-
-            uncompressed_data_size = ZSTD_getFrameContentSize(data.data(), data.size());
-            uncompressed_data.resize(uncompressed_data_size);
-            uncompressed_data_size = ZSTD_decompress(uncompressed_data.data(), uncompressed_data.size(), data.data(), data.size());
-            uncompressed_data.resize(uncompressed_data_size);
+            std::vector<byte> data = read_file_to_bytes(info.image_path);
+            uncompressed_data = zstd_decompress(data);
         }
 
         BinaryTextureFileFormat texture;
         {
-            ByteReader reader(uncompressed_data.data(), uncompressed_data_size);
+            ByteReader reader(uncompressed_data.data(), uncompressed_data.size());
             reader.read(texture);
         }
         
@@ -302,7 +1009,7 @@ namespace foundation {
             .array_layer_count = 1,
             .sample_count = 1,
             .usage = daxa::ImageUsageFlagBits::SHADER_SAMPLED | daxa::ImageUsageFlagBits::TRANSFER_DST | daxa::ImageUsageFlagBits::TRANSFER_SRC,
-            .name = "image: " + info.image_path.string() + " " + std::to_string(info.gltf_texture_index),
+            .name = "image: " + info.image_path.string() + " " + std::to_string(info.texture_index),
         });
 
         daxa::SamplerId daxa_sampler = context->get_sampler({
@@ -336,7 +1043,7 @@ namespace foundation {
         daxa::BufferId staging_buffer = context->create_buffer(daxa::BufferInfo {
             .size = _size,
             .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
-            .name = "staging buffer: " + info.image_path.string() + " " + std::to_string(info.gltf_texture_index)
+            .name = "staging buffer: " + info.image_path.string() + " " + std::to_string(info.texture_index)
         }); 
 
         for(u32 i = 0; i < offsets.size(); i++) {

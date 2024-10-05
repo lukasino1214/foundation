@@ -1,6 +1,6 @@
 #pragma once
-#include <utils/byte_utils.hpp>
 
+#include <utils/byte_utils.hpp>
 
 namespace foundation {
     enum struct MaterialType : u32 {

@@ -13,6 +13,7 @@ namespace foundation {
         asset_manager{std::make_unique<AssetManager>(&context, scene.get())},
         thread_pool{std::make_unique<ThreadPool>(std::thread::hardware_concurrency() - 1)},
         scene_hierarchy_panel{scene.get()} {
+        ZoneScoped;
 
         scene->update(delta_time);
         context.update_shader_globals(camera, { 720, 480 });
@@ -30,18 +31,6 @@ namespace foundation {
 
         auto compile_pipelines_task = std::make_shared<CompilePipelinesTask>(renderer.get());
         thread_pool->async_dispatch(compile_pipelines_task);
-
-        struct RebuildFileTask : Task {
-            AssetManager* asset_manager = {};
-            LoadManifestInfo info;
-            std::filesystem::path path = {};
-            explicit RebuildFileTask(AssetManager* _asset_manager, const LoadManifestInfo& _info, const std::filesystem::path& _path)
-                : asset_manager{_asset_manager}, info{_info}, path{_path} { chunk_count = 1; }
-
-            void callback(u32, u32) override {
-                asset_manager->convert_gltf_to_binary(info, path);
-            }
-        };
     
         last_time_point = std::chrono::steady_clock::now();
         camera.camera.resize(s_cast<i32>(window.get_width()), s_cast<i32>(window.get_height()));
@@ -62,7 +51,7 @@ namespace foundation {
                 .asset_processor = asset_processor,
             };
 
-            // asset_manager->convert_gltf_to_binary(manifesto, "assets/binary/Sponza/Sponza.bmodel");
+            // AssetProcessor::convert_gltf_to_binary("assets/models/Sponza/glTF/Sponza.gltf", "assets/binary/Sponza/Sponza.bmodel");
             asset_manager->load_model(manifesto);
         }
 
@@ -77,7 +66,7 @@ namespace foundation {
                 .asset_processor = asset_processor,
             };
 
-            // asset_manager->convert_gltf_to_binary(manifesto, "assets/binary/Bistro/Bistro.bmodel");
+            // AssetProcessor::convert_gltf_to_binary("assets/models/Bistro/Bistro.glb", "assets/binary/Bistro/Bistro.bmodel");
             asset_manager->load_model(manifesto);
         }
 

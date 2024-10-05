@@ -53,8 +53,8 @@ namespace foundation {
     struct LoadMeshInfo {
         std::filesystem::path asset_path = {};
         BinaryAssetInfo* asset = {};
-        u32 gltf_mesh_index = {};
-        u32 gltf_primitive_index = {};
+        u32 mesh_group_index = {};
+        u32 mesh_index = {};
         u32 material_manifest_offset = {};
         u32 manifest_index = {};
         std::filesystem::path file_path = {};
@@ -82,7 +82,7 @@ namespace foundation {
     struct LoadTextureInfo {
         std::filesystem::path asset_path = {};
         BinaryAssetInfo* asset = {};
-        u32 gltf_texture_index = {};
+        u32 texture_index = {};
         u32 texture_manifest_index = {};
         bool load_as_srgb = {};
         std::filesystem::path image_path = {};
@@ -117,6 +117,7 @@ namespace foundation {
         auto record_gpu_load_processing_commands() -> RecordCommands;
 
         static auto process_mesh(const ProcessMeshInfo& info) -> ProcessedMeshInfo;
+        static void convert_gltf_to_binary(const std::filesystem::path& input_path, const std::filesystem::path& output_path);
 
         Context* context;
 

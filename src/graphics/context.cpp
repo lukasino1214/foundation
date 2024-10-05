@@ -3,6 +3,7 @@
 
 namespace foundation {
     DebugDrawContext::DebugDrawContext(Context* _context) : context{_context} {
+        ZoneScoped;
         usize size = sizeof(ShaderDebugBufferHead);
         size += sizeof(ShaderDebugAABBDraw) * max_aabb_draws;
 
@@ -199,6 +200,7 @@ namespace foundation {
     }
 
     void Context::update_shader_globals(ControlledCamera3D& camera, const glm::uvec2& size) {
+        ZoneNamedN(update_shader_globals, "update shader globals", true);
         camera.camera.resize(s_cast<i32>(size.x), s_cast<i32>(size.y));
 
         glm::mat4 inverse_projection_matrix = glm::inverse(camera.camera.proj_mat);

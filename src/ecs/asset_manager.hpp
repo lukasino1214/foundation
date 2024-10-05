@@ -5,8 +5,6 @@
 #include "graphics/context.hpp"
 #include "asset_processor.hpp"
 
-#include <fastgltf/parser.hpp>
-#include <fastgltf/types.hpp>
 #include "ecs/entity.hpp"
 #include "ecs/scene.hpp"
 
@@ -15,11 +13,11 @@ namespace foundation {
         Entity parent;
         std::filesystem::path path;
         Scene* scene;
-        std::unique_ptr<ThreadPool> & thread_pool;
-        std::unique_ptr<AssetProcessor> & asset_processor;
+        std::unique_ptr<ThreadPool>& thread_pool;
+        std::unique_ptr<AssetProcessor>& asset_processor;
     };
 
-    struct GltfAssetManifestEntry {
+    struct AssetManifestEntry {
         std::filesystem::path path = {};
         u32 texture_manifest_offset = {};
         u32 material_manifest_offset = {};
@@ -35,7 +33,7 @@ namespace foundation {
             u32 material_manifest_index = {};
         };
 
-        u32 gltf_asset_manifest_index = {};
+        u32 asset_manifest_index = {};
         u32 asset_local_mesh_index = {};
         u32 asset_local_primitive_index = {};
         std::optional<VirtualGeometryRenderInfo> virtual_geometry_render_info = {};
@@ -44,7 +42,7 @@ namespace foundation {
     struct MeshGroupManifestEntry {
         u32 mesh_manifest_indices_offset = {};
         u32 mesh_count = {};
-        u32 gltf_asset_manifest_index = {};
+        u32 asset_manifest_index = {};
         u32 asset_local_index = {};
         std::string name = {};
     };
@@ -54,7 +52,7 @@ namespace foundation {
             MaterialType material_type = MaterialType::None;
             u32 material_manifest_index = {};
         };
-        u32 gltf_asset_manifest_index = {};
+        u32 asset_manifest_index = {};
         u32 asset_local_index = {};
         std::vector<MaterialManifestIndex> material_manifest_indices = {};
         daxa::ImageId image_id = {};
@@ -79,7 +77,7 @@ namespace foundation {
         u32 alpha_mode;
         f32 alpha_cutoff;
         bool double_sided;
-        u32 gltf_asset_manifest_index = {};
+        u32 asset_manifest_index = {};
         u32 asset_local_index = {};
         u32 material_manifest_index = {};
         std::string name = {};
@@ -91,8 +89,6 @@ namespace foundation {
 
         void load_model(LoadManifestInfo& info);
 
-        static void convert_gltf_to_binary(LoadManifestInfo& info, const std::filesystem::path& output_path);
-
         struct RecordManifestUpdateInfo {
             std::span<const MeshUploadInfo> uploaded_meshes = {};
             std::span<const TextureUploadInfo> uploaded_textures = {};
@@ -100,7 +96,7 @@ namespace foundation {
 
         auto record_manifest_update(const RecordManifestUpdateInfo& info) -> daxa::ExecutableCommandList;
 
-        std::vector<GltfAssetManifestEntry> gltf_asset_manifest_entries = {};
+        std::vector<AssetManifestEntry> asset_manifest_entries = {};
         std::vector<TextureManifestEntry> material_texture_manifest_entries = {};
         std::vector<MaterialManifestEntry> material_manifest_entries = {};
         std::vector<MeshManifestEntry> mesh_manifest_entries = {};
