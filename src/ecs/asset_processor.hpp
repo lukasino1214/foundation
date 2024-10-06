@@ -84,11 +84,14 @@ namespace foundation {
         BinaryAssetInfo* asset = {};
         u32 texture_index = {};
         u32 texture_manifest_index = {};
-        bool load_as_srgb = {};
+        u32 requested_resolution = {};
+        daxa::ImageId old_image = {};
         std::filesystem::path image_path = {};
     };
 
     struct TextureOffsets {
+        u32 width = {};
+        u32 height = {};
         u32 size = {};
         u32 offset = {};
     };
@@ -97,6 +100,7 @@ namespace foundation {
         std::vector<TextureOffsets> offsets = {};
         daxa::BufferId staging_buffer = {};
         daxa::ImageId dst_image = {};
+        daxa::ImageId old_image = {};
         daxa::SamplerId sampler = {};
         u32 manifest_index = {};
     };

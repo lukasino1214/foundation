@@ -12,9 +12,6 @@ namespace foundation {
     struct LoadManifestInfo {
         Entity parent;
         std::filesystem::path path;
-        Scene* scene;
-        std::unique_ptr<ThreadPool>& thread_pool;
-        std::unique_ptr<AssetProcessor>& asset_processor;
     };
 
     struct AssetManifestEntry {
@@ -57,6 +54,8 @@ namespace foundation {
         std::vector<MaterialManifestIndex> material_manifest_indices = {};
         daxa::ImageId image_id = {};
         daxa::SamplerId sampler_id = {};
+        u32 texture_resolution = {};
+        bool loading = true;
         std::string name = {};
     };
 
@@ -84,7 +83,7 @@ namespace foundation {
     };
 
     struct AssetManager {
-        AssetManager(Context* _context, Scene* _scene);
+        AssetManager(Context* _context, Scene* _scene, ThreadPool* _thread_pool, AssetProcessor* _asset_processor);
         ~AssetManager();
 
         void load_model(LoadManifestInfo& info);
@@ -94,7 +93,11 @@ namespace foundation {
             std::span<const TextureUploadInfo> uploaded_textures = {};
         };
 
+        void update_textures();
         auto record_manifest_update(const RecordManifestUpdateInfo& info) -> daxa::ExecutableCommandList;
+
+        ThreadPool* thread_pool;
+        AssetProcessor* asset_processor;
 
         std::vector<AssetManifestEntry> asset_manifest_entries = {};
         std::vector<TextureManifestEntry> material_texture_manifest_entries = {};
@@ -103,6 +106,8 @@ namespace foundation {
         std::vector<MeshGroupManifestEntry> mesh_group_manifest_entries = {};
         std::vector<u32> dirty_meshes = {};
         std::vector<u32> dirty_mesh_groups = {};
+        std::vector<u32> readback_material = {};
+        std::vector<u32> texture_sizes = {};
 
         Context* context;
         Scene* scene;
@@ -114,6 +119,7 @@ namespace foundation {
         daxa::TaskBuffer gpu_meshlet_data = {};
         daxa::TaskBuffer gpu_culled_meshlet_data = {};
         daxa::TaskBuffer gpu_meshlet_index_buffer = {};
+        daxa::TaskBuffer gpu_readback_material = {};
 
         u32 total_meshlet_count = {};
         u32 total_triangle_count = {};

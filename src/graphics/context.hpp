@@ -63,17 +63,6 @@ namespace foundation {
         }
     };
 
-    template<typename T>
-    struct ResourceHolder {
-        struct Resource {
-            T resource = {};
-            u32 size = {};
-        };
-
-        std::unordered_map<std::string, Resource> resources = {};
-        u32 total_size = 0;
-    };
-
     struct Context {
         Context(const AppWindow& window);
         ~Context();
@@ -85,8 +74,8 @@ namespace foundation {
         daxa::TransferMemoryPool transient_mem;
 
         std::unique_ptr<std::mutex> resource_mutex = std::make_unique<std::mutex>();
-        ResourceHolder<daxa::ImageId> images = {};
-        ResourceHolder<daxa::BufferId> buffers = {};
+        usize image_memory_usage = {};
+        usize buffer_memory_usage = {};
 
         ShaderGlobals shader_globals = {};
         daxa::TaskBuffer shader_globals_buffer = {};

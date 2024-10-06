@@ -24,6 +24,7 @@ namespace foundation {
         daxa::TaskBufferView gpu_meshlet_data = {};
         daxa::TaskBufferView gpu_culled_meshlet_data = {};
         daxa::TaskBufferView gpu_meshlet_index_buffer = {};
+        daxa::TaskBufferView gpu_readback_material = {};
         daxa::TaskImageView color_image = {};
         daxa::TaskImageView depth_image = {};
         daxa::TaskImageView visibility_image = {};
@@ -224,6 +225,7 @@ namespace foundation {
                 ResolveVisibilityBufferTask::AT.u_meshes | info.gpu_meshes,
                 ResolveVisibilityBufferTask::AT.u_transforms | info.gpu_transforms,
                 ResolveVisibilityBufferTask::AT.u_materials | info.gpu_materials,
+                ResolveVisibilityBufferTask::AT.u_readback_material | info.gpu_readback_material,
                 ResolveVisibilityBufferTask::AT.u_visibility_image | info.visibility_image,
                 ResolveVisibilityBufferTask::AT.u_image | info.color_image
             },

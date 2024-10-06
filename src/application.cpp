@@ -10,8 +10,8 @@ namespace foundation {
         scripting_engine{&window},
         scene{std::make_shared<Scene>("scene", &context, &window, &scripting_engine, &file_watcher)},
         asset_processor{std::make_unique<AssetProcessor>(&context)},
-        asset_manager{std::make_unique<AssetManager>(&context, scene.get())},
         thread_pool{std::make_unique<ThreadPool>(std::thread::hardware_concurrency() - 1)},
+        asset_manager{std::make_unique<AssetManager>(&context, scene.get(), thread_pool.get(), asset_processor.get())},
         scene_hierarchy_panel{scene.get()} {
         ZoneScoped;
 
@@ -47,8 +47,6 @@ namespace foundation {
             LoadManifestInfo manifesto {
                 .parent = entity,
                 .path = "assets/models/Sponza/glTF/Sponza.gltf",
-                .thread_pool = thread_pool,
-                .asset_processor = asset_processor,
             };
 
             // AssetProcessor::convert_gltf_to_binary("assets/models/Sponza/glTF/Sponza.gltf", "assets/binary/Sponza/Sponza.bmodel");
@@ -62,8 +60,6 @@ namespace foundation {
             LoadManifestInfo manifesto {
                 .parent = entity,
                 .path = "assets/models/Bistro/Bistro.glb",
-                .thread_pool = thread_pool,
-                .asset_processor = asset_processor,
             };
 
             // AssetProcessor::convert_gltf_to_binary("assets/models/Bistro/Bistro.glb", "assets/binary/Bistro/Bistro.bmodel");
@@ -142,6 +138,8 @@ namespace foundation {
             }
 
             {
+                ZoneNamedN(update_textures, "update_textures", true);
+                asset_manager->update_textures();
                 ZoneNamedN(record_gpu_load_processing_commands, "record_gpu_load_processing_commands", true);
                 auto commands = asset_processor->record_gpu_load_processing_commands();
                 ZoneNamedN(record_manifest_update, "record_manifest_update", true);

@@ -223,10 +223,12 @@ namespace foundation {
         render_task_graph.use_persistent_buffer(asset_manager->gpu_meshlet_data);
         render_task_graph.use_persistent_buffer(asset_manager->gpu_culled_meshlet_data);
         render_task_graph.use_persistent_buffer(asset_manager->gpu_meshlet_index_buffer);
+        render_task_graph.use_persistent_buffer(asset_manager->gpu_readback_material);
 
         render_task_graph.add_task({
             .attachments = {
                 daxa::inl_attachment(daxa::TaskBufferAccess::TRANSFER_WRITE, shader_globals_buffer),
+                daxa::inl_attachment(daxa::TaskBufferAccess::TRANSFER_READ, asset_manager->gpu_readback_material),
             },
             .task = [&](daxa::TaskInterface const &ti) {
                 auto alloc = ti.allocator->allocate_fill(context->shader_globals).value();
@@ -238,6 +240,12 @@ namespace foundation {
                     .size = sizeof(ShaderGlobals),
                 });
                 context->debug_draw_context.update_debug_buffer(context->device, ti.recorder, *ti.allocator);
+                std::memcpy(asset_manager->readback_material.data(), context->device.get_host_address(ti.get(asset_manager->gpu_readback_material).ids[0]).value(), asset_manager->readback_material.size() * sizeof(u32));
+                for(u32 i = 0; i < asset_manager->readback_material.size(); i++) { asset_manager->readback_material[i] = (1 << find_msb(asset_manager->readback_material[i])) >> 1;}
+                std::vector<u32> zeroes = {};
+                zeroes.resize(asset_manager->readback_material.size());
+                std::fill(zeroes.begin(), zeroes.end(), 0);
+                std::memcpy(context->device.get_host_address(ti.get(asset_manager->gpu_readback_material).ids[0]).value(), zeroes.data(), asset_manager->readback_material.size() * sizeof(u32));
             },
             .name = "GpuInputUploadTransferTask",
         });
@@ -265,6 +273,7 @@ namespace foundation {
             .gpu_meshlet_data = asset_manager->gpu_meshlet_data,
             .gpu_culled_meshlet_data = asset_manager->gpu_culled_meshlet_data,
             .gpu_meshlet_index_buffer = asset_manager->gpu_meshlet_index_buffer,
+            .gpu_readback_material = asset_manager->gpu_readback_material,
             .color_image = render_image,
             .depth_image = depth_image,
             .visibility_image = visibility_image
@@ -301,8 +310,26 @@ namespace foundation {
 
     void Renderer::ui_update() {
         ImGui::Begin("Memory Usage");
-        ImGui::Text("%s", std::format("Total memory usage for images: {} MBs", std::to_string(s_cast<f64>(context->images.total_size) / 1024.0 / 1024.0)).c_str());
-        ImGui::Text("%s", std::format("Total memory usage for buffers: {} MBs", std::to_string(s_cast<f64>(context->buffers.total_size) / 1024.0 / 1024.0)).c_str());
+        // ImGui::Text("%s", std::format("Total memory usage for images: {} MBs", std::to_string(s_cast<f64>(context->images.total_size) / 1024.0 / 1024.0)).c_str());
+        // ImGui::Text("%s", std::format("Total memory usage for buffers: {} MBs", std::to_string(s_cast<f64>(context->buffers.total_size) / 1024.0 / 1024.0)).c_str());
+        ImGui::Text("%s", std::format("Total memory usage for images: {} MBs", std::to_string(s_cast<f64>(context->image_memory_usage) / 1024.0 / 1024.0)).c_str());
+        ImGui::Text("%s", std::format("Total memory usage for buffers: {} MBs", std::to_string(s_cast<f64>(context->buffer_memory_usage) / 1024.0 / 1024.0)).c_str());
+        // ImGui::Text("Total memory usage for images: %llu bytes", context->image_memory_usage);
+        // ImGui::Text("Total memory usage for images: %llu bytes", context->buffer_memory_usage);
+        ImGui::End();
+
+        ImGui::Begin("Material Readback");
+        auto& readback_materials = asset_manager->readback_material;
+        for(u32 i = 0; i < readback_materials.size(); i++) {
+            ImGui::Text("Material %u: requested %ux%u", i, readback_materials[i], readback_materials[i]);
+        }
+        ImGui::End();
+
+        ImGui::Begin("Texture sizes");
+        auto& texture_sizes = asset_manager->texture_sizes;
+        for(u32 i = 0; i < texture_sizes.size(); i++) {
+            ImGui::Text("Texture %u: %ux%u", i, texture_sizes[i], texture_sizes[i]);
+        }
         ImGui::End();
     }
 

@@ -182,23 +182,8 @@ void main(u32vec3 pixel : SV_DispatchThreadID) {
 
     daxa_ImageViewId normal_image_id = push.uses.u_materials[mesh.material_index].normal_image_id;
     if(normal_image_id.value != 0) {
-        // f32vec3 sampled_normal = Texture2D<float>::get(normal_image_id).SampleGrad(SamplerState::get(push.uses.u_materials[mesh.material_index].normal_sampler_id), uv_grad.uv, uv_grad.ddx, uv_grad.ddy).xyz * 2.0 - 1.0;
         f32vec2 raw_normal =  Texture2D<float>::get(normal_image_id).SampleGrad(SamplerState::get(push.uses.u_materials[mesh.material_index].normal_sampler_id), uv_grad.uv, uv_grad.ddx, uv_grad.ddy).xy * 2.0f - 1.0f;
         f32vec3 sampled_normal = f32vec3(raw_normal, sqrt(clamp(1.0f - dot(raw_normal, raw_normal), 0.0, 1.0)));
-
-        daxa_f32vec2 uv_ddx = visgeo_interpolate_vec2(
-            derivatives.m_ddx, 
-            uvs[0],
-            uvs[1],
-            uvs[2]
-        );
-
-        daxa_f32vec2 uv_ddy = visgeo_interpolate_vec2(
-            derivatives.m_ddy, 
-            uvs[0],
-            uvs[1],
-            uvs[2]
-        );
 
         daxa_f32vec3 p_dx = visgeo_interpolate_vec3(
             derivatives.m_ddx, 
@@ -213,10 +198,7 @@ void main(u32vec3 pixel : SV_DispatchThreadID) {
             world_positions[2].xyz
         );
 
-        daxa_f32vec2 tc_dx = uv_ddx;
-        daxa_f32vec2 tc_dy = uv_ddy;
-
-        daxa_f32vec3 tangent = normalize( tc_dy.y * p_dx - tc_dx.y * p_dy );
+        daxa_f32vec3 tangent = normalize( uv_grad.ddy.y * p_dx - uv_grad.ddx.y * p_dy );
 
         daxa_f32vec3 x = cross(normal, tangent);
         tangent = cross(x, normal);
@@ -245,10 +227,13 @@ void main(u32vec3 pixel : SV_DispatchThreadID) {
     }
 
     RWTexture2D<f32vec4> image = RWTexture2D<f32>::get(push.uses.u_image);
+
+    // texture streaming
     f32 mip_map = log2(max(length(uv_grad.ddx * 65536u), length(uv_grad.ddy * 65536u)));
-    const uint resolution0 = 65536u >> uint(max(0, mip_map));
-	const uint resolution1 = 65536u >> uint(max(0, mip_map));
-    color = f32vec4(f32vec3(mip_map / 12.0f), 1.0f);
+    const uint wave_mask = WaveActiveBitOr(65536u >> u32(max(0, mip_map)));
+	if(WaveIsFirstLane()) {
+		InterlockedOr(push.uses.u_readback_material[mesh.material_index], wave_mask);
+	}
 
     // color = f32vec4(normal * 0.5 + 0.5, 1.0f);
 

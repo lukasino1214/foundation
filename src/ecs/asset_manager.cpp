@@ -8,7 +8,7 @@
 #include <utils/file_io.hpp>
 
 namespace foundation {
-    AssetManager::AssetManager(Context* _context, Scene* _scene) : context{_context}, scene{_scene} {
+    AssetManager::AssetManager(Context* _context, Scene* _scene, ThreadPool* _thread_pool, AssetProcessor* _asset_processor) : context{_context}, scene{_scene}, thread_pool{_thread_pool}, asset_processor{_asset_processor} {
         ZoneScoped;
         gpu_meshes = make_task_buffer(context, {
             sizeof(Mesh), 
@@ -51,6 +51,12 @@ namespace foundation {
             daxa::MemoryFlagBits::DEDICATED_MEMORY,
             "meshlet index buffer"
         });
+
+        gpu_readback_material = make_task_buffer(context, {
+            sizeof(u32),
+            daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
+            "readback material"
+        });
     }
     AssetManager::~AssetManager() {
         context->destroy_buffer(gpu_meshes.get_state().buffers[0]);
@@ -60,6 +66,7 @@ namespace foundation {
         context->destroy_buffer(gpu_meshlet_data.get_state().buffers[0]);
         context->destroy_buffer(gpu_culled_meshlet_data.get_state().buffers[0]);
         context->destroy_buffer(gpu_meshlet_index_buffer.get_state().buffers[0]);
+        context->destroy_buffer(gpu_readback_material.get_state().buffers[0]);
 
         for(auto& mesh_manifest : mesh_manifest_entries) {
             if(!mesh_manifest.virtual_geometry_render_info->mesh_buffer.is_empty()) {
@@ -260,7 +267,7 @@ namespace foundation {
             const auto& mesh_group = asset->mesh_groups.at(mesh_group_index);
             const auto& mesh_group_manifest = mesh_group_manifest_entries[mesh_group_manifest_offset + mesh_group_index];
             for(u32 mesh_index = 0; mesh_index < mesh_group.mesh_count; mesh_index++) {
-                info.thread_pool->async_dispatch(std::make_shared<LoadMeshTask>(LoadMeshTask::TaskInfo{
+                thread_pool->async_dispatch(std::make_shared<LoadMeshTask>(LoadMeshTask::TaskInfo{
                     .load_info = {
                         .asset_path = info.path,
                         .asset = asset.get(),
@@ -270,7 +277,7 @@ namespace foundation {
                         .manifest_index = mesh_group_manifest.mesh_manifest_indices_offset + mesh_index,
                         .file_path = asset_manifest.path.parent_path() / asset->meshes[mesh_group.mesh_offset + mesh_index].file_path
                     },
-                    .asset_processor = info.asset_processor.get(),
+                    .asset_processor = asset_processor,
                 }), TaskPriority::LOW);
             }
         }
@@ -300,19 +307,68 @@ namespace foundation {
             }
 
             if (!texture_manifest_entry.material_manifest_indices.empty()) {
-                info.thread_pool->async_dispatch(
+                thread_pool->async_dispatch(
                 std::make_shared<LoadTextureTask>(LoadTextureTask::TaskInfo{
                     .load_info = {
                         .asset_path = asset_manifest.path,
                         .asset = asset.get(),
                         .texture_index = texture_index,
                         .texture_manifest_index = texture_manifest_index,
-                        .load_as_srgb = used_as_albedo,
+                        .old_image = {},
                         .image_path = asset_manifest.path.parent_path() / asset->textures[texture_index].file_path,
                     },
-                    .asset_processor = info.asset_processor.get(),
+                    .asset_processor = asset_processor,
                 }), TaskPriority::LOW);
             }
+        }
+    }
+
+    void AssetManager::update_textures() {
+        if(texture_sizes.empty()) { return; }
+        std::fill(texture_sizes.begin(), texture_sizes.end(), 16);
+        for(u32 texture_index = 0; texture_index < material_texture_manifest_entries.size(); texture_index++) {
+            TextureManifestEntry& texture_entry = material_texture_manifest_entries[texture_index];
+            for(const auto& material_index : texture_entry.material_manifest_indices) {
+                texture_sizes[texture_index] = std::max(texture_sizes[texture_index], readback_material[material_index.material_manifest_index]);
+            }
+
+            struct LoadTextureTask : Task {
+                struct TaskInfo {
+                    LoadTextureInfo load_info = {};
+                    AssetProcessor * asset_processor = {};
+                    u32 manifest_index = {};
+                };
+
+                TaskInfo info = {};
+                explicit LoadTextureTask(TaskInfo const & info) : info{info} { chunk_count = 1; }
+
+                virtual void callback(u32, u32) override {
+                    info.asset_processor->load_texture(info.load_info);
+                };
+            };
+
+            const AssetManifestEntry& asset_entry = asset_manifest_entries[texture_entry.asset_manifest_index];
+
+            if(texture_entry.image_id.is_empty()) { continue; }
+            if(texture_sizes[texture_index] == texture_entry.texture_resolution) { continue; }
+            if(texture_entry.loading) { continue; }
+            // texture_sizes[texture_index] = texture_entry.texture_resolution;
+            texture_entry.loading = true;
+            texture_entry.texture_resolution = texture_sizes[texture_index];
+            // std::println("id: {} size: {}", texture_index, texture_entry.texture_resolution);
+            thread_pool->async_dispatch(
+                std::make_shared<LoadTextureTask>(LoadTextureTask::TaskInfo{
+                    .load_info = {
+                        .asset_path = asset_entry.path,
+                        .asset = asset_entry.asset.get(),
+                        .texture_index = texture_entry.asset_local_index,
+                        .texture_manifest_index = texture_index,
+                        .requested_resolution = texture_sizes[texture_index],
+                        .old_image = texture_entry.image_id,
+                        .image_path = asset_entry.path.parent_path() / asset_entry.asset->textures[texture_entry.asset_local_index].file_path,
+                    },
+                    .asset_processor = asset_processor,
+            }), TaskPriority::LOW);
         }
     }
 
@@ -399,6 +455,9 @@ namespace foundation {
                 .indices = context->device.get_device_address(buffer).value() + sizeof(MeshletIndexBuffer)
             };
         });
+        readback_material.resize(material_manifest_entries.size());
+        texture_sizes.resize(material_texture_manifest_entries.size());
+        realloc(gpu_readback_material, s_cast<u32>(material_manifest_entries.size() * sizeof(u32)));
 
         if(!dirty_meshes.empty()) {
             Mesh mesh = {};
@@ -503,7 +562,7 @@ namespace foundation {
             std::memcpy(context->device.get_host_address_as<Material>(material_null_buffer).value(), &material, sizeof(Material));
         }
 
-        for(auto& mesh_upload_info : info.uploaded_meshes) {
+        for(const auto& mesh_upload_info : info.uploaded_meshes) {
             auto& mesh_manifest = mesh_manifest_entries[mesh_upload_info.manifest_index];
             auto& asset_manifest = asset_manifest_entries[mesh_manifest.asset_manifest_index];
             u32 material_index = mesh_upload_info.material_manifest_offset + asset_manifest.asset->meshes[asset_manifest.asset->mesh_groups[mesh_manifest.asset_local_mesh_index].mesh_offset + mesh_manifest.asset_local_primitive_index].material_index.value();
@@ -550,8 +609,10 @@ namespace foundation {
         std::vector<u32> dirty_material_manifest_indices = {};
         for(const auto& texture_upload_info : info.uploaded_textures) {
             auto& texture_manifest = material_texture_manifest_entries.at(texture_upload_info.manifest_index);
+            texture_manifest.texture_resolution = context->device.info_image(texture_upload_info.dst_image).value().size.x;
             texture_manifest.image_id = texture_upload_info.dst_image;
             texture_manifest.sampler_id = texture_upload_info.sampler;
+            texture_manifest.loading = false;
 
             for(auto& material_using_texture_info : texture_manifest.material_manifest_indices) {
                 MaterialManifestEntry & material_entry = material_manifest_entries.at(material_using_texture_info.material_manifest_index);

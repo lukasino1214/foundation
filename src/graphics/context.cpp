@@ -130,73 +130,41 @@ namespace foundation {
     }
 
     auto Context::create_image(const daxa::ImageInfo& info) -> daxa::ImageId {
-        std::string name = std::string{info.name.c_str().data()};
-        auto find = images.resources.find(name);
-        std::lock_guard<std::mutex> lock{*resource_mutex};
-        if(find != images.resources.end()) {
-            throw std::runtime_error("image collision: " + name);
-        } else {
-            daxa::ImageId resource = device.create_image(info);
-            u32 size = s_cast<u32>(device.get_memory_requirements(info).size);
-            images.resources[name] = ResourceHolder<daxa::ImageId>::Resource { resource, size };
-            images.total_size += size;
-            return resource;
-        }
+        daxa::ImageId resource = device.create_image(info);
+        usize size = device.get_memory_requirements(info).size;
+        image_memory_usage += size;
+        return resource;
     }
 
     void Context::destroy_image(const daxa::ImageId& id) {
-        std::lock_guard<std::mutex> lock{*resource_mutex};
-        const daxa::ImageInfo& info = device.info_image(id).value();
-        std::string name = std::string{info.name.c_str().data()};
-        const auto& resource = images.resources.at(name);
-        images.total_size -= resource.size;
-        device.destroy_image(resource.resource);
-        images.resources.erase(name);
+        usize size = device.get_memory_requirements(device.info_image(id).value()).size;
+        image_memory_usage -= size;
+        device.destroy_image(id);
     }
 
     void Context::destroy_image_deferred(daxa::CommandRecorder& cmd, const daxa::ImageId& id) {
-        std::lock_guard<std::mutex> lock{*resource_mutex};
-        const daxa::ImageInfo& info = device.info_image(id).value();
-        std::string name = std::string{info.name.c_str().data()};
-        const auto& resource = images.resources.at(name);
-        images.total_size -= resource.size;
-        cmd.destroy_image_deferred(resource.resource);
-        images.resources.erase(name);
+        usize size = device.get_memory_requirements(device.info_image(id).value()).size;
+        image_memory_usage -= size;
+        cmd.destroy_image_deferred(id);
     }
     
     auto Context::create_buffer(const daxa::BufferInfo& info) -> daxa::BufferId {
-        std::string name = std::string{info.name.c_str().data()};
-        std::lock_guard<std::mutex> lock{*resource_mutex};
-        auto find = buffers.resources.find(name);
-        if(find != buffers.resources.end()) {
-            throw std::runtime_error("buffer collision: " + name);
-        } else {
-            daxa::BufferId resource = device.create_buffer(info);
-            u32 size = s_cast<u32>(device.get_memory_requirements(info).size);
-            buffers.resources[name] = ResourceHolder<daxa::BufferId>::Resource { resource, size };
-            buffers.total_size += size;
-            return resource;
-        }
+        daxa::BufferId resource = device.create_buffer(info);
+        usize size = device.get_memory_requirements(info).size;
+        buffer_memory_usage += size;
+        return resource;
     }
 
     void Context::destroy_buffer(const daxa::BufferId& id) {
-        std::lock_guard<std::mutex> lock{*resource_mutex};
-        const daxa::BufferInfo& info = device.info_buffer(id).value();
-        std::string name = std::string{info.name.c_str().data()};
-        const auto& resource = buffers.resources.at(name);
-        buffers.total_size -= resource.size;
-        device.destroy_buffer(resource.resource);
-        buffers.resources.erase(name);
+        usize size = device.info_buffer(id).value().size;
+        buffer_memory_usage -= size;
+        device.destroy_buffer(id);
     }
 
     void Context::destroy_buffer_deferred(daxa::CommandRecorder& cmd, const daxa::BufferId& id) {
-        std::lock_guard<std::mutex> lock{*resource_mutex};
-        const daxa::BufferInfo& info = device.info_buffer(id).value();
-        std::string name = std::string{info.name.c_str().data()};
-        const auto& resource = buffers.resources.at(name);
-        buffers.total_size -= resource.size;
-        cmd.destroy_buffer_deferred(resource.resource);
-        buffers.resources.erase(name);
+        usize size = device.info_buffer(id).value().size;
+        buffer_memory_usage -= size;
+        cmd.destroy_buffer_deferred(id);
     }
 
     void Context::update_shader_globals(ControlledCamera3D& camera, const glm::uvec2& size) {
