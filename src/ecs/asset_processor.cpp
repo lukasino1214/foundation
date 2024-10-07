@@ -447,6 +447,7 @@ namespace foundation {
                     }
 
                     binary_textures[i].file_path = create_file(texture);
+                    binary_textures[i].resolution = s_cast<u32>(width);
                 }
 
                 if(create_alpha_mask) {
@@ -504,7 +505,8 @@ namespace foundation {
 
                     const BinaryTexture& albedo_texture = binary_textures[i];
                     u32 alpha_mask_texture_index = s_cast<u32>(binary_textures.size());
-                    BinaryTexture alpha_mask_texture = BinaryTexture{
+                    BinaryTexture alpha_mask_texture = BinaryTexture {
+                        .resolution = s_cast<u32>(width),
                         .material_indices = {},
                         .name = {},
                         .file_path = file_name,
@@ -558,6 +560,7 @@ namespace foundation {
                 }
 
                 binary_textures[i].file_path = create_file(texture);
+                binary_textures[i].resolution = s_cast<u32>(width);
             } else if(preferred_material_type == MaterialType::GltfEmissive) {
                 nvtt::Surface nvtt_image = create_nvtt_image(width, height, raw_data);
                 nvtt::Format compressed_format = nvtt::Format_BC1;
@@ -587,6 +590,7 @@ namespace foundation {
                 }
 
                 binary_textures[i].file_path = create_file(texture);
+                binary_textures[i].resolution = s_cast<u32>(width);
             } else if(preferred_material_type == MaterialType::GltfRoughnessMetallic) {
                 std::vector<std::byte> roughness = {};
                 roughness.resize(raw_data.size());
@@ -649,8 +653,10 @@ namespace foundation {
                 // convert to roughness
                 BinaryTexture& roughness_metallic_texture = binary_textures[i];
                 roughness_metallic_texture.file_path = roughness_file_path;
+                roughness_metallic_texture.resolution = s_cast<u32>(width);
                 u32 metalness_texture_index = s_cast<u32>(binary_textures.size());
-                BinaryTexture binary_metalness_texture = BinaryTexture{
+                BinaryTexture binary_metalness_texture = BinaryTexture {
+                    .resolution = s_cast<u32>(width),
                     .material_indices = {},
                     .name = {},
                     .file_path = metalness_file_path,
@@ -1010,11 +1016,13 @@ namespace foundation {
                 reader.read(texture);
             }
 
-            mip_levels = s_cast<u32>(texture.mipmaps.size());
+            u32 width = info.requested_resolution != 0 ? std:: min(texture.width, info.requested_resolution) : texture.width;
+            u32 height = info.requested_resolution != 0 ? std:: min(texture.height, info.requested_resolution) : texture.height;
+            mip_levels = s_cast<u32>(std::floor(std::log2(width))) + 1;
             daxa_image = context->create_image(daxa::ImageInfo {
                 .dimensions = 2,
                 .format = texture.format,
-                .size = { texture.width, texture.height, 1},
+                .size = {width, height, 1},
                 .mip_level_count = mip_levels,
                 .array_layer_count = 1,
                 .sample_count = 1,
@@ -1215,7 +1223,7 @@ namespace foundation {
                     cmd_recorder.pipeline_barrier_image_transition({
                         .src_access = daxa::AccessConsts::TRANSFER_READ_WRITE,
                         .dst_access = daxa::AccessConsts::READ_WRITE,
-                        .src_layout = daxa::ImageLayout::UNDEFINED,
+                        .src_layout = daxa::ImageLayout::READ_ONLY_OPTIMAL,
                         .dst_layout = daxa::ImageLayout::TRANSFER_SRC_OPTIMAL,
                         .image_slice = {
                             .base_mip_level = 0,
@@ -1272,6 +1280,20 @@ namespace foundation {
                             std::max<i32>(1, old_mip_size[2] / 2),
                         };
                     }
+
+                    cmd_recorder.pipeline_barrier_image_transition({
+                        .src_access = daxa::AccessConsts::TRANSFER_READ_WRITE,
+                        .dst_access = daxa::AccessConsts::READ_WRITE,
+                        .src_layout = daxa::ImageLayout::TRANSFER_SRC_OPTIMAL,
+                        .dst_layout = daxa::ImageLayout::READ_ONLY_OPTIMAL,
+                        .image_slice = {
+                            .base_mip_level = 0,
+                            .level_count = old_image_info.mip_level_count,
+                            .base_array_layer = 0,
+                            .layer_count = 1,
+                        },
+                        .image_id = texture_upload_info.old_image,
+                    });
 
                     cmd_recorder.pipeline_barrier_image_transition({
                         .src_access = daxa::AccessConsts::TRANSFER_READ_WRITE,

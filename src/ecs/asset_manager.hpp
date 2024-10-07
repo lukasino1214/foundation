@@ -54,7 +54,9 @@ namespace foundation {
         std::vector<MaterialManifestIndex> material_manifest_indices = {};
         daxa::ImageId image_id = {};
         daxa::SamplerId sampler_id = {};
-        u32 texture_resolution = {};
+        u32 current_resolution = {};
+        u32 max_resolution = {};
+        u8 unload_delay = {};
         bool loading = true;
         std::string name = {};
     };
@@ -96,11 +98,13 @@ namespace foundation {
         void update_textures();
         auto record_manifest_update(const RecordManifestUpdateInfo& info) -> daxa::ExecutableCommandList;
 
+        Context* context;
+        Scene* scene;
         ThreadPool* thread_pool;
         AssetProcessor* asset_processor;
 
         std::vector<AssetManifestEntry> asset_manifest_entries = {};
-        std::vector<TextureManifestEntry> material_texture_manifest_entries = {};
+        std::vector<TextureManifestEntry> texture_manifest_entries = {};
         std::vector<MaterialManifestEntry> material_manifest_entries = {};
         std::vector<MeshManifestEntry> mesh_manifest_entries = {};
         std::vector<MeshGroupManifestEntry> mesh_group_manifest_entries = {};
@@ -109,8 +113,6 @@ namespace foundation {
         std::vector<u32> readback_material = {};
         std::vector<u32> texture_sizes = {};
 
-        Context* context;
-        Scene* scene;
         daxa::TaskBuffer gpu_meshes = {};
         daxa::TaskBuffer gpu_materials = {};
         daxa::TaskBuffer gpu_mesh_groups = {};

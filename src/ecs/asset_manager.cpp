@@ -74,7 +74,7 @@ namespace foundation {
             }
         }
 
-        for(auto& texture_manifest : material_texture_manifest_entries) {
+        for(auto& texture_manifest : texture_manifest_entries) {
             if(!texture_manifest.image_id.is_empty()) {
                 context->destroy_image(texture_manifest.image_id);
             }
@@ -91,7 +91,7 @@ namespace foundation {
         mc->path = info.path;
 
         u32 const asset_manifest_index = s_cast<u32>(asset_manifest_entries.size());
-        u32 const texture_manifest_offset = s_cast<u32>(material_texture_manifest_entries.size());
+        u32 const texture_manifest_offset = s_cast<u32>(texture_manifest_entries.size());
         u32 const material_manifest_offset = s_cast<u32>(material_manifest_entries.size());
         u32 const mesh_manifest_offset = s_cast<u32>(mesh_manifest_entries.size());
         u32 const mesh_group_manifest_offset = s_cast<u32>(mesh_group_manifest_entries.size());
@@ -142,12 +142,14 @@ namespace foundation {
                 });
             }
 
-            material_texture_manifest_entries.push_back(TextureManifestEntry{
+            texture_manifest_entries.push_back(TextureManifestEntry{
                 .asset_manifest_index = asset_manifest_index,
                 .asset_local_index = i,
                 .material_manifest_indices = indices, 
                 .image_id = {},
-                .sampler_id = {}, 
+                .sampler_id = {},
+                .current_resolution = {},
+                .max_resolution = texture.resolution,
                 .name = texture.name,
             });
         }
@@ -299,12 +301,7 @@ namespace foundation {
 
         for (u32 texture_index = 0; texture_index < s_cast<u32>(asset->textures.size()); texture_index++) {
             auto const texture_manifest_index = texture_index + asset_manifest.texture_manifest_offset;
-            auto const & texture_manifest_entry = material_texture_manifest_entries.at(texture_manifest_index);
-            bool used_as_albedo = false;
-            for (auto const & material_manifest_index : texture_manifest_entry.material_manifest_indices) {
-                used_as_albedo |= material_manifest_index.material_type == MaterialType::GltfAlbedo;
-                used_as_albedo |= material_manifest_index.material_type == MaterialType::GltfEmissive;
-            }
+            auto const & texture_manifest_entry = texture_manifest_entries.at(texture_manifest_index);
 
             if (!texture_manifest_entry.material_manifest_indices.empty()) {
                 thread_pool->async_dispatch(
@@ -326,11 +323,12 @@ namespace foundation {
     void AssetManager::update_textures() {
         if(texture_sizes.empty()) { return; }
         std::fill(texture_sizes.begin(), texture_sizes.end(), 16);
-        for(u32 texture_index = 0; texture_index < material_texture_manifest_entries.size(); texture_index++) {
-            TextureManifestEntry& texture_entry = material_texture_manifest_entries[texture_index];
-            for(const auto& material_index : texture_entry.material_manifest_indices) {
+        for(u32 texture_index = 0; texture_index < texture_manifest_entries.size(); texture_index++) {
+            TextureManifestEntry& texture_manifest = texture_manifest_entries[texture_index];
+            for(const auto& material_index : texture_manifest.material_manifest_indices) {
                 texture_sizes[texture_index] = std::max(texture_sizes[texture_index], readback_material[material_index.material_manifest_index]);
             }
+            texture_sizes[texture_index] = std::min(texture_manifest.max_resolution, texture_sizes[texture_index]);
 
             struct LoadTextureTask : Task {
                 struct TaskInfo {
@@ -347,25 +345,29 @@ namespace foundation {
                 };
             };
 
-            const AssetManifestEntry& asset_entry = asset_manifest_entries[texture_entry.asset_manifest_index];
 
-            if(texture_entry.image_id.is_empty()) { continue; }
-            if(texture_sizes[texture_index] == texture_entry.texture_resolution) { continue; }
-            if(texture_entry.loading) { continue; }
-            // texture_sizes[texture_index] = texture_entry.texture_resolution;
-            texture_entry.loading = true;
-            texture_entry.texture_resolution = texture_sizes[texture_index];
-            // std::println("id: {} size: {}", texture_index, texture_entry.texture_resolution);
+            texture_manifest.unload_delay++;
+            const u32 requested_size = texture_sizes[texture_index];
+            if(texture_manifest.image_id.is_empty()) { continue; }
+            if(requested_size == texture_manifest.current_resolution) { continue; }
+            if(texture_manifest.loading) { continue; }
+            if(requested_size < texture_manifest.current_resolution && texture_manifest.unload_delay < 254) { continue; }
+            
+            texture_manifest.loading = true;
+            texture_manifest.unload_delay = 0;
+            texture_manifest.current_resolution = requested_size;
+
+            const AssetManifestEntry& asset_entry = asset_manifest_entries[texture_manifest.asset_manifest_index];
             thread_pool->async_dispatch(
                 std::make_shared<LoadTextureTask>(LoadTextureTask::TaskInfo{
                     .load_info = {
                         .asset_path = asset_entry.path,
                         .asset = asset_entry.asset.get(),
-                        .texture_index = texture_entry.asset_local_index,
+                        .texture_index = texture_manifest.asset_local_index,
                         .texture_manifest_index = texture_index,
-                        .requested_resolution = texture_sizes[texture_index],
-                        .old_image = texture_entry.image_id,
-                        .image_path = asset_entry.path.parent_path() / asset_entry.asset->textures[texture_entry.asset_local_index].file_path,
+                        .requested_resolution = requested_size,
+                        .old_image = texture_manifest.image_id,
+                        .image_path = asset_entry.path.parent_path() / asset_entry.asset->textures[texture_manifest.asset_local_index].file_path,
                     },
                     .asset_processor = asset_processor,
             }), TaskPriority::LOW);
@@ -456,7 +458,7 @@ namespace foundation {
             };
         });
         readback_material.resize(material_manifest_entries.size());
-        texture_sizes.resize(material_texture_manifest_entries.size());
+        texture_sizes.resize(texture_manifest_entries.size());
         realloc(gpu_readback_material, s_cast<u32>(material_manifest_entries.size() * sizeof(u32)));
 
         if(!dirty_meshes.empty()) {
@@ -544,45 +546,45 @@ namespace foundation {
             dirty_mesh_groups.clear();
         }
 
-        daxa::BufferId material_null_buffer = context->create_buffer({
-            .size = s_cast<u32>(sizeof(Material)),
-            .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
-            .name = "material null buffer",
-        });
-        context->destroy_buffer_deferred(cmd_recorder, material_null_buffer);
-        {
-            Material material = {};
-            material.metallic_factor = 1.0f;
-            material.roughness_factor = 1.0f;
-            material.emissive_factor = { 0.0f, 0.0f, 0.0f };
-            material.alpha_mode = 0;
-            material.alpha_cutoff = 0.5f;
-            material.double_sided = 0u;
-
-            std::memcpy(context->device.get_host_address_as<Material>(material_null_buffer).value(), &material, sizeof(Material));
-        }
-
-        for(const auto& mesh_upload_info : info.uploaded_meshes) {
-            auto& mesh_manifest = mesh_manifest_entries[mesh_upload_info.manifest_index];
-            auto& asset_manifest = asset_manifest_entries[mesh_manifest.asset_manifest_index];
-            u32 material_index = mesh_upload_info.material_manifest_offset + asset_manifest.asset->meshes[asset_manifest.asset->mesh_groups[mesh_manifest.asset_local_mesh_index].mesh_offset + mesh_manifest.asset_local_primitive_index].material_index.value();
-            auto& material_manifest = material_manifest_entries.at(material_index);
-
-            cmd_recorder.copy_buffer_to_buffer(daxa::BufferCopyInfo {
-                .src_buffer = material_null_buffer,
-                .dst_buffer = gpu_materials.get_state().buffers[0],
-                .src_offset = 0,
-                .dst_offset = material_manifest.material_manifest_index * sizeof(Material),
-                .size = sizeof(Material),
-            });
-
-            mesh_manifest.virtual_geometry_render_info = MeshManifestEntry::VirtualGeometryRenderInfo {
-                .mesh_buffer = mesh_upload_info.mesh_buffer,
-                .material_manifest_index = material_manifest.material_manifest_index,
-            };
-        }
-
         if(!info.uploaded_meshes.empty()) {
+            daxa::BufferId material_null_buffer = context->create_buffer({
+                .size = s_cast<u32>(sizeof(Material)),
+                .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
+                .name = "material null buffer",
+            });
+            context->destroy_buffer_deferred(cmd_recorder, material_null_buffer);
+            {
+                Material material = {};
+                material.metallic_factor = 1.0f;
+                material.roughness_factor = 1.0f;
+                material.emissive_factor = { 0.0f, 0.0f, 0.0f };
+                material.alpha_mode = 0;
+                material.alpha_cutoff = 0.5f;
+                material.double_sided = 0u;
+
+                std::memcpy(context->device.get_host_address_as<Material>(material_null_buffer).value(), &material, sizeof(Material));
+            }
+
+            for(const auto& mesh_upload_info : info.uploaded_meshes) {
+                auto& mesh_manifest = mesh_manifest_entries[mesh_upload_info.manifest_index];
+                auto& asset_manifest = asset_manifest_entries[mesh_manifest.asset_manifest_index];
+                u32 material_index = mesh_upload_info.material_manifest_offset + asset_manifest.asset->meshes[asset_manifest.asset->mesh_groups[mesh_manifest.asset_local_mesh_index].mesh_offset + mesh_manifest.asset_local_primitive_index].material_index.value();
+                auto& material_manifest = material_manifest_entries.at(material_index);
+
+                cmd_recorder.copy_buffer_to_buffer(daxa::BufferCopyInfo {
+                    .src_buffer = material_null_buffer,
+                    .dst_buffer = gpu_materials.get_state().buffers[0],
+                    .src_offset = 0,
+                    .dst_offset = material_manifest.material_manifest_index * sizeof(Material),
+                    .size = sizeof(Material),
+                });
+
+                mesh_manifest.virtual_geometry_render_info = MeshManifestEntry::VirtualGeometryRenderInfo {
+                    .mesh_buffer = mesh_upload_info.mesh_buffer,
+                    .material_manifest_index = material_manifest.material_manifest_index,
+                };
+            }
+
             daxa::BufferId staging_buffer = context->create_buffer({
                 .size = info.uploaded_meshes.size() * sizeof(Mesh),
                 .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
@@ -608,8 +610,8 @@ namespace foundation {
 
         std::vector<u32> dirty_material_manifest_indices = {};
         for(const auto& texture_upload_info : info.uploaded_textures) {
-            auto& texture_manifest = material_texture_manifest_entries.at(texture_upload_info.manifest_index);
-            texture_manifest.texture_resolution = context->device.info_image(texture_upload_info.dst_image).value().size.x;
+            auto& texture_manifest = texture_manifest_entries.at(texture_upload_info.manifest_index);
+            texture_manifest.current_resolution = context->device.info_image(texture_upload_info.dst_image).value().size.x;
             texture_manifest.image_id = texture_upload_info.dst_image;
             texture_manifest.sampler_id = texture_upload_info.sampler;
             texture_manifest.loading = false;
@@ -660,34 +662,34 @@ namespace foundation {
                 gpu_material.double_sided = s_cast<b32>(material.double_sided);
 
                 if (material.albedo_info.has_value()) {
-                    auto const & texture_entry = material_texture_manifest_entries.at(material.albedo_info.value().texture_manifest_index);
-                    gpu_material.albedo_image_id = texture_entry.image_id.default_view();
-                    gpu_material.albedo_sampler_id = texture_entry.sampler_id;
+                    auto const & texture_manifest = texture_manifest_entries.at(material.albedo_info.value().texture_manifest_index);
+                    gpu_material.albedo_image_id = texture_manifest.image_id.default_view();
+                    gpu_material.albedo_sampler_id = texture_manifest.sampler_id;
                 }
                 if (material.alpha_mask_info.has_value()) {
-                    auto const & texture_entry = material_texture_manifest_entries.at(material.alpha_mask_info.value().texture_manifest_index);
-                    gpu_material.alpha_mask_image_id = texture_entry.image_id.default_view();
-                    gpu_material.alpha_mask_sampler_id = texture_entry.sampler_id;
+                    auto const & texture_manifest = texture_manifest_entries.at(material.alpha_mask_info.value().texture_manifest_index);
+                    gpu_material.alpha_mask_image_id = texture_manifest.image_id.default_view();
+                    gpu_material.alpha_mask_sampler_id = texture_manifest.sampler_id;
                 }
                 if (material.normal_info.has_value()) {
-                    auto const & texture_entry = material_texture_manifest_entries.at(material.normal_info.value().texture_manifest_index);
-                    gpu_material.normal_image_id = texture_entry.image_id.default_view();
-                    gpu_material.normal_sampler_id = texture_entry.sampler_id;
+                    auto const & texture_manifest = texture_manifest_entries.at(material.normal_info.value().texture_manifest_index);
+                    gpu_material.normal_image_id = texture_manifest.image_id.default_view();
+                    gpu_material.normal_sampler_id = texture_manifest.sampler_id;
                 }
                 if (material.roughness_info.has_value()) {
-                    auto const & texture_entry = material_texture_manifest_entries.at(material.roughness_info.value().texture_manifest_index);
-                    gpu_material.roughness_image_id = texture_entry.image_id.default_view();
-                    gpu_material.roughness_sampler_id = texture_entry.sampler_id;
+                    auto const & texture_manifest = texture_manifest_entries.at(material.roughness_info.value().texture_manifest_index);
+                    gpu_material.roughness_image_id = texture_manifest.image_id.default_view();
+                    gpu_material.roughness_sampler_id = texture_manifest.sampler_id;
                 }
                 if (material.metalness_info.has_value()) {
-                    auto const & texture_entry = material_texture_manifest_entries.at(material.metalness_info.value().texture_manifest_index);
-                    gpu_material.metalness_image_id = texture_entry.image_id.default_view();
-                    gpu_material.metalness_sampler_id = texture_entry.sampler_id;
+                    auto const & texture_manifest = texture_manifest_entries.at(material.metalness_info.value().texture_manifest_index);
+                    gpu_material.metalness_image_id = texture_manifest.image_id.default_view();
+                    gpu_material.metalness_sampler_id = texture_manifest.sampler_id;
                 }
                 if (material.emissive_info.has_value()) {
-                    auto const & texture_entry = material_texture_manifest_entries.at(material.emissive_info.value().texture_manifest_index);
-                    gpu_material.emissive_image_id = texture_entry.image_id.default_view();
-                    gpu_material.emissive_sampler_id = texture_entry.sampler_id;
+                    auto const & texture_manifest = texture_manifest_entries.at(material.emissive_info.value().texture_manifest_index);
+                    gpu_material.emissive_image_id = texture_manifest.image_id.default_view();
+                    gpu_material.emissive_sampler_id = texture_manifest.sampler_id;
                 }
 
                 ptr[dirty_materials_index] = gpu_material;
