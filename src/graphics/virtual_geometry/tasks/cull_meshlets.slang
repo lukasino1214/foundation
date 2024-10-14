@@ -148,7 +148,7 @@ void cull_meshlets(u32vec3 thread_index : SV_DispatchThreadID) {
     const bool thread_active = current_thread_index < count;
 
     if(current_thread_index == 0) {
-        push.uses.u_culled_meshlets_data->count = 0;
+        push.uses.u_culled_meshlet_indices->count = 0;
     }
 
     GroupMemoryBarrierWithGroupSync();
@@ -160,8 +160,8 @@ void cull_meshlets(u32vec3 thread_index : SV_DispatchThreadID) {
 
         if(is_meshlet_visible(aabb, push.uses.u_transforms[meshlet_data.transform_index].model_matrix)) {
             uint index = 0;
-            InterlockedAdd(push.uses.u_culled_meshlets_data->count, 1, index);
-            push.uses.u_culled_meshlets_data.meshlets[index] = meshlet_data;
+            InterlockedAdd(push.uses.u_culled_meshlet_indices->count, 1, index);
+            push.uses.u_culled_meshlet_indices.indices[index] = current_thread_index;
         }
     }
 }

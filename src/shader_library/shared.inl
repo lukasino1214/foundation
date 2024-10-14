@@ -176,6 +176,12 @@ struct MeshletsData {
 };
 DAXA_DECL_BUFFER_PTR(MeshletsData)
 
+struct MeshletIndices {
+    u32 count;
+    daxa_BufferPtr(u32) indices;
+};
+DAXA_DECL_BUFFER_PTR(MeshletIndices)
+
 struct MeshletIndexBuffer {
     u32 count;
     daxa_BufferPtr(u32) indices;

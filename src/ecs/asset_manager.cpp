@@ -40,10 +40,10 @@ namespace foundation {
             "meshlet data"
         });
 
-        gpu_culled_meshlet_data = make_task_buffer(context, {
+        gpu_culled_meshlet_indices = make_task_buffer(context, {
             sizeof(MeshletsData),
             daxa::MemoryFlagBits::DEDICATED_MEMORY,
-            "culled meshlet data"
+            "culled meshlet indices"
         });
 
         gpu_meshlet_index_buffer = make_task_buffer(context, {
@@ -64,7 +64,7 @@ namespace foundation {
         context->destroy_buffer(gpu_mesh_groups.get_state().buffers[0]);
         context->destroy_buffer(gpu_mesh_indices.get_state().buffers[0]);
         context->destroy_buffer(gpu_meshlet_data.get_state().buffers[0]);
-        context->destroy_buffer(gpu_culled_meshlet_data.get_state().buffers[0]);
+        context->destroy_buffer(gpu_culled_meshlet_indices.get_state().buffers[0]);
         context->destroy_buffer(gpu_meshlet_index_buffer.get_state().buffers[0]);
         context->destroy_buffer(gpu_readback_material.get_state().buffers[0]);
 
@@ -445,10 +445,10 @@ namespace foundation {
                 .meshlets = context->device.get_device_address(buffer).value() + sizeof(MeshletsData)
             };
         });
-        realloc_special(gpu_culled_meshlet_data, total_meshlet_count * sizeof(MeshletData) + sizeof(MeshletsData), [&](const daxa::BufferId& buffer) -> MeshletsData {
-            return MeshletsData {
+        realloc_special(gpu_culled_meshlet_indices, total_meshlet_count * sizeof(u32) + sizeof(MeshletIndices), [&](const daxa::BufferId& buffer) -> MeshletIndices {
+            return MeshletIndices {
                 .count = 0,
-                .meshlets = context->device.get_device_address(buffer).value() + sizeof(MeshletsData)
+                .indices = context->device.get_device_address(buffer).value() + sizeof(MeshletIndices)
             };
         });
         realloc_special(gpu_meshlet_index_buffer, total_triangle_count * sizeof(u32) + sizeof(MeshletIndexBuffer), [&](const daxa::BufferId& buffer) -> MeshletIndexBuffer {

@@ -16,7 +16,7 @@ void draw_meshlets_write_command() {
     command.first_vertex = 0;
     command.first_instance = 0;
     *write_push.uses.u_command = command;
-    printf("survived meshlets count: %i\n", write_push.uses.u_meshlets_data->count);
+    printf("survived meshlets count: %i\n", write_push.uses.u_index_buffer->count);
 }
 
 struct VertexStageOutput {

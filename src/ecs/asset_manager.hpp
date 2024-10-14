@@ -119,7 +119,7 @@ namespace foundation {
         daxa::TaskBuffer gpu_mesh_indices = {};
 
         daxa::TaskBuffer gpu_meshlet_data = {};
-        daxa::TaskBuffer gpu_culled_meshlet_data = {};
+        daxa::TaskBuffer gpu_culled_meshlet_indices = {};
         daxa::TaskBuffer gpu_meshlet_index_buffer = {};
         daxa::TaskBuffer gpu_readback_material = {};
 
