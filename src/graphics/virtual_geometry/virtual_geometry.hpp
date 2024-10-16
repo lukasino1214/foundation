@@ -7,6 +7,7 @@
 #include <graphics/virtual_geometry/tasks/draw_meshlets_only_depth.inl>
 #include <graphics/virtual_geometry/tasks/resolve_visibility_buffer.inl>
 #include <graphics/virtual_geometry/tasks/build_index_buffer.inl>
+#include <graphics/virtual_geometry/tasks/software_rasterization.inl>
 
 #include <pch.hpp>
 
@@ -22,8 +23,10 @@ namespace foundation {
         daxa::TaskBufferView gpu_mesh_groups = {};
         daxa::TaskBufferView gpu_mesh_indices = {};
         daxa::TaskBufferView gpu_meshlet_data = {};
-        daxa::TaskBufferView gpu_culled_meshlet_indices = {};
-        daxa::TaskBufferView gpu_meshlet_index_buffer = {};
+        daxa::TaskBufferView gpu_hw_culled_meshlet_indices = {};
+        daxa::TaskBufferView gpu_hw_meshlet_index_buffer = {};
+        daxa::TaskBufferView gpu_sw_culled_meshlet_indices = {};
+        daxa::TaskBufferView gpu_sw_meshlet_index_buffer = {};
         daxa::TaskBufferView gpu_readback_material = {};
         daxa::TaskImageView color_image = {};
         daxa::TaskImageView depth_image = {};
@@ -38,17 +41,24 @@ namespace foundation {
         context->gpu_metrics[CullMeshletsWriteCommandTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
         context->gpu_metrics[CullMeshletsTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
         context->gpu_metrics[GenerateHizTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
-        context->gpu_metrics[DrawMeshletsOnlyDepthWriteCommandTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
-        context->gpu_metrics[DrawMeshletsOnlyDepthTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
+        context->gpu_metrics[HWDrawMeshletsOnlyDepthWriteCommandTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
+        context->gpu_metrics[HWDrawMeshletsOnlyDepthTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
+        context->gpu_metrics[SWDrawMeshletsOnlyDepthWriteCommandTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
+        context->gpu_metrics[SWDrawMeshletsOnlyDepthTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
         context->gpu_metrics[ResolveVisibilityBufferTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
-        context->gpu_metrics[BuildIndexBufferWriteCommandTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
-        context->gpu_metrics[BuildIndexBufferTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
+        context->gpu_metrics[HWBuildIndexBufferWriteCommandTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
+        context->gpu_metrics[HWBuildIndexBufferTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
+        context->gpu_metrics[SWBuildIndexBufferWriteCommandTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
+        context->gpu_metrics[SWBuildIndexBufferTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
+        context->gpu_metrics[SoftwareRasterizationWriteCommandTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
+        context->gpu_metrics[SoftwareRasterizationTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
     }
 
     static inline auto get_virtual_geometry_raster_pipelines() -> std::vector<std::pair<std::string_view, daxa::RasterPipelineCompileInfo>> {
         return {
             {DrawMeshletsTask::name(), DrawMeshletsTask::pipeline_config_info()},
-            {DrawMeshletsOnlyDepthTask::name(), DrawMeshletsOnlyDepthTask::pipeline_config_info()},
+            {HWDrawMeshletsOnlyDepthTask::name(), HWDrawMeshletsOnlyDepthTask::pipeline_config_info()},
+            {SWDrawMeshletsOnlyDepthTask::name(), SWDrawMeshletsOnlyDepthTask::pipeline_config_info()},
         };
     }
 
@@ -60,10 +70,15 @@ namespace foundation {
             {CullMeshletsWriteCommandTask::name(), CullMeshletsWriteCommandTask::pipeline_config_info()},
             {CullMeshletsTask::name(), CullMeshletsTask::pipeline_config_info()},
             {GenerateHizTask::name(), GenerateHizTask::pipeline_config_info()},
-            {DrawMeshletsOnlyDepthWriteCommandTask::name(), DrawMeshletsOnlyDepthWriteCommandTask::pipeline_config_info()},
+            {HWDrawMeshletsOnlyDepthWriteCommandTask::name(), HWDrawMeshletsOnlyDepthWriteCommandTask::pipeline_config_info()},
+            {SWDrawMeshletsOnlyDepthWriteCommandTask::name(), SWDrawMeshletsOnlyDepthWriteCommandTask::pipeline_config_info()},
             {ResolveVisibilityBufferTask::name(), ResolveVisibilityBufferTask::pipeline_config_info()},
-            {BuildIndexBufferWriteCommandTask::name(), BuildIndexBufferWriteCommandTask::pipeline_config_info()},
-            {BuildIndexBufferTask::name(), BuildIndexBufferTask::pipeline_config_info()}
+            {HWBuildIndexBufferWriteCommandTask::name(), HWBuildIndexBufferWriteCommandTask::pipeline_config_info()},
+            {HWBuildIndexBufferTask::name(), HWBuildIndexBufferTask::pipeline_config_info()},
+            {SWBuildIndexBufferWriteCommandTask::name(), SWBuildIndexBufferWriteCommandTask::pipeline_config_info()},
+            {SWBuildIndexBufferTask::name(), SWBuildIndexBufferTask::pipeline_config_info()},
+            {SoftwareRasterizationWriteCommandTask::name(), SoftwareRasterizationWriteCommandTask::pipeline_config_info()},
+            {SoftwareRasterizationTask::name(), SoftwareRasterizationTask::pipeline_config_info()},
         };
     }
 
@@ -73,24 +88,46 @@ namespace foundation {
             .name = "command",
         });
 
-        info.task_graph.add_task(DrawMeshletsOnlyDepthWriteCommandTask {
+        info.task_graph.add_task(HWDrawMeshletsOnlyDepthWriteCommandTask {
             .views = std::array{
-                DrawMeshletsOnlyDepthWriteCommandTask::AT.u_index_buffer | info.gpu_meshlet_index_buffer,
-                DrawMeshletsOnlyDepthWriteCommandTask::AT.u_command | u_command,
+                HWDrawMeshletsOnlyDepthWriteCommandTask::AT.u_index_buffer | info.gpu_hw_meshlet_index_buffer,
+                HWDrawMeshletsOnlyDepthWriteCommandTask::AT.u_command | u_command,
             },
             .context = info.context,
         });
 
-        info.task_graph.add_task(DrawMeshletsOnlyDepthTask {
+        info.task_graph.add_task(HWDrawMeshletsOnlyDepthTask {
             .views = std::array{
-                DrawMeshletsOnlyDepthTask::AT.u_meshlets_data | info.gpu_meshlet_data,
-                DrawMeshletsOnlyDepthTask::AT.u_index_buffer | info.gpu_meshlet_index_buffer,
-                DrawMeshletsOnlyDepthTask::AT.u_meshes | info.gpu_meshes,
-                DrawMeshletsOnlyDepthTask::AT.u_transforms | info.gpu_transforms,
-                DrawMeshletsOnlyDepthTask::AT.u_materials | info.gpu_materials,
-                DrawMeshletsOnlyDepthTask::AT.u_globals | info.context->shader_globals_buffer,
-                DrawMeshletsOnlyDepthTask::AT.u_command | u_command,
-                DrawMeshletsOnlyDepthTask::AT.u_depth_image | info.depth_image
+                HWDrawMeshletsOnlyDepthTask::AT.u_meshlets_data | info.gpu_meshlet_data,
+                HWDrawMeshletsOnlyDepthTask::AT.u_index_buffer | info.gpu_hw_meshlet_index_buffer,
+                HWDrawMeshletsOnlyDepthTask::AT.u_meshes | info.gpu_meshes,
+                HWDrawMeshletsOnlyDepthTask::AT.u_transforms | info.gpu_transforms,
+                HWDrawMeshletsOnlyDepthTask::AT.u_materials | info.gpu_materials,
+                HWDrawMeshletsOnlyDepthTask::AT.u_globals | info.context->shader_globals_buffer,
+                HWDrawMeshletsOnlyDepthTask::AT.u_command | u_command,
+                HWDrawMeshletsOnlyDepthTask::AT.u_depth_image | info.depth_image
+            },
+            .context = info.context,
+        });
+
+        info.task_graph.add_task(SWDrawMeshletsOnlyDepthWriteCommandTask {
+            .views = std::array{
+                SWDrawMeshletsOnlyDepthWriteCommandTask::AT.u_index_buffer | info.gpu_sw_meshlet_index_buffer,
+                SWDrawMeshletsOnlyDepthWriteCommandTask::AT.u_command | u_command,
+            },
+            .context = info.context,
+        });
+
+        info.task_graph.add_task(SWDrawMeshletsOnlyDepthTask {
+            .views = std::array{
+                SWDrawMeshletsOnlyDepthTask::AT.u_meshlets_data | info.gpu_meshlet_data,
+                SWDrawMeshletsOnlyDepthTask::AT.u_index_buffer | info.gpu_sw_meshlet_index_buffer,
+                SWDrawMeshletsOnlyDepthTask::AT.u_meshes | info.gpu_meshes,
+                SWDrawMeshletsOnlyDepthTask::AT.u_transforms | info.gpu_transforms,
+                SWDrawMeshletsOnlyDepthTask::AT.u_materials | info.gpu_materials,
+                SWDrawMeshletsOnlyDepthTask::AT.u_globals | info.context->shader_globals_buffer,
+                SWDrawMeshletsOnlyDepthTask::AT.u_command | u_command,
+                SWDrawMeshletsOnlyDepthTask::AT.u_depth_image | info.depth_image
             },
             .context = info.context,
         });
@@ -156,37 +193,49 @@ namespace foundation {
                 CullMeshletsTask::AT.u_meshes | info.gpu_meshes,
                 CullMeshletsTask::AT.u_transforms | info.gpu_transforms,
                 CullMeshletsTask::AT.u_meshlets_data | info.gpu_meshlet_data,
-                CullMeshletsTask::AT.u_culled_meshlet_indices | info.gpu_culled_meshlet_indices,
+                CullMeshletsTask::AT.u_hw_culled_meshlet_indices | info.gpu_hw_culled_meshlet_indices,
+                CullMeshletsTask::AT.u_sw_culled_meshlet_indices | info.gpu_sw_culled_meshlet_indices,
                 CullMeshletsTask::AT.u_hiz | hiz,
             },
             .context = info.context,
         });
 
-        info.task_graph.add_task(BuildIndexBufferWriteCommandTask {
+        info.task_graph.add_task(HWBuildIndexBufferWriteCommandTask {
             .views = std::array{
-                BuildIndexBufferWriteCommandTask::AT.u_meshlet_indices | info.gpu_culled_meshlet_indices,
-                BuildIndexBufferWriteCommandTask::AT.u_command | u_command,
+                HWBuildIndexBufferWriteCommandTask::AT.u_meshlet_indices | info.gpu_hw_culled_meshlet_indices,
+                HWBuildIndexBufferWriteCommandTask::AT.u_command | u_command,
 
             },
             .context = info.context,
         });
 
-        info.task_graph.add_task(BuildIndexBufferTask {
+        info.task_graph.add_task(HWBuildIndexBufferTask {
             .views = std::array{
-                BuildIndexBufferTask::AT.u_command | u_command,
-                BuildIndexBufferTask::AT.u_meshlets_data | info.gpu_meshlet_data,
-                BuildIndexBufferTask::AT.u_meshlet_indices | info.gpu_culled_meshlet_indices,
-                BuildIndexBufferTask::AT.u_meshes | info.gpu_meshes,
-                BuildIndexBufferTask::AT.u_index_buffer | info.gpu_meshlet_index_buffer,
+                HWBuildIndexBufferTask::AT.u_command | u_command,
+                HWBuildIndexBufferTask::AT.u_meshlets_data | info.gpu_meshlet_data,
+                HWBuildIndexBufferTask::AT.u_meshlet_indices | info.gpu_hw_culled_meshlet_indices,
+                HWBuildIndexBufferTask::AT.u_meshes | info.gpu_meshes,
+                HWBuildIndexBufferTask::AT.u_index_buffer | info.gpu_hw_meshlet_index_buffer,
             },
             .context = info.context,
         });
 
-        info.task_graph.add_task(DrawMeshletsWriteCommandTask {
+        info.task_graph.add_task(SWBuildIndexBufferWriteCommandTask {
             .views = std::array{
-                DrawMeshletsWriteCommandTask::AT.u_index_buffer | info.gpu_meshlet_index_buffer,
-                DrawMeshletsWriteCommandTask::AT.u_command | u_command,
+                SWBuildIndexBufferWriteCommandTask::AT.u_meshlet_indices | info.gpu_sw_culled_meshlet_indices,
+                SWBuildIndexBufferWriteCommandTask::AT.u_command | u_command,
 
+            },
+            .context = info.context,
+        });
+
+        info.task_graph.add_task(SWBuildIndexBufferTask {
+            .views = std::array{
+                SWBuildIndexBufferTask::AT.u_command | u_command,
+                SWBuildIndexBufferTask::AT.u_meshlets_data | info.gpu_meshlet_data,
+                SWBuildIndexBufferTask::AT.u_meshlet_indices | info.gpu_sw_culled_meshlet_indices,
+                SWBuildIndexBufferTask::AT.u_meshes | info.gpu_meshes,
+                SWBuildIndexBufferTask::AT.u_index_buffer | info.gpu_sw_meshlet_index_buffer,
             },
             .context = info.context,
         });
@@ -201,10 +250,19 @@ namespace foundation {
             },
             .name = "clear visibility image",
         });
+        
+        info.task_graph.add_task(DrawMeshletsWriteCommandTask {
+            .views = std::array{
+                DrawMeshletsWriteCommandTask::AT.u_index_buffer | info.gpu_hw_meshlet_index_buffer,
+                DrawMeshletsWriteCommandTask::AT.u_command | u_command,
+
+            },
+            .context = info.context,
+        });
 
         info.task_graph.add_task(DrawMeshletsTask {
             .views = std::array{
-                DrawMeshletsTask::AT.u_index_buffer | info.gpu_meshlet_index_buffer,
+                DrawMeshletsTask::AT.u_index_buffer | info.gpu_hw_meshlet_index_buffer,
                 DrawMeshletsTask::AT.u_meshlets_data | info.gpu_meshlet_data,
                 DrawMeshletsTask::AT.u_meshes | info.gpu_meshes,
                 DrawMeshletsTask::AT.u_transforms | info.gpu_transforms,
@@ -212,6 +270,30 @@ namespace foundation {
                 DrawMeshletsTask::AT.u_globals | info.context->shader_globals_buffer,
                 DrawMeshletsTask::AT.u_command | u_command,
                 DrawMeshletsTask::AT.u_visibility_image | info.visibility_image
+            },
+            .context = info.context,
+        });
+
+        info.task_graph.add_task(SoftwareRasterizationWriteCommandTask {
+            .views = std::array{
+                SoftwareRasterizationWriteCommandTask::AT.u_meshlets_data | info.gpu_meshlet_data,
+                SoftwareRasterizationWriteCommandTask::AT.u_index_buffer | info.gpu_sw_meshlet_index_buffer,
+                SoftwareRasterizationWriteCommandTask::AT.u_command | u_command,
+
+            },
+            .context = info.context,
+        });
+
+        info.task_graph.add_task(SoftwareRasterizationTask {
+            .views = std::array{
+                SoftwareRasterizationTask::AT.u_index_buffer | info.gpu_sw_meshlet_index_buffer,
+                SoftwareRasterizationTask::AT.u_meshlets_data | info.gpu_meshlet_data,
+                SoftwareRasterizationTask::AT.u_meshes | info.gpu_meshes,
+                SoftwareRasterizationTask::AT.u_transforms | info.gpu_transforms,
+                SoftwareRasterizationTask::AT.u_materials | info.gpu_materials,
+                SoftwareRasterizationTask::AT.u_globals | info.context->shader_globals_buffer,
+                SoftwareRasterizationTask::AT.u_command | u_command,
+                SoftwareRasterizationTask::AT.u_visibility_image | info.visibility_image
             },
             .context = info.context,
         });

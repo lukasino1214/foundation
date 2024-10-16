@@ -2,8 +2,8 @@
 #include "build_index_buffer.inl"
 #include "../../../shader_library/meshlet.slang"
 
-[[vk::push_constant]] BuildIndexBufferWriteCommandPush write_push;
-[[vk::push_constant]] BuildIndexBufferPush push;
+[[vk::push_constant]] HWBuildIndexBufferWriteCommandPush write_push;
+[[vk::push_constant]] HWBuildIndexBufferPush push;
 
 [shader("compute")]
 [numthreads(1, 1, 1)]
@@ -15,7 +15,6 @@ void build_index_buffer_write_command() {
     command.y = 1;
     command.z = 1;
     *write_push.uses.u_command = command;
-    printf("how %u \n", write_push.uses.u_meshlet_indices->count);
 }
 
 [shader("compute")]

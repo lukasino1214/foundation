@@ -16,7 +16,6 @@ void draw_meshlets_write_command() {
     command.first_vertex = 0;
     command.first_instance = 0;
     *write_push.uses.u_command = command;
-    printf("survived meshlets count: %i\n", write_push.uses.u_index_buffer->count);
 }
 
 struct VertexStageOutput {
@@ -29,13 +28,13 @@ VertexStageOutput vertex_main(u32 vertex_index: SV_VertexID, u32 instance_index 
     const u32 triangle_corner_index = vertex_index % 3;
     u32 inst_meshlet_index;
     u32 triangle_index;
-    u32 data = push.uses.u_index_buffer->indices[vertex_index / 3];
+    const u32 data = push.uses.u_index_buffer->indices[vertex_index / 3];
     
     decode_triangle_id(data, inst_meshlet_index, triangle_index);
 
-    MeshletData meshlet_data = push.uses.u_meshlets_data->meshlets[inst_meshlet_index];
-    Mesh mesh = push.uses.u_meshes[meshlet_data.mesh_index];
-    Meshlet meshlet = mesh.meshlets[meshlet_data.meshlet_index];
+    const MeshletData meshlet_data = push.uses.u_meshlets_data->meshlets[inst_meshlet_index];
+    const Mesh mesh = push.uses.u_meshes[meshlet_data.mesh_index];
+    const Meshlet meshlet = mesh.meshlets[meshlet_data.meshlet_index];
 
     VertexStageOutput output;
     const u32 micro_index = get_micro_index(mesh.micro_indices, meshlet.micro_indices_offset + triangle_index * 3 + triangle_corner_index);

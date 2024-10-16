@@ -44,7 +44,7 @@ namespace foundation {
         }
     };
 
-        struct BinaryHeader {
+    struct BinaryHeader {
         std::string name = {};
         u32 version = {};
     };

@@ -110,9 +110,9 @@ void main(u32vec3 pixel : SV_DispatchThreadID) {
     daxa_u32 triangle_index = 0;
     decode_triangle_id(vis_index, meshlet_data_index, triangle_index);
 
-    MeshletData meshlet_data = push.uses.u_meshlets_data->meshlets[meshlet_data_index];
-    Mesh mesh = push.uses.u_meshes[meshlet_data.mesh_index];
-    Meshlet meshlet = mesh.meshlets[meshlet_data.meshlet_index];
+    const MeshletData meshlet_data = push.uses.u_meshlets_data->meshlets[meshlet_data_index];
+    const Mesh mesh = push.uses.u_meshes[meshlet_data.mesh_index];
+    const Meshlet meshlet = mesh.meshlets[meshlet_data.meshlet_index];
 
     const daxa_u32[3] indices = daxa_u32[3](
         get_vertex_index(mesh, meshlet, triangle_index, 0),
@@ -126,7 +126,7 @@ void main(u32vec3 pixel : SV_DispatchThreadID) {
         mesh.vertex_positions[indices[2]]
     );
 
-    daxa_f32mat4x4 transform_matrix = push.uses.u_transforms[meshlet_data.transform_index].model_matrix; 
+    const daxa_f32mat4x4 transform_matrix = push.uses.u_transforms[meshlet_data.transform_index].model_matrix; 
     const daxa_f32vec4[3] world_positions = f32vec4[3](
         mul(transform_matrix, f32vec4(positions[0], 1.0)),
         mul(transform_matrix, f32vec4(positions[1], 1.0)),
@@ -165,7 +165,7 @@ void main(u32vec3 pixel : SV_DispatchThreadID) {
         decode_normal(mesh.vertex_normals[indices[2]])
     );
 
-    daxa_f32mat4x4 normal_matrix = push.uses.u_transforms[meshlet_data.transform_index].normal_matrix; 
+    const daxa_f32mat4x4 normal_matrix = push.uses.u_transforms[meshlet_data.transform_index].normal_matrix; 
     const daxa_f32vec4[3] worldspace_vertex_normals = daxa_f32vec4[3](
         mul(normal_matrix, daxa_f32vec4(vertex_normals[0], 0)),
         mul(normal_matrix, daxa_f32vec4(vertex_normals[1], 0)),
@@ -182,71 +182,72 @@ void main(u32vec3 pixel : SV_DispatchThreadID) {
 
     daxa_ImageViewId normal_image_id = push.uses.u_materials[mesh.material_index].normal_image_id;
     if(normal_image_id.value != 0) {
-        f32vec2 raw_normal =  Texture2D<float>::get(normal_image_id).SampleGrad(SamplerState::get(push.uses.u_materials[mesh.material_index].normal_sampler_id), uv_grad.uv, uv_grad.ddx, uv_grad.ddy).xy * 2.0f - 1.0f;
-        f32vec3 sampled_normal = f32vec3(raw_normal, sqrt(clamp(1.0f - dot(raw_normal, raw_normal), 0.0, 1.0)));
+        const f32vec2 raw_normal =  Texture2D<float>::get(normal_image_id).SampleGrad(SamplerState::get(push.uses.u_materials[mesh.material_index].normal_sampler_id), uv_grad.uv, uv_grad.ddx, uv_grad.ddy).xy * 2.0f - 1.0f;
+        const f32vec3 uncompressed_normal = f32vec3(raw_normal, sqrt(clamp(1.0f - dot(raw_normal, raw_normal), 0.0, 1.0)));
 
-        daxa_f32vec3 p_dx = visgeo_interpolate_vec3(
+        const daxa_f32vec3 p_dx = visgeo_interpolate_vec3(
             derivatives.m_ddx, 
             world_positions[0].xyz,
             world_positions[1].xyz,
             world_positions[2].xyz
         );
-        daxa_f32vec3 p_dy = visgeo_interpolate_vec3(
+        const daxa_f32vec3 p_dy = visgeo_interpolate_vec3(
             derivatives.m_ddy, 
             world_positions[0].xyz,
             world_positions[1].xyz,
             world_positions[2].xyz
         );
 
-        daxa_f32vec3 tangent = normalize( uv_grad.ddy.y * p_dx - uv_grad.ddx.y * p_dy );
+        daxa_f32vec3 tangent = normalize(uv_grad.ddy.y * p_dx - uv_grad.ddx.y * p_dy);
 
-        daxa_f32vec3 x = cross(normal, tangent);
+        const daxa_f32vec3 x = cross(normal, tangent);
         tangent = cross(x, normal);
         tangent = normalize(tangent);
 
         const daxa_f32mat3x3 tbn = transpose(daxa_f32mat3x3(tangent, cross(tangent, normal), normal));
-        normal = normalize(mul(tbn, sampled_normal));
+        normal = normalize(mul(tbn, uncompressed_normal));
     }
 
     f32vec4 color = f32vec4(hsv_to_rgb(f32vec3(f32(meshlet_data.meshlet_index) * M_GOLDEN_CONJ, 0.875, 0.85)), 1.0);
     daxa_ImageViewId albedo_image_id = push.uses.u_materials[mesh.material_index].albedo_image_id;
     if(albedo_image_id.value != 0) {
-        f32vec4 albedo = Texture2D<float>::get(albedo_image_id).SampleGrad(SamplerState::get(push.uses.u_materials[mesh.material_index].albedo_sampler_id), uv_grad.uv, uv_grad.ddx, uv_grad.ddy);
+        const f32vec4 albedo = Texture2D<float>::get(albedo_image_id).SampleGrad(SamplerState::get(push.uses.u_materials[mesh.material_index].albedo_sampler_id), uv_grad.uv, uv_grad.ddx, uv_grad.ddy);
         color = f32vec4(albedo.rgb, 1.0);
     }
+
     daxa_ImageViewId alpha_mask_image_id = push.uses.u_materials[mesh.material_index].alpha_mask_image_id;
     if(alpha_mask_image_id.value != 0) {
-        f32 alpha = Texture2D<float>::get(alpha_mask_image_id).SampleGrad(SamplerState::get(push.uses.u_materials[mesh.material_index].alpha_mask_sampler_id), uv_grad.uv, uv_grad.ddx, uv_grad.ddy).x;
+        const f32 alpha = Texture2D<float>::get(alpha_mask_image_id).SampleGrad(SamplerState::get(push.uses.u_materials[mesh.material_index].alpha_mask_sampler_id), uv_grad.uv, uv_grad.ddx, uv_grad.ddy).x;
         if(push.uses.u_materials[mesh.material_index].alpha_mode == 1) {
             if(alpha < push.uses.u_materials[mesh.material_index].alpha_cutoff) { color = f32vec4(0.0, 0.05, 0.0, 1.0); }
         }
     }
+    
     daxa_ImageViewId emissive_image_id = push.uses.u_materials[mesh.material_index].emissive_image_id;
     if(emissive_image_id.value != 0) {
         color += f32vec4(Texture2D<float>::get(emissive_image_id).SampleGrad(SamplerState::get(push.uses.u_materials[mesh.material_index].emissive_sampler_id), uv_grad.uv, uv_grad.ddx, uv_grad.ddy).rgb, 0);
     }
 
-    RWTexture2D<f32vec4> image = RWTexture2D<f32>::get(push.uses.u_image);
-
     // texture streaming
-    f32 mip_map = log2(max(length(uv_grad.ddx * 65536u), length(uv_grad.ddy * 65536u)));
-    const uint wave_mask = WaveActiveBitOr(65536u >> u32(max(0, mip_map)));
+    const f32 mip_map = log2(max(length(uv_grad.ddx * 65536u), length(uv_grad.ddy * 65536u)));
+    const u32 wave_mask = WaveActiveBitOr(65536u >> u32(max(0, mip_map)));
 	if(WaveIsFirstLane()) {
-		InterlockedOr(push.uses.u_readback_material[mesh.material_index], wave_mask);
+        InterlockedOr(push.uses.u_readback_material[mesh.material_index], wave_mask);
 	}
-
-    // color = f32vec4(normal * 0.5 + 0.5, 1.0f);
-
+    
+    
     // color = f32vec4(0.0, 0.0, 0.0, 1.0);
     // daxa_ImageViewId roughness_image_id = push.uses.u_materials[mesh.material_index].roughness_image_id;
     // if(roughness_image_id.value != 0) {
     //     color.r = Texture2D<float>::get(roughness_image_id).SampleGrad(SamplerState::get(push.uses.u_materials[mesh.material_index].roughness_sampler_id), uv_grad.uv, uv_grad.ddx, uv_grad.ddy).r;
     // }
-
+    
     // daxa_ImageViewId metalness_image_id = push.uses.u_materials[mesh.material_index].metalness_image_id;
     // if(metalness_image_id.value != 0) {
-    //     color.g = Texture2D<float>::get(metalness_image_id).SampleGrad(SamplerState::get(push.uses.u_materials[mesh.material_index].metalness_sampler_id), uv_grad.uv, uv_grad.ddx, uv_grad.ddy).r;
-    // }
-
+        //     color.g = Texture2D<float>::get(metalness_image_id).SampleGrad(SamplerState::get(push.uses.u_materials[mesh.material_index].metalness_sampler_id), uv_grad.uv, uv_grad.ddx, uv_grad.ddy).r;
+        // }
+        
+    RWTexture2D<f32vec4> image = RWTexture2D<f32>::get(push.uses.u_image);
+    // color = f32vec4(normal * 0.5 + 0.5, 1.0f);
     image[pixel.xy] = color;
 }

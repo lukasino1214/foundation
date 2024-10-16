@@ -14,7 +14,6 @@ void populate_meshlets_write_command() {
     command.y = 1;
     command.z = 1;
     *write_push.uses.u_command = command;
-    printf("entity count: %u\n", write_push.uses.u_scene_data->entity_count);
 }
 
 
