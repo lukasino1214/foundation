@@ -167,21 +167,9 @@ namespace foundation {
         cmd.destroy_buffer_deferred(id);
     }
 
-    void Context::update_shader_globals(ControlledCamera3D& camera, const glm::uvec2& size) {
+    void Context::update_shader_globals(ControlledCamera3D& main_camera, ControlledCamera3D& observer_camera, const glm::uvec2& size) {
         ZoneNamedN(update_shader_globals, "update shader globals", true);
-        camera.camera.resize(s_cast<i32>(size.x), s_cast<i32>(size.y));
 
-        glm::mat4 inverse_projection_matrix = glm::inverse(camera.camera.proj_mat);
-        glm::mat4 inverse_view_matrix = glm::inverse(camera.camera.view_mat);
-        glm::mat4 projection_view_matrix = camera.camera.proj_mat * camera.camera.view_mat;
-        glm::mat4 inverse_projection_view = inverse_projection_matrix * inverse_view_matrix;
-
-        shader_globals.camera_projection_matrix =  camera.camera.proj_mat;
-        shader_globals.camera_inverse_projection_matrix = inverse_projection_matrix;
-        shader_globals.camera_view_matrix = camera.camera.view_mat;
-        shader_globals.camera_inverse_view_matrix = inverse_view_matrix;
-        shader_globals.camera_projection_view_matrix = projection_view_matrix;
-        shader_globals.camera_inverse_projection_view_matrix = inverse_projection_view;
         shader_globals.render_target_size = { size.x, size.y };
         shader_globals.render_target_size_inv = {
             1.0f / s_cast<f32>(shader_globals.render_target_size.x),
@@ -194,20 +182,39 @@ namespace foundation {
             1.0f / s_cast<f32>(shader_globals.next_lower_po2_render_target_size.y),
         };
 
-        std::array<glm::vec4, 6> planes = {};
-        for (i32 i = 0; i < 4; ++i) { planes[0][i] = projection_view_matrix[i][3] + projection_view_matrix[i][0]; }
-        for (i32 i = 0; i < 4; ++i) { planes[1][i] = projection_view_matrix[i][3] - projection_view_matrix[i][0]; }
-        for (i32 i = 0; i < 4; ++i) { planes[2][i] = projection_view_matrix[i][3] + projection_view_matrix[i][1]; }
-        for (i32 i = 0; i < 4; ++i) { planes[3][i] = projection_view_matrix[i][3] - projection_view_matrix[i][1]; }
-        for (i32 i = 0; i < 4; ++i) { planes[4][i] = projection_view_matrix[i][3] + projection_view_matrix[i][2]; }
-        for (i32 i = 0; i < 4; ++i) { planes[5][i] = projection_view_matrix[i][3] - projection_view_matrix[i][2]; }
+        auto set_camera_info = [&](ControlledCamera3D& camera) -> CameraInfo {
+            camera.camera.resize(s_cast<i32>(size.x), s_cast<i32>(size.y));
+            CameraInfo camera_info {};
+            glm::mat4 inverse_projection_matrix = glm::inverse(camera.camera.proj_mat);
+            glm::mat4 inverse_view_matrix = glm::inverse(camera.camera.view_mat);
+            glm::mat4 projection_view_matrix = camera.camera.proj_mat * camera.camera.view_mat;
+            glm::mat4 inverse_projection_view = inverse_projection_matrix * inverse_view_matrix;
 
-        for (u32 i = 0; i < 6; ++i) {
-            planes[i] /= glm::length(glm::vec3(planes[i]));
-            planes[i].w = -planes[i].w;
-            shader_globals.frustum_planes[i] = planes[i];
-        }
+            camera_info.projection_matrix =  camera.camera.proj_mat;
+            camera_info.inverse_projection_matrix = inverse_projection_matrix;
+            camera_info.view_matrix = camera.camera.view_mat;
+            camera_info.inverse_view_matrix = inverse_view_matrix;
+            camera_info.projection_view_matrix = projection_view_matrix;
+            camera_info.inverse_projection_view_matrix = inverse_projection_view;
+            camera_info.position = camera.position;
 
-        shader_globals.camera_position = camera.position;
+            std::array<glm::vec4, 6> planes = {};
+            for (i32 i = 0; i < 4; ++i) { planes[0][i] = projection_view_matrix[i][3] + projection_view_matrix[i][0]; }
+            for (i32 i = 0; i < 4; ++i) { planes[1][i] = projection_view_matrix[i][3] - projection_view_matrix[i][0]; }
+            for (i32 i = 0; i < 4; ++i) { planes[2][i] = projection_view_matrix[i][3] + projection_view_matrix[i][1]; }
+            for (i32 i = 0; i < 4; ++i) { planes[3][i] = projection_view_matrix[i][3] - projection_view_matrix[i][1]; }
+            for (i32 i = 0; i < 4; ++i) { planes[4][i] = projection_view_matrix[i][3] + projection_view_matrix[i][2]; }
+            for (i32 i = 0; i < 4; ++i) { planes[5][i] = projection_view_matrix[i][3] - projection_view_matrix[i][2]; }
+            for (u32 i = 0; i < 6; ++i) {
+                planes[i] /= glm::length(glm::vec3(planes[i]));
+                planes[i].w = -planes[i].w;
+                camera_info.frustum_planes[i] = planes[i];
+            }
+
+            return camera_info;
+        };
+
+        shader_globals.main_camera = set_camera_info(main_camera);
+        shader_globals.observer_camera = set_camera_info(observer_camera);
     }
 }

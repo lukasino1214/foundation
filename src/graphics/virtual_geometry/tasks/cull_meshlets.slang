@@ -35,8 +35,8 @@ NdcAABB calculate_ndc_aabb(daxa_f32mat4x4 model_matrix, AABB aabb) {
             for (int x = -1; x <= 1; x += 2) {
                 const daxa_f32vec3 model_corner_position = aabb.center + aabb.extent * daxa_f32vec3(x,y,z) * 0.5f;
                 const daxa_f32vec4 worldspace_corner_position = mul(model_matrix, daxa_f32vec4(model_corner_position,1));
-                const daxa_f32vec4 viewspace_corner_position = mul(push.uses.u_globals->camera_view_matrix, worldspace_corner_position);
-                const daxa_f32vec4 clipspace_corner_position = mul(push.uses.u_globals->camera_projection_matrix, viewspace_corner_position);
+                const daxa_f32vec4 viewspace_corner_position = mul(push.uses.u_globals->main_camera.view_matrix, worldspace_corner_position);
+                const daxa_f32vec4 clipspace_corner_position = mul(push.uses.u_globals->main_camera.projection_matrix, viewspace_corner_position);
                 const daxa_f32vec3 ndc_corner_position = clipspace_corner_position.xyz / clipspace_corner_position.w;
                 ret.ndc_min.x = !initialized_min_max ? ndc_corner_position.x : min(ndc_corner_position.x, ret.ndc_min.x);
                 ret.ndc_min.y = !initialized_min_max ? ndc_corner_position.y : min(ndc_corner_position.y, ret.ndc_min.y);
@@ -131,12 +131,13 @@ bool is_meshlet_visible(AABB aabb, daxa_f32mat4x4 model) {
 
     const uint planes = 6;
     for (uint i = 0; i < planes; ++i) {
-        if (!is_aabb_inside_plane(world_aabb_center, world_extent / 2, deref(push.uses.u_globals).frustum_planes[i])) {
+        if (!is_aabb_inside_plane(world_aabb_center, world_extent / 2, push.uses.u_globals->main_camera.frustum_planes[i])) {
             return false;
         }
     }
 
     return !is_ndc_aabb_hiz_depth_visible(calculate_ndc_aabb(model, aabb), push.uses.u_globals->next_lower_po2_render_target_size, push.uses.u_hiz);
+    return true;
 }
 
 void write_meshlet(MeshletIndices* meshlets_indices, in u32 index) {
@@ -187,8 +188,8 @@ void cull_meshlets(u32vec3 thread_index : SV_DispatchThreadID) {
             bool clip = false;
             for (uint i = 0; i < 8; ++i) {
                 const daxa_f32vec4 worldspace_corner_position = mul(transform, daxa_f32vec4(corners[i], 1));
-                const daxa_f32vec4 viewspace_corner_position = mul(push.uses.u_globals->camera_view_matrix, worldspace_corner_position);
-                const daxa_f32vec4 clipspace_corner_position = mul(push.uses.u_globals->camera_projection_matrix, viewspace_corner_position);
+                const daxa_f32vec4 viewspace_corner_position = mul(push.uses.u_globals->main_camera.view_matrix, worldspace_corner_position);
+                const daxa_f32vec4 clipspace_corner_position = mul(push.uses.u_globals->main_camera.projection_matrix, viewspace_corner_position);
                 const f32vec3 ndc = clipspace_corner_position.xyz / clipspace_corner_position.w;
                 min_z = min(min_z, ndc.z);
                 if (ndc.x <= -1.0 || ndc.x >= 1.0 || ndc.y <= -1.0 || ndc.y >= 1.0 || min_z <= 0.0) {
@@ -208,11 +209,13 @@ void cull_meshlets(u32vec3 thread_index : SV_DispatchThreadID) {
                 abs(max_viewport.x - min_viewport.x) < 32 &&
                 abs(max_viewport.y - min_viewport.y) < 32;
 
-            if(is_sw_candidate) {
-                write_meshlet(push.uses.u_sw_culled_meshlet_indices, current_thread_index);
-            } else {
-                write_meshlet(push.uses.u_hw_culled_meshlet_indices, current_thread_index);
-            }
+            // if(is_sw_candidate) {
+            //     write_meshlet(push.uses.u_sw_culled_meshlet_indices, current_thread_index);
+            // } else {
+            //     write_meshlet(push.uses.u_hw_culled_meshlet_indices, current_thread_index);
+            // }
+
+            write_meshlet(push.uses.u_hw_culled_meshlet_indices, current_thread_index);
         }
     }
 }

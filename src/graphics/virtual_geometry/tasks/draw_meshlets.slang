@@ -45,10 +45,14 @@ VertexStageOutput vertex_main(u32 vertex_index: SV_VertexID, u32 instance_index 
     
     const f32vec4 vertex_position = f32vec4(mesh.vertex_positions[vertex_index], 1);
 
-    output.sv_position = mul(push.uses.u_globals->camera_projection_matrix,
-                        mul(push.uses.u_globals->camera_view_matrix,
-                        mul(push.uses.u_transforms[meshlet_data.transform_index].model_matrix,
-                        vertex_position)));
+    output.sv_position = mul(push.uses.u_transforms[meshlet_data.transform_index].model_matrix, vertex_position);
+    if(push.uses.u_globals.render_as_observer) {
+        output.sv_position = mul(push.uses.u_globals->observer_camera.projection_matrix,
+                             mul(push.uses.u_globals->observer_camera.view_matrix, output.sv_position));
+    } else {
+        output.sv_position = mul(push.uses.u_globals->main_camera.projection_matrix,
+                             mul(push.uses.u_globals->main_camera.view_matrix, output.sv_position));
+    }
 
     return output;
 }

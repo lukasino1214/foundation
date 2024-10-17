@@ -16,7 +16,7 @@ namespace foundation {
         ZoneScoped;
 
         scene->update(delta_time);
-        context.update_shader_globals(camera, { 720, 480 });
+        context.update_shader_globals(main_camera, observer_camera, { 720, 480 });
         renderer = std::make_unique<Renderer>(&window, &context, scene.get(), asset_manager.get());
 
         struct CompilePipelinesTask : Task {
@@ -33,7 +33,8 @@ namespace foundation {
         thread_pool->async_dispatch(compile_pipelines_task);
     
         last_time_point = std::chrono::steady_clock::now();
-        camera.camera.resize(s_cast<i32>(window.get_width()), s_cast<i32>(window.get_height()));
+        main_camera.camera.resize(s_cast<i32>(window.get_width()), s_cast<i32>(window.get_height()));
+        observer_camera.camera.resize(s_cast<i32>(window.get_width()), s_cast<i32>(window.get_height()));
 
         auto add_transform = [](Entity entity) -> LocalTransformComponent* {
             entity.add_component<GlobalTransformComponent>();
@@ -170,7 +171,7 @@ namespace foundation {
         renderer->ui_render_end();
 
         auto size = context.device.info_image(renderer->render_image.get_state().images[0]).value().size;
-        context.update_shader_globals(camera, {size.x, size.y});
+        context.update_shader_globals(main_camera, observer_camera, {size.x, size.y});
 
         scene->update(delta_time);
     }
@@ -215,9 +216,11 @@ namespace foundation {
         ImGui::End();
 
         scene_hierarchy_panel.draw();
-        viewport_panel.draw(camera, delta_time, renderer->render_image);
-
         renderer->ui_update();
+        if(context.shader_globals.render_as_observer != 0u) {
+            viewport_panel.draw(observer_camera, delta_time, renderer->render_image);
+        } else {
+            viewport_panel.draw(main_camera, delta_time, renderer->render_image);
+        }
     }
-
 }

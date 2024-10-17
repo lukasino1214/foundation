@@ -133,11 +133,13 @@ void main(u32vec3 pixel : SV_DispatchThreadID) {
         mul(transform_matrix, f32vec4(positions[2], 1.0))
     );
 
+    const f32mat4x4 projection_view_matrix = push.uses.u_globals->render_as_observer ? push.uses.u_globals->observer_camera.projection_view_matrix : push.uses.u_globals->main_camera.projection_view_matrix;
+
     const f32vec4[3] clip_position = f32vec4[3](
-        mul(push.uses.u_globals->camera_projection_matrix, mul(push.uses.u_globals->camera_view_matrix, world_positions[0])),
-        mul(push.uses.u_globals->camera_projection_matrix, mul(push.uses.u_globals->camera_view_matrix, world_positions[1])),
-        mul(push.uses.u_globals->camera_projection_matrix, mul(push.uses.u_globals->camera_view_matrix, world_positions[2]))
-    );
+        mul(projection_view_matrix, world_positions[0]),
+        mul(projection_view_matrix, world_positions[1]),
+        mul(projection_view_matrix, world_positions[2])
+    ); 
 
     const daxa_f32vec2 ndc_xy = ((pixel.xy + 0.5f) * push.uses.u_globals->render_target_size_inv) * 2.0f - 1.0f;
     const BarycentricDeriv derivatives = calc_bary_and_deriv(clip_position[0], clip_position[1], clip_position[2], ndc_xy, f32vec2(push.uses.u_globals->render_target_size));

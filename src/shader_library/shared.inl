@@ -50,19 +50,26 @@ struct Samplers {
 };
 DAXA_DECL_BUFFER_PTR(Samplers)
 
-struct ShaderGlobals {
-    f32mat4x4 camera_projection_matrix;
-    f32mat4x4 camera_inverse_projection_matrix;
-    f32mat4x4 camera_view_matrix;
-    f32mat4x4 camera_inverse_view_matrix;
-    f32mat4x4 camera_projection_view_matrix;
-    f32mat4x4 camera_inverse_projection_view_matrix;
+struct CameraInfo {
+    f32mat4x4 projection_matrix;
+    f32mat4x4 inverse_projection_matrix;
+    f32mat4x4 view_matrix;
+    f32mat4x4 inverse_view_matrix;
+    f32mat4x4 projection_view_matrix;
+    f32mat4x4 inverse_projection_view_matrix;
     f32vec4 frustum_planes[6];
+    f32vec3 position;
+};
+DAXA_DECL_BUFFER_PTR(CameraInfo)
+
+struct ShaderGlobals {
+    CameraInfo main_camera;
+    CameraInfo observer_camera;
+    b32 render_as_observer;
     u32vec2 render_target_size;
     f32vec2 render_target_size_inv;
     u32vec2 next_lower_po2_render_target_size;
     f32vec2 next_lower_po2_render_target_size_inv;
-    f32vec3 camera_position;
     Samplers samplers;
     daxa_BufferPtr(ShaderDebugBufferHead) debug;
 };

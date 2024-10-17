@@ -31,7 +31,8 @@ namespace foundation {
         std::unique_ptr<ThreadPool> thread_pool;
         std::unique_ptr<AssetManager> asset_manager;
         std::unique_ptr<Renderer> renderer;
-        ControlledCamera3D camera = {};
+        ControlledCamera3D main_camera = {};
+        ControlledCamera3D observer_camera = {};
 
         f32 delta_time = 0.016f;
         std::chrono::time_point<std::chrono::steady_clock> last_time_point = {};

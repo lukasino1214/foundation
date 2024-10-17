@@ -288,7 +288,7 @@ namespace foundation {
                 DebugDrawTask::AT.u_globals | context->shader_globals_buffer,
                 DebugDrawTask::AT.u_transforms | scene->gpu_transforms_pool.task_buffer,
                 DebugDrawTask::AT.u_image | render_image,
-                DebugDrawTask::AT.u_depth_image | depth_image,
+                DebugDrawTask::AT.u_visibility_image | visibility_image,
             },
             .context = context,
         });
@@ -334,6 +334,12 @@ namespace foundation {
         for(u32 i = 0; i < texture_sizes.size(); i++) {
             ImGui::Text("Texture %u: %ux%u", i, texture_sizes[i], texture_sizes[i]);
         }
+        ImGui::End();
+
+        ImGui::Begin("Render options");
+        bool camera_option = s_cast<bool>(context->shader_globals.render_as_observer);
+        ImGui::Checkbox("Render as observer", &camera_option);
+        context->shader_globals.render_as_observer = s_cast<b32>(camera_option);
         ImGui::End();
     }
 

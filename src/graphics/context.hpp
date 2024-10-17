@@ -100,7 +100,7 @@ namespace foundation {
         void destroy_buffer(const daxa::BufferId& id);
         void destroy_buffer_deferred(daxa::CommandRecorder& cmd, const daxa::BufferId& id);
 
-        void update_shader_globals(ControlledCamera3D& camera, const glm::uvec2& size);
+        void update_shader_globals(ControlledCamera3D& main_camera, ControlledCamera3D& observer_camera, const glm::uvec2& size);
 
         usize frame_index = 0;
     };

@@ -40,8 +40,8 @@ VertexStageOutput vertex_main(u32 vertex_index: SV_VertexID, u32 instance_index 
 
     const f32vec4 vertex_position = f32vec4(mesh.vertex_positions[vertex_index], 1);
 
-    output.sv_position = mul(deref(push.uses.u_globals).camera_projection_matrix,
-                        mul(deref(push.uses.u_globals).camera_view_matrix,
+    output.sv_position = mul(deref(push.uses.u_globals).main_camera.projection_matrix,
+                        mul(deref(push.uses.u_globals).main_camera.view_matrix,
                         mul(push.uses.u_transforms[meshlet_data.transform_index].model_matrix,
                         vertex_position)));
 
