@@ -131,9 +131,9 @@ namespace foundation {
     }
 
     void Renderer::render() {
-        ZoneScoped;
+        PROFILE_SCOPE;
         {
-            ZoneNamedN(pipelines, "pipelines", true);
+            PROFILE_SCOPE_NAMED(pipelines);
             auto reloaded_result = context->pipeline_manager.reload_all();
             if (auto* reload_err = daxa::get_if<daxa::PipelineReloadError>(&reloaded_result)) {
                 std::cout << "Failed to reload " << reload_err->message << '\n';
@@ -148,11 +148,11 @@ namespace foundation {
         swapchain_image.set_images({.images = std::span{&image, 1}});
  
         {
-            ZoneNamedN(rendergraphexecute, "render graph", true);
+            PROFILE_SCOPE_NAMED(rendergraph_execute);
             render_task_graph.execute({});
         }
         {
-            ZoneNamedN(garbage, "garbage", true);
+            PROFILE_SCOPE_NAMED(garbage);
             context->device.collect_garbage();
         }
     }
@@ -314,12 +314,8 @@ namespace foundation {
 
     void Renderer::ui_update() {
         ImGui::Begin("Memory Usage");
-        // ImGui::Text("%s", std::format("Total memory usage for images: {} MBs", std::to_string(s_cast<f64>(context->images.total_size) / 1024.0 / 1024.0)).c_str());
-        // ImGui::Text("%s", std::format("Total memory usage for buffers: {} MBs", std::to_string(s_cast<f64>(context->buffers.total_size) / 1024.0 / 1024.0)).c_str());
         ImGui::Text("%s", std::format("Total memory usage for images: {} MBs", std::to_string(s_cast<f64>(context->image_memory_usage) / 1024.0 / 1024.0)).c_str());
         ImGui::Text("%s", std::format("Total memory usage for buffers: {} MBs", std::to_string(s_cast<f64>(context->buffer_memory_usage) / 1024.0 / 1024.0)).c_str());
-        // ImGui::Text("Total memory usage for images: %llu bytes", context->image_memory_usage);
-        // ImGui::Text("Total memory usage for images: %llu bytes", context->buffer_memory_usage);
         ImGui::End();
 
         ImGui::Begin("Material Readback");

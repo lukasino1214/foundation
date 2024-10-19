@@ -5,7 +5,7 @@
 
 namespace foundation {
     void ScriptingEngine::init_script(ScriptComponent* script, Entity entity, const std::filesystem::path& path) {
-        ZoneScoped;
+        PROFILE_SCOPE;
         auto lua = std::make_unique<sol::state>();
         lua->open_libraries(sol::lib::base);
 

@@ -8,6 +8,8 @@
 
 namespace foundation {
     struct Entity;
+    struct GlobalTransformComponent;
+    struct LocalTransformComponent;
 
     struct Scene {
         Scene(const std::string_view& _name, Context* _context, AppWindow* _window, ScriptingEngine* _scripting_engine, FileWatcher* _file_watcher);
@@ -30,5 +32,6 @@ namespace foundation {
         daxa::TaskBuffer gpu_scene_data = {};
         CPUManagedGPUPool<TransformInfo> gpu_transforms_pool;
         CPUManagedGPUPool<EntityData> gpu_entities_data_pool;
+        flecs::query<GlobalTransformComponent, LocalTransformComponent, GlobalTransformComponent*> query_transforms = {};
     };
 }

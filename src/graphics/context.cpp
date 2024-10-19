@@ -3,7 +3,7 @@
 
 namespace foundation {
     DebugDrawContext::DebugDrawContext(Context* _context) : context{_context} {
-        ZoneScoped;
+        PROFILE_SCOPE;
         usize size = sizeof(ShaderDebugBufferHead);
         size += sizeof(ShaderDebugAABBDraw) * max_aabb_draws;
 
@@ -168,7 +168,7 @@ namespace foundation {
     }
 
     void Context::update_shader_globals(ControlledCamera3D& main_camera, ControlledCamera3D& observer_camera, const glm::uvec2& size) {
-        ZoneNamedN(update_shader_globals, "update shader globals", true);
+        PROFILE_SCOPE_NAMED(update_shader_globals);
 
         shader_globals.render_target_size = { size.x, size.y };
         shader_globals.render_target_size_inv = {

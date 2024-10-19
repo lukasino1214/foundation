@@ -13,11 +13,12 @@ namespace foundation {
         thread_pool{std::make_unique<ThreadPool>(std::thread::hardware_concurrency() - 1)},
         asset_manager{std::make_unique<AssetManager>(&context, scene.get(), thread_pool.get(), asset_processor.get())},
         scene_hierarchy_panel{scene.get()} {
-        ZoneScoped;
+        PROFILE_SCOPE;
 
         scene->update(delta_time);
         context.update_shader_globals(main_camera, observer_camera, { 720, 480 });
         renderer = std::make_unique<Renderer>(&window, &context, scene.get(), asset_manager.get());
+        renderer->recreate_framebuffer({ 720, 480 });
 
         struct CompilePipelinesTask : Task {
             Renderer* renderer = {};
@@ -126,8 +127,8 @@ namespace foundation {
 
     auto Application::run() -> i32 {
         while(!window.window_state->close_requested) {
-            FrameMarkStart("App Run");
-            ZoneScoped;
+            PROFILE_FRAME_START("App Run");
+            PROFILE_SCOPE;
             auto new_time_point = std::chrono::steady_clock::now();
             this->delta_time = std::chrono::duration_cast<std::chrono::duration<float, std::chrono::milliseconds::period>>(new_time_point - this->last_time_point).count() * 0.001f;
             this->last_time_point = new_time_point;
@@ -139,11 +140,11 @@ namespace foundation {
             }
 
             {
-                ZoneNamedN(update_textures, "update_textures", true);
+                PROFILE_SCOPE_NAMED(update_textures);
                 asset_manager->update_textures();
-                ZoneNamedN(record_gpu_load_processing_commands, "record_gpu_load_processing_commands", true);
+                PROFILE_SCOPE_NAMED(record_gpu_load_processing_commands);
                 auto commands = asset_processor->record_gpu_load_processing_commands();
-                ZoneNamedN(record_manifest_update, "record_manifest_update", true);
+                PROFILE_SCOPE_NAMED(record_manifest_update);
                 auto cmd_list = asset_manager->record_manifest_update(AssetManager::RecordManifestUpdateInfo {
                     .uploaded_meshes = commands.uploaded_meshes,
                     .uploaded_textures = commands.uploaded_textures
@@ -157,14 +158,14 @@ namespace foundation {
 
             update();
             renderer->render();
-            FrameMarkEnd("App Run");
+            PROFILE_FRAME_END("App Run");
         }
 
         return 0;
     }
 
     void Application::update() {
-        ZoneScoped;
+        PROFILE_SCOPE;
 
         renderer->ui_render_start();
         ui_update();

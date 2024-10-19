@@ -18,6 +18,7 @@
 #include <type_traits>
 #include <utility>
 #include <thread>
+#include <mutex>
 
 #include <daxa/daxa.hpp>
 #include <daxa/utils/task_graph.hpp>
@@ -35,7 +36,6 @@
 #define d_cast dynamic_cast
 #define r_cast reinterpret_cast
 
-#define TRACY_NO_INSTRUMENT
 #include <tracy/Tracy.hpp>
 
 namespace foundation {
@@ -76,3 +76,18 @@ inline constexpr auto find_next_lower_po2(daxa::u32 v) -> daxa::u32 {
     auto const msb = find_msb(v);
     return 1u << ((msb == 0 ? 1 : msb) - 1);
 }
+
+
+
+// #define PROFILE_ON
+#if defined(PROFILE_ON)
+#define PROFILE_FRAME_START(name) FrameMarkStart(name)
+#define PROFILE_FRAME_END(name) FrameMarkEnd(name)
+#define PROFILE_SCOPE ZoneScoped
+#define PROFILE_SCOPE_NAMED(name) ZoneNamedN(name, #name, true)
+#else
+#define PROFILE_FRAME_START(name)
+#define PROFILE_FRAME_END(name)
+#define PROFILE_SCOPE
+#define PROFILE_SCOPE_NAMED(name)
+#endif

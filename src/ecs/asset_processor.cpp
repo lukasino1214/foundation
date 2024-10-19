@@ -22,7 +22,7 @@
 #include <utils/file_io.hpp>
 
 namespace foundation {
-    AssetProcessor::AssetProcessor(Context* _context) : context{_context}, mesh_upload_mutex{std::make_unique<std::mutex>()} { ZoneScoped; }
+    AssetProcessor::AssetProcessor(Context* _context) : context{_context}, mesh_upload_mutex{std::make_unique<std::mutex>()} { PROFILE_SCOPE; }
     AssetProcessor::~AssetProcessor() {}
 
     void AssetProcessor::convert_gltf_to_binary(const std::filesystem::path& input_path, const std::filesystem::path& output_path) {
@@ -908,7 +908,7 @@ namespace foundation {
     }
 
     void AssetProcessor::load_gltf_mesh(const LoadMeshInfo& info) {
-        ZoneScoped;
+        PROFILE_SCOPE;
 
         std::vector<std::byte> uncompressed_data = {};
         {
@@ -991,7 +991,7 @@ namespace foundation {
     }
 
     void AssetProcessor::load_texture(const LoadTextureInfo& info) {
-        ZoneScoped;
+        PROFILE_SCOPE;
 
         BinaryTextureFileFormat texture = {};
         u32 mip_levels = {};
@@ -1105,10 +1105,10 @@ namespace foundation {
     }
 
     auto AssetProcessor::record_gpu_load_processing_commands() -> RecordCommands {
-        ZoneScoped;
+        PROFILE_SCOPE;
         RecordCommands ret = {};
         {
-            ZoneNamedN(getting_meshes, "getting_meshes", true);
+            PROFILE_SCOPE_NAMED(getting_meshes);
             std::lock_guard<std::mutex> lock{*mesh_upload_mutex};
             ret.uploaded_meshes = std::move(mesh_upload_queue);
             mesh_upload_queue = {};
@@ -1117,7 +1117,7 @@ namespace foundation {
         auto cmd_recorder = context->device.create_command_recorder(daxa::CommandRecorderInfo { .name = "asset processor upload" });
 
         {
-            ZoneNamedN(mesh_upload_info_, "mesh_upload_info", true);
+            PROFILE_SCOPE_NAMED(mesh_upload_info_);
             for(auto& mesh_upload_info : ret.uploaded_meshes) {
                 context->destroy_buffer_deferred(cmd_recorder, mesh_upload_info.staging_mesh_buffer);
 
@@ -1132,14 +1132,14 @@ namespace foundation {
         }
 
         {
-            ZoneNamedN(getting_textures, "getting_textures", true);
+            PROFILE_SCOPE_NAMED(getting_textures);
             std::lock_guard<std::mutex> lock{*texture_upload_mutex};
             ret.uploaded_textures = std::move(texture_upload_queue);
             texture_upload_queue = {};
         }
 
         {
-            ZoneNamedN(texture_upload_info_, "texture_upload_info", true);
+            PROFILE_SCOPE_NAMED(texture_upload_info_);
             for(auto& texture_upload_info : ret.uploaded_textures) {
                 if(!texture_upload_info.offsets.empty()) {
                     auto image_info = context->device.info_image(texture_upload_info.dst_image).value();

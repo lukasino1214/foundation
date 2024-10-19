@@ -141,8 +141,7 @@ namespace foundation {
     void SceneHierarchyPanel::draw() {
         ImGui::Begin("Scene Hiearchy");
 
-        auto f = scene->world->query_builder<EntityTag>().build();
-        f.each([&](flecs::entity e, EntityTag){
+        scene->world->each([&](flecs::entity e, EntityTag){
             if(!e.parent().is_valid()) {
                 Entity entity = { e, scene };
                 tree(entity, 0);

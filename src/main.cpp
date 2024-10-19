@@ -2,7 +2,7 @@
 
 using namespace foundation;
 auto main() -> i32 {
-    ZoneScoped;
+    PROFILE_SCOPE;
     Application app;
     app.run();
     return 0;

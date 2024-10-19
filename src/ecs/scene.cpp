@@ -16,12 +16,13 @@ namespace foundation {
     Scene::Scene(const std::string_view& _name, Context* _context, AppWindow* _window, ScriptingEngine* _scripting_engine, FileWatcher* _file_watcher)
      : name{_name}, world{std::make_unique<flecs::world>()}, context{_context}, window{_window}, scripting_engine{_scripting_engine}, file_watcher{_file_watcher},
         gpu_transforms_pool(context, "gpu_transforms"), gpu_entities_data_pool(context, "gpu_entities_data") {
-        ZoneScoped;
+        PROFILE_SCOPE;
         gpu_scene_data = make_task_buffer(context, {
             sizeof(GPUSceneData), 
             daxa::MemoryFlagBits::DEDICATED_MEMORY, 
             "scene data"
         }); 
+        query_transforms = world->query_builder<GlobalTransformComponent, LocalTransformComponent, GlobalTransformComponent*>().term_at(3).cascade(flecs::ChildOf).optional().build();
     }
 
     Scene::~Scene() {
@@ -39,7 +40,7 @@ namespace foundation {
     }
 
     void Scene::update(f32 delta_time) {
-        ZoneNamedN(scene_update, "scene update", true);
+        PROFILE_SCOPE_NAMED(scene_update);
 
         file_watcher->update([&](const std::filesystem::path& path){
             if(path.extension().string() == ".lua") {
@@ -52,20 +53,19 @@ namespace foundation {
             }
         });
 
-        world->query<ScriptComponent>().each([&](ScriptComponent& script){
+        world->each([&](ScriptComponent& script){
             if(script.lua) {
                 auto& lua = *script.lua;
                 lua["update"](delta_time);
             }
         });
-        
-        auto query_transforms = world->query_builder<GlobalTransformComponent, LocalTransformComponent, GlobalTransformComponent*>().term_at(3).cascade(flecs::ChildOf).optional().build();
+    
         query_transforms.each([&](flecs::entity entity, GlobalTransformComponent& gtc, LocalTransformComponent& ltc, GlobalTransformComponent* parent_gtc){
-            ZoneNamedN(update_transform, "update transform", true);
+            PROFILE_SCOPE_NAMED(update_transform);
 
             if(ltc.is_dirty) {
                 {
-                    ZoneNamedN(mark_children, "mark children", true);
+                    PROFILE_SCOPE_NAMED(mark_children);
                     entity.children([&](flecs::entity c) {
                         Entity child { c, this };
                         if(child.has_component<LocalTransformComponent>()) {
@@ -76,7 +76,7 @@ namespace foundation {
                 }
 
                 {
-                    ZoneNamedN(matrix_mul, "matrix mul", true);
+                    PROFILE_SCOPE_NAMED(matrix_mul);
                     ltc.model_matrix = glm::translate(glm::mat4(1.0f), ltc.position) 
                         * glm::toMat4(glm::quat(glm::radians(ltc.rotation))) 
                         * glm::scale(glm::mat4(1.0f), ltc.scale);
@@ -88,7 +88,7 @@ namespace foundation {
                 }
 
                 {
-                    ZoneNamedN(decompose_transform, "decompose transform", true);
+                    PROFILE_SCOPE_NAMED(decompose_transform);
                     math::decompose_transform(gtc.model_matrix, gtc.position, gtc.rotation, gtc.scale);
                     ltc.is_dirty = false;
                     gtc.is_dirty = true;
@@ -98,7 +98,7 @@ namespace foundation {
     }
 
     void Scene::update_gpu(const daxa::TaskInterface& task_interface) {
-        ZoneNamedN(scene_update_gpu, "scene update gpu", true);
+        PROFILE_SCOPE_NAMED(scene_update_gpu);
 
         gpu_transforms_pool.update_buffer(task_interface);
         gpu_entities_data_pool.update_buffer(task_interface);
@@ -132,8 +132,7 @@ namespace foundation {
             }
         }
 
-        auto query_transforms = world->query_builder<GlobalTransformComponent>().build();
-        query_transforms.each([&](GlobalTransformComponent& gtc) {
+        world->each([&](GlobalTransformComponent& gtc) {
             if(gtc.is_dirty) {
                 gtc.is_dirty = false;
 
@@ -144,7 +143,7 @@ namespace foundation {
             }
         });
 
-        world->query<GlobalTransformComponent, AABBComponent>().each([&](GlobalTransformComponent& tc,AABBComponent& aabb){
+        world->each([&](GlobalTransformComponent& tc,AABBComponent& aabb){
             context->debug_draw_context.aabbs.push_back(ShaderDebugAABBDraw{ 
                 .color = aabb.color,
                 .transform_index = tc.gpu_handle.index

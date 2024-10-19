@@ -9,7 +9,7 @@
 
 namespace foundation {
     AssetManager::AssetManager(Context* _context, Scene* _scene, ThreadPool* _thread_pool, AssetProcessor* _asset_processor) : context{_context}, scene{_scene}, thread_pool{_thread_pool}, asset_processor{_asset_processor} {
-        ZoneScoped;
+        PROFILE_SCOPE;
         gpu_meshes = make_task_buffer(context, {
             sizeof(Mesh), 
             daxa::MemoryFlagBits::DEDICATED_MEMORY, 
@@ -96,7 +96,7 @@ namespace foundation {
     }
 
     void AssetManager::load_model(LoadManifestInfo& info) {
-        ZoneNamedN(load_model, "load model", true);
+        PROFILE_SCOPE_NAMED(load_model);
         if(!std::filesystem::exists(info.path)) {
             throw std::runtime_error("couldnt not find model: " + info.path.string());
         }
@@ -389,7 +389,7 @@ namespace foundation {
     }
 
     auto AssetManager::record_manifest_update(const RecordManifestUpdateInfo& info) -> daxa::ExecutableCommandList {
-        ZoneScoped;
+        PROFILE_SCOPE;
         auto cmd_recorder = context->device.create_command_recorder({ .name = "asset manager update" });
 
         auto realloc = [&](daxa::TaskBuffer& task_buffer, u32 new_size) {
