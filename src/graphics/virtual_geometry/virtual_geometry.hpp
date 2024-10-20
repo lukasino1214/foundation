@@ -136,7 +136,7 @@ namespace foundation {
             .views = std::array{
                 PopulateMeshletsWriteCommandTask::AT.u_scene_data | info.gpu_scene_data,
                 PopulateMeshletsWriteCommandTask::AT.u_command | u_command,
-
+                PopulateMeshletsWriteCommandTask::AT.u_meshlets_data | info.gpu_meshlet_data,
             },
             .context = info.context,
         });
@@ -150,7 +150,6 @@ namespace foundation {
                 PopulateMeshletsTask::AT.u_meshes | info.gpu_meshes,
                 PopulateMeshletsTask::AT.u_command | u_command,
                 PopulateMeshletsTask::AT.u_meshlets_data | info.gpu_meshlet_data,
-
             },
             .context = info.context,
         });
@@ -181,7 +180,8 @@ namespace foundation {
             .views = std::array{
                 CullMeshletsWriteCommandTask::AT.u_meshlets_data | info.gpu_meshlet_data,
                 CullMeshletsWriteCommandTask::AT.u_command | u_command,
-
+                CullMeshletsWriteCommandTask::AT.u_hw_culled_meshlet_indices | info.gpu_hw_culled_meshlet_indices,
+                CullMeshletsWriteCommandTask::AT.u_sw_culled_meshlet_indices | info.gpu_sw_culled_meshlet_indices,
             },
             .context = info.context,
         });
@@ -204,7 +204,7 @@ namespace foundation {
             .views = std::array{
                 HWBuildIndexBufferWriteCommandTask::AT.u_meshlet_indices | info.gpu_hw_culled_meshlet_indices,
                 HWBuildIndexBufferWriteCommandTask::AT.u_command | u_command,
-
+                HWBuildIndexBufferWriteCommandTask::AT.u_index_buffer | info.gpu_hw_meshlet_index_buffer,
             },
             .context = info.context,
         });
@@ -224,7 +224,7 @@ namespace foundation {
             .views = std::array{
                 SWBuildIndexBufferWriteCommandTask::AT.u_meshlet_indices | info.gpu_sw_culled_meshlet_indices,
                 SWBuildIndexBufferWriteCommandTask::AT.u_command | u_command,
-
+                SWBuildIndexBufferWriteCommandTask::AT.u_index_buffer | info.gpu_sw_meshlet_index_buffer,
             },
             .context = info.context,
         });
@@ -255,7 +255,6 @@ namespace foundation {
             .views = std::array{
                 DrawMeshletsWriteCommandTask::AT.u_index_buffer | info.gpu_hw_meshlet_index_buffer,
                 DrawMeshletsWriteCommandTask::AT.u_command | u_command,
-
             },
             .context = info.context,
         });
@@ -279,7 +278,6 @@ namespace foundation {
                 SoftwareRasterizationWriteCommandTask::AT.u_meshlets_data | info.gpu_meshlet_data,
                 SoftwareRasterizationWriteCommandTask::AT.u_index_buffer | info.gpu_sw_meshlet_index_buffer,
                 SoftwareRasterizationWriteCommandTask::AT.u_command | u_command,
-
             },
             .context = info.context,
         });

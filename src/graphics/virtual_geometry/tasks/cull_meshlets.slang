@@ -14,6 +14,8 @@ void cull_meshlets_write_command() {
     command.y = 1;
     command.z = 1;
     *write_push.uses.u_command = command;
+    write_push.uses.u_hw_culled_meshlet_indices->count = 0;
+    write_push.uses.u_sw_culled_meshlet_indices->count = 0;
 }
 
 struct NdcAABB {
@@ -158,13 +160,6 @@ void cull_meshlets(u32vec3 thread_index : SV_DispatchThreadID) {
     const u32 count = push.uses.u_meshlets_data->count;
     const u32 current_thread_index = thread_index.x;
     const bool thread_active = current_thread_index < count;
-
-    if(current_thread_index == 0) {
-        push.uses.u_hw_culled_meshlet_indices->count = 0;
-        push.uses.u_sw_culled_meshlet_indices->count = 0;
-    }
-
-    GroupMemoryBarrierWithGroupSync();
 
     if(thread_active) {
         const MeshletData meshlet_data = push.uses.u_meshlets_data->meshlets[current_thread_index];

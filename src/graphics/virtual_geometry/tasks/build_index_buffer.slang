@@ -15,6 +15,7 @@ void build_index_buffer_write_command() {
     command.y = 1;
     command.z = 1;
     *write_push.uses.u_command = command;
+    write_push.uses.u_index_buffer->count = 0;
 }
 
 [shader("compute")]
@@ -23,12 +24,6 @@ void build_index_buffer(u32vec3 thread_index : SV_DispatchThreadID) {
     const u32 count = push.uses.u_meshlet_indices->count;
     const u32 current_thread_index = thread_index.x;
     const bool thread_active = current_thread_index < count;
-
-    if(current_thread_index == 0) {
-        push.uses.u_index_buffer->count = 0;
-    }
-
-    GroupMemoryBarrierWithGroupSync();
 
     if(thread_active) {
         const u32 meshlet_data_index = push.uses.u_meshlet_indices.indices[current_thread_index];

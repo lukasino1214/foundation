@@ -11,6 +11,7 @@
 DAXA_DECL_TASK_HEAD_BEGIN(HWBuildIndexBufferWriteCommand)
 DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ, daxa_BufferPtr(MeshletIndices), u_meshlet_indices)
 DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_WRITE, daxa_BufferPtr(DispatchIndirectStruct), u_command)
+DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_WRITE, daxa_BufferPtr(MeshletIndexBuffer), u_index_buffer)
 DAXA_DECL_TASK_HEAD_END
 
 struct HWBuildIndexBufferWriteCommandPush {
@@ -50,6 +51,7 @@ using HWBuildIndexBufferTask = foundation::IndirectComputeDispatchTask<
 DAXA_DECL_TASK_HEAD_BEGIN(SWBuildIndexBufferWriteCommand)
 DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ, daxa_BufferPtr(MeshletIndices), u_meshlet_indices)
 DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_WRITE, daxa_BufferPtr(DispatchIndirectStruct), u_command)
+DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_WRITE, daxa_BufferPtr(MeshletIndexBuffer), u_index_buffer)
 DAXA_DECL_TASK_HEAD_END
 
 struct SWBuildIndexBufferWriteCommandPush {

@@ -11,6 +11,8 @@
 DAXA_DECL_TASK_HEAD_BEGIN(CullMeshletsWriteCommand)
 DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ, daxa_BufferPtr(MeshletsData), u_meshlets_data)
 DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_WRITE, daxa_BufferPtr(DispatchIndirectStruct), u_command)
+DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_WRITE, daxa_BufferPtr(MeshletIndices), u_hw_culled_meshlet_indices)
+DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_WRITE, daxa_BufferPtr(MeshletIndices), u_sw_culled_meshlet_indices)
 DAXA_DECL_TASK_HEAD_END
 
 struct CullMeshletsWriteCommandPush {

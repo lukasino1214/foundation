@@ -14,6 +14,7 @@ void populate_meshlets_write_command() {
     command.y = 1;
     command.z = 1;
     *write_push.uses.u_command = command;
+    write_push.uses.u_meshlets_data->count = 0;
 }
 
 
@@ -23,12 +24,6 @@ void populate_meshlets(u32vec3 thread_index : SV_DispatchThreadID) {
     const u32 count = push.uses.u_scene_data->entity_count;
     const u32 current_thread_index = thread_index.x;
     const bool thread_active = current_thread_index < count;
-
-    if(current_thread_index == 0) {
-        push.uses.u_meshlets_data->count = 0;
-    }
-
-    GroupMemoryBarrierWithGroupSync();
 
     if(thread_active) {
         EntityData entity_data = push.uses.u_entities_data[current_thread_index];
