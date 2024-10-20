@@ -16,12 +16,6 @@ void cull_meshlets_write_command() {
     *write_push.uses.u_command = command;
 }
 
-void add_aabb(ShaderDebugBufferHead* head, ShaderDebugAABBDraw draw) {
-    u32 index = 0;
-    InterlockedAdd(head->aabb_draw_indirect_info.instance_count, 1, index);
-    head->aabb_draws[index] = draw;
-}
-
 struct NdcAABB {
     daxa_f32vec3 ndc_min;
     daxa_f32vec3 ndc_max;
@@ -109,6 +103,12 @@ bool is_aabb_inside_plane(in f32vec3 center, in f32vec3 extent, in f32vec4 plane
     return (dot(normal, center) - plane.w) >= -radius;
 }
 
+void add_aabb(ShaderDebugBufferHead* head, ShaderDebugAABBDraw draw) {
+    u32 index = 0;
+    InterlockedAdd(head->aabb_draw_indirect_info.instance_count, 1, index);
+    head->aabb_draws[index] = draw;
+}
+
 bool is_meshlet_visible(AABB aabb, daxa_f32mat4x4 model) {
     const f32vec3 world_aabb_center = mul(model, f32vec4(aabb.center, 1.0)).xyz;
     const f32vec3 right = model[0].xyz * aabb.extent.x;
@@ -135,6 +135,13 @@ bool is_meshlet_visible(AABB aabb, daxa_f32mat4x4 model) {
             return false;
         }
     }
+
+    // ShaderDebugAABBDraw draw;
+    // draw.position = world_aabb_center;
+    // draw.size = world_extent;
+    // draw.color = f32vec3(1.0, 0.0, 0.0);
+    // draw.coord_space = 0;
+    // add_aabb(push.uses.u_globals.debug, draw);
 
     return !is_ndc_aabb_hiz_depth_visible(calculate_ndc_aabb(model, aabb), push.uses.u_globals->next_lower_po2_render_target_size, push.uses.u_hiz);
     return true;

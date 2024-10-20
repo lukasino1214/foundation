@@ -20,7 +20,7 @@ void build_index_buffer_write_command() {
 [shader("compute")]
 [numthreads(16, 1, 1)]
 void build_index_buffer(u32vec3 thread_index : SV_DispatchThreadID) {
-    const u32 count = push.uses.u_meshlets_data->count;
+    const u32 count = push.uses.u_meshlet_indices->count;
     const u32 current_thread_index = thread_index.x;
     const bool thread_active = current_thread_index < count;
 

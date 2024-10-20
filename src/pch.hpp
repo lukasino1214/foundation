@@ -77,8 +77,6 @@ inline constexpr auto find_next_lower_po2(daxa::u32 v) -> daxa::u32 {
     return 1u << ((msb == 0 ? 1 : msb) - 1);
 }
 
-
-
 // #define PROFILE_ON
 #if defined(PROFILE_ON)
 #define PROFILE_FRAME_START(name) FrameMarkStart(name)
