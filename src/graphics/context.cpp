@@ -5,6 +5,7 @@ namespace foundation {
     DebugDrawContext::DebugDrawContext(Context* _context) : context{_context} {
         PROFILE_SCOPE;
         usize size = sizeof(ShaderDebugBufferHead);
+        size += sizeof(ShaderDebugEntityOOBDraw) * max_entity_oob_draws;
         size += sizeof(ShaderDebugAABBDraw) * max_aabb_draws;
 
         this->buffer = context->create_buffer(daxa::BufferInfo {
@@ -12,7 +13,6 @@ namespace foundation {
             .allocate_info = daxa::MemoryFlagBits::DEDICATED_MEMORY,
             .name = "DebugDrawContext buffer"
         });
-
     }
 
     DebugDrawContext::~DebugDrawContext() {
@@ -20,14 +20,24 @@ namespace foundation {
     }
 
     void DebugDrawContext::update_debug_buffer(daxa::Device& device, daxa::CommandRecorder& recorder, daxa::TransferMemoryPool& allocator) {
+        const usize entity_oob_draws_offset = sizeof(ShaderDebugBufferHead);
+        const usize aabb_draws_offset = entity_oob_draws_offset  + sizeof(ShaderDebugAABBDraw) * max_aabb_draws;
+        
         auto head = ShaderDebugBufferHead {
+            .entity_oob_draw_indirect_info = {
+                .vertex_count = aabb_vertices,
+                .instance_count = s_cast<u32>(entity_oobs.size()),
+                .first_vertex = 0,
+                .first_instance = 0,
+            },
             .aabb_draw_indirect_info = {
                 .vertex_count = aabb_vertices,
                 .instance_count = s_cast<u32>(aabbs.size()),
                 .first_vertex = 0,
                 .first_instance = 0,
             },
-            .aabb_draws = device.get_device_address(buffer).value() + sizeof(ShaderDebugBufferHead)
+            .entity_oob_draws = device.get_device_address(buffer).value() + entity_oob_draws_offset,
+            .aabb_draws = device.get_device_address(buffer).value() + aabb_draws_offset,
         };
 
         auto alloc = allocator.allocate_fill(head).value();
@@ -39,16 +49,31 @@ namespace foundation {
             .size = sizeof(ShaderDebugBufferHead),
         });
 
+        if (!entity_oobs.empty())
+        {
+            u32 size = s_cast<u32>(entity_oobs.size() * sizeof(ShaderDebugEntityOOBDraw));
+            auto entity_oob_draws = allocator.allocate(size, 4).value();
+            std::memcpy(entity_oob_draws.host_address, entity_oobs.data(), size);
+            recorder.copy_buffer_to_buffer({
+                .src_buffer = allocator.buffer(),
+                .dst_buffer = buffer,
+                .src_offset = entity_oob_draws.buffer_offset,
+                .dst_offset = entity_oob_draws_offset,
+                .size = size,
+            });
+            entity_oobs.clear();
+        }
+
         if (!aabbs.empty())
         {
-            u32 size = s_cast<u32>(aabbs.size() * sizeof(ShaderDebugAABBDraw));
+            u32 size = s_cast<u32>(aabbs.size() * sizeof(ShaderDebugEntityOOBDraw));
             auto aabb_draws = allocator.allocate(size, 4).value();
             std::memcpy(aabb_draws.host_address, aabbs.data(), size);
             recorder.copy_buffer_to_buffer({
                 .src_buffer = allocator.buffer(),
                 .dst_buffer = buffer,
                 .src_offset = aabb_draws.buffer_offset,
-                .dst_offset = sizeof(ShaderDebugBufferHead),
+                .dst_offset = aabb_draws_offset,
                 .size = size,
             });
             aabbs.clear();

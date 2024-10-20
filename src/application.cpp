@@ -74,7 +74,7 @@ namespace foundation {
                 auto* tc = add_transform(cube1);
                 tc->set_position({0.0f, 0.0, 0.0f});
                 
-                cube1.add_component<AABBComponent>();
+                cube1.add_component<OOBComponent>();
                 auto* script = cube1.add_component<ScriptComponent>();
                 script->path = "assets/scripts/test.lua";
                 file_watcher.watch("assets/scripts/test.lua");
@@ -88,7 +88,7 @@ namespace foundation {
                 tc->set_position({0.0f, 2.5, 0.0f});
                 tc->set_scale({0.5f, 0.5, 0.5f});
 
-                cube2.add_component<AABBComponent>();
+                cube2.add_component<OOBComponent>();
                 auto* script = cube2.add_component<ScriptComponent>();
                 script->path = "assets/scripts/test.lua";
                 file_watcher.watch("assets/scripts/test.lua");
@@ -102,7 +102,7 @@ namespace foundation {
                 tc->set_position({0.0f, 2.5, 0.0f});
                 tc->set_scale({0.5f, 0.5, 0.5f});
 
-                cube3.add_component<AABBComponent>();
+                cube3.add_component<OOBComponent>();
                 auto* script = cube3.add_component<ScriptComponent>();
                 script->path = "assets/scripts/test.lua";
                 file_watcher.watch("assets/scripts/test.lua");
@@ -115,7 +115,7 @@ namespace foundation {
                 auto* tc = add_transform(cube4);
                 tc->set_position({0.0f, 2.5, 0.0f});
                 tc->set_scale({0.5f, 0.5, 0.5f});
-                cube4.add_component<AABBComponent>();
+                cube4.add_component<OOBComponent>();
             }
         }
 

@@ -143,9 +143,9 @@ namespace foundation {
             }
         });
 
-        world->each([&](GlobalTransformComponent& tc,AABBComponent& aabb){
-            context->debug_draw_context.aabbs.push_back(ShaderDebugAABBDraw{ 
-                .color = aabb.color,
+        world->each([&](GlobalTransformComponent& tc, OOBComponent& oob){
+            context->debug_draw_context.entity_oobs.push_back(ShaderDebugEntityOOBDraw{ 
+                .color = oob.color,
                 .transform_index = tc.gpu_handle.index
             });
         });

@@ -186,8 +186,8 @@ namespace foundation {
                 draw_component<MeshComponent>(selected_entity, "Mesh Component");
             }
 
-            if(selected_entity.has_component<AABBComponent>()) {
-                draw_component<AABBComponent>(selected_entity, "AABB Component");
+            if(selected_entity.has_component<OOBComponent>()) {
+                draw_component<OOBComponent>(selected_entity, "OOB Component");
             }
             
             if (ImGui::BeginPopupContextWindow(0, ImGuiPopupFlags_NoOpenOverItems | ImGuiPopupFlags_MouseButtonRight)) {

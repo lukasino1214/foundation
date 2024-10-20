@@ -8,10 +8,12 @@
 namespace foundation {
     struct Context;
     struct DebugDrawContext {
+        u32 max_entity_oob_draws = 128'000;
         u32 max_aabb_draws = 128'000;
         u32 aabb_vertices = 24;
         daxa::BufferId buffer = {};
         Context* context = {};
+        std::vector<ShaderDebugEntityOOBDraw> entity_oobs = {};
         std::vector<ShaderDebugAABBDraw> aabbs = {};
 
         DebugDrawContext(Context* _context);

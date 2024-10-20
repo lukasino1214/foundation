@@ -136,14 +136,13 @@ bool is_meshlet_visible(AABB aabb, daxa_f32mat4x4 model) {
         }
     }
 
+    // return !is_ndc_aabb_hiz_depth_visible(calculate_ndc_aabb(model, aabb), push.uses.u_globals->next_lower_po2_render_target_size, push.uses.u_hiz);
     // ShaderDebugAABBDraw draw;
     // draw.position = world_aabb_center;
-    // draw.size = world_extent;
+    // draw.extent = world_extent;
     // draw.color = f32vec3(1.0, 0.0, 0.0);
-    // draw.coord_space = 0;
     // add_aabb(push.uses.u_globals.debug, draw);
 
-    return !is_ndc_aabb_hiz_depth_visible(calculate_ndc_aabb(model, aabb), push.uses.u_globals->next_lower_po2_render_target_size, push.uses.u_hiz);
     return true;
 }
 

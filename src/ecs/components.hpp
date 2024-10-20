@@ -58,8 +58,7 @@ namespace foundation {
         void draw();
     };
 
-    struct AABBComponent {
-        glm::vec3 position = { 0.0f, 0.0f, 0.0f };
+    struct OOBComponent {
         glm::vec3 extent = { 1.0f, 1.0f, 1.0f };
         glm::vec3 color = { 1.0f, 1.0f, 1.0f };
 

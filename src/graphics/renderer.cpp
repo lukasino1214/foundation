@@ -106,7 +106,8 @@ namespace foundation {
         };
 
         context->gpu_metrics[ClearImageTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
-        context->gpu_metrics[DebugDrawTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
+        context->gpu_metrics[DebugEntityOOBDrawTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
+        context->gpu_metrics[DebugAABBDrawTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
         register_virtual_geometry_gpu_metrics(context);
     }
 
@@ -175,7 +176,8 @@ namespace foundation {
 
     void Renderer::compile_pipelines() {
         std::vector<std::tuple<std::string_view, daxa::RasterPipelineCompileInfo>> rasters = {
-            {DebugDrawTask::name(), DebugDrawTask::pipeline_config_info()}
+            {DebugEntityOOBDrawTask::name(), DebugEntityOOBDrawTask::pipeline_config_info()},
+            {DebugAABBDrawTask::name(), DebugAABBDrawTask::pipeline_config_info()}
         };
         auto virtual_geometry_rasters = get_virtual_geometry_raster_pipelines();
         rasters.insert(rasters.end(), virtual_geometry_rasters.begin(), virtual_geometry_rasters.end());
@@ -283,12 +285,22 @@ namespace foundation {
             .visibility_image = visibility_image
         });
 
-        render_task_graph.add_task(DebugDrawTask {
+        render_task_graph.add_task(DebugEntityOOBDrawTask {
             .views = std::array{
-                DebugDrawTask::AT.u_globals | context->shader_globals_buffer,
-                DebugDrawTask::AT.u_transforms | scene->gpu_transforms_pool.task_buffer,
-                DebugDrawTask::AT.u_image | render_image,
-                DebugDrawTask::AT.u_visibility_image | visibility_image,
+                DebugEntityOOBDrawTask::AT.u_globals | context->shader_globals_buffer,
+                DebugEntityOOBDrawTask::AT.u_transforms | scene->gpu_transforms_pool.task_buffer,
+                DebugEntityOOBDrawTask::AT.u_image | render_image,
+                DebugEntityOOBDrawTask::AT.u_visibility_image | visibility_image,
+            },
+            .context = context,
+        });
+
+        render_task_graph.add_task(DebugAABBDrawTask {
+            .views = std::array{
+                DebugAABBDrawTask::AT.u_globals | context->shader_globals_buffer,
+                DebugAABBDrawTask::AT.u_transforms | scene->gpu_transforms_pool.task_buffer,
+                DebugAABBDrawTask::AT.u_image | render_image,
+                DebugAABBDrawTask::AT.u_visibility_image | visibility_image,
             },
             .context = context,
         });

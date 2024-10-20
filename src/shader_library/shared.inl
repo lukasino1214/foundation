@@ -28,14 +28,23 @@ struct DispatchIndirectStruct {
 };
 DAXA_DECL_BUFFER_PTR(DispatchIndirectStruct)
 
-struct ShaderDebugAABBDraw {
+struct ShaderDebugEntityOOBDraw {
     f32vec3 color;
     u32 transform_index;
+};
+DAXA_DECL_BUFFER_PTR(ShaderDebugEntityOOBDraw)
+
+struct ShaderDebugAABBDraw {
+    f32vec3 color;
+    f32vec3 position;
+    f32vec3 extent;
 };
 DAXA_DECL_BUFFER_PTR(ShaderDebugAABBDraw)
 
 struct ShaderDebugBufferHead {
+    DrawIndirectStruct entity_oob_draw_indirect_info;
     DrawIndirectStruct aabb_draw_indirect_info;
+    daxa_RWBufferPtr(ShaderDebugEntityOOBDraw) entity_oob_draws;
     daxa_RWBufferPtr(ShaderDebugAABBDraw) aabb_draws;
 };
 DAXA_DECL_BUFFER_PTR(ShaderDebugBufferHead)
