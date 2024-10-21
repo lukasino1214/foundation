@@ -210,13 +210,11 @@ void cull_meshlets(u32vec3 thread_index : SV_DispatchThreadID) {
                 abs(max_viewport.x - min_viewport.x) < 32 &&
                 abs(max_viewport.y - min_viewport.y) < 32;
 
-            // if(is_sw_candidate) {
-            //     write_meshlet(push.uses.u_sw_culled_meshlet_indices, current_thread_index);
-            // } else {
-            //     write_meshlet(push.uses.u_hw_culled_meshlet_indices, current_thread_index);
-            // }
-
-            write_meshlet(push.uses.u_hw_culled_meshlet_indices, current_thread_index);
+            if(is_sw_candidate && push.uses.u_globals->render_as_observer == 0) {
+                write_meshlet(push.uses.u_sw_culled_meshlet_indices, current_thread_index);
+            } else {
+                write_meshlet(push.uses.u_hw_culled_meshlet_indices, current_thread_index);
+            }
         }
     }
 }
