@@ -93,7 +93,7 @@ struct HWDrawMeshletsOnlyDepthTask : HWDrawMeshletsOnlyDepth::Task {
         auto render_cmd = std::move(ti.recorder).begin_renderpass(daxa::RenderPassBeginInfo {
             .depth_attachment = { daxa::RenderAttachmentInfo {
                 .image_view = ti.get(AT.u_depth_image).ids[0].default_view(),
-                .load_op = daxa::AttachmentLoadOp::CLEAR,
+                .load_op = daxa::AttachmentLoadOp::LOAD,
                 .clear_value = daxa::DepthValue { .depth = 0.0f },
             }},
             .render_area = {.x = 0, .y = 0, .width = size_x, .height = size_y},
@@ -201,7 +201,7 @@ struct SWDrawMeshletsOnlyDepthTask : SWDrawMeshletsOnlyDepth::Task {
         auto render_cmd = std::move(ti.recorder).begin_renderpass(daxa::RenderPassBeginInfo {
             .depth_attachment = { daxa::RenderAttachmentInfo {
                 .image_view = ti.get(AT.u_depth_image).ids[0].default_view(),
-                .load_op = daxa::AttachmentLoadOp::CLEAR,
+                .load_op = daxa::AttachmentLoadOp::LOAD,
                 .clear_value = daxa::DepthValue { .depth = 0.0f },
             }},
             .render_area = {.x = 0, .y = 0, .width = size_x, .height = size_y},

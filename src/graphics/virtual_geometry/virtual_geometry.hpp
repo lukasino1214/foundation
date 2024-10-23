@@ -88,6 +88,17 @@ namespace foundation {
             .name = "command",
         });
 
+        info.task_graph.add_task({
+            .attachments = {daxa::inl_attachment(daxa::TaskImageAccess::TRANSFER_WRITE, info.depth_image)},
+            .task = [&](daxa::TaskInterface ti) {
+                ti.recorder.clear_image({
+                    .clear_value = daxa::DepthValue { .depth = 0.0f },
+                    .dst_image = ti.get(daxa::TaskImageAttachmentIndex(0)).ids[0],
+                });
+            },
+            .name = "clear depth image",
+        });
+
         info.task_graph.add_task(HWDrawMeshletsOnlyDepthWriteCommandTask {
             .views = std::array{
                 HWDrawMeshletsOnlyDepthWriteCommandTask::AT.u_index_buffer | info.gpu_hw_meshlet_index_buffer,

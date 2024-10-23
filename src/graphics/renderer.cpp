@@ -41,7 +41,7 @@ namespace foundation {
             {
                 {
                     .format = daxa::Format::D32_SFLOAT,
-                    .usage = daxa::ImageUsageFlagBits::DEPTH_STENCIL_ATTACHMENT | daxa::ImageUsageFlagBits::SHADER_SAMPLED | daxa::ImageUsageFlagBits::TRANSFER_SRC,
+                    .usage = daxa::ImageUsageFlagBits::DEPTH_STENCIL_ATTACHMENT | daxa::ImageUsageFlagBits::SHADER_SAMPLED | daxa::ImageUsageFlagBits::TRANSFER_SRC | daxa::ImageUsageFlagBits::TRANSFER_DST | daxa::ImageUsageFlagBits::SHADER_STORAGE,
                     .name = depth_image.info().name,
                 },
                 depth_image,
@@ -172,6 +172,20 @@ namespace foundation {
 
             timg.set_images({.images = std::array{context->create_image(info)}});
         }
+
+        context->shader_globals.render_target_size = { size.x, size.y };
+        context->shader_globals.render_target_size_inv = {
+            1.0f / s_cast<f32>(context->shader_globals.render_target_size.x),
+            1.0f / s_cast<f32>(context->shader_globals.render_target_size.y),
+        };
+        context->shader_globals.next_lower_po2_render_target_size.x = find_next_lower_po2(context->shader_globals.render_target_size.x);
+        context->shader_globals.next_lower_po2_render_target_size.y = find_next_lower_po2(context->shader_globals.render_target_size.y);
+        context->shader_globals.next_lower_po2_render_target_size_inv = {
+            1.0f / s_cast<f32>(context->shader_globals.next_lower_po2_render_target_size.x),
+            1.0f / s_cast<f32>(context->shader_globals.next_lower_po2_render_target_size.y),
+        };
+
+        rebuild_task_graph();
     }
 
     void Renderer::compile_pipelines() {
@@ -214,6 +228,7 @@ namespace foundation {
         render_task_graph.use_persistent_image(render_image);
         render_task_graph.use_persistent_image(depth_image);
         render_task_graph.use_persistent_image(visibility_image);
+
         render_task_graph.use_persistent_buffer(shader_globals_buffer);
         render_task_graph.use_persistent_buffer(scene->gpu_transforms_pool.task_buffer);
         render_task_graph.use_persistent_buffer(asset_manager->gpu_materials);

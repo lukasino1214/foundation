@@ -42,7 +42,7 @@ void downsample_64x64(uvec2 local_index, uvec2 grid_index, uvec2 min_mip_size, i
     }
     const uvec2 glob_wg_dst_offset0 = (uvec2(GEN_HIZ_WINDOW_X,GEN_HIZ_WINDOW_Y) * grid_index.xy) / 2;
     [[unroll]]
-    for (uint i = 2; i < mip_count; ++i) {
+    for (i32 i = 2; i < mip_count; ++i) {
         const uint ping_pong_src_index = (i & 1u);
         const uint ping_pong_dst_index = ((i+1) & 1u);
         memoryBarrierShared();
