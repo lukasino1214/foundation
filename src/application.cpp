@@ -130,7 +130,7 @@ namespace foundation {
             PROFILE_FRAME_START("App Run");
             PROFILE_SCOPE;
             auto new_time_point = std::chrono::steady_clock::now();
-            this->delta_time = std::chrono::duration_cast<std::chrono::duration<float, std::chrono::milliseconds::period>>(new_time_point - this->last_time_point).count() * 0.001f;
+            this->delta_time = std::chrono::duration_cast<std::chrono::duration<f32, std::chrono::milliseconds::period>>(new_time_point - this->last_time_point).count() * 0.001f;
             this->last_time_point = new_time_point;
             window.update();
 

@@ -31,7 +31,7 @@ void build_index_buffer(u32vec3 thread_index : SV_DispatchThreadID) {
         const Mesh mesh = push.uses.u_meshes[meshlet_data.mesh_index];
         const Meshlet meshlet = mesh.meshlets[meshlet_data.meshlet_index];
 
-        uint offset = 0;
+        u32 offset = 0;
         InterlockedAdd(push.uses.u_index_buffer->count, meshlet.triangle_count, offset);
 
         for(u32 i = 0; i < meshlet.triangle_count; i++) {  

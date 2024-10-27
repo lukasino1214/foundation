@@ -88,7 +88,7 @@ void rasterize(in f32vec3[3] triangle, in i32vec2 viewport_size, in u32 payload)
             edge_012.x == 0 ? 1e8 : (1.0 / edge_012.x),
             edge_012.y == 0 ? 1e8 : (1.0 / edge_012.y),
             edge_012.z == 0 ? 1e8 : (1.0 / edge_012.z));
-        int y = min_pixel.y;
+        i32 y = min_pixel.y;
         while (true) {
             const f32vec3 cross_x = f32vec3(hec_y_0, hec_y_1, hec_y_2) * inv_edge_012;
             const f32vec3 min_x = f32vec3(
@@ -118,9 +118,9 @@ void rasterize(in f32vec3[3] triangle, in i32vec2 viewport_size, in u32 payload)
             ++y;
         }
     } else {
-        int y = min_pixel.y;
+        i32 y = min_pixel.y;
         while (true) {
-            int x = min_pixel.x;
+            i32 x = min_pixel.x;
             if (min(min(hec_y_0, hec_y_1), hec_y_2) >= 0.0) {
                 AtomicMaxU64(tex_rw_u64_table[push.uses.u_visibility_image.index()][u32vec2(x, y)], encode_visibility_buffer_payload(payload, z_y));
             }
@@ -178,8 +178,8 @@ void software_rasterization(u32vec3 thread_index : SV_DispatchThreadID) {
     
         const f32vec2 scale = f32vec2(0.5, 0.5) * f32vec2(push.uses.u_globals->render_target_size) * f32(SUBPIXEL_SAMPLES);
         const f32vec2 bias = (0.5 * f32vec2(push.uses.u_globals->render_target_size)) * f32(SUBPIXEL_SAMPLES) + 0.5;
-        const daxa_f32mat4x4 transform_matrix = push.uses.u_transforms[meshlet_data.transform_index].model_matrix; 
-        daxa_f32mat4x4 pvm = push.uses.u_transforms[meshlet_data.transform_index].model_matrix;
+        const f32mat4x4 transform_matrix = push.uses.u_transforms[meshlet_data.transform_index].model_matrix; 
+        f32mat4x4 pvm = push.uses.u_transforms[meshlet_data.transform_index].model_matrix;
         if(push.uses.u_globals.render_as_observer) {
             pvm = mul(push.uses.u_globals->observer_camera.projection_matrix,
                     mul(push.uses.u_globals->observer_camera.view_matrix, pvm));
@@ -202,13 +202,13 @@ void software_rasterization(u32vec3 thread_index : SV_DispatchThreadID) {
     
         #undef stupid_indexing
     
-        const daxa_u32[3] indices = daxa_u32[3](
+        const u32[3] indices = u32[3](
             get_vertex_index(mesh, meshlet, triangle_index, 0),
             get_vertex_index(mesh, meshlet, triangle_index, 1),
             get_vertex_index(mesh, meshlet, triangle_index, 2)
         );
     
-        const daxa_f32vec3[3] positions = f32vec3[3](
+        const f32vec3[3] positions = f32vec3[3](
             mesh.vertex_positions[indices[0]],
             mesh.vertex_positions[indices[1]],
             mesh.vertex_positions[indices[2]]

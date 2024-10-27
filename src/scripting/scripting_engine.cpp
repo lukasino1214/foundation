@@ -153,35 +153,35 @@ namespace foundation {
         );
 
         lua->new_usertype<glm::vec3>("vec3", 
-            sol::constructors<glm::vec3(), glm::vec3(float), glm::vec3(float, float, float)>(),
+            sol::constructors<glm::vec3(), glm::vec3(f32), glm::vec3(f32, f32, f32)>(),
             "x", &glm::vec3::x, 
             "y", &glm::vec3::y, 
             "z", &glm::vec3::z,
             sol::meta_function::addition, sol::overload(
                 s_cast<glm::vec3 (*)(const glm::vec3&, const glm::vec3&)>(glm::operator+),
-                s_cast<glm::vec3 (*)(const glm::vec3&, float)>(glm::operator+),
-                s_cast<glm::vec3 (*)(float, const glm::vec3&)>(glm::operator+)
+                s_cast<glm::vec3 (*)(const glm::vec3&, f32)>(glm::operator+),
+                s_cast<glm::vec3 (*)(f32, const glm::vec3&)>(glm::operator+)
             ),
             sol::meta_function::subtraction, sol::overload(
                 s_cast<glm::vec3 (*)(const glm::vec3&, const glm::vec3&)>(glm::operator-),
-                s_cast<glm::vec3 (*)(const glm::vec3&, float)>(glm::operator-),
-                s_cast<glm::vec3 (*)(float, const glm::vec3&)>(glm::operator-)
+                s_cast<glm::vec3 (*)(const glm::vec3&, f32)>(glm::operator-),
+                s_cast<glm::vec3 (*)(f32, const glm::vec3&)>(glm::operator-)
             ),
             sol::meta_function::multiplication, sol::overload(
                 s_cast<glm::vec3 (*)(const glm::vec3&, const glm::vec3&)>(glm::operator*),
-                s_cast<glm::vec3 (*)(const glm::vec3&, float)>(glm::operator*),
-                s_cast<glm::vec3 (*)(float, const glm::vec3&)>(glm::operator*)
+                s_cast<glm::vec3 (*)(const glm::vec3&, f32)>(glm::operator*),
+                s_cast<glm::vec3 (*)(f32, const glm::vec3&)>(glm::operator*)
             ),
             sol::meta_function::division, sol::overload(
                 s_cast<glm::vec3 (*)(const glm::vec3&, const glm::vec3&)>(glm::operator/),
-                    s_cast<glm::vec3 (*)(const glm::vec3&, float)>(glm::operator/),
-                    s_cast<glm::vec3 (*)(float, const glm::vec3&)>(glm::operator/)
+                    s_cast<glm::vec3 (*)(const glm::vec3&, f32)>(glm::operator/),
+                    s_cast<glm::vec3 (*)(f32, const glm::vec3&)>(glm::operator/)
             ),
             sol::meta_function::equal_to, [](const glm::vec3& a, const glm::vec3& b) -> bool { return a == b; }
         );
 
         lua->set_function("normalize", sol::resolve<glm::vec3(const glm::vec3&)>(glm::normalize));
-        lua->set_function("length", sol::resolve<float(const glm::vec3&)>(glm::length));
+        lua->set_function("length", sol::resolve<f32(const glm::vec3&)>(glm::length));
 
         lua->new_usertype<LocalTransformComponent>("LocalTransformComponent", 
             "get_position", &LocalTransformComponent::get_position,

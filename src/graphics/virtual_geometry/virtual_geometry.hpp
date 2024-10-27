@@ -255,7 +255,7 @@ namespace foundation {
             .attachments = {daxa::inl_attachment(daxa::TaskImageAccess::TRANSFER_WRITE, info.visibility_image)},
             .task = [&](daxa::TaskInterface ti) {
                 ti.recorder.clear_image({
-                    .clear_value = std::array<daxa_u32, 4>{INVALID_ID, 0, 0, 0},
+                    .clear_value = std::array<u32, 4>{INVALID_ID, 0, 0, 0},
                     .dst_image = ti.get(daxa::TaskImageAttachmentIndex(0)).ids[0],
                 });
             },

@@ -1,6 +1,3 @@
 [submodule "deps/Daxa"]
 	path = deps/Daxa
 	url = https://github.com/Ipotrick/Daxa.git
-[submodule "deps/fastgltf"]
-	path = deps/fastgltf
-	url = https://github.com/spnda/fastgltf.git

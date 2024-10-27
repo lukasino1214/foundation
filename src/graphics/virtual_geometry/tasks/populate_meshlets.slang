@@ -35,7 +35,7 @@ void populate_meshlets(u32vec3 thread_index : SV_DispatchThreadID) {
             u32 offset;
             InterlockedAdd(push.uses.u_meshlets_data->count, mesh.meshlet_count, offset);
 
-            for(daxa_u32 i = 0; i < mesh.meshlet_count; i++) {
+            for(u32 i = 0; i < mesh.meshlet_count; i++) {
                 MeshletData meshlet_data;
                 meshlet_data.mesh_group_index = entity_data.mesh_group_index;
                 meshlet_data.mesh_index = global_mesh_index;

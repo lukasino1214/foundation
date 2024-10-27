@@ -45,7 +45,7 @@ VertexStageOutput entity_obb_main(u32 vertex_index: SV_VertexID, u32 instance_in
 VertexStageOutput aabb_main(u32 vertex_index: SV_VertexID, u32 instance_index : SV_InstanceID) {
     const ShaderDebugAABBDraw aabb = push.uses.u_globals->debug->aabb_draws[instance_index];
     const f32mat4x4 projection_view_matrix = push.uses.u_globals->render_as_observer ? push.uses.u_globals->observer_camera.projection_view_matrix : push.uses.u_globals->main_camera.projection_view_matrix;
-    const float3 model_position = aabb_vertex_base_offsets[vertex_index] * aabb.extent + aabb.position;
+    const f32vec3 model_position = aabb_vertex_base_offsets[vertex_index] * aabb.extent + aabb.position;
 
     VertexStageOutput output;
     output.color = aabb.color;

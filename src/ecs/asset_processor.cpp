@@ -146,8 +146,8 @@ namespace foundation {
             CustomOutputHandler& operator=(CustomOutputHandler&&) = delete;
             virtual ~CustomOutputHandler() {}
 
-            virtual void beginImage(int size, int width, int height, int depth, int face, int miplevel) override { data.resize(size); }
-            virtual bool writeData(const void* ptr, int size) { std::memcpy(data.data(), ptr, size); return true; }
+            virtual void beginImage(i32 size, i32 width, i32 height, i32 depth, i32 face, i32 miplevel) override { data.resize(size); }
+            virtual bool writeData(const void* ptr, i32 size) { std::memcpy(data.data(), ptr, size); return true; }
             virtual void endImage() {}
 
             std::vector<std::byte> data = {};
@@ -823,7 +823,7 @@ namespace foundation {
 
         constexpr usize MAX_VERTICES = MAX_VERTICES_PER_MESHLET;
         constexpr usize MAX_TRIANGLES = MAX_TRIANGLES_PER_MESHLET;
-        constexpr float CONE_WEIGHT = 1.0f;
+        constexpr f32 CONE_WEIGHT = 1.0f;
 
         {
             std::vector<u32> optimized_indices(indices.size());
@@ -859,7 +859,7 @@ namespace foundation {
                 &meshlet_indirect_vertices[meshlets[meshlet_index].indirect_vertex_offset],
                 &meshlet_micro_indices[meshlets[meshlet_index].micro_indices_offset],
                 meshlets[meshlet_index].triangle_count,
-                r_cast<float *>(vert_positions.data()),
+                r_cast<f32 *>(vert_positions.data()),
                 s_cast<usize>(vertex_count),
                 sizeof(glm::vec3));
             meshlet_bounds[meshlet_index].center.x = raw_bounds.center[0];

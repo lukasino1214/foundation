@@ -50,7 +50,7 @@ namespace foundation {
             state->cursor_change_y = s_cast<i32>(std::floor(y)) - state->old_cursor_pos_y;
         });
 
-        glfwSetWindowFocusCallback(this->glfw_handle, [](GLFWwindow *window, int focused) {
+        glfwSetWindowFocusCallback(this->glfw_handle, [](GLFWwindow *window, i32 focused) {
             auto *state = reinterpret_cast<WindowState *>(glfwGetWindowUserPointer(window));
             state->focused = (focused != 0); 
         });
