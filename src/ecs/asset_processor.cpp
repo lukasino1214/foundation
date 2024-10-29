@@ -86,6 +86,10 @@ namespace foundation {
         std::mt19937_64 engine(random_device());
         std::uniform_int_distribution<uint64_t> uniform_distributation;
 
+        u32 meshlet_count = {};
+        u32 triangle_count = {};
+        u32 vertex_count = {};
+
         for(u32 mesh_index = 0; mesh_index < asset->meshes.size(); mesh_index++) {
             const auto& gltf_mesh = asset->meshes.at(mesh_index);
 
@@ -93,7 +97,6 @@ namespace foundation {
             binary_meshes.reserve(binary_meshes.size() + gltf_mesh.primitives.size());
             
             for(u32 primitive_index = 0; primitive_index < gltf_mesh.primitives.size(); primitive_index++) {
-
                 std::vector<std::byte> compressed_data = {};
 
                 {
@@ -102,6 +105,12 @@ namespace foundation {
                         .gltf_mesh_index = mesh_index,
                         .gltf_primitive_index = primitive_index,
                     });
+
+                    meshlet_count += s_cast<u32>(processed_mesh_info.meshlets.size());
+                    vertex_count += s_cast<u32>(processed_mesh_info.positions.size());
+                    for(const auto& meshlet : processed_mesh_info.meshlets) {
+                        triangle_count += meshlet.triangle_count;
+                    }
 
                     ByteWriter mesh_writer = {};
                     mesh_writer.write(processed_mesh_info);
@@ -721,14 +730,14 @@ namespace foundation {
 
         std::vector<std::byte> compressed_data = {};
         {
-            BinaryHeader header = {
-                .name = "binary model",
-                .version = 0
-            };
-
             ByteWriter byte_writer;
-            byte_writer.write(header.name);
-            byte_writer.write(header.version);
+            byte_writer.write(BinaryModelHeader {
+                .name = "binary model",
+                .version = 0,
+                .meshlet_count = meshlet_count,
+                .triangle_count = triangle_count,
+                .vertex_count = vertex_count,
+            });
 
             byte_writer.write(binary_textures);
             byte_writer.write(binary_materials);
@@ -970,11 +979,6 @@ namespace foundation {
         mesh.meshlet_count = s_cast<u32>(processed_info.meshlets.size());
         mesh.vertex_count = s_cast<u32>(processed_info.positions.size());
 
-        u32 triangle_count = {};
-        for(const auto& meshlet : processed_info.meshlets) {
-            triangle_count += meshlet.triangle_count;
-        }
-
         {
             std::lock_guard<std::mutex> lock{*mesh_upload_mutex};
             mesh_upload_queue.push_back(MeshUploadInfo {
@@ -983,9 +987,6 @@ namespace foundation {
                 .mesh = mesh,
                 .manifest_index = info.manifest_index,
                 .material_manifest_offset = info.material_manifest_offset,
-                .meshlet_count = s_cast<u32>(processed_info.meshlets.size()),
-                .triangle_count = triangle_count,
-                .vertex_count = s_cast<u32>(processed_info.positions.size())
             });
         }
     }

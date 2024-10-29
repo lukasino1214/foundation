@@ -48,7 +48,7 @@ namespace foundation {
 
             LoadManifestInfo manifesto {
                 .parent = entity,
-                .path = "assets/models/Sponza/glTF/Sponza.gltf",
+                .path = "assets/binary/Sponza/Sponza.bmodel",
             };
 
             // AssetProcessor::convert_gltf_to_binary("assets/models/Sponza/glTF/Sponza.gltf", "assets/binary/Sponza/Sponza.bmodel");
@@ -61,7 +61,7 @@ namespace foundation {
 
             LoadManifestInfo manifesto {
                 .parent = entity,
-                .path = "assets/models/Bistro/Bistro.glb",
+                .path = "assets/binary/Bistro/Bistro.bmodel",
             };
 
             // AssetProcessor::convert_gltf_to_binary("assets/models/Bistro/Bistro.glb", "assets/binary/Bistro/Bistro.bmodel");

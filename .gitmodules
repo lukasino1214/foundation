@@ -1,3 +1,9 @@
 [submodule "deps/Daxa"]
 	path = deps/Daxa
 	url = https://github.com/Ipotrick/Daxa.git
+[submodule "deps/METIS"]
+	path = deps/METIS
+	url = https://github.com/KarypisLab/METIS.git
+[submodule "deps/meshoptimizer"]
+	path = deps/meshoptimizer
+	url = https://github.com/zeux/meshoptimizer.git

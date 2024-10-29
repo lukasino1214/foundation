@@ -111,8 +111,6 @@ namespace foundation {
         u32 const mesh_group_manifest_offset = s_cast<u32>(mesh_group_manifest_entries.size());
 
         std::filesystem::path binary_path = info.path;
-        binary_path.replace_extension("bmodel");
-
 
         {
             std::vector<byte> data = read_file_to_bytes(binary_path);
@@ -120,9 +118,12 @@ namespace foundation {
 
             ByteReader byte_reader{ uncompressed_data.data(), uncompressed_data.size() };
 
-            BinaryHeader header = {};
-            byte_reader.read(header.name);
-            byte_reader.read(header.version);
+            BinaryModelHeader header = {};
+            byte_reader.read(header);
+
+            total_meshlet_count += header.meshlet_count;
+            total_triangle_count += header.triangle_count;
+            total_vertex_count += header.vertex_count;
 
             BinaryAssetInfo asset = {};
             byte_reader.read(asset.textures);
@@ -442,12 +443,6 @@ namespace foundation {
                 task_buffer.set_buffers({ .buffers=std::array{new_buffer} });
             }
         };
-
-        for(const auto& mesh_upload_info : info.uploaded_meshes) {
-            total_meshlet_count += mesh_upload_info.meshlet_count;
-            total_triangle_count += mesh_upload_info.triangle_count;
-            total_vertex_count += mesh_upload_info.vertex_count;
-        }
 
         realloc(gpu_meshes, s_cast<u32>(mesh_manifest_entries.size() * sizeof(Mesh)));
         realloc(gpu_materials, s_cast<u32>(material_manifest_entries.size() * sizeof(Material)));

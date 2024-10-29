@@ -44,9 +44,28 @@ namespace foundation {
         }
     };
 
-    struct BinaryHeader {
+    struct BinaryModelHeader {
         std::string name = {};
         u32 version = {};
+        u32 meshlet_count = {}; // this exists to avoid stutters
+        u32 triangle_count = {};
+        u32 vertex_count = {};
+
+        static void serialize(ByteWriter& writer, const BinaryModelHeader& value) {
+            writer.write(value.name);
+            writer.write(value.version);
+            writer.write(value.meshlet_count);
+            writer.write(value.triangle_count);
+        }
+
+        static auto deserialize(ByteReader& reader) -> BinaryModelHeader { 
+            BinaryModelHeader value = {};
+            reader.read(value.name);
+            reader.read(value.version);
+            reader.read(value.meshlet_count);
+            reader.read(value.triangle_count);
+            return value;    
+        }
     };
 
     struct BinaryMesh {

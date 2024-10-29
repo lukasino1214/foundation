@@ -73,10 +73,6 @@ namespace foundation {
 
         u32 manifest_index = {};
         u32 material_manifest_offset = {};
-
-        u32 meshlet_count = {};
-        u32 triangle_count = {};
-        u32 vertex_count = {};
     };
 
     struct LoadTextureInfo {
