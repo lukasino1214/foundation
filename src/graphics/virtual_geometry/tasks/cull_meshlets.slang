@@ -29,7 +29,7 @@ NdcAABB calculate_ndc_aabb(f32mat4x4 model_matrix, AABB aabb) {
     for (i32 z = -1; z <= 1; z += 2) {
         for (i32 y = -1; y <= 1; y += 2) {
             for (i32 x = -1; x <= 1; x += 2) {
-                const f32vec3 model_corner_position = aabb.center + aabb.extent * f32vec3(x,y,z) * 0.5f;
+                const f32vec3 model_corner_position = aabb.center + aabb.extent * f32vec3(x,y,z);
                 const f32vec4 worldspace_corner_position = mul(model_matrix, f32vec4(model_corner_position,1));
                 const f32vec4 viewspace_corner_position = mul(push.uses.u_globals->main_camera.view_matrix, worldspace_corner_position);
                 const f32vec4 clipspace_corner_position = mul(push.uses.u_globals->main_camera.projection_matrix, viewspace_corner_position);
@@ -131,12 +131,11 @@ bool is_meshlet_visible(AABB aabb, f32mat4x4 model) {
 
     const u32 planes = 6;
     for (u32 i = 0; i < planes; ++i) {
-        if (!is_aabb_inside_plane(world_aabb_center, world_extent / 2, push.uses.u_globals->main_camera.frustum_planes[i])) {
+        if (!is_aabb_inside_plane(world_aabb_center, world_extent, push.uses.u_globals->main_camera.frustum_planes[i])) {
             return false;
         }
     }
     
-    // return !is_ndc_aabb_hiz_depth_visible(calculate_ndc_aabb(model, aabb), push.uses.u_globals->next_lower_po2_render_target_size, push.uses.u_hiz);
     // ShaderDebugAABBDraw draw;
     // draw.position = world_aabb_center;
     // draw.extent = world_extent;

@@ -890,12 +890,12 @@ namespace foundation {
             mesh_aabb_max = glm::max(mesh_aabb_max, max_pos);
 
             meshlet_aabbs[meshlet_index].center = (max_pos + min_pos) * 0.5f;
-            meshlet_aabbs[meshlet_index].extent =  max_pos - min_pos;
+            meshlet_aabbs[meshlet_index].extent =  (max_pos - min_pos) * 0.5f;
         }
 
         AABB mesh_aabb = {
             .center = (mesh_aabb_max + mesh_aabb_min) * 0.5f,
-            .extent =  mesh_aabb_max - mesh_aabb_min,
+            .extent =  (mesh_aabb_max - mesh_aabb_min) * 0.5f,
         };
 
         const Meshlet& last = meshlets[meshlet_count - 1];
