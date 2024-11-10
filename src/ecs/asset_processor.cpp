@@ -1002,7 +1002,7 @@ namespace foundation {
         std::vector<TextureOffsets> offsets = {};
         daxa::BufferId staging_buffer = {};
 
-        bool read_file = !context->device.is_id_valid(info.old_image);
+        bool read_file = !context->device.is_image_id_valid(info.old_image);
         if(read_file == false) {
             image_info = context->device.image_info(info.old_image).value();
             if(image_info.size.x < info.requested_resolution || image_info.size.y < info.requested_resolution) { read_file = true; }
@@ -1311,11 +1311,11 @@ namespace foundation {
                     });
                 }
 
-                if(context->device.is_id_valid(texture_upload_info.old_image)) {
+                if(context->device.is_image_id_valid(texture_upload_info.old_image)) {
                     context->destroy_image_deferred(cmd_recorder, texture_upload_info.old_image);
                 }
 
-                if(context->device.is_id_valid(texture_upload_info.staging_buffer)) {
+                if(context->device.is_buffer_id_valid(texture_upload_info.staging_buffer)) {
                     context->destroy_buffer_deferred(cmd_recorder, texture_upload_info.staging_buffer);
                 }
             }
