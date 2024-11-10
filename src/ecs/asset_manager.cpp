@@ -516,7 +516,8 @@ namespace foundation {
                 
                 mesh_groups.push_back(MeshGroup {
                     .mesh_indices = buffer_ptr + mesh_group.mesh_manifest_indices_offset * sizeof(u32),
-                    .count = mesh_group.mesh_count
+                    .count = mesh_group.mesh_count,
+                    .padding = {},
                 });
                 
                 meshes.reserve(meshes.size() + mesh_group.mesh_count);

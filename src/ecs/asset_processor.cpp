@@ -155,9 +155,9 @@ namespace foundation {
             CustomOutputHandler& operator=(CustomOutputHandler&&) = delete;
             virtual ~CustomOutputHandler() {}
 
-            virtual void beginImage(i32 size, i32 /*width*/, i32 /*height*/, i32 /*depth*/, i32 /*face*/, i32 /*miplevel*/) override { data.resize(size); }
-            virtual bool writeData(const void* ptr, i32 size) { std::memcpy(data.data(), ptr, size); return true; }
-            virtual void endImage() {}
+            void beginImage(i32 size, i32 /*width*/, i32 /*height*/, i32 /*depth*/, i32 /*face*/, i32 /*miplevel*/) override { data.resize(s_cast<usize>(size)); }
+            auto writeData(const void* ptr, i32 size) -> bool override { std::memcpy(data.data(), ptr, s_cast<usize>(size)); return true; }
+            void endImage() override {}
 
             std::vector<std::byte> data = {};
         };
@@ -339,7 +339,7 @@ namespace foundation {
             const auto& image = asset->images[i];
 
             {
-                if(const auto* data = std::get_if<std::monostate>(&image.data)) {
+                if(const auto* _ = std::get_if<std::monostate>(&image.data)) {
                     std::cout << "std::monostate" << std::endl;
                 }
                 if(const auto* data = std::get_if<fastgltf::sources::BufferView>(&image.data)) {
@@ -359,13 +359,13 @@ namespace foundation {
                     std::memcpy(raw_data.data(), image_data, s_cast<u64>(width * height * 4));
                     stbi_image_free(image_data);
                 }
-                if(const auto* data = std::get_if<fastgltf::sources::Vector>(&image.data)) {
+                if(const auto* _ = std::get_if<fastgltf::sources::Vector>(&image.data)) {
                     std::cout << "fastgltf::sources::Vector" << std::endl;
                 }
-                if(const auto* data = std::get_if<fastgltf::sources::CustomBuffer>(&image.data)) {
+                if(const auto* _ = std::get_if<fastgltf::sources::CustomBuffer>(&image.data)) {
                     std::cout << "fastgltf::sources::CustomBuffer" << std::endl;
                 }
-                if(const auto* data = std::get_if<fastgltf::sources::ByteView>(&image.data)) {
+                if(const auto* _ = std::get_if<fastgltf::sources::ByteView>(&image.data)) {
                     std::cout << "fastgltf::sources::ByteView" << std::endl;
                 }
             }
@@ -1167,7 +1167,7 @@ namespace foundation {
 
                     for(u32 old_image_i = 0, image_i = 0; old_image_i < texture_upload_info.offsets.size(); old_image_i++) {
                         const auto& offset = texture_upload_info.offsets[old_image_i];
-                        if(offset.width == mip_size[0] && offset.height == mip_size[1]) {
+                        if(offset.width == s_cast<u32>(mip_size[0]) && offset.height == s_cast<u32>(mip_size[1])) {
                             cmd_recorder.copy_buffer_to_image({
                                 .buffer = texture_upload_info.staging_buffer,
                                 .buffer_offset = offset.offset,

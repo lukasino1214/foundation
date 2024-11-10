@@ -92,7 +92,7 @@ namespace foundation {
             .attachments = {daxa::inl_attachment(daxa::TaskImageAccess::TRANSFER_WRITE, info.depth_image)},
             .task = [&](daxa::TaskInterface ti) {
                 ti.recorder.clear_image({
-                    .clear_value = daxa::DepthValue { .depth = 0.0f },
+                    .clear_value = daxa::DepthValue { .depth = 0.0f, .stencil = {} },
                     .dst_image = ti.get(daxa::TaskImageAttachmentIndex(0)).ids[0],
                 });
             },

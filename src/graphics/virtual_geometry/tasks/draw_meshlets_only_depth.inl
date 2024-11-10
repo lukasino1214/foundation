@@ -94,7 +94,7 @@ struct HWDrawMeshletsOnlyDepthTask : HWDrawMeshletsOnlyDepth::Task {
             .depth_attachment = { daxa::RenderAttachmentInfo {
                 .image_view = ti.get(AT.u_depth_image).ids[0].default_view(),
                 .load_op = daxa::AttachmentLoadOp::LOAD,
-                .clear_value = daxa::DepthValue { .depth = 0.0f },
+                .clear_value = daxa::DepthValue { .depth = 0.0f, .stencil = {} },
             }},
             .render_area = {.x = 0, .y = 0, .width = size_x, .height = size_y},
         });
@@ -202,7 +202,7 @@ struct SWDrawMeshletsOnlyDepthTask : SWDrawMeshletsOnlyDepth::Task {
             .depth_attachment = { daxa::RenderAttachmentInfo {
                 .image_view = ti.get(AT.u_depth_image).ids[0].default_view(),
                 .load_op = daxa::AttachmentLoadOp::LOAD,
-                .clear_value = daxa::DepthValue { .depth = 0.0f },
+                .clear_value = daxa::DepthValue { .depth = 0.0f, .stencil = {} },
             }},
             .render_area = {.x = 0, .y = 0, .width = size_x, .height = size_y},
         });

@@ -50,6 +50,7 @@ struct GenerateHizTask : GenerateHiz::Task {
         auto const dispatch_x = round_up_div(next_higher_po2_render_target_size.x * 2, GEN_HIZ_WINDOW_X);
         auto const dispatch_y = round_up_div(next_higher_po2_render_target_size.y * 2, GEN_HIZ_WINDOW_Y);
         GenerateHizPush push = {
+            .uses = {},
             .counter = ti.allocator->allocate_fill(0u).value().device_address,
             .mip_count = ti.get(AT.u_mips).view.slice.level_count,
             .total_workgroup_count = dispatch_x * dispatch_y,

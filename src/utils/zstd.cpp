@@ -6,7 +6,7 @@ namespace foundation {
         usize compressed_data_size = ZSTD_compressBound(data.size());
         std::vector<byte> compressed_data = {};
         compressed_data.resize(compressed_data_size);
-        compressed_data_size = ZSTD_compress(compressed_data.data(), compressed_data.size(), data.data(), data.size(), compression_level);
+        compressed_data_size = ZSTD_compress(compressed_data.data(), compressed_data.size(), data.data(), data.size(), s_cast<i32>(compression_level));
         compressed_data.resize(compressed_data_size);
         return compressed_data;
     }
