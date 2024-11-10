@@ -85,8 +85,8 @@ struct DrawMeshletsTask : DrawMeshlets::Task {
 
     void callback(daxa::TaskInterface ti) {
         context->gpu_metrics[this->name()]->start(ti.recorder);
-        u32 size_x = ti.device.info_image(ti.get(AT.u_visibility_image).ids[0]).value().size.x;
-        u32 size_y = ti.device.info_image(ti.get(AT.u_visibility_image).ids[0]).value().size.y;
+        u32 size_x = ti.device.image_info(ti.get(AT.u_visibility_image).ids[0]).value().size.x;
+        u32 size_y = ti.device.image_info(ti.get(AT.u_visibility_image).ids[0]).value().size.y;
 
         auto render_cmd = std::move(ti.recorder).begin_renderpass(daxa::RenderPassBeginInfo {
             .render_area = {.x = 0, .y = 0, .width = size_x, .height = size_y},

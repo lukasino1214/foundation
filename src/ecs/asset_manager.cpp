@@ -395,7 +395,7 @@ namespace foundation {
 
         auto realloc = [&](daxa::TaskBuffer& task_buffer, u32 new_size) {
             daxa::BufferId buffer = task_buffer.get_state().buffers[0];
-            auto info = context->device.info_buffer(buffer).value();
+            auto info = context->device.buffer_info(buffer).value();
             if(info.size < new_size) {
                 context->destroy_buffer_deferred(cmd_recorder, buffer);
                 std::println("INFO: {} resized from {} bytes to {} bytes", std::string{info.name.c_str().data()}, std::to_string(info.size), std::to_string(new_size));
@@ -416,7 +416,7 @@ namespace foundation {
 
         auto realloc_special = [&](daxa::TaskBuffer& task_buffer, u32 new_size, auto lambda) {
             daxa::BufferId buffer = task_buffer.get_state().buffers[0];
-            auto info = context->device.info_buffer(buffer).value();
+            auto info = context->device.buffer_info(buffer).value();
             if(info.size < new_size) {
                 context->destroy_buffer_deferred(cmd_recorder, buffer);
                 std::println("INFO: {} resized from {} bytes to {} bytes", std::string{info.name.c_str().data()}, std::to_string(info.size), std::to_string(new_size));
@@ -431,7 +431,7 @@ namespace foundation {
                     .name = std::string{"staging"} + std::string{info.name.c_str().data()}
                 });
                 context->destroy_buffer_deferred(cmd_recorder, staging_buffer);
-                std::memcpy(context->device.get_host_address(staging_buffer).value(), &data, sizeof(decltype(data)));
+                std::memcpy(context->device.buffer_host_address(staging_buffer).value(), &data, sizeof(decltype(data)));
                 cmd_recorder.copy_buffer_to_buffer({
                     .src_buffer = staging_buffer,
                     .dst_buffer = new_buffer,
@@ -451,31 +451,31 @@ namespace foundation {
         realloc_special(gpu_meshlet_data, total_meshlet_count * sizeof(MeshletData) + sizeof(MeshletsData), [&](const daxa::BufferId& buffer) -> MeshletsData {
             return MeshletsData {
                 .count = 0,
-                .meshlets = context->device.get_device_address(buffer).value() + sizeof(MeshletsData)
+                .meshlets = context->device.buffer_device_address(buffer).value() + sizeof(MeshletsData)
             };
         });
         realloc_special(gpu_hw_culled_meshlet_indices, total_meshlet_count * sizeof(u32) + sizeof(MeshletIndices), [&](const daxa::BufferId& buffer) -> MeshletIndices {
             return MeshletIndices {
                 .count = 0,
-                .indices = context->device.get_device_address(buffer).value() + sizeof(MeshletIndices)
+                .indices = context->device.buffer_device_address(buffer).value() + sizeof(MeshletIndices)
             };
         });
         realloc_special(gpu_hw_meshlet_index_buffer, total_triangle_count * sizeof(u32) + sizeof(MeshletIndexBuffer), [&](const daxa::BufferId& buffer) -> MeshletIndexBuffer {
             return MeshletIndexBuffer {
                 .count = 0,
-                .indices = context->device.get_device_address(buffer).value() + sizeof(MeshletIndexBuffer)
+                .indices = context->device.buffer_device_address(buffer).value() + sizeof(MeshletIndexBuffer)
             };
         });
         realloc_special(gpu_sw_culled_meshlet_indices, total_meshlet_count * sizeof(u32) + sizeof(MeshletIndices), [&](const daxa::BufferId& buffer) -> MeshletIndices {
             return MeshletIndices {
                 .count = 0,
-                .indices = context->device.get_device_address(buffer).value() + sizeof(MeshletIndices)
+                .indices = context->device.buffer_device_address(buffer).value() + sizeof(MeshletIndices)
             };
         });
         realloc_special(gpu_sw_meshlet_index_buffer, total_triangle_count * sizeof(u32) + sizeof(MeshletIndexBuffer), [&](const daxa::BufferId& buffer) -> MeshletIndexBuffer {
             return MeshletIndexBuffer {
                 .count = 0,
-                .indices = context->device.get_device_address(buffer).value() + sizeof(MeshletIndexBuffer)
+                .indices = context->device.buffer_device_address(buffer).value() + sizeof(MeshletIndexBuffer)
             };
         });
         readback_material.resize(material_manifest_entries.size());
@@ -491,7 +491,7 @@ namespace foundation {
                 .name = "staging buffer meshes"
             });
             context->destroy_buffer_deferred(cmd_recorder, staging_buffer);
-            std::memcpy(context->device.get_host_address(staging_buffer).value(), &mesh, sizeof(Mesh));
+            std::memcpy(context->device.buffer_host_address(staging_buffer).value(), &mesh, sizeof(Mesh));
 
             for(const u32 mesh_index : dirty_meshes) {
                 cmd_recorder.copy_buffer_to_buffer(daxa::BufferCopyInfo {
@@ -509,7 +509,7 @@ namespace foundation {
         if(!dirty_mesh_groups.empty()) {
             std::vector<MeshGroup> mesh_groups = {};
             std::vector<u32> meshes = {};
-            u64 buffer_ptr = context->device.get_device_address(gpu_mesh_indices.get_state().buffers[0]).value();
+            u64 buffer_ptr = context->device.buffer_device_address(gpu_mesh_indices.get_state().buffers[0]).value();
             mesh_groups.reserve(dirty_mesh_groups.size());
             for(u32 mesh_group_index : dirty_mesh_groups) {
                 const auto& mesh_group = mesh_group_manifest_entries[mesh_group_index];
@@ -532,7 +532,7 @@ namespace foundation {
                 .name = "staging buffer scene data"
             });
             context->destroy_buffer_deferred(cmd_recorder, staging_buffer);
-            std::byte* ptr = context->device.get_host_address(staging_buffer).value();
+            std::byte* ptr = context->device.buffer_host_address(staging_buffer).value();
 
             usize offset = 0; 
             std::memcpy(ptr + offset, mesh_groups.data(), mesh_groups.size() * sizeof(MeshGroup));
@@ -583,7 +583,7 @@ namespace foundation {
                 material.alpha_cutoff = 0.5f;
                 material.double_sided = 0u;
 
-                std::memcpy(context->device.get_host_address_as<Material>(material_null_buffer).value(), &material, sizeof(Material));
+                std::memcpy(context->device.buffer_host_address_as<Material>(material_null_buffer).value(), &material, sizeof(Material));
             }
 
             for(const auto& mesh_upload_info : info.uploaded_meshes) {
@@ -613,7 +613,7 @@ namespace foundation {
             });
 
             context->destroy_buffer_deferred(cmd_recorder, staging_buffer);
-            Mesh * staging_ptr = context->device.get_host_address_as<Mesh>(staging_buffer).value();
+            Mesh * staging_ptr = context->device.buffer_host_address_as<Mesh>(staging_buffer).value();
 
             for (u32 upload_index = 0; upload_index < info.uploaded_meshes.size(); upload_index++) {
                 auto const & upload = info.uploaded_meshes[upload_index];
@@ -632,7 +632,7 @@ namespace foundation {
         std::vector<u32> dirty_material_manifest_indices = {};
         for(const auto& texture_upload_info : info.uploaded_textures) {
             auto& texture_manifest = texture_manifest_entries.at(texture_upload_info.manifest_index);
-            texture_manifest.current_resolution = context->device.info_image(texture_upload_info.dst_image).value().size.x;
+            texture_manifest.current_resolution = context->device.image_info(texture_upload_info.dst_image).value().size.x;
             texture_manifest.image_id = texture_upload_info.dst_image;
             texture_manifest.sampler_id = texture_upload_info.sampler;
             texture_manifest.loading = false;
@@ -671,7 +671,7 @@ namespace foundation {
                 .name = "staging buffer material manifest",
             });
             context->destroy_buffer_deferred(cmd_recorder, staging_buffer);
-            Material* ptr = context->device.get_host_address_as<Material>(staging_buffer).value();
+            Material* ptr = context->device.buffer_host_address_as<Material>(staging_buffer).value();
             for (u32 dirty_materials_index = 0; dirty_materials_index < dirty_material_manifest_indices.size(); dirty_materials_index++) {
                 MaterialManifestEntry& material = material_manifest_entries.at(dirty_material_manifest_indices.at(dirty_materials_index));
                 Material gpu_material = {};

@@ -171,7 +171,7 @@ namespace foundation {
         ui_update();
         renderer->ui_render_end();
 
-        auto size = context.device.info_image(renderer->render_image.get_state().images[0]).value().size;
+        auto size = context.device.image_info(renderer->render_image.get_state().images[0]).value().size;
         context.update_shader_globals(main_camera, observer_camera, {size.x, size.y});
 
         scene->update(delta_time);

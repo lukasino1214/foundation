@@ -259,12 +259,12 @@ namespace foundation {
                     .size = sizeof(ShaderGlobals),
                 });
                 context->debug_draw_context.update_debug_buffer(context->device, ti.recorder, *ti.allocator);
-                std::memcpy(asset_manager->readback_material.data(), context->device.get_host_address(ti.get(asset_manager->gpu_readback_material).ids[0]).value(), asset_manager->readback_material.size() * sizeof(u32));
+                std::memcpy(asset_manager->readback_material.data(), context->device.buffer_host_address(ti.get(asset_manager->gpu_readback_material).ids[0]).value(), asset_manager->readback_material.size() * sizeof(u32));
                 for(u32 i = 0; i < asset_manager->readback_material.size(); i++) { asset_manager->readback_material[i] = (1 << find_msb(asset_manager->readback_material[i])) >> 1;}
                 std::vector<u32> zeroes = {};
                 zeroes.resize(asset_manager->readback_material.size());
                 std::fill(zeroes.begin(), zeroes.end(), 0);
-                std::memcpy(context->device.get_host_address(ti.get(asset_manager->gpu_readback_material).ids[0]).value(), zeroes.data(), asset_manager->readback_material.size() * sizeof(u32));
+                std::memcpy(context->device.buffer_host_address(ti.get(asset_manager->gpu_readback_material).ids[0]).value(), zeroes.data(), asset_manager->readback_material.size() * sizeof(u32));
             },
             .name = "GpuInputUploadTransferTask",
         });
@@ -323,7 +323,7 @@ namespace foundation {
         render_task_graph.add_task({
             .attachments = {daxa::inl_attachment(daxa::TaskImageAccess::COLOR_ATTACHMENT, swapchain_image)},
             .task = [&](daxa::TaskInterface ti) {
-                auto size = ti.device.info_image(ti.get(daxa::TaskImageAttachmentIndex(0)).ids[0]).value().size;
+                auto size = ti.device.image_info(ti.get(daxa::TaskImageAttachmentIndex(0)).ids[0]).value().size;
                 imgui_renderer.record_commands(ImGui::GetDrawData(), ti.recorder, ti.get(daxa::TaskImageAttachmentIndex(0)).ids[0], size.x, size.y);
             },
             .name = "ImGui Draw",

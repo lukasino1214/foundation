@@ -28,7 +28,7 @@ namespace foundation {
         void update_buffer(const daxa::TaskInterface& task_interface) {
             auto& cmd_recorder = task_interface.recorder;
             daxa::BufferId buffer = task_buffer.get_state().buffers[0];
-            auto info = context->device.info_buffer(buffer).value();
+            auto info = context->device.buffer_info(buffer).value();
             u32 new_size = ammount_of_handles * sizeof(T);
             if(info.size < new_size) {
                 context->destroy_buffer_deferred(cmd_recorder, buffer);

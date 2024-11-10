@@ -27,8 +27,8 @@ namespace foundation {
             IDBuffer[1] = '#';
             std::memset(IDBuffer.data() + 2, 0, 14);
             ++s_Counter;
-            std::string buffer = "##" + std::to_string(s_Counter);
-            std::memcpy(&IDBuffer, buffer.data(), 16);
+            std::string str_buffer = "##" + std::to_string(s_Counter);
+            std::memcpy(&IDBuffer, str_buffer.data(), 16);
         }
 
         void external_push_ID() {

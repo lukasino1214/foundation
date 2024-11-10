@@ -155,7 +155,7 @@ namespace foundation {
             CustomOutputHandler& operator=(CustomOutputHandler&&) = delete;
             virtual ~CustomOutputHandler() {}
 
-            virtual void beginImage(i32 size, i32 width, i32 height, i32 depth, i32 face, i32 miplevel) override { data.resize(size); }
+            virtual void beginImage(i32 size, i32 /*width*/, i32 /*height*/, i32 /*depth*/, i32 /*face*/, i32 /*miplevel*/) override { data.resize(size); }
             virtual bool writeData(const void* ptr, i32 size) { std::memcpy(data.data(), ptr, size); return true; }
             virtual void endImage() {}
 
@@ -955,10 +955,10 @@ namespace foundation {
             .name = "mesh buffer: " + info.asset_path.filename().string() + " mesh " + std::to_string(info.mesh_group_index) + " primitive " + std::to_string(info.mesh_index)
         });
 
-        daxa::DeviceAddress mesh_bda = context->device.get_device_address(std::bit_cast<daxa::BufferId>(mesh_buffer)).value();
+        daxa::DeviceAddress mesh_bda = context->device.buffer_device_address(std::bit_cast<daxa::BufferId>(mesh_buffer)).value();
 
-        std::byte* staging_ptr = context->device.get_host_address(staging_mesh_buffer).value();
-        u32 accumulated_offset = 0;
+        std::byte* staging_ptr = context->device.buffer_host_address(staging_mesh_buffer).value();
+        usize accumulated_offset = 0;
 
         auto memcpy_data = [&](daxa::DeviceAddress& bda, const auto& vec){
             bda = mesh_bda + accumulated_offset;
@@ -1004,7 +1004,7 @@ namespace foundation {
 
         bool read_file = !context->device.is_id_valid(info.old_image);
         if(read_file == false) {
-            image_info = context->device.info_image(info.old_image).value();
+            image_info = context->device.image_info(info.old_image).value();
             if(image_info.size.x < info.requested_resolution || image_info.size.y < info.requested_resolution) { read_file = true; }
         }
 
@@ -1061,7 +1061,7 @@ namespace foundation {
             }); 
 
             for(u32 i = 0; i < offsets.size(); i++) {
-                std::memcpy(context->device.get_host_address(staging_buffer).value() + offsets[i].offset, texture.mipmaps[i].data(), s_cast<u64>(offsets[i].size));
+                std::memcpy(context->device.buffer_host_address(staging_buffer).value() + offsets[i].offset, texture.mipmaps[i].data(), s_cast<u64>(offsets[i].size));
             }
         } else {
             mip_levels = static_cast<u32>(std::floor(std::log2(info.requested_resolution))) + 1;
@@ -1127,7 +1127,7 @@ namespace foundation {
                     .dst_buffer = mesh_upload_info.mesh_buffer,
                     .src_offset = 0,
                     .dst_offset = 0,
-                    .size = context->device.info_buffer(mesh_upload_info.mesh_buffer).value().size
+                    .size = context->device.buffer_info(mesh_upload_info.mesh_buffer).value().size
                 });
             }
         }
@@ -1143,7 +1143,7 @@ namespace foundation {
             PROFILE_SCOPE_NAMED(texture_upload_info_);
             for(auto& texture_upload_info : ret.uploaded_textures) {
                 if(!texture_upload_info.offsets.empty()) {
-                    auto image_info = context->device.info_image(texture_upload_info.dst_image).value();
+                    auto image_info = context->device.image_info(texture_upload_info.dst_image).value();
 
                     std::array<i32, 3> mip_size = {
                         s_cast<i32>(image_info.size.x),
@@ -1204,8 +1204,8 @@ namespace foundation {
                         .image_id = texture_upload_info.dst_image,
                     });
                 } else {
-                    const daxa::ImageInfo old_image_info = context->device.info_image(texture_upload_info.old_image).value();
-                    const daxa::ImageInfo image_info = context->device.info_image(texture_upload_info.dst_image).value();
+                    const daxa::ImageInfo old_image_info = context->device.image_info(texture_upload_info.old_image).value();
+                    const daxa::ImageInfo image_info = context->device.image_info(texture_upload_info.dst_image).value();
 
                     cmd_recorder.pipeline_barrier_image_transition({
                         .src_access = daxa::AccessConsts::TRANSFER_READ_WRITE,

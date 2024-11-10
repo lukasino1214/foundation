@@ -84,7 +84,7 @@ namespace foundation {
 
     static inline void build_virtual_geometry_task_graph(const VirtualGeometryTaskInfo& info) {
         auto u_command = info.task_graph.create_transient_buffer(daxa::TaskTransientBufferInfo {
-            .size = glm::max(sizeof(DispatchIndirectStruct), sizeof(DrawIndirectStruct)),
+            .size = s_cast<u32>(glm::max(sizeof(DispatchIndirectStruct), sizeof(DrawIndirectStruct))),
             .name = "command",
         });
 

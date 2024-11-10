@@ -86,8 +86,8 @@ struct DebugEntityOOBDrawTask : DebugEntityOOBDraw::Task {
 
     void callback(daxa::TaskInterface ti) {
         context->gpu_metrics[this->name()]->start(ti.recorder);
-        u32 size_x = ti.device.info_image(ti.get(AT.u_image).ids[0]).value().size.x;
-        u32 size_y = ti.device.info_image(ti.get(AT.u_image).ids[0]).value().size.y;
+        u32 size_x = ti.device.image_info(ti.get(AT.u_image).ids[0]).value().size.x;
+        u32 size_y = ti.device.image_info(ti.get(AT.u_image).ids[0]).value().size.y;
 
         auto render_cmd = std::move(ti.recorder).begin_renderpass(daxa::RenderPassBeginInfo {
             .color_attachments = {
@@ -171,8 +171,8 @@ struct DebugAABBDrawTask : DebugAABBDraw::Task {
 
     void callback(daxa::TaskInterface ti) {
         context->gpu_metrics[this->name()]->start(ti.recorder);
-        u32 size_x = ti.device.info_image(ti.get(AT.u_image).ids[0]).value().size.x;
-        u32 size_y = ti.device.info_image(ti.get(AT.u_image).ids[0]).value().size.y;
+        u32 size_x = ti.device.image_info(ti.get(AT.u_image).ids[0]).value().size.x;
+        u32 size_y = ti.device.image_info(ti.get(AT.u_image).ids[0]).value().size.y;
 
         auto render_cmd = std::move(ti.recorder).begin_renderpass(daxa::RenderPassBeginInfo {
             .color_attachments = {

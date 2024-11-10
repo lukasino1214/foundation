@@ -1,4 +1,5 @@
 #include "context.hpp"
+#include <daxa/device.hpp>
 #include <graphics/helper.hpp>
 
 namespace foundation {
@@ -36,8 +37,8 @@ namespace foundation {
                 .first_vertex = 0,
                 .first_instance = 0,
             },
-            .entity_oob_draws = device.get_device_address(buffer).value() + entity_oob_draws_offset,
-            .aabb_draws = device.get_device_address(buffer).value() + aabb_draws_offset,
+            .entity_oob_draws = device.buffer_device_address(buffer).value() + entity_oob_draws_offset,
+            .aabb_draws = device.buffer_device_address(buffer).value() + aabb_draws_offset,
         };
 
         auto alloc = allocator.allocate_fill(head).value();
@@ -127,7 +128,7 @@ namespace foundation {
                         })},
             gpu_metric_pool{std::make_unique<GPUMetricPool>(device)},
             debug_draw_context{this} {
-        shader_globals.debug = device.get_device_address(debug_draw_context.buffer).value();
+        shader_globals.debug = device.buffer_device_address(debug_draw_context.buffer).value();
     }
 
     Context::~Context() {
@@ -156,38 +157,38 @@ namespace foundation {
 
     auto Context::create_image(const daxa::ImageInfo& info) -> daxa::ImageId {
         daxa::ImageId resource = device.create_image(info);
-        usize size = device.get_memory_requirements(info).size;
+        usize size = device.image_memory_requirements(info).size;
         image_memory_usage += size;
         return resource;
     }
 
     void Context::destroy_image(const daxa::ImageId& id) {
-        usize size = device.get_memory_requirements(device.info_image(id).value()).size;
+        usize size = device.image_memory_requirements(device.image_info(id).value()).size;
         image_memory_usage -= size;
         device.destroy_image(id);
     }
 
     void Context::destroy_image_deferred(daxa::CommandRecorder& cmd, const daxa::ImageId& id) {
-        usize size = device.get_memory_requirements(device.info_image(id).value()).size;
+        usize size = device.image_memory_requirements(device.image_info(id).value()).size;
         image_memory_usage -= size;
         cmd.destroy_image_deferred(id);
     }
     
     auto Context::create_buffer(const daxa::BufferInfo& info) -> daxa::BufferId {
         daxa::BufferId resource = device.create_buffer(info);
-        usize size = device.get_memory_requirements(info).size;
+        usize size = device.buffer_memory_requirements(info).size;
         buffer_memory_usage += size;
         return resource;
     }
 
     void Context::destroy_buffer(const daxa::BufferId& id) {
-        usize size = device.info_buffer(id).value().size;
+        usize size = device.buffer_info(id).value().size;
         buffer_memory_usage -= size;
         device.destroy_buffer(id);
     }
 
     void Context::destroy_buffer_deferred(daxa::CommandRecorder& cmd, const daxa::BufferId& id) {
-        usize size = device.info_buffer(id).value().size;
+        usize size = device.buffer_info(id).value().size;
         buffer_memory_usage -= size;
         cmd.destroy_buffer_deferred(id);
     }
