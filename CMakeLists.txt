@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.21)
+cmake_minimum_required(VERSION 3.31)
 project(foundation)
 
 include(cmake/warnings.cmake)
@@ -75,7 +75,6 @@ find_package(glfw3 CONFIG REQUIRED)
 find_package(glm CONFIG REQUIRED)
 find_package(Stb REQUIRED)
 find_package(zstd CONFIG REQUIRED)
-find_package(Ktx CONFIG REQUIRED)
 find_package(meshoptimizer CONFIG REQUIRED)
 find_package(flecs CONFIG REQUIRED)
 find_package(fastgltf CONFIG REQUIRED)
@@ -130,7 +129,6 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     imgui::imgui
     glm::glm 
     fastgltf::fastgltf 
-    KTX::ktx
     $<IF:$<TARGET_EXISTS:zstd::libzstd_shared>,zstd::libzstd_shared,zstd::libzstd_static>
     meshoptimizer::meshoptimizer
     $<IF:$<TARGET_EXISTS:flecs::flecs>,flecs::flecs,flecs::flecs_static>

@@ -30,7 +30,6 @@
       "stb",
       "meshoptimizer",
       "zstd",
-      "ktx",
       "flecs",
       "tracy",
       "imguizmo",

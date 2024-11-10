@@ -39,7 +39,7 @@ constexpr auto min(const T& a, const T& b) -> T {
     return glm::min(a, b);
 }
 
-#elif DAXA_SHADERLANG == DAXA_SHADERLANG_SLANG
+#elif DAXA_LANGUAGE == DAXA_LANGUAGE_SLANG
 
 typedef daxa_f32mat4x4 f32mat4x4;
 
@@ -101,7 +101,7 @@ auto unpack_snorm_2x16(u32 v) -> f32vec2 {
     };
 }
 
-#elif DAXA_SHADERLANG == DAXA_SHADERLANG_GLSL
+#elif DAXA_LANGUAGE == DAXA_LANGUAGE_GLSL
 
 #define f32mat4x4 daxa_f32mat4x4
 

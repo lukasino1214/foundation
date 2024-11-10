@@ -52,11 +52,11 @@ NdcAABB calculate_ndc_aabb(f32mat4x4 model_matrix, AABB aabb) {
     return ret;
 }
 
-f32vec4 texelFetch(Texture2D<f32vec4> tex, i32vec2 index, u32 mip) {
+f32 texelFetch(Texture2D<f32> tex, i32vec2 index, u32 mip) {
     return tex.Load(u32vec3(index, mip));
 }
 
-u32vec4 texelFetch(Texture2DArray<u32vec4> tex, i32vec3 index, u32 mip) {
+u32 texelFetch(Texture2DArray<u32> tex, i32vec3 index, u32 mip) {
     return tex.Load(u32vec4(index, mip));
 }
 
@@ -81,10 +81,10 @@ bool is_ndc_aabb_hiz_depth_visible(NdcAABB meshlet_ndc_aabb, u32vec2 hiz_res, da
     const i32vec2 texel_bounds = max(i32vec2(0,0), (i32vec2(f_hiz_resolution) >> imip) - 1);
 
     const f32vec4 fetch = f32vec4(
-        texelFetch(daxa_texture2D(hiz), clamp(quad_corner_texel + i32vec2(0,0), i32vec2(0,0), texel_bounds), imip).x,
-        texelFetch(daxa_texture2D(hiz), clamp(quad_corner_texel + i32vec2(0,1), i32vec2(0,0), texel_bounds), imip).x,
-        texelFetch(daxa_texture2D(hiz), clamp(quad_corner_texel + i32vec2(1,0), i32vec2(0,0), texel_bounds), imip).x,
-        texelFetch(daxa_texture2D(hiz), clamp(quad_corner_texel + i32vec2(1,1), i32vec2(0,0), texel_bounds), imip).x
+        texelFetch(daxa_texture2D(hiz), clamp(quad_corner_texel + i32vec2(0,0), i32vec2(0,0), texel_bounds), imip),
+        texelFetch(daxa_texture2D(hiz), clamp(quad_corner_texel + i32vec2(0,1), i32vec2(0,0), texel_bounds), imip),
+        texelFetch(daxa_texture2D(hiz), clamp(quad_corner_texel + i32vec2(1,0), i32vec2(0,0), texel_bounds), imip),
+        texelFetch(daxa_texture2D(hiz), clamp(quad_corner_texel + i32vec2(1,1), i32vec2(0,0), texel_bounds), imip)
     );
     const f32 conservative_depth = min(min(fetch.x,fetch.y), min(fetch.z, fetch.w));
     const bool depth_cull = meshlet_ndc_aabb.ndc_max.z < conservative_depth;

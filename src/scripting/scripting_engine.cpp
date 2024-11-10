@@ -208,7 +208,8 @@ namespace foundation {
         auto result = lua->safe_script(read_file_to_string(path), sol::script_pass_on_error);
         if(!result.valid()) {
             std::println("failed to load script!");
-            std::println("{}", sol::error{result}.what());
+            sol::error sol_error = result; // making MSVC happy
+            std::println("{}", sol_error.what());
             return;
         }
         script->lua = std::move(lua);

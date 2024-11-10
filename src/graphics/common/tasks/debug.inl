@@ -79,7 +79,7 @@ struct DebugEntityOOBDrawTask : DebugEntityOOBDraw::Task {
                 .depth_bias_slope_factor = 0.0f,
                 .line_width = 1.7f,
             },
-            .push_constant_size = s_cast<u32>(sizeof(DebugEntityOOBDrawPush) + DebugEntityOOBDrawTask::Task::attachment_shader_blob_size()),
+            .push_constant_size = s_cast<u32>(sizeof(DebugEntityOOBDrawPush)),
             .name = std::string{DebugEntityOOBDrawTask::name()}
         };
     }
@@ -164,7 +164,7 @@ struct DebugAABBDrawTask : DebugAABBDraw::Task {
                 .depth_bias_slope_factor = 0.0f,
                 .line_width = 1.7f,
             },
-            .push_constant_size = s_cast<u32>(sizeof(DebugAABBDrawPush) + DebugAABBDrawTask::Task::attachment_shader_blob_size()),
+            .push_constant_size = s_cast<u32>(sizeof(DebugAABBDrawPush)),
             .name = std::string{DebugAABBDrawTask::name()}
         };
     }

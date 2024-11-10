@@ -78,7 +78,7 @@ struct DrawMeshletsTask : DrawMeshlets::Task {
             .raster = {
                 .face_culling = daxa::FaceCullFlagBits::FRONT_BIT
             },
-            .push_constant_size = s_cast<u32>(sizeof(DrawMeshletsPush) + DrawMeshletsTask::Task::attachment_shader_blob_size()),
+            .push_constant_size = s_cast<u32>(sizeof(DrawMeshletsPush)),
             .name = std::string{DrawMeshletsTask::name()}
         };
     }
