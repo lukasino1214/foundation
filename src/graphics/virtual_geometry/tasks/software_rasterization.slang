@@ -231,5 +231,4 @@ void software_rasterization(u32vec3 thread_index : SV_DispatchThreadID) {
                             f32vec3(floor(clip_position[2].xy), clip_position[2].z)), 
                             push.uses.u_globals->render_target_size, data);
     }
-
 }

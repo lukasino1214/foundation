@@ -237,7 +237,6 @@ void main(u32vec3 pixel : SV_DispatchThreadID) {
         InterlockedOr(push.uses.u_readback_material[mesh.material_index], wave_mask);
 	}
     
-    
     // color = f32vec4(0.0, 0.0, 0.0, 1.0);
     // daxa_ImageViewId roughness_image_id = push.uses.u_materials[mesh.material_index].roughness_image_id;
     // if(roughness_image_id.value != 0) {

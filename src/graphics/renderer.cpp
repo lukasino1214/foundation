@@ -108,6 +108,8 @@ namespace foundation {
         context->gpu_metrics[ClearImageTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
         context->gpu_metrics[DebugEntityOOBDrawTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
         context->gpu_metrics[DebugAABBDrawTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
+        context->gpu_metrics["readback to cpu"] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
+        context->gpu_metrics["readback copy"] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
         register_virtual_geometry_gpu_metrics(context);
     }
 
@@ -242,12 +244,13 @@ namespace foundation {
         render_task_graph.use_persistent_buffer(asset_manager->gpu_hw_meshlet_index_buffer);
         render_task_graph.use_persistent_buffer(asset_manager->gpu_sw_culled_meshlet_indices);
         render_task_graph.use_persistent_buffer(asset_manager->gpu_sw_meshlet_index_buffer);
-        render_task_graph.use_persistent_buffer(asset_manager->gpu_readback_material);
+        render_task_graph.use_persistent_buffer(asset_manager->gpu_readback_material_gpu);
+        render_task_graph.use_persistent_buffer(asset_manager->gpu_readback_material_cpu);
 
         render_task_graph.add_task({
             .attachments = {
                 daxa::inl_attachment(daxa::TaskBufferAccess::TRANSFER_WRITE, shader_globals_buffer),
-                daxa::inl_attachment(daxa::TaskBufferAccess::TRANSFER_READ, asset_manager->gpu_readback_material),
+                daxa::inl_attachment(daxa::TaskBufferAccess::TRANSFER_READ, asset_manager->gpu_readback_material_gpu),
             },
             .task = [&](daxa::TaskInterface const &ti) {
                 auto alloc = ti.allocator->allocate_fill(context->shader_globals).value();
@@ -259,14 +262,21 @@ namespace foundation {
                     .size = sizeof(ShaderGlobals),
                 });
                 context->debug_draw_context.update_debug_buffer(context->device, ti.recorder, *ti.allocator);
-                std::memcpy(asset_manager->readback_material.data(), context->device.buffer_host_address(ti.get(asset_manager->gpu_readback_material).ids[0]).value(), asset_manager->readback_material.size() * sizeof(u32));
-                for(u32 i = 0; i < asset_manager->readback_material.size(); i++) { asset_manager->readback_material[i] = (1 << find_msb(asset_manager->readback_material[i])) >> 1;}
-                std::vector<u32> zeroes = {};
-                zeroes.resize(asset_manager->readback_material.size());
-                std::fill(zeroes.begin(), zeroes.end(), 0);
-                std::memcpy(context->device.buffer_host_address(ti.get(asset_manager->gpu_readback_material).ids[0]).value(), zeroes.data(), asset_manager->readback_material.size() * sizeof(u32));
             },
             .name = "GpuInputUploadTransferTask",
+        });
+
+        render_task_graph.add_task({
+            .attachments = {
+                daxa::inl_attachment(daxa::TaskBufferAccess::TRANSFER_READ, asset_manager->gpu_readback_material_cpu),
+            },
+            .task = [&](daxa::TaskInterface const &ti) {
+                context->gpu_metrics["readback to cpu"]->start(ti.recorder);
+                std::memcpy(asset_manager->readback_material.data(), context->device.buffer_host_address(ti.get(asset_manager->gpu_readback_material_cpu).ids[0]).value(), asset_manager->readback_material.size() * sizeof(u32));
+                for(u32 i = 0; i < asset_manager->readback_material.size(); i++) { asset_manager->readback_material[i] = (1 << find_msb(asset_manager->readback_material[i])) >> 1;}
+                context->gpu_metrics["readback to cpu"]->end(ti.recorder);
+            },
+            .name = "readback to cpu",
         });
 
         render_task_graph.add_task({
@@ -294,7 +304,7 @@ namespace foundation {
             .gpu_hw_meshlet_index_buffer = asset_manager->gpu_hw_meshlet_index_buffer,
             .gpu_sw_culled_meshlet_indices = asset_manager->gpu_sw_culled_meshlet_indices,
             .gpu_sw_meshlet_index_buffer = asset_manager->gpu_sw_meshlet_index_buffer,
-            .gpu_readback_material = asset_manager->gpu_readback_material,
+            .gpu_readback_material = asset_manager->gpu_readback_material_gpu,
             .color_image = render_image,
             .depth_image = depth_image,
             .visibility_image = visibility_image
@@ -327,6 +337,31 @@ namespace foundation {
                 imgui_renderer.record_commands(ImGui::GetDrawData(), ti.recorder, ti.get(daxa::TaskImageAttachmentIndex(0)).ids[0], size.x, size.y);
             },
             .name = "ImGui Draw",
+        });
+
+        render_task_graph.add_task({
+            .attachments = {
+                daxa::inl_attachment(daxa::TaskBufferAccess::TRANSFER_WRITE, asset_manager->gpu_readback_material_cpu),
+                daxa::inl_attachment(daxa::TaskBufferAccess::TRANSFER_READ, asset_manager->gpu_readback_material_gpu),
+            },
+            .task = [&](daxa::TaskInterface const &ti) {
+                context->gpu_metrics["readback copy"]->start(ti.recorder);
+                ti.recorder.copy_buffer_to_buffer(daxa::BufferCopyInfo {
+                    .src_buffer = ti.get(asset_manager->gpu_readback_material_gpu).ids[0],
+                    .dst_buffer = ti.get(asset_manager->gpu_readback_material_cpu).ids[0],
+                    .src_offset = {},
+                    .dst_offset = {},
+                    .size = context->device.buffer_info(ti.get(asset_manager->gpu_readback_material_gpu).ids[0]).value().size,
+                });
+                ti.recorder.clear_buffer(daxa::BufferClearInfo {
+                    .buffer = ti.get(asset_manager->gpu_readback_material_gpu).ids[0],
+                    .offset = {},
+                    .size = context->device.buffer_info(ti.get(asset_manager->gpu_readback_material_gpu).ids[0]).value().size,
+                    .clear_value = 0
+                });
+                context->gpu_metrics["readback copy"]->end(ti.recorder);
+            },
+            .name = "readback copy",
         });
 
         render_task_graph.submit({});

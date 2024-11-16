@@ -64,10 +64,16 @@ namespace foundation {
             "sw meshlet index buffer"
         });
 
-        gpu_readback_material = make_task_buffer(context, {
+        gpu_readback_material_gpu = make_task_buffer(context, {
+            sizeof(u32),
+            daxa::MemoryFlagBits::DEDICATED_MEMORY,
+            "readback material gpu"
+        });
+
+        gpu_readback_material_cpu = make_task_buffer(context, {
             sizeof(u32),
             daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
-            "readback material"
+            "readback material cpu"
         });
     }
     AssetManager::~AssetManager() {
@@ -80,7 +86,8 @@ namespace foundation {
         context->destroy_buffer(gpu_hw_meshlet_index_buffer.get_state().buffers[0]);
         context->destroy_buffer(gpu_sw_culled_meshlet_indices.get_state().buffers[0]);
         context->destroy_buffer(gpu_sw_meshlet_index_buffer.get_state().buffers[0]);
-        context->destroy_buffer(gpu_readback_material.get_state().buffers[0]);
+        context->destroy_buffer(gpu_readback_material_gpu.get_state().buffers[0]);
+        context->destroy_buffer(gpu_readback_material_cpu.get_state().buffers[0]);
 
         for(auto& mesh_manifest : mesh_manifest_entries) {
             if(!mesh_manifest.virtual_geometry_render_info->mesh_buffer.is_empty()) {
@@ -480,7 +487,8 @@ namespace foundation {
         });
         readback_material.resize(material_manifest_entries.size());
         texture_sizes.resize(texture_manifest_entries.size());
-        realloc(gpu_readback_material, s_cast<u32>(material_manifest_entries.size() * sizeof(u32)));
+        realloc(gpu_readback_material_gpu, s_cast<u32>(material_manifest_entries.size() * sizeof(u32)));
+        realloc(gpu_readback_material_cpu, s_cast<u32>(material_manifest_entries.size() * sizeof(u32)));
 
         if(!dirty_meshes.empty()) {
             Mesh mesh = {};

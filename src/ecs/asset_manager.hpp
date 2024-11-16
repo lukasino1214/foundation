@@ -123,7 +123,8 @@ namespace foundation {
         daxa::TaskBuffer gpu_hw_meshlet_index_buffer = {};
         daxa::TaskBuffer gpu_sw_culled_meshlet_indices = {};
         daxa::TaskBuffer gpu_sw_meshlet_index_buffer = {};
-        daxa::TaskBuffer gpu_readback_material = {};
+        daxa::TaskBuffer gpu_readback_material_gpu = {};
+        daxa::TaskBuffer gpu_readback_material_cpu = {};
 
         u32 total_meshlet_count = {};
         u32 total_triangle_count = {};
