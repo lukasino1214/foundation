@@ -8,6 +8,7 @@
 #include <graphics/virtual_geometry/tasks/resolve_visibility_buffer.inl>
 #include <graphics/virtual_geometry/tasks/build_index_buffer.inl>
 #include <graphics/virtual_geometry/tasks/software_rasterization.inl>
+#include <graphics/virtual_geometry/tasks/cull_meshes.inl>
 
 #include <pch.hpp>
 
@@ -23,6 +24,7 @@ namespace foundation {
         daxa::TaskBufferView gpu_mesh_groups = {};
         daxa::TaskBufferView gpu_mesh_indices = {};
         daxa::TaskBufferView gpu_meshlet_data = {};
+        daxa::TaskBufferView gpu_culled_meshes_data = {};
         daxa::TaskBufferView gpu_hw_culled_meshlet_indices = {};
         daxa::TaskBufferView gpu_hw_meshlet_index_buffer = {};
         daxa::TaskBufferView gpu_sw_culled_meshlet_indices = {};
@@ -52,6 +54,8 @@ namespace foundation {
         context->gpu_metrics[SWBuildIndexBufferTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
         context->gpu_metrics[SoftwareRasterizationWriteCommandTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
         context->gpu_metrics[SoftwareRasterizationTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
+        context->gpu_metrics[CullMeshesWriteCommandTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
+        context->gpu_metrics[CullMeshesTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
     }
 
     static inline auto get_virtual_geometry_raster_pipelines() -> std::vector<std::pair<std::string_view, daxa::RasterPipelineCompileInfo>> {
@@ -79,6 +83,8 @@ namespace foundation {
             {SWBuildIndexBufferTask::name(), SWBuildIndexBufferTask::pipeline_config_info()},
             {SoftwareRasterizationWriteCommandTask::name(), SoftwareRasterizationWriteCommandTask::pipeline_config_info()},
             {SoftwareRasterizationTask::name(), SoftwareRasterizationTask::pipeline_config_info()},
+            {CullMeshesWriteCommandTask::name(), CullMeshesWriteCommandTask::pipeline_config_info()},
+            {CullMeshesTask::name(), CullMeshesTask::pipeline_config_info()},
         };
     }
 
@@ -143,28 +149,6 @@ namespace foundation {
             .context = info.context,
         });
 
-        info.task_graph.add_task(PopulateMeshletsWriteCommandTask {
-            .views = std::array{
-                PopulateMeshletsWriteCommandTask::AT.u_scene_data | info.gpu_scene_data,
-                PopulateMeshletsWriteCommandTask::AT.u_command | u_command,
-                PopulateMeshletsWriteCommandTask::AT.u_meshlets_data | info.gpu_meshlet_data,
-            },
-            .context = info.context,
-        });
-
-        info.task_graph.add_task(PopulateMeshletsTask {
-            .views = std::array{
-                PopulateMeshletsTask::AT.u_scene_data | info.gpu_scene_data,
-                PopulateMeshletsTask::AT.u_entities_data | info.gpu_entities_data,
-                PopulateMeshletsTask::AT.u_mesh_groups | info.gpu_mesh_groups,
-                PopulateMeshletsTask::AT.u_mesh_indices | info.gpu_mesh_indices,
-                PopulateMeshletsTask::AT.u_meshes | info.gpu_meshes,
-                PopulateMeshletsTask::AT.u_command | u_command,
-                PopulateMeshletsTask::AT.u_meshlets_data | info.gpu_meshlet_data,
-            },
-            .context = info.context,
-        });
-
         u32vec2 hiz_size = info.context->shader_globals.next_lower_po2_render_target_size;
         hiz_size = { std::max(hiz_size.x, 1u), std::max(hiz_size.y, 1u) };
         u32 mip_count = std::max(s_cast<u32>(std::ceil(std::log2(std::max(hiz_size.x, hiz_size.y)))), 1u);
@@ -185,6 +169,53 @@ namespace foundation {
                 daxa::attachment_view(GenerateHizTask::AT.u_mips, hiz),
             },
             .context = info.context
+        });
+
+        info.task_graph.add_task(CullMeshesWriteCommandTask {
+            .views = std::array{
+                CullMeshesWriteCommandTask::AT.u_scene_data | info.gpu_scene_data,
+                CullMeshesWriteCommandTask::AT.u_command | u_command,
+                CullMeshesWriteCommandTask::AT.u_culled_meshes_data | info.gpu_culled_meshes_data,
+            },
+            .context = info.context,
+        });
+
+        info.task_graph.add_task(CullMeshesTask {
+            .views = std::array{
+                CullMeshesTask::AT.u_scene_data | info.gpu_scene_data,
+                CullMeshesTask::AT.u_command | u_command,
+                CullMeshesTask::AT.u_globals | info.context->shader_globals_buffer,
+                CullMeshesTask::AT.u_entities_data | info.gpu_entities_data,
+                CullMeshesTask::AT.u_mesh_groups | info.gpu_mesh_groups,
+                CullMeshesTask::AT.u_mesh_indices | info.gpu_mesh_indices,
+                CullMeshesTask::AT.u_meshes | info.gpu_meshes,
+                CullMeshesTask::AT.u_transforms | info.gpu_transforms,
+                CullMeshesTask::AT.u_culled_meshes_data | info.gpu_culled_meshes_data,
+                CullMeshesTask::AT.u_hiz | hiz,
+            },
+            .context = info.context,
+        });
+
+        info.task_graph.add_task(PopulateMeshletsWriteCommandTask {
+            .views = std::array{
+                PopulateMeshletsWriteCommandTask::AT.u_culled_meshes_data | info.gpu_culled_meshes_data,
+                PopulateMeshletsWriteCommandTask::AT.u_command | u_command,
+                PopulateMeshletsWriteCommandTask::AT.u_meshlets_data | info.gpu_meshlet_data,
+            },
+            .context = info.context,
+        });
+
+        info.task_graph.add_task(PopulateMeshletsTask {
+            .views = std::array{
+                PopulateMeshletsTask::AT.u_culled_meshes_data | info.gpu_culled_meshes_data,
+                PopulateMeshletsTask::AT.u_entities_data | info.gpu_entities_data,
+                PopulateMeshletsTask::AT.u_mesh_groups | info.gpu_mesh_groups,
+                PopulateMeshletsTask::AT.u_mesh_indices | info.gpu_mesh_indices,
+                PopulateMeshletsTask::AT.u_meshes | info.gpu_meshes,
+                PopulateMeshletsTask::AT.u_command | u_command,
+                PopulateMeshletsTask::AT.u_meshlets_data | info.gpu_meshlet_data,
+            },
+            .context = info.context,
         });
 
         info.task_graph.add_task(CullMeshletsWriteCommandTask {

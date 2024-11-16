@@ -40,6 +40,12 @@ namespace foundation {
             "meshlet data"
         });
 
+        gpu_culled_meshes_data = make_task_buffer(context, {
+            sizeof(MeshesData),
+            daxa::MemoryFlagBits::DEDICATED_MEMORY,
+            "culled meshes data"
+        });
+
         gpu_hw_culled_meshlet_indices = make_task_buffer(context, {
             sizeof(MeshletsData),
             daxa::MemoryFlagBits::DEDICATED_MEMORY,
@@ -82,6 +88,7 @@ namespace foundation {
         context->destroy_buffer(gpu_mesh_groups.get_state().buffers[0]);
         context->destroy_buffer(gpu_mesh_indices.get_state().buffers[0]);
         context->destroy_buffer(gpu_meshlet_data.get_state().buffers[0]);
+        context->destroy_buffer(gpu_culled_meshes_data.get_state().buffers[0]);
         context->destroy_buffer(gpu_hw_culled_meshlet_indices.get_state().buffers[0]);
         context->destroy_buffer(gpu_hw_meshlet_index_buffer.get_state().buffers[0]);
         context->destroy_buffer(gpu_sw_culled_meshlet_indices.get_state().buffers[0]);
@@ -459,6 +466,12 @@ namespace foundation {
             return MeshletsData {
                 .count = 0,
                 .meshlets = context->device.buffer_device_address(buffer).value() + sizeof(MeshletsData)
+            };
+        });
+        realloc_special(gpu_culled_meshes_data, s_cast<u32>(mesh_manifest_entries.size() * sizeof(MeshData) + sizeof(MeshesData)), [&](const daxa::BufferId& buffer) -> MeshesData {
+            return MeshesData {
+                .count = 0,
+                .meshes = context->device.buffer_device_address(buffer).value() + sizeof(MeshesData)
             };
         });
         realloc_special(gpu_hw_culled_meshlet_indices, total_meshlet_count * sizeof(u32) + sizeof(MeshletIndices), [&](const daxa::BufferId& buffer) -> MeshletIndices {

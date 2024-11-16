@@ -240,6 +240,7 @@ namespace foundation {
         render_task_graph.use_persistent_buffer(asset_manager->gpu_mesh_indices);
         render_task_graph.use_persistent_buffer(asset_manager->gpu_meshes);
         render_task_graph.use_persistent_buffer(asset_manager->gpu_meshlet_data);
+        render_task_graph.use_persistent_buffer(asset_manager->gpu_culled_meshes_data);
         render_task_graph.use_persistent_buffer(asset_manager->gpu_hw_culled_meshlet_indices);
         render_task_graph.use_persistent_buffer(asset_manager->gpu_hw_meshlet_index_buffer);
         render_task_graph.use_persistent_buffer(asset_manager->gpu_sw_culled_meshlet_indices);
@@ -300,6 +301,7 @@ namespace foundation {
             .gpu_mesh_groups = asset_manager->gpu_mesh_groups,
             .gpu_mesh_indices = asset_manager->gpu_mesh_indices,
             .gpu_meshlet_data = asset_manager->gpu_meshlet_data,
+            .gpu_culled_meshes_data = asset_manager->gpu_culled_meshes_data,
             .gpu_hw_culled_meshlet_indices = asset_manager->gpu_hw_culled_meshlet_indices,
             .gpu_hw_meshlet_index_buffer = asset_manager->gpu_hw_meshlet_index_buffer,
             .gpu_sw_culled_meshlet_indices = asset_manager->gpu_sw_culled_meshlet_indices,

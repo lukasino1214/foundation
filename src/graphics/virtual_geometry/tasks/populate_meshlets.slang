@@ -7,7 +7,7 @@
 [shader("compute")]
 [numthreads(1, 1, 1)]
 void populate_meshlets_write_command() {
-    const u32 needed_threads = write_push.uses.u_scene_data->entity_count;
+    const u32 needed_threads = write_push.uses.u_culled_meshes_data->count;
     const u32 needed_workgroups = round_up_div(needed_threads, 16);
     DispatchIndirectStruct command;
     command.x = needed_workgroups;
@@ -21,29 +21,24 @@ void populate_meshlets_write_command() {
 [shader("compute")]
 [numthreads(16, 1, 1)]
 void populate_meshlets(u32vec3 thread_index : SV_DispatchThreadID) {
-    const u32 count = push.uses.u_scene_data->entity_count;
+    const u32 count = push.uses.u_culled_meshes_data->count;
     const u32 current_thread_index = thread_index.x;
     const bool thread_active = current_thread_index < count;
 
     if(thread_active) {
-        EntityData entity_data = push.uses.u_entities_data[current_thread_index];
-        MeshGroup mesh_group = push.uses.u_mesh_groups[entity_data.mesh_group_index];
+        MeshData mesh_data = push.uses.u_culled_meshes_data->meshes[current_thread_index];
+        Mesh mesh = push.uses.u_meshes[mesh_data.global_mesh_index];
+        u32 offset;
+        InterlockedAdd(push.uses.u_meshlets_data->count, mesh.meshlet_count, offset);
 
-        for(u32 mesh_index = 0; mesh_index < mesh_group.count; mesh_index++) {
-            u32 global_mesh_index = mesh_group.mesh_indices[mesh_index];
-            Mesh mesh = push.uses.u_meshes[global_mesh_index];
-            u32 offset;
-            InterlockedAdd(push.uses.u_meshlets_data->count, mesh.meshlet_count, offset);
+        for(u32 i = 0; i < mesh.meshlet_count; i++) {
+            MeshletData meshlet_data;
+            meshlet_data.mesh_group_index = mesh_data.mesh_group_index;
+            meshlet_data.mesh_index = mesh_data.global_mesh_index;
+            meshlet_data.meshlet_index = i;
+            meshlet_data.transform_index = mesh_data.transform_index;
 
-            for(u32 i = 0; i < mesh.meshlet_count; i++) {
-                MeshletData meshlet_data;
-                meshlet_data.mesh_group_index = entity_data.mesh_group_index;
-                meshlet_data.mesh_index = global_mesh_index;
-                meshlet_data.meshlet_index = i;
-                meshlet_data.transform_index = entity_data.transform_index;
-
-                push.uses.u_meshlets_data->meshlets[offset + i] = meshlet_data;
-            }
+            push.uses.u_meshlets_data->meshlets[offset + i] = meshlet_data;
         }
     }
 }
