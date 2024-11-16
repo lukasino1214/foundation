@@ -186,6 +186,20 @@ struct EntityData {
 };
 DAXA_DECL_BUFFER_PTR(EntityData)
 
+struct MeshData {
+    u32 mesh_group_index;
+    u32 local_mesh_index;
+    u32 global_mesh_index;
+    u32 transform_index;
+};
+DAXA_DECL_BUFFER_PTR(MeshData)
+
+struct MeshesData {
+    u32 count;
+    daxa_BufferPtr(MeshData) meshes;
+};
+DAXA_DECL_BUFFER_PTR(MeshesData)
+
 struct MeshletsData {
     u32 count;
     daxa_BufferPtr(MeshletData) meshlets;

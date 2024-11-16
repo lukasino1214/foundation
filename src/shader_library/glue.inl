@@ -65,6 +65,12 @@ typedef daxa_b32 b32;
 #define auto func
 #define const_ref(x__) x__
 
+#define greaterThan(X, Y) ((X) > (Y))
+#define lessThan(X, Y) ((X) < (Y))
+#define lessThanEqual(X, Y) ((X) <= (Y))
+#define greaterThanEqual(X, Y) ((X) >= (Y))
+#define equal(X, Y) ((X) == (Y))
+
 [__readNone]
 [ForceInline]
 [require(cpp_cuda_glsl_hlsl_spirv, shader5_sm_4_0)]
