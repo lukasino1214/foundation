@@ -8,6 +8,36 @@
 #include <utils/file_io.hpp>
 
 namespace foundation {
+    struct LoadTextureTask : Task {
+        struct TaskInfo {
+            LoadTextureInfo load_info = {};
+            AssetProcessor * asset_processor = {};
+            u32 manifest_index = {};
+        };
+
+        TaskInfo info = {};
+        explicit LoadTextureTask(TaskInfo const & info) : info{info} { chunk_count = 1; }
+
+        virtual void callback(u32, u32) override {
+            info.asset_processor->load_texture(info.load_info);
+        };
+    };
+
+    struct LoadMeshTask : Task {
+        struct TaskInfo {
+            LoadMeshInfo load_info = {};
+            AssetProcessor * asset_processor = {};
+            u32 manifest_index = {};
+        };
+
+        TaskInfo info = {};
+        LoadMeshTask(const TaskInfo& info) : info{info} { chunk_count = 1; }
+
+        virtual void callback(u32, u32) override {
+            info.asset_processor->load_gltf_mesh(info.load_info);
+        };
+    };
+
     AssetManager::AssetManager(Context* _context, Scene* _scene, ThreadPool* _thread_pool, AssetProcessor* _asset_processor) : context{_context}, scene{_scene}, thread_pool{_thread_pool}, asset_processor{_asset_processor} {
         PROFILE_SCOPE;
         gpu_meshes = make_task_buffer(context, {
@@ -81,6 +111,18 @@ namespace foundation {
             daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
             "readback material cpu"
         });
+
+        gpu_readback_mesh_gpu = make_task_buffer(context, {
+            sizeof(u32),
+            daxa::MemoryFlagBits::DEDICATED_MEMORY,
+            "readback mesh gpu"
+        });
+
+        gpu_readback_mesh_cpu = make_task_buffer(context, {
+            sizeof(u32),
+            daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
+            "readback mesh cpu"
+        });
     }
     AssetManager::~AssetManager() {
         context->destroy_buffer(gpu_meshes.get_state().buffers[0]);
@@ -95,10 +137,12 @@ namespace foundation {
         context->destroy_buffer(gpu_sw_meshlet_index_buffer.get_state().buffers[0]);
         context->destroy_buffer(gpu_readback_material_gpu.get_state().buffers[0]);
         context->destroy_buffer(gpu_readback_material_cpu.get_state().buffers[0]);
+        context->destroy_buffer(gpu_readback_mesh_gpu.get_state().buffers[0]);
+        context->destroy_buffer(gpu_readback_mesh_cpu.get_state().buffers[0]);
 
         for(auto& mesh_manifest : mesh_manifest_entries) {
-            if(!mesh_manifest.virtual_geometry_render_info->mesh_buffer.is_empty()) {
-                context->destroy_buffer(mesh_manifest.virtual_geometry_render_info->mesh_buffer);
+            if(!std::bit_cast<daxa::BufferId>(mesh_manifest.virtual_geometry_render_info->mesh.mesh_buffer).is_empty()) {
+                context->destroy_buffer(std::bit_cast<daxa::BufferId>(mesh_manifest.virtual_geometry_render_info->mesh.mesh_buffer));
             }
         }
 
@@ -212,22 +256,7 @@ namespace foundation {
                 .name = material.name.c_str(),
             });
         }
-
-        struct LoadMeshTask : Task {
-            struct TaskInfo {
-                LoadMeshInfo load_info = {};
-                AssetProcessor * asset_processor = {};
-                u32 manifest_index = {};
-            };
-
-            TaskInfo info = {};
-            LoadMeshTask(const TaskInfo& info) : info{info} { chunk_count = 1; }
-
-            virtual void callback(u32, u32) override {
-                info.asset_processor->load_gltf_mesh(info.load_info);
-            };
-        };
-
+        
         for(u32 mesh_group_index = 0; mesh_group_index < asset->mesh_groups.size(); mesh_group_index++) {
             const auto& mesh_group = asset->mesh_groups.at(mesh_group_index);
 
@@ -306,27 +335,13 @@ namespace foundation {
                         .mesh_index = mesh_index,
                         .material_manifest_offset = material_manifest_offset,
                         .manifest_index = mesh_group_manifest.mesh_manifest_indices_offset + mesh_index,
+                        .old_mesh = {},
                         .file_path = asset_manifest.path.parent_path() / asset->meshes[mesh_group.mesh_offset + mesh_index].file_path
                     },
                     .asset_processor = asset_processor,
                 }), TaskPriority::LOW);
             }
         }
-
-        struct LoadTextureTask : Task {
-            struct TaskInfo {
-                LoadTextureInfo load_info = {};
-                AssetProcessor * asset_processor = {};
-                u32 manifest_index = {};
-            };
-
-            TaskInfo info = {};
-            explicit LoadTextureTask(TaskInfo const & info) : info{info} { chunk_count = 1; }
-
-            virtual void callback(u32, u32) override {
-                info.asset_processor->load_texture(info.load_info);
-            };
-        };
 
         for (u32 texture_index = 0; texture_index < s_cast<u32>(asset->textures.size()); texture_index++) {
             auto const texture_manifest_index = texture_index + asset_manifest.texture_manifest_offset;
@@ -359,22 +374,6 @@ namespace foundation {
             }
             texture_sizes[texture_index] = std::min(texture_manifest.max_resolution, texture_sizes[texture_index]);
 
-            struct LoadTextureTask : Task {
-                struct TaskInfo {
-                    LoadTextureInfo load_info = {};
-                    AssetProcessor * asset_processor = {};
-                    u32 manifest_index = {};
-                };
-
-                TaskInfo info = {};
-                explicit LoadTextureTask(TaskInfo const & info) : info{info} { chunk_count = 1; }
-
-                virtual void callback(u32, u32) override {
-                    info.asset_processor->load_texture(info.load_info);
-                };
-            };
-
-
             texture_manifest.unload_delay++;
             const u32 requested_size = texture_sizes[texture_index];
             if(texture_manifest.image_id.is_empty()) { continue; }
@@ -399,6 +398,47 @@ namespace foundation {
                         .image_path = asset_entry.path.parent_path() / asset_entry.asset->textures[texture_manifest.asset_local_index].file_path,
                     },
                     .asset_processor = asset_processor,
+            }), TaskPriority::LOW);
+        }
+    }
+
+    void AssetManager::update_meshes() {
+        if(readback_mesh.empty()) { return; }
+
+        for(u32 global_mesh_index = 0; global_mesh_index < mesh_manifest_entries.size(); global_mesh_index++) {
+            MeshManifestEntry& mesh_manifest_entry = mesh_manifest_entries[global_mesh_index];
+            const bool keep_mesh_in_memory = readback_mesh[global_mesh_index] == 1;
+
+            const AssetManifestEntry& asset_manifest = asset_manifest_entries[mesh_manifest_entry.asset_manifest_index];
+            const u32 mesh_group_index = asset_manifest.mesh_group_manifest_offset + mesh_manifest_entry.asset_local_mesh_index;
+            const MeshGroupManifestEntry mesh_group_manifest_entry = mesh_group_manifest_entries[mesh_group_index];
+            const auto& mesh_group = asset_manifest.asset->mesh_groups.at(mesh_manifest_entry.asset_local_mesh_index);
+
+            const auto mesh_buffer = std::bit_cast<daxa::BufferId>(mesh_manifest_entry.virtual_geometry_render_info->mesh.mesh_buffer);
+            bool is_in_memory = !mesh_buffer.is_empty() && context->device.is_buffer_id_valid(mesh_buffer);
+            
+            mesh_manifest_entry.unload_delay++;
+            
+            if(!mesh_manifest_entry.virtual_geometry_render_info.has_value()) { continue; }
+            if(mesh_manifest_entry.unload_delay < 254) { continue; }
+            if(mesh_manifest_entry.loading) { continue; }
+            if(keep_mesh_in_memory == is_in_memory) { continue; }
+
+            mesh_manifest_entry.loading = true;
+            mesh_manifest_entry.unload_delay = 0;
+
+            thread_pool->async_dispatch(std::make_shared<LoadMeshTask>(LoadMeshTask::TaskInfo{
+                .load_info = {
+                    .asset_path = asset_manifest.path,
+                    .asset = asset_manifest.asset.get(),
+                    .mesh_group_index = mesh_manifest_entry.asset_local_mesh_index,
+                    .mesh_index = mesh_manifest_entry.asset_local_primitive_index,
+                    .material_manifest_offset = asset_manifest.material_manifest_offset,
+                    .manifest_index = mesh_group_manifest_entry.mesh_manifest_indices_offset + mesh_manifest_entry.asset_local_primitive_index,
+                    .old_mesh = mesh_manifest_entry.virtual_geometry_render_info->mesh,
+                    .file_path = asset_manifest.path.parent_path() / asset_manifest.asset->meshes[mesh_group.mesh_offset + mesh_manifest_entry.asset_local_primitive_index].file_path
+                },
+                .asset_processor = asset_processor,
             }), TaskPriority::LOW);
         }
     }
@@ -500,8 +540,11 @@ namespace foundation {
         });
         readback_material.resize(material_manifest_entries.size());
         texture_sizes.resize(texture_manifest_entries.size());
+        readback_mesh.resize(mesh_manifest_entries.size());
         realloc(gpu_readback_material_gpu, s_cast<u32>(material_manifest_entries.size() * sizeof(u32)));
         realloc(gpu_readback_material_cpu, s_cast<u32>(material_manifest_entries.size() * sizeof(u32)));
+        realloc(gpu_readback_mesh_gpu, s_cast<u32>(mesh_manifest_entries.size() * sizeof(u32)));
+        realloc(gpu_readback_mesh_cpu, s_cast<u32>(mesh_manifest_entries.size() * sizeof(u32)));
 
         if(!dirty_meshes.empty()) {
             Mesh mesh = {};
@@ -610,20 +653,23 @@ namespace foundation {
 
             for(const auto& mesh_upload_info : info.uploaded_meshes) {
                 auto& mesh_manifest = mesh_manifest_entries[mesh_upload_info.manifest_index];
+                mesh_manifest.loading = false;
                 auto& asset_manifest = asset_manifest_entries[mesh_manifest.asset_manifest_index];
                 u32 material_index = mesh_upload_info.material_manifest_offset + asset_manifest.asset->meshes[asset_manifest.asset->mesh_groups[mesh_manifest.asset_local_mesh_index].mesh_offset + mesh_manifest.asset_local_primitive_index].material_index.value();
                 auto& material_manifest = material_manifest_entries.at(material_index);
 
-                cmd_recorder.copy_buffer_to_buffer(daxa::BufferCopyInfo {
-                    .src_buffer = material_null_buffer,
-                    .dst_buffer = gpu_materials.get_state().buffers[0],
-                    .src_offset = 0,
-                    .dst_offset = material_manifest.material_manifest_index * sizeof(Material),
-                    .size = sizeof(Material),
-                });
+                if(!mesh_manifest.virtual_geometry_render_info.has_value()) {
+                    cmd_recorder.copy_buffer_to_buffer(daxa::BufferCopyInfo {
+                        .src_buffer = material_null_buffer,
+                        .dst_buffer = gpu_materials.get_state().buffers[0],
+                        .src_offset = 0,
+                        .dst_offset = material_manifest.material_manifest_index * sizeof(Material),
+                        .size = sizeof(Material),
+                    });
+                }
 
                 mesh_manifest.virtual_geometry_render_info = MeshManifestEntry::VirtualGeometryRenderInfo {
-                    .mesh_buffer = mesh_upload_info.mesh_buffer,
+                    .mesh = mesh_upload_info.mesh,
                     .material_manifest_index = material_manifest.material_manifest_index,
                 };
             }

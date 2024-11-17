@@ -247,11 +247,12 @@ namespace foundation {
         render_task_graph.use_persistent_buffer(asset_manager->gpu_sw_meshlet_index_buffer);
         render_task_graph.use_persistent_buffer(asset_manager->gpu_readback_material_gpu);
         render_task_graph.use_persistent_buffer(asset_manager->gpu_readback_material_cpu);
+        render_task_graph.use_persistent_buffer(asset_manager->gpu_readback_mesh_gpu);
+        render_task_graph.use_persistent_buffer(asset_manager->gpu_readback_mesh_cpu);
 
         render_task_graph.add_task({
             .attachments = {
                 daxa::inl_attachment(daxa::TaskBufferAccess::TRANSFER_WRITE, shader_globals_buffer),
-                daxa::inl_attachment(daxa::TaskBufferAccess::TRANSFER_READ, asset_manager->gpu_readback_material_gpu),
             },
             .task = [&](daxa::TaskInterface const &ti) {
                 auto alloc = ti.allocator->allocate_fill(context->shader_globals).value();
@@ -270,11 +271,16 @@ namespace foundation {
         render_task_graph.add_task({
             .attachments = {
                 daxa::inl_attachment(daxa::TaskBufferAccess::TRANSFER_READ, asset_manager->gpu_readback_material_cpu),
+                daxa::inl_attachment(daxa::TaskBufferAccess::TRANSFER_READ, asset_manager->gpu_readback_mesh_cpu),
             },
             .task = [&](daxa::TaskInterface const &ti) {
                 context->gpu_metrics["readback to cpu"]->start(ti.recorder);
+
                 std::memcpy(asset_manager->readback_material.data(), context->device.buffer_host_address(ti.get(asset_manager->gpu_readback_material_cpu).ids[0]).value(), asset_manager->readback_material.size() * sizeof(u32));
                 for(u32 i = 0; i < asset_manager->readback_material.size(); i++) { asset_manager->readback_material[i] = (1 << find_msb(asset_manager->readback_material[i])) >> 1;}
+                
+                std::memcpy(asset_manager->readback_mesh.data(), context->device.buffer_host_address(ti.get(asset_manager->gpu_readback_mesh_cpu).ids[0]).value(), asset_manager->readback_mesh.size() * sizeof(u32));
+                
                 context->gpu_metrics["readback to cpu"]->end(ti.recorder);
             },
             .name = "readback to cpu",
@@ -307,6 +313,7 @@ namespace foundation {
             .gpu_sw_culled_meshlet_indices = asset_manager->gpu_sw_culled_meshlet_indices,
             .gpu_sw_meshlet_index_buffer = asset_manager->gpu_sw_meshlet_index_buffer,
             .gpu_readback_material = asset_manager->gpu_readback_material_gpu,
+            .gpu_readback_mesh = asset_manager->gpu_readback_mesh_gpu,
             .color_image = render_image,
             .depth_image = depth_image,
             .visibility_image = visibility_image
@@ -345,6 +352,8 @@ namespace foundation {
             .attachments = {
                 daxa::inl_attachment(daxa::TaskBufferAccess::TRANSFER_WRITE, asset_manager->gpu_readback_material_cpu),
                 daxa::inl_attachment(daxa::TaskBufferAccess::TRANSFER_READ, asset_manager->gpu_readback_material_gpu),
+                daxa::inl_attachment(daxa::TaskBufferAccess::TRANSFER_WRITE, asset_manager->gpu_readback_mesh_cpu),
+                daxa::inl_attachment(daxa::TaskBufferAccess::TRANSFER_READ, asset_manager->gpu_readback_mesh_gpu),
             },
             .task = [&](daxa::TaskInterface const &ti) {
                 context->gpu_metrics["readback copy"]->start(ti.recorder);
@@ -359,6 +368,20 @@ namespace foundation {
                     .buffer = ti.get(asset_manager->gpu_readback_material_gpu).ids[0],
                     .offset = {},
                     .size = context->device.buffer_info(ti.get(asset_manager->gpu_readback_material_gpu).ids[0]).value().size,
+                    .clear_value = 0
+                });
+
+                ti.recorder.copy_buffer_to_buffer(daxa::BufferCopyInfo {
+                    .src_buffer = ti.get(asset_manager->gpu_readback_mesh_gpu).ids[0],
+                    .dst_buffer = ti.get(asset_manager->gpu_readback_mesh_cpu).ids[0],
+                    .src_offset = {},
+                    .dst_offset = {},
+                    .size = context->device.buffer_info(ti.get(asset_manager->gpu_readback_mesh_gpu).ids[0]).value().size,
+                });
+                ti.recorder.clear_buffer(daxa::BufferClearInfo {
+                    .buffer = ti.get(asset_manager->gpu_readback_mesh_gpu).ids[0],
+                    .offset = {},
+                    .size = context->device.buffer_info(ti.get(asset_manager->gpu_readback_mesh_gpu).ids[0]).value().size,
                     .clear_value = 0
                 });
                 context->gpu_metrics["readback copy"]->end(ti.recorder);
@@ -393,6 +416,13 @@ namespace foundation {
         auto& texture_sizes = asset_manager->texture_sizes;
         for(u32 i = 0; i < texture_sizes.size(); i++) {
             ImGui::Text("Texture %u: %ux%u", i, texture_sizes[i], texture_sizes[i]);
+        }
+        ImGui::End();
+
+        ImGui::Begin("Mesh readback");
+        auto& mesh_readback = asset_manager->readback_mesh;
+        for(u32 i = 0; i < mesh_readback.size(); i++) {
+            ImGui::Text("Mesh %u: %u", i, mesh_readback[i]);
         }
         ImGui::End();
 

@@ -2,6 +2,9 @@
 #include "glue.inl"
 #include "shared.inl"
 
+// funny number which doesnt lay in -1 and 1 range to detect if ndc is behind the eye
+static const f32 INVALID_NDC_AABB_Z = 69.0f;
+
 struct NdcAABB {
     f32vec3 ndc_min;
     f32vec3 ndc_max;
@@ -9,6 +12,7 @@ struct NdcAABB {
 
 NdcAABB calculate_ndc_aabb_from_worldspace(in f32mat4x4 model_matrix, in f32mat4x4 projection_view_matrix, in AABB aabb) {
     bool initialized_min_max = false;
+    bool behind_near_plane = false;
     NdcAABB ret;
     for (i32 z = -1; z <= 1; z += 2) {
         for (i32 y = -1; y <= 1; y += 2) {
@@ -23,6 +27,7 @@ NdcAABB calculate_ndc_aabb_from_worldspace(in f32mat4x4 model_matrix, in f32mat4
                 ret.ndc_max.x = !initialized_min_max ? ndc_corner_position.x : max(ndc_corner_position.x, ret.ndc_max.x);
                 ret.ndc_max.y = !initialized_min_max ? ndc_corner_position.y : max(ndc_corner_position.y, ret.ndc_max.y);
                 ret.ndc_max.z = !initialized_min_max ? ndc_corner_position.z : max(ndc_corner_position.z, ret.ndc_max.z);
+                behind_near_plane = behind_near_plane || (clipspace_corner_position.z > clipspace_corner_position.w);
                 initialized_min_max = true;
             }
         }
@@ -32,6 +37,7 @@ NdcAABB calculate_ndc_aabb_from_worldspace(in f32mat4x4 model_matrix, in f32mat4
     ret.ndc_min.y = max(ret.ndc_min.y, -1.0f);
     ret.ndc_max.x = min(ret.ndc_max.x,  1.0f);
     ret.ndc_max.y = min(ret.ndc_max.y,  1.0f);
+    if(behind_near_plane) { ret.ndc_min = ret.ndc_max = f32vec3(0.0f, 0.0f, INVALID_NDC_AABB_Z); }
     return ret;
 }
 
@@ -78,6 +84,7 @@ bool is_worldspace_aabb_frusum_visible(in CameraInfo camera_info, in AABB aabb) 
 }
 
 bool is_ndc_aabb_hiz_depth_visible(NdcAABB meshlet_ndc_aabb, u32vec2 hiz_res, daxa_ImageViewId hiz) {
+    if(meshlet_ndc_aabb.ndc_max.z == INVALID_NDC_AABB_Z) { return false; }
     const f32vec2 f_hiz_resolution = hiz_res;
     const f32vec2 min_uv = (meshlet_ndc_aabb.ndc_min.xy + 1.0f) * 0.5f;
     const f32vec2 max_uv = (meshlet_ndc_aabb.ndc_max.xy + 1.0f) * 0.5f;

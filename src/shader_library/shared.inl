@@ -156,6 +156,7 @@ struct AABB {
 DAXA_DECL_BUFFER_PTR(AABB)
 
 struct Mesh {
+    daxa_BufferId mesh_buffer;
     u32 material_index;
     u32 meshlet_count;
     u32 vertex_count;

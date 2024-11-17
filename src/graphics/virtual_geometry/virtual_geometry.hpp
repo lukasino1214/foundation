@@ -30,6 +30,7 @@ namespace foundation {
         daxa::TaskBufferView gpu_sw_culled_meshlet_indices = {};
         daxa::TaskBufferView gpu_sw_meshlet_index_buffer = {};
         daxa::TaskBufferView gpu_readback_material = {};
+        daxa::TaskBufferView gpu_readback_mesh = {};
         daxa::TaskImageView color_image = {};
         daxa::TaskImageView depth_image = {};
         daxa::TaskImageView visibility_image = {};
@@ -191,6 +192,7 @@ namespace foundation {
                 CullMeshesTask::AT.u_meshes | info.gpu_meshes,
                 CullMeshesTask::AT.u_transforms | info.gpu_transforms,
                 CullMeshesTask::AT.u_culled_meshes_data | info.gpu_culled_meshes_data,
+                CullMeshesTask::AT.u_readback_mesh | info.gpu_readback_mesh,
                 CullMeshesTask::AT.u_hiz | hiz,
             },
             .context = info.context,

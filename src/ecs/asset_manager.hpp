@@ -26,13 +26,15 @@ namespace foundation {
 
     struct MeshManifestEntry {
         struct VirtualGeometryRenderInfo {
-            daxa::BufferId mesh_buffer = {};
+            Mesh mesh = {};
             u32 material_manifest_index = {};
         };
 
         u32 asset_manifest_index = {};
         u32 asset_local_mesh_index = {};
         u32 asset_local_primitive_index = {};
+        u8 unload_delay = {};
+        bool loading = true;
         std::optional<VirtualGeometryRenderInfo> virtual_geometry_render_info = {};
     };
 
@@ -96,6 +98,7 @@ namespace foundation {
         };
 
         void update_textures();
+        void update_meshes();
         auto record_manifest_update(const RecordManifestUpdateInfo& info) -> daxa::ExecutableCommandList;
 
         Context* context;
@@ -110,8 +113,10 @@ namespace foundation {
         std::vector<MeshGroupManifestEntry> mesh_group_manifest_entries = {};
         std::vector<u32> dirty_meshes = {};
         std::vector<u32> dirty_mesh_groups = {};
+
         std::vector<u32> readback_material = {};
         std::vector<u32> texture_sizes = {};
+        std::vector<u32> readback_mesh = {};
 
         daxa::TaskBuffer gpu_meshes = {};
         daxa::TaskBuffer gpu_materials = {};
@@ -126,6 +131,8 @@ namespace foundation {
         daxa::TaskBuffer gpu_sw_meshlet_index_buffer = {};
         daxa::TaskBuffer gpu_readback_material_gpu = {};
         daxa::TaskBuffer gpu_readback_material_cpu = {};
+        daxa::TaskBuffer gpu_readback_mesh_gpu = {};
+        daxa::TaskBuffer gpu_readback_mesh_cpu = {};
 
         u32 total_meshlet_count = {};
         u32 total_triangle_count = {};

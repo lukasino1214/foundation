@@ -83,9 +83,11 @@ inline constexpr auto find_next_lower_po2(daxa::u32 v) -> daxa::u32 {
 #define PROFILE_FRAME_END(name) FrameMarkEnd(name)
 #define PROFILE_SCOPE ZoneScoped
 #define PROFILE_SCOPE_NAMED(name) ZoneNamedN(name, #name, true)
+#define PROFILE_ZONE_NAMED(name) ZoneTransientN(name, #name, true)
 #else
 #define PROFILE_FRAME_START(name)
 #define PROFILE_FRAME_END(name)
 #define PROFILE_SCOPE
 #define PROFILE_SCOPE_NAMED(name)
+#define PROFILE_ZONE_NAMED(name)
 #endif

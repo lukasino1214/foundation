@@ -919,71 +919,94 @@ namespace foundation {
     void AssetProcessor::load_gltf_mesh(const LoadMeshInfo& info) {
         PROFILE_SCOPE;
 
-        std::vector<std::byte> uncompressed_data = {};
-        {
-            std::vector<byte> data = read_file_to_bytes(info.file_path);
-            uncompressed_data = zstd_decompress(data);
+        Mesh mesh = info.old_mesh;
+        mesh.mesh_buffer = {};
+        daxa::BufferId mesh_buffer = {};
+        daxa::BufferId staging_mesh_buffer = {};
+
+        if(!context->device.is_buffer_id_valid(std::bit_cast<daxa::BufferId>(info.old_mesh.mesh_buffer))) {
+            std::vector<std::byte> uncompressed_data = {};
+            {
+                std::vector<byte> data = {};
+                {
+                    PROFILE_ZONE_NAMED(reading_from_disk_and_uncompressing);
+                    data = read_file_to_bytes(info.file_path);
+                }
+                {
+                    ZoneTransientN(decompressing, "decompressing", true);
+                    uncompressed_data = zstd_decompress(data);
+                }
+            }
+
+            ProcessedMeshInfo processed_info = {};
+            {
+                PROFILE_ZONE_NAMED(serializing);
+                ByteReader reader(uncompressed_data.data(), uncompressed_data.size());
+                reader.read(processed_info);
+            }
+
+            {
+                PROFILE_ZONE_NAMED(creating_buffer);
+                const u64 total_mesh_buffer_size =
+                    sizeof(Meshlet) * processed_info.meshlets.size() +
+                    sizeof(BoundingSphere) * processed_info.meshlets.size() +
+                    sizeof(AABB) * processed_info.meshlets.size() +
+                    sizeof(u8) * processed_info.micro_indices.size() +
+                    sizeof(u32) * processed_info.indirect_vertices.size() +
+                    sizeof(f32vec3) * processed_info.positions.size() +
+                    sizeof(u32) * processed_info.normals.size() +
+                    sizeof(u32) * processed_info.uvs.size();
+
+                mesh.aabb = processed_info.mesh_aabb; 
+
+                staging_mesh_buffer = context->create_buffer(daxa::BufferInfo {
+                    .size = s_cast<daxa::usize>(total_mesh_buffer_size),
+                    .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
+                    .name = "mesh buffer: " + info.asset_path.filename().string() + " mesh " + std::to_string(info.mesh_group_index) + " primitive " + std::to_string(info.mesh_index) + " staging",
+                });
+                
+                mesh_buffer = context->create_buffer(daxa::BufferInfo {
+                    .size = s_cast<daxa::usize>(total_mesh_buffer_size),
+                    .name = "mesh buffer: " + info.asset_path.filename().string() + " mesh " + std::to_string(info.mesh_group_index) + " primitive " + std::to_string(info.mesh_index)
+                });
+            }
+
+            {
+                PROFILE_ZONE_NAMED(writing_into_buffer);
+                daxa::DeviceAddress mesh_bda = context->device.buffer_device_address(std::bit_cast<daxa::BufferId>(mesh_buffer)).value();
+
+                std::byte* staging_ptr = context->device.buffer_host_address(staging_mesh_buffer).value();
+                usize accumulated_offset = 0;
+
+                auto memcpy_data = [&](daxa::DeviceAddress& bda, const auto& vec){
+                    bda = mesh_bda + accumulated_offset;
+                    std::memcpy(staging_ptr + accumulated_offset, vec.data(), vec.size() * sizeof(vec[0]));
+                    accumulated_offset += vec.size() * sizeof(vec[0]);
+                };
+
+                memcpy_data(mesh.meshlets, processed_info.meshlets);
+                memcpy_data(mesh.meshlet_bounds, processed_info.bounding_spheres);
+                memcpy_data(mesh.meshlet_aabbs, processed_info.aabbs);
+                memcpy_data(mesh.micro_indices, processed_info.micro_indices);
+                memcpy_data(mesh.indirect_vertices, processed_info.indirect_vertices);
+                memcpy_data(mesh.vertex_positions, processed_info.positions);
+                memcpy_data(mesh.vertex_normals, processed_info.normals);
+                memcpy_data(mesh.vertex_uvs, processed_info.uvs);
+                
+                mesh.mesh_buffer = mesh_buffer;
+                mesh.material_index = info.material_manifest_offset + info.asset->meshes[info.asset->mesh_groups[info.mesh_group_index].mesh_offset + info.mesh_index].material_index.value();
+                mesh.meshlet_count = s_cast<u32>(processed_info.meshlets.size());
+                mesh.vertex_count = s_cast<u32>(processed_info.positions.size());
+            }
         }
 
-        ProcessedMeshInfo processed_info = {};
         {
-            ByteReader reader(uncompressed_data.data(), uncompressed_data.size());
-            reader.read(processed_info);
-        }
-
-        const u64 total_mesh_buffer_size =
-            sizeof(Meshlet) * processed_info.meshlets.size() +
-            sizeof(BoundingSphere) * processed_info.meshlets.size() +
-            sizeof(AABB) * processed_info.meshlets.size() +
-            sizeof(u8) * processed_info.micro_indices.size() +
-            sizeof(u32) * processed_info.indirect_vertices.size() +
-            sizeof(f32vec3) * processed_info.positions.size() +
-            sizeof(u32) * processed_info.normals.size() +
-            sizeof(u32) * processed_info.uvs.size();
-
-        Mesh mesh = {};
-        mesh.aabb = processed_info.mesh_aabb; 
-
-        daxa::BufferId staging_mesh_buffer = context->create_buffer(daxa::BufferInfo {
-            .size = s_cast<daxa::usize>(total_mesh_buffer_size),
-            .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
-            .name = "mesh buffer: " + info.asset_path.filename().string() + " mesh " + std::to_string(info.mesh_group_index) + " primitive " + std::to_string(info.mesh_index) + " staging",
-        });
-        
-        daxa::BufferId mesh_buffer = context->create_buffer(daxa::BufferInfo {
-            .size = s_cast<daxa::usize>(total_mesh_buffer_size),
-            .name = "mesh buffer: " + info.asset_path.filename().string() + " mesh " + std::to_string(info.mesh_group_index) + " primitive " + std::to_string(info.mesh_index)
-        });
-
-        daxa::DeviceAddress mesh_bda = context->device.buffer_device_address(std::bit_cast<daxa::BufferId>(mesh_buffer)).value();
-
-        std::byte* staging_ptr = context->device.buffer_host_address(staging_mesh_buffer).value();
-        usize accumulated_offset = 0;
-
-        auto memcpy_data = [&](daxa::DeviceAddress& bda, const auto& vec){
-            bda = mesh_bda + accumulated_offset;
-            std::memcpy(staging_ptr + accumulated_offset, vec.data(), vec.size() * sizeof(vec[0]));
-            accumulated_offset += vec.size() * sizeof(vec[0]);
-        };
-
-        memcpy_data(mesh.meshlets, processed_info.meshlets);
-        memcpy_data(mesh.meshlet_bounds, processed_info.bounding_spheres);
-        memcpy_data(mesh.meshlet_aabbs, processed_info.aabbs);
-        memcpy_data(mesh.micro_indices, processed_info.micro_indices);
-        memcpy_data(mesh.indirect_vertices, processed_info.indirect_vertices);
-        memcpy_data(mesh.vertex_positions, processed_info.positions);
-        memcpy_data(mesh.vertex_normals, processed_info.normals);
-        memcpy_data(mesh.vertex_uvs, processed_info.uvs);
-        
-        mesh.material_index = info.material_manifest_offset + info.asset->meshes[info.asset->mesh_groups[info.mesh_group_index].mesh_offset + info.mesh_index].material_index.value();
-        mesh.meshlet_count = s_cast<u32>(processed_info.meshlets.size());
-        mesh.vertex_count = s_cast<u32>(processed_info.positions.size());
-
-        {
+            PROFILE_ZONE_NAMED(adding_to_queue);
             std::lock_guard<std::mutex> lock{*mesh_upload_mutex};
             mesh_upload_queue.push_back(MeshUploadInfo {
                 .staging_mesh_buffer = staging_mesh_buffer,
                 .mesh_buffer = mesh_buffer,
+                .old_buffer = std::bit_cast<daxa::BufferId>(info.old_mesh.mesh_buffer),
                 .mesh = mesh,
                 .manifest_index = info.manifest_index,
                 .material_manifest_offset = info.material_manifest_offset,
@@ -1119,16 +1142,20 @@ namespace foundation {
 
         {
             PROFILE_SCOPE_NAMED(mesh_upload_info_);
-            for(auto& mesh_upload_info : ret.uploaded_meshes) {
-                context->destroy_buffer_deferred(cmd_recorder, mesh_upload_info.staging_mesh_buffer);
+            for(MeshUploadInfo& mesh_upload_info : ret.uploaded_meshes) {
+                if(context->device.is_buffer_id_valid(std::bit_cast<daxa::BufferId>(mesh_upload_info.mesh.mesh_buffer))) {
+                    context->destroy_buffer_deferred(cmd_recorder, mesh_upload_info.staging_mesh_buffer);
 
-                cmd_recorder.copy_buffer_to_buffer(daxa::BufferCopyInfo {
-                    .src_buffer = mesh_upload_info.staging_mesh_buffer,
-                    .dst_buffer = mesh_upload_info.mesh_buffer,
-                    .src_offset = 0,
-                    .dst_offset = 0,
-                    .size = context->device.buffer_info(mesh_upload_info.mesh_buffer).value().size
-                });
+                    cmd_recorder.copy_buffer_to_buffer(daxa::BufferCopyInfo {
+                        .src_buffer = mesh_upload_info.staging_mesh_buffer,
+                        .dst_buffer = mesh_upload_info.mesh_buffer,
+                        .src_offset = 0,
+                        .dst_offset = 0,
+                        .size = context->device.buffer_info(mesh_upload_info.mesh_buffer).value().size
+                    });
+                } else {
+                    context->destroy_buffer_deferred(cmd_recorder, mesh_upload_info.old_buffer);
+                }
             }
         }
 

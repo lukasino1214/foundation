@@ -142,6 +142,8 @@ namespace foundation {
             {
                 PROFILE_SCOPE_NAMED(update_textures);
                 asset_manager->update_textures();
+                PROFILE_SCOPE_NAMED(update_meshes);
+                asset_manager->update_meshes();
                 PROFILE_SCOPE_NAMED(record_gpu_load_processing_commands);
                 auto commands = asset_processor->record_gpu_load_processing_commands();
                 PROFILE_SCOPE_NAMED(record_manifest_update);
