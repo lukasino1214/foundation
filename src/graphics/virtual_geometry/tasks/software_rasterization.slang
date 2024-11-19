@@ -106,7 +106,7 @@ void rasterize(in f32vec3[3] triangle, in i32vec2 viewport_size, in u32 payload)
             x_0 += min_pixel.x;
             x_1 += min_pixel.x;
             for (f32 x = x_0; x <= x_1; ++x) {
-                AtomicMaxU64(tex_rw_u64_table[push.uses.u_visibility_image.index()][u32vec2(x, y)], encode_visibility_buffer_payload(payload, z_x));
+                AtomicMaxU64(push.uses.u_visibility_image.get()[u32vec2(x, y)], encode_visibility_buffer_payload(payload, z_x));
                 z_x += grad_z.x;
             }
 
@@ -122,7 +122,7 @@ void rasterize(in f32vec3[3] triangle, in i32vec2 viewport_size, in u32 payload)
         while (true) {
             i32 x = min_pixel.x;
             if (min(min(hec_y_0, hec_y_1), hec_y_2) >= 0.0) {
-                AtomicMaxU64(tex_rw_u64_table[push.uses.u_visibility_image.index()][u32vec2(x, y)], encode_visibility_buffer_payload(payload, z_y));
+                AtomicMaxU64(push.uses.u_visibility_image.get()[u32vec2(x, y)], encode_visibility_buffer_payload(payload, z_y));
             }
 
             if (x < max_pixel.x) {
@@ -134,7 +134,7 @@ void rasterize(in f32vec3[3] triangle, in i32vec2 viewport_size, in u32 payload)
 
                 while (true) {
                     if (min(min(hec_x_0, hec_x_1), hec_x_2) >= 0.0) {
-                        AtomicMaxU64(tex_rw_u64_table[push.uses.u_visibility_image.index()][u32vec2(x, y)], encode_visibility_buffer_payload(payload, z_x));
+                        AtomicMaxU64(push.uses.u_visibility_image.get()[u32vec2(x, y)], encode_visibility_buffer_payload(payload, z_x));
                     }
 
                     if (x >= max_pixel.x) { break; }

@@ -58,6 +58,7 @@ namespace foundation {
         u32 material_manifest_offset = {};
         u32 manifest_index = {};
         Mesh old_mesh = {};
+        std::optional<ProcessedMeshInfo>& cached_mesh;
         std::filesystem::path file_path = {};
     };
 

@@ -98,11 +98,10 @@ void main(u32vec3 pixel : SV_DispatchThreadID) {
 
     u32 vis_index = 0;
     u32 depth = 0;
-    decode_visibility_buffer_payload(tex_rw_u64_table[push.uses.u_visibility_image.index()][pixel.xy], vis_index, depth);
+    decode_visibility_buffer_payload(push.uses.u_visibility_image.get()[pixel.xy], vis_index, depth);
 
     if(vis_index == INVALID_ID || depth == 0) {
-        RWTexture2D<f32vec4> image = RWTexture2D<f32vec4>::get(push.uses.u_image);
-        image[pixel.xy] = f32vec4(0.0f, 0.0f, 0.0f, 1.0f);
+        push.uses.u_image.get()[pixel.xy] = f32vec4(0.0f, 0.0f, 0.0f, 1.0f);
         return;
     }
 
@@ -248,7 +247,6 @@ void main(u32vec3 pixel : SV_DispatchThreadID) {
         //     color.g = Texture2D<f32>::get(metalness_image_id).SampleGrad(SamplerState::get(push.uses.u_materials[mesh.material_index].metalness_sampler_id), uv_grad.uv, uv_grad.ddx, uv_grad.ddy).r;
         // }
         
-    RWTexture2D<f32vec4> image = RWTexture2D<f32vec4>::get(push.uses.u_image);
     // color = f32vec4(normal * 0.5 + 0.5, 1.0f);
-    image[pixel.xy] = color;
+    push.uses.u_image.get()[pixel.xy] = color;
 }

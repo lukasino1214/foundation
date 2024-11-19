@@ -25,12 +25,12 @@ namespace foundation {
 
     struct LoadMeshTask : Task {
         struct TaskInfo {
-            LoadMeshInfo load_info = {};
+            LoadMeshInfo load_info;
             AssetProcessor * asset_processor = {};
             u32 manifest_index = {};
         };
 
-        TaskInfo info = {};
+        TaskInfo info;
         LoadMeshTask(const TaskInfo& info) : info{info} { chunk_count = 1; }
 
         virtual void callback(u32, u32) override {
@@ -141,8 +141,8 @@ namespace foundation {
         context->destroy_buffer(gpu_readback_mesh_cpu.get_state().buffers[0]);
 
         for(auto& mesh_manifest : mesh_manifest_entries) {
-            if(!std::bit_cast<daxa::BufferId>(mesh_manifest.virtual_geometry_render_info->mesh.mesh_buffer).is_empty()) {
-                context->destroy_buffer(std::bit_cast<daxa::BufferId>(mesh_manifest.virtual_geometry_render_info->mesh.mesh_buffer));
+            if(mesh_manifest.virtual_geometry_render_info->mesh.mesh_buffer.is_empty()) {
+                context->destroy_buffer(mesh_manifest.virtual_geometry_render_info->mesh.mesh_buffer);
             }
         }
 
@@ -336,6 +336,7 @@ namespace foundation {
                         .material_manifest_offset = material_manifest_offset,
                         .manifest_index = mesh_group_manifest.mesh_manifest_indices_offset + mesh_index,
                         .old_mesh = {},
+                        .cached_mesh = mesh_manifest_entries[mesh_group_manifest.mesh_manifest_indices_offset + mesh_index].cached_mesh,
                         .file_path = asset_manifest.path.parent_path() / asset->meshes[mesh_group.mesh_offset + mesh_index].file_path
                     },
                     .asset_processor = asset_processor,
@@ -414,7 +415,7 @@ namespace foundation {
             const MeshGroupManifestEntry mesh_group_manifest_entry = mesh_group_manifest_entries[mesh_group_index];
             const auto& mesh_group = asset_manifest.asset->mesh_groups.at(mesh_manifest_entry.asset_local_mesh_index);
 
-            const auto mesh_buffer = std::bit_cast<daxa::BufferId>(mesh_manifest_entry.virtual_geometry_render_info->mesh.mesh_buffer);
+            const daxa::BufferId mesh_buffer = mesh_manifest_entry.virtual_geometry_render_info->mesh.mesh_buffer;
             bool is_in_memory = !mesh_buffer.is_empty() && context->device.is_buffer_id_valid(mesh_buffer);
             
             mesh_manifest_entry.unload_delay++;
@@ -436,6 +437,7 @@ namespace foundation {
                     .material_manifest_offset = asset_manifest.material_manifest_offset,
                     .manifest_index = mesh_group_manifest_entry.mesh_manifest_indices_offset + mesh_manifest_entry.asset_local_primitive_index,
                     .old_mesh = mesh_manifest_entry.virtual_geometry_render_info->mesh,
+                    .cached_mesh = mesh_manifest_entries[global_mesh_index].cached_mesh,
                     .file_path = asset_manifest.path.parent_path() / asset_manifest.asset->meshes[mesh_group.mesh_offset + mesh_manifest_entry.asset_local_primitive_index].file_path
                 },
                 .asset_processor = asset_processor,

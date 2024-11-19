@@ -58,7 +58,7 @@ VertexStageOutput aabb_main(u32 vertex_index: SV_VertexID, u32 instance_index : 
 f32vec4 fragment_main(f32vec3 color : f32vec3, f32vec4 pixel: SV_Position) : SV_Target {
     u32 vis_index = 0;
     f32 depth = 0;
-    decode_visibility_buffer_payload(tex_rw_u64_table[push.uses.u_visibility_image.index()][pixel.xy], vis_index, depth);
+    decode_visibility_buffer_payload(push.uses.u_visibility_image.get()[pixel.xy], vis_index, depth);
     if(depth > pixel.z) { discard; }
     return f32vec4(color, 1.0);
 }   

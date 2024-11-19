@@ -340,13 +340,13 @@ namespace foundation {
 
             {
                 if(const auto* _ = std::get_if<std::monostate>(&image.data)) {
-                    std::cout << "std::monostate" << std::endl;
+                    std::println("std::monostate");
                 }
                 if(const auto* data = std::get_if<fastgltf::sources::BufferView>(&image.data)) {
                     auto& buffer_view = asset->bufferViews[data->bufferViewIndex];
                     auto content = get_data(asset->buffers[buffer_view.bufferIndex], buffer_view.byteOffset, buffer_view.byteLength);
                     u8* image_data = stbi_load_from_memory(r_cast<const u8*>(content.data()), s_cast<i32>(content.size_bytes()), &width, &height, &num_channels, 4);
-                    if(!image_data) { std::cout << "bozo" << std::endl; }
+                    if(!image_data) { std::println("bozo"); }
                     raw_data.resize(s_cast<u64>(width * height * 4));
                     std::memcpy(raw_data.data(), image_data, s_cast<u64>(width * height * 4));
                     stbi_image_free(image_data);
@@ -354,19 +354,19 @@ namespace foundation {
                 if(const auto* data = std::get_if<fastgltf::sources::URI>(&image.data)) {
                     image_path = input_path.parent_path().string() + '/' + std::string(data->uri.path().begin(), data->uri.path().end());
                     u8* image_data = stbi_load(image_path.c_str(), &width, &height, &num_channels, 4);
-                    if(!image_data) { std::cout << "bozo" << std::endl; }
+                    if(!image_data) { std::println("bozo"); }
                     raw_data.resize(s_cast<u64>(width * height * 4));
                     std::memcpy(raw_data.data(), image_data, s_cast<u64>(width * height * 4));
                     stbi_image_free(image_data);
                 }
                 if(const auto* _ = std::get_if<fastgltf::sources::Vector>(&image.data)) {
-                    std::cout << "fastgltf::sources::Vector" << std::endl;
+                    std::println("fastgltf::sources::Vector");
                 }
                 if(const auto* _ = std::get_if<fastgltf::sources::CustomBuffer>(&image.data)) {
-                    std::cout << "fastgltf::sources::CustomBuffer" << std::endl;
+                    std::println("fastgltf::sources::CustomBuffer");
                 }
                 if(const auto* _ = std::get_if<fastgltf::sources::ByteView>(&image.data)) {
-                    std::cout << "fastgltf::sources::ByteView" << std::endl;
+                    std::println("fastgltf::sources::ByteView");
                 }
             }
 
@@ -925,25 +925,30 @@ namespace foundation {
         daxa::BufferId staging_mesh_buffer = {};
 
         if(!context->device.is_buffer_id_valid(std::bit_cast<daxa::BufferId>(info.old_mesh.mesh_buffer))) {
-            std::vector<std::byte> uncompressed_data = {};
-            {
-                std::vector<byte> data = {};
+
+            if(!info.cached_mesh.has_value()) {
+                std::vector<std::byte> uncompressed_data = {};
                 {
-                    PROFILE_ZONE_NAMED(reading_from_disk_and_uncompressing);
-                    data = read_file_to_bytes(info.file_path);
+                    std::vector<byte> data = {};
+                    {
+                        PROFILE_ZONE_NAMED(reading_from_disk_and_uncompressing);
+                        data = read_file_to_bytes(info.file_path);
+                    }
+                    {
+                        ZoneTransientN(decompressing, "decompressing", true);
+                        uncompressed_data = zstd_decompress(data);
+                    }
                 }
                 {
-                    ZoneTransientN(decompressing, "decompressing", true);
-                    uncompressed_data = zstd_decompress(data);
+                    ProcessedMeshInfo processed_info = {};
+                    PROFILE_ZONE_NAMED(serializing);
+                    ByteReader reader(uncompressed_data.data(), uncompressed_data.size());
+                    reader.read(processed_info);
+                    info.cached_mesh = std::move(processed_info);
                 }
             }
 
-            ProcessedMeshInfo processed_info = {};
-            {
-                PROFILE_ZONE_NAMED(serializing);
-                ByteReader reader(uncompressed_data.data(), uncompressed_data.size());
-                reader.read(processed_info);
-            }
+            ProcessedMeshInfo& processed_info = info.cached_mesh.value();
 
             {
                 PROFILE_ZONE_NAMED(creating_buffer);

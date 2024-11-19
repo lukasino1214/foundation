@@ -29,6 +29,8 @@ using b32 = daxa_b32;
 #define pack_snorm_2x16 glm::packSnorm2x16 
 #define unpack_snorm_2x16 glm::unpackSnorm2x16 
 
+#define daxa_BufferId daxa::BufferId
+
 template<typename T>
 constexpr auto max(const T& a, const T& b) -> T {
     return glm::max(a, b);

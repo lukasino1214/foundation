@@ -36,6 +36,7 @@ namespace foundation {
         u8 unload_delay = {};
         bool loading = true;
         std::optional<VirtualGeometryRenderInfo> virtual_geometry_render_info = {};
+        std::optional<ProcessedMeshInfo> cached_mesh = {};
     };
 
     struct MeshGroupManifestEntry {
