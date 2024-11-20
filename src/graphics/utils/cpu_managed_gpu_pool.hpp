@@ -48,8 +48,15 @@ namespace foundation {
             }
         }
 
-        void update_handle(const daxa::TaskInterface& task_interface, const Handle& handle, const T& data) {
-            auto alloc = task_interface.allocator->allocate_fill(data).value();
+        auto update_handle(const daxa::TaskInterface& task_interface, const Handle& handle, const T& data) -> bool {
+            // cope remove this
+            auto alloc_optional = task_interface.allocator->allocate_fill(data);
+            if(!alloc_optional.has_value()) {
+                return false;
+            }
+
+            auto alloc = alloc_optional.value();
+
             task_interface.recorder.copy_buffer_to_buffer({
                 .src_buffer = task_interface.allocator->buffer(),
                 .dst_buffer = task_buffer.get_state().buffers[0],
@@ -57,6 +64,8 @@ namespace foundation {
                 .dst_offset = handle.index * sizeof(T),
                 .size = sizeof(T),
             });
+
+            return true;
         }
 
         daxa::TaskBuffer task_buffer = {};

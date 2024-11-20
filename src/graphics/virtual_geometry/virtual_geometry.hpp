@@ -9,6 +9,7 @@
 #include <graphics/virtual_geometry/tasks/build_index_buffer.inl>
 #include <graphics/virtual_geometry/tasks/software_rasterization.inl>
 #include <graphics/virtual_geometry/tasks/cull_meshes.inl>
+// #include <graphics/virtual_geometry/tasks/draw_meshlets_mesh.inl>
 
 #include <pch.hpp>
 
@@ -57,6 +58,8 @@ namespace foundation {
         context->gpu_metrics[SoftwareRasterizationTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
         context->gpu_metrics[CullMeshesWriteCommandTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
         context->gpu_metrics[CullMeshesTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
+        // context->gpu_metrics[DrawMeshletsMeshWriteCommandTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
+        // context->gpu_metrics[DrawMeshletsMeshTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
     }
 
     static inline auto get_virtual_geometry_raster_pipelines() -> std::vector<std::pair<std::string_view, daxa::RasterPipelineCompileInfo>> {
@@ -64,6 +67,7 @@ namespace foundation {
             {DrawMeshletsTask::name(), DrawMeshletsTask::pipeline_config_info()},
             {HWDrawMeshletsOnlyDepthTask::name(), HWDrawMeshletsOnlyDepthTask::pipeline_config_info()},
             {SWDrawMeshletsOnlyDepthTask::name(), SWDrawMeshletsOnlyDepthTask::pipeline_config_info()},
+            // {DrawMeshletsMeshTask::name(), DrawMeshletsMeshTask::pipeline_config_info()},
         };
     }
 
@@ -86,6 +90,7 @@ namespace foundation {
             {SoftwareRasterizationTask::name(), SoftwareRasterizationTask::pipeline_config_info()},
             {CullMeshesWriteCommandTask::name(), CullMeshesWriteCommandTask::pipeline_config_info()},
             {CullMeshesTask::name(), CullMeshesTask::pipeline_config_info()},
+            // {DrawMeshletsMeshWriteCommandTask::name(), DrawMeshletsMeshWriteCommandTask::pipeline_config_info()},
         };
     }
 
@@ -339,6 +344,30 @@ namespace foundation {
             },
             .context = info.context,
         });
+
+        // info.task_graph.add_task(DrawMeshletsMeshWriteCommandTask {
+        //     .views = std::array{
+        //         DrawMeshletsMeshWriteCommandTask::AT.u_meshlets_data | info.gpu_meshlet_data,
+        //         DrawMeshletsMeshWriteCommandTask::AT.u_command | u_command,
+        //     },
+        //     .context = info.context,
+        // });
+
+        // info.task_graph.add_task(DrawMeshletsMeshTask {
+        //     .views = std::array{
+        //         DrawMeshletsMeshTask::AT.u_hw_culled_meshlet_indices | info.gpu_hw_culled_meshlet_indices,
+        //         DrawMeshletsMeshTask::AT.u_sw_culled_meshlet_indices | info.gpu_sw_culled_meshlet_indices,
+        //         DrawMeshletsMeshTask::AT.u_meshlets_data | info.gpu_meshlet_data,
+        //         DrawMeshletsMeshTask::AT.u_meshes | info.gpu_meshes,
+        //         DrawMeshletsMeshTask::AT.u_transforms | info.gpu_transforms,
+        //         DrawMeshletsMeshTask::AT.u_materials | info.gpu_materials,
+        //         DrawMeshletsMeshTask::AT.u_globals | info.context->shader_globals_buffer,
+        //         DrawMeshletsMeshTask::AT.u_command | u_command,
+        //         DrawMeshletsMeshTask::AT.u_visibility_image | info.visibility_image,
+        //         DrawMeshletsMeshTask::AT.u_hiz | hiz
+        //     },
+        //     .context = info.context,
+        // });
 
         info.task_graph.add_task(ResolveVisibilityBufferTask {
             .views = std::array{

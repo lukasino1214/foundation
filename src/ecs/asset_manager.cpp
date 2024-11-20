@@ -162,6 +162,13 @@ namespace foundation {
         auto* mc = info.parent.add_component<ModelComponent>();
         mc->path = info.path;
 
+        for(const auto& asset_manifest : asset_manifest_entries) {
+            if(info.path == asset_manifest.path) {
+                already_loaded_model(info, asset_manifest);
+                return;
+            }
+        }
+
         u32 const asset_manifest_index = s_cast<u32>(asset_manifest_entries.size());
         u32 const texture_manifest_offset = s_cast<u32>(texture_manifest_entries.size());
         u32 const material_manifest_offset = s_cast<u32>(material_manifest_entries.size());
@@ -189,6 +196,7 @@ namespace foundation {
             byte_reader.read(asset.nodes);
             byte_reader.read(asset.mesh_groups);
             byte_reader.read(asset.meshes);
+            total_mesh_count += s_cast<u32>(asset.meshes.size());
 
             asset_manifest_entries.push_back(AssetManifestEntry {
                 .path = info.path,
@@ -198,6 +206,7 @@ namespace foundation {
                 .mesh_group_manifest_offset = mesh_group_manifest_offset,
                 .parent = info.parent,
                 .asset = std::make_unique<BinaryAssetInfo>(std::move(asset)),
+                .header = header
             });
         }
 
@@ -445,6 +454,55 @@ namespace foundation {
         }
     }
 
+    void AssetManager::already_loaded_model(LoadManifestInfo& info, const AssetManifestEntry& asset_manifest) {
+        const auto& asset = asset_manifest.asset;
+
+        total_meshlet_count += asset_manifest.header.meshlet_count;
+        total_triangle_count += asset_manifest.header.triangle_count;
+        total_vertex_count += asset_manifest.header.vertex_count;
+        total_mesh_count += s_cast<u32>(asset->meshes.size());
+
+        std::vector<Entity> node_index_to_entity = {};
+        for(u32 node_index = 0; node_index < s_cast<u32>(asset->nodes.size()); node_index++) {
+            node_index_to_entity.push_back(scene->create_entity(std::format("asset {} {} {}", asset_manifest_entries.size(), asset->nodes[node_index].name, info.parent.handle.name().c_str())));
+        }
+
+        for(u32 node_index = 0; node_index < s_cast<u32>(asset->nodes.size()); node_index++) {
+            const auto& node = asset->nodes[node_index];
+            Entity& parent_entity = node_index_to_entity[node_index];
+            if(node.mesh_index.has_value()) {
+                parent_entity.add_component<GlobalTransformComponent>();
+                parent_entity.add_component<LocalTransformComponent>();
+                auto* mesh_component = parent_entity.add_component<MeshComponent>();
+                mesh_component->mesh_group_index = asset_manifest.mesh_group_manifest_offset + node.mesh_index.value();
+                parent_entity.add_component<RenderInfo>();
+            }
+
+            glm::vec3 position = {};
+            glm::vec3 rotation = {};
+            glm::vec3 scale = {};
+            math::decompose_transform(node.transform, position, rotation, scale);
+
+            auto* local_transform = parent_entity.get_component<LocalTransformComponent>();
+            local_transform->set_position(position);
+            local_transform->set_rotation(rotation);
+            local_transform->set_scale(scale);
+
+            for(u32 children_index = 0; children_index < node.children.size(); children_index++) {
+                Entity& child_entity = node_index_to_entity[children_index];
+                child_entity.handle.child_of(parent_entity.handle);
+            }
+        }
+
+        for(u32 node_index = 0; node_index < s_cast<u32>(asset->nodes.size()); node_index++) {
+            Entity& entity = node_index_to_entity[node_index];
+            auto parent = entity.handle.parent();
+            if(!parent.null()) {
+                entity.handle.child_of(info.parent.handle);
+            }
+        }
+    }
+
     auto AssetManager::record_manifest_update(const RecordManifestUpdateInfo& info) -> daxa::ExecutableCommandList {
         PROFILE_SCOPE;
         auto cmd_recorder = context->device.create_command_recorder({ .name = "asset manager update" });
@@ -510,7 +568,7 @@ namespace foundation {
                 .meshlets = context->device.buffer_device_address(buffer).value() + sizeof(MeshletsData)
             };
         });
-        realloc_special(gpu_culled_meshes_data, s_cast<u32>(mesh_manifest_entries.size() * sizeof(MeshData) + sizeof(MeshesData)), [&](const daxa::BufferId& buffer) -> MeshesData {
+        realloc_special(gpu_culled_meshes_data, s_cast<u32>(total_mesh_count * sizeof(MeshData) + sizeof(MeshesData)), [&](const daxa::BufferId& buffer) -> MeshesData {
             return MeshesData {
                 .count = 0,
                 .meshes = context->device.buffer_device_address(buffer).value() + sizeof(MeshesData)

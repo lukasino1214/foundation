@@ -84,7 +84,8 @@ namespace foundation {
 
     void ThreadPool::async_dispatch(std::shared_ptr<Task> task, TaskPriority priority) {
         task->not_finished = task->chunk_count;
-        auto & selected_queue = priority == TaskPriority::HIGH ? shared_data->high_priority_tasks : shared_data->low_priority_tasks; {
+        auto & selected_queue = priority == TaskPriority::HIGH ? shared_data->high_priority_tasks : shared_data->low_priority_tasks; 
+        {
             std::lock_guard lock(shared_data->threadpool_mutex);
             for (u32 chunk_index = 0; chunk_index < task->chunk_count; chunk_index++) {
                 selected_queue.push_back({task, chunk_index});

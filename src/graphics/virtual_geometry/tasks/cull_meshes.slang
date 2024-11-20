@@ -37,7 +37,7 @@ void cull_meshes(u32vec3 thread_index : SV_DispatchThreadID) {
             const AABB worldspace_aabb = calculate_worldspace_aabb_from_modelspace(model_matrix, mesh.aabb);
 
             if(!is_worldspace_aabb_frusum_visible(push.uses.u_globals->main_camera, worldspace_aabb)) {
-                push.uses.u_readback_mesh[global_mesh_index] = 0;
+                InterlockedOr(push.uses.u_readback_mesh[global_mesh_index], 0);
                 continue;
             }
 
@@ -45,11 +45,11 @@ void cull_meshes(u32vec3 thread_index : SV_DispatchThreadID) {
             const NdcAABB ndc_aabb = calculate_ndc_aabb_from_worldspace(model_matrix, projection_view_matrix, mesh.aabb);
 
             if(is_ndc_aabb_hiz_depth_visible(ndc_aabb, push.uses.u_globals->next_lower_po2_render_target_size, push.uses.u_hiz)) {
-                push.uses.u_readback_mesh[global_mesh_index] = 0;
+                InterlockedOr(push.uses.u_readback_mesh[global_mesh_index], 0);
                 continue;
             }
 
-            push.uses.u_readback_mesh[global_mesh_index] = 1;
+            InterlockedOr(push.uses.u_readback_mesh[global_mesh_index], 1);
 
 
             if(mesh.mesh_buffer.value == 0) { continue; }

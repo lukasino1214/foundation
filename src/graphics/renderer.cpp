@@ -221,6 +221,7 @@ namespace foundation {
         render_task_graph = daxa::TaskGraph({
             .device = context->device,
             .swapchain = context->swapchain,
+            .staging_memory_pool_size = 1u << 24, // cope
             .name = "render task graph",
         });
 

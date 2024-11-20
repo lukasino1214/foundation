@@ -22,6 +22,7 @@ namespace foundation {
         u32 mesh_group_manifest_offset = {};
         Entity parent;
         std::unique_ptr<BinaryAssetInfo> asset = {};
+        BinaryModelHeader header = {};
     };
 
     struct MeshManifestEntry {
@@ -92,6 +93,7 @@ namespace foundation {
         ~AssetManager();
 
         void load_model(LoadManifestInfo& info);
+        void already_loaded_model(LoadManifestInfo& info, const AssetManifestEntry& asset_manifest);
 
         struct RecordManifestUpdateInfo {
             std::span<const MeshUploadInfo> uploaded_meshes = {};
@@ -138,5 +140,6 @@ namespace foundation {
         u32 total_meshlet_count = {};
         u32 total_triangle_count = {};
         u32 total_vertex_count = {};
+        u32 total_mesh_count = {};
     };
 }
