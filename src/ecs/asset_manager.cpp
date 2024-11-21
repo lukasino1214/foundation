@@ -82,22 +82,10 @@ namespace foundation {
             "hw culled meshlet indices"
         });
 
-        gpu_hw_meshlet_index_buffer = make_task_buffer(context, {
-            sizeof(MeshletsData),
-            daxa::MemoryFlagBits::DEDICATED_MEMORY,
-            "hw meshlet index buffer"
-        });
-
         gpu_sw_culled_meshlet_indices = make_task_buffer(context, {
             sizeof(MeshletsData),
             daxa::MemoryFlagBits::DEDICATED_MEMORY,
             "sw culled meshlet indices"
-        });
-
-        gpu_sw_meshlet_index_buffer = make_task_buffer(context, {
-            sizeof(MeshletsData),
-            daxa::MemoryFlagBits::DEDICATED_MEMORY,
-            "sw meshlet index buffer"
         });
 
         gpu_readback_material_gpu = make_task_buffer(context, {
@@ -132,9 +120,7 @@ namespace foundation {
         context->destroy_buffer(gpu_meshlet_data.get_state().buffers[0]);
         context->destroy_buffer(gpu_culled_meshes_data.get_state().buffers[0]);
         context->destroy_buffer(gpu_hw_culled_meshlet_indices.get_state().buffers[0]);
-        context->destroy_buffer(gpu_hw_meshlet_index_buffer.get_state().buffers[0]);
         context->destroy_buffer(gpu_sw_culled_meshlet_indices.get_state().buffers[0]);
-        context->destroy_buffer(gpu_sw_meshlet_index_buffer.get_state().buffers[0]);
         context->destroy_buffer(gpu_readback_material_gpu.get_state().buffers[0]);
         context->destroy_buffer(gpu_readback_material_cpu.get_state().buffers[0]);
         context->destroy_buffer(gpu_readback_mesh_gpu.get_state().buffers[0]);
@@ -580,22 +566,10 @@ namespace foundation {
                 .indices = context->device.buffer_device_address(buffer).value() + sizeof(MeshletIndices)
             };
         });
-        realloc_special(gpu_hw_meshlet_index_buffer, total_triangle_count * sizeof(u32) + sizeof(MeshletIndexBuffer), [&](const daxa::BufferId& buffer) -> MeshletIndexBuffer {
-            return MeshletIndexBuffer {
-                .count = 0,
-                .indices = context->device.buffer_device_address(buffer).value() + sizeof(MeshletIndexBuffer)
-            };
-        });
         realloc_special(gpu_sw_culled_meshlet_indices, total_meshlet_count * sizeof(u32) + sizeof(MeshletIndices), [&](const daxa::BufferId& buffer) -> MeshletIndices {
             return MeshletIndices {
                 .count = 0,
                 .indices = context->device.buffer_device_address(buffer).value() + sizeof(MeshletIndices)
-            };
-        });
-        realloc_special(gpu_sw_meshlet_index_buffer, total_triangle_count * sizeof(u32) + sizeof(MeshletIndexBuffer), [&](const daxa::BufferId& buffer) -> MeshletIndexBuffer {
-            return MeshletIndexBuffer {
-                .count = 0,
-                .indices = context->device.buffer_device_address(buffer).value() + sizeof(MeshletIndexBuffer)
             };
         });
         readback_material.resize(material_manifest_entries.size());

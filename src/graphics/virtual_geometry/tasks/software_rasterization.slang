@@ -13,10 +13,8 @@
 [shader("compute")]
 [numthreads(1, 1, 1)]
 void software_rasterization_write_command() {
-    u32 needed_threads = write_push.uses.u_index_buffer->count;
-    const u32 needed_workgroups = round_up_div(needed_threads, 16);
     DispatchIndirectStruct command;
-    command.x = needed_workgroups;
+    command.x = write_push.uses.u_meshlet_indices->count;
     command.y = 1;
     command.z = 1;
     *write_push.uses.u_command = command;
@@ -159,23 +157,17 @@ void rasterize(in f32vec3[3] triangle, in i32vec2 viewport_size, in u32 payload)
 }
 
 [shader("compute")]
-[numthreads(16, 1, 1)]
-void software_rasterization(u32vec3 thread_index : SV_DispatchThreadID) {
-    const u32 count = push.uses.u_index_buffer->count;
-    const u32 current_thread_index = thread_index.x;
-    const bool thread_active = current_thread_index < count;
+[numthreads(MAX_TRIANGLES_PER_MESHLET, 1, 1)]
+void software_rasterization(u32vec3 thread_index : SV_DispatchThreadID, u32vec3 local_thread_index : SV_GroupThreadID, u32vec3 group_index : SV_GroupID) {
+    const u32 meshlet_index = push.uses.u_meshlet_indices.indices[group_index.x];
+    const MeshletData meshlet_data = push.uses.u_meshlets_data.meshlets[meshlet_index];
+    const Mesh mesh = push.uses.u_meshes[meshlet_data.mesh_index];
+    const Meshlet meshlet = mesh.meshlets[meshlet_data.meshlet_index];
+    const u32 triangle_index = local_thread_index.x;
 
-    if(thread_active) {
-        u32 inst_meshlet_index;
-        u32 triangle_index;
-        const u32 data = push.uses.u_index_buffer->indices[current_thread_index];
-        
-        decode_triangle_id(data, inst_meshlet_index, triangle_index);
-    
-        MeshletData meshlet_data = push.uses.u_meshlets_data->meshlets[inst_meshlet_index];
-        Mesh mesh = push.uses.u_meshes[meshlet_data.mesh_index];
-        Meshlet meshlet = mesh.meshlets[meshlet_data.meshlet_index];
-    
+    if(triangle_index >= meshlet.triangle_count) {
+        return;
+    } else {
         const f32vec2 scale = f32vec2(0.5, 0.5) * f32vec2(push.uses.u_globals->render_target_size) * f32(SUBPIXEL_SAMPLES);
         const f32vec2 bias = (0.5 * f32vec2(push.uses.u_globals->render_target_size)) * f32(SUBPIXEL_SAMPLES) + 0.5;
         const f32mat4x4 transform_matrix = push.uses.u_transforms[meshlet_data.transform_index].model_matrix; 
@@ -225,6 +217,9 @@ void software_rasterization(u32vec3 thread_index : SV_DispatchThreadID) {
             clip_position[1] / clip_position[1].w,
             clip_position[2] / clip_position[2].w,
         );
+
+        u32 data = 0;
+        encode_triangle_id(data, meshlet_index, triangle_index);
     
         rasterize(f32vec3[](f32vec3(floor(clip_position[0].xy), clip_position[0].z), 
                             f32vec3(floor(clip_position[1].xy), clip_position[1].z), 

@@ -9,7 +9,7 @@
 #include "../../../shader_library/shared.inl"
 
 DAXA_DECL_TASK_HEAD_BEGIN(HWDrawMeshletsOnlyDepthWriteCommand)
-DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ, daxa_BufferPtr(MeshletIndexBuffer), u_index_buffer)
+DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ, daxa_BufferPtr(MeshletIndices), u_meshlet_indices)
 DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_WRITE, daxa_BufferPtr(DrawIndirectStruct), u_command)
 DAXA_DECL_TASK_HEAD_END
 
@@ -23,11 +23,11 @@ using HWDrawMeshletsOnlyDepthWriteCommandTask = foundation::WriteIndirectCompute
                                             HWDrawMeshletsOnlyDepthWriteCommand::Task, 
                                             HWDrawMeshletsOnlyDepthWriteCommandPush, 
                                             "src/graphics/virtual_geometry/tasks/draw_meshlets_only_depth.slang", 
-                                            "draw_meshlets_write_only_depth_command">;
+                                            "draw_meshlets_only_depth_write_command">;
 #endif
 
 DAXA_DECL_TASK_HEAD_BEGIN(HWDrawMeshletsOnlyDepth)
-DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ, daxa_BufferPtr(MeshletIndexBuffer), u_index_buffer)
+DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ, daxa_BufferPtr(MeshletIndices), u_meshlet_indices)
 DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ, daxa_BufferPtr(MeshletsData), u_meshlets_data)
 DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ, daxa_BufferPtr(Mesh), u_meshes)
 DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ, daxa_BufferPtr(TransformInfo), u_transforms)
@@ -117,7 +117,7 @@ struct HWDrawMeshletsOnlyDepthTask : HWDrawMeshletsOnlyDepth::Task {
 #endif
 
 DAXA_DECL_TASK_HEAD_BEGIN(SWDrawMeshletsOnlyDepthWriteCommand)
-DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ, daxa_BufferPtr(MeshletIndexBuffer), u_index_buffer)
+DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ, daxa_BufferPtr(MeshletIndices), u_meshlet_indices)
 DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_WRITE, daxa_BufferPtr(DrawIndirectStruct), u_command)
 DAXA_DECL_TASK_HEAD_END
 
@@ -131,11 +131,11 @@ using SWDrawMeshletsOnlyDepthWriteCommandTask = foundation::WriteIndirectCompute
                                             SWDrawMeshletsOnlyDepthWriteCommand::Task, 
                                             SWDrawMeshletsOnlyDepthWriteCommandPush, 
                                             "src/graphics/virtual_geometry/tasks/draw_meshlets_only_depth.slang", 
-                                            "draw_meshlets_write_only_depth_command">;
+                                            "draw_meshlets_only_depth_write_command">;
 #endif
 
 DAXA_DECL_TASK_HEAD_BEGIN(SWDrawMeshletsOnlyDepth)
-DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ, daxa_BufferPtr(MeshletIndexBuffer), u_index_buffer)
+DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ, daxa_BufferPtr(MeshletIndices), u_meshlet_indices)
 DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ, daxa_BufferPtr(MeshletsData), u_meshlets_data)
 DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ, daxa_BufferPtr(Mesh), u_meshes)
 DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ, daxa_BufferPtr(TransformInfo), u_transforms)
