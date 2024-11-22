@@ -74,7 +74,9 @@ namespace foundation {
         }
     }
 
-    SceneHierarchyPanel::SceneHierarchyPanel(Scene* _scene) : scene{_scene} {}
+    SceneHierarchyPanel::SceneHierarchyPanel(Scene* _scene) : scene{_scene} {
+        root_entities_query = scene->world->query_builder<RootEntityTag>().build();
+    }
 
     void SceneHierarchyPanel::tree(Entity& entity, const u32 iteration) {
         ImGuiTreeNodeFlags treeNodeFlags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_FramePadding | ImGuiTreeNodeFlags_SpanAvailWidth;
@@ -139,14 +141,16 @@ namespace foundation {
     }
 
     void SceneHierarchyPanel::draw() {
+        PROFILE_SCOPE;
         ImGui::Begin("Scene Hiearchy");
 
-        scene->world->each([&](flecs::entity e, EntityTag){
-            if(!e.parent().is_valid()) {
+        {
+            PROFILE_SCOPE_NAMED(scene_world_each);
+            root_entities_query.each([&](flecs::entity e, RootEntityTag tag){
                 Entity entity = { e, scene };
                 tree(entity, 0);
-            }
-        });
+            });
+        }
 
         if (ImGui::IsMouseDown(0) && ImGui::IsWindowHovered()) { selected_entity = {}; }
         if (ImGui::BeginPopupContextWindow(0, ImGuiPopupFlags_NoOpenOverItems | ImGuiPopupFlags_MouseButtonRight)) {

@@ -10,6 +10,7 @@ struct Physics;
 
 namespace foundation {
     struct EntityTag {};
+    struct RootEntityTag {};
 
     struct LocalTransformComponent {
         glm::vec3 position = { 0.0f, 0.0f, 0.0f };

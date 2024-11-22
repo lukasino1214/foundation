@@ -44,6 +44,7 @@ namespace foundation {
 
         {
             auto entity = scene->create_entity("sponza");
+            entity.handle.add<RootEntityTag>();
             add_transform(entity);
 
             LoadManifestInfo manifesto {
@@ -60,6 +61,7 @@ namespace foundation {
             for(u32 y = 0; y < bistro_count; y++) {
                 for(u32 z = 0; z < bistro_count; z++) {
                         auto entity = scene->create_entity(std::format("bistro {} {} {}", x, y, z));
+                        entity.handle.add<RootEntityTag>();
                         auto* tc = add_transform(entity);
                         tc->set_rotation({90.0f, 0.0f, 0.0f});
                         tc->set_position({200.0f * x, 100.0f * y, 200.0f * z});
@@ -77,6 +79,7 @@ namespace foundation {
 
         {
             auto cube1 = scene->create_entity("aabb 1");
+            cube1.handle.add<RootEntityTag>();
             {
                 auto* tc = add_transform(cube1);
                 tc->set_position({0.0f, 0.0, 0.0f});
@@ -147,13 +150,13 @@ namespace foundation {
             }
 
             {
-                PROFILE_SCOPE_NAMED(update_textures);
+                PROFILE_ZONE_NAMED(update_textures);
                 asset_manager->update_textures();
-                PROFILE_SCOPE_NAMED(update_meshes);
+                PROFILE_ZONE_NAMED(update_meshes);
                 asset_manager->update_meshes();
-                PROFILE_SCOPE_NAMED(record_gpu_load_processing_commands);
+                PROFILE_ZONE_NAMED(record_gpu_load_processing_commands);
                 auto commands = asset_processor->record_gpu_load_processing_commands();
-                PROFILE_SCOPE_NAMED(record_manifest_update);
+                PROFILE_ZONE_NAMED(record_manifest_update);
                 auto cmd_list = asset_manager->record_manifest_update(AssetManager::RecordManifestUpdateInfo {
                     .uploaded_meshes = commands.uploaded_meshes,
                     .uploaded_textures = commands.uploaded_textures
@@ -175,15 +178,29 @@ namespace foundation {
 
     void Application::update() {
         PROFILE_SCOPE;
+        {
+            PROFILE_ZONE_NAMED(ui_render_start);
+            renderer->ui_render_start();
+        }
+        {
+            PROFILE_ZONE_NAMED(ui_update_);
+            ui_update();
+        }
+        {
+            PROFILE_ZONE_NAMED(ui_render_end);
+            renderer->ui_render_end();
+        }
+        
+        {
+            PROFILE_ZONE_NAMED(record_manifest_update);
+            auto size = context.device.image_info(renderer->render_image.get_state().images[0]).value().size;
+            context.update_shader_globals(main_camera, observer_camera, {size.x, size.y});
+        }
 
-        renderer->ui_render_start();
-        ui_update();
-        renderer->ui_render_end();
-
-        auto size = context.device.image_info(renderer->render_image.get_state().images[0]).value().size;
-        context.update_shader_globals(main_camera, observer_camera, {size.x, size.y});
-
-        scene->update(delta_time);
+        {
+            PROFILE_ZONE_NAMED(scene_update);
+            scene->update(delta_time);
+        }
     }
 
     void Application::ui_update() {

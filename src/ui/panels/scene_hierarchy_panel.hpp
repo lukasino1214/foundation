@@ -17,6 +17,7 @@ namespace foundation {
         template<typename T>
         void draw_component(Entity entity, const std::string_view& component_name);
 
+        flecs::query<RootEntityTag> root_entities_query = {};
         Entity selected_entity;
         Scene* scene;
     };
