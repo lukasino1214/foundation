@@ -1,11 +1,9 @@
 #include "daxa/daxa.inl"
-#include "../../../shader_library/visibility_buffer.slang"
-
-#include "daxa/daxa.inl"
 #include "software_rasterization.inl"
 #include "../../../shader_library/vertex_compression.inl"
 #include "../../../shader_library/visibility_buffer.slang"
 #include "../../../shader_library/meshlet.slang"
+#include "../../../shader_library/cull_util.slang"
 
 [[vk::push_constant]] SoftwareRasterizationWriteCommandPush write_push;
 [[vk::push_constant]] SoftwareRasterizationPush push;
@@ -19,6 +17,28 @@ void software_rasterization_write_command() {
     command.z = 1;
     *write_push.uses.u_command = command;
 }
+
+struct MeshPayload {
+    u32 index;
+};
+
+groupshared u32 hw_meshlet_count;
+[shader("amplification")]
+[numthreads(1, 1, 1)]
+void software_rasterization_task(u32vec3 local_thread_index : SV_GroupThreadID, u32vec3 global_thread_index : SV_DispatchThreadID, u32vec3 group_index : SV_GroupID) {
+    MeshPayload payload;
+    payload.index = global_thread_index.x;
+    DispatchMesh(1, 1, 1, payload);
+}
+
+struct Vertex {
+    f32vec4 sv_position : SV_Position;
+};
+
+struct Primtive {
+    nointerpolation [[vk::location(0)]] u32 vis_index;
+    bool cull_primitive : SV_CullPrimitive;
+};
 
 #define SUBPIXEL_BITS 8
 #define SUBPIXEL_SAMPLES (1 << SUBPIXEL_BITS)
@@ -156,10 +176,19 @@ void rasterize(in f32vec3[3] triangle, in i32vec2 viewport_size, in u32 payload)
     }
 }
 
-[shader("compute")]
+[outputtopology("triangle")]
+[shader("mesh")]
 [numthreads(MAX_TRIANGLES_PER_MESHLET, 1, 1)]
-void software_rasterization(u32vec3 thread_index : SV_DispatchThreadID, u32vec3 local_thread_index : SV_GroupThreadID, u32vec3 group_index : SV_GroupID) {
-    const u32 meshlet_index = push.uses.u_meshlet_indices.indices[group_index.x];
+void software_rasterization_mesh(
+    in payload MeshPayload payload,
+    u32vec3 local_thread_index : SV_GroupThreadID,
+    u32vec3 group_index : SV_GroupID,
+    u32vec3 global_thread_index : SV_DispatchThreadID,
+    OutputIndices<u32vec3, MAX_TRIANGLES_PER_MESHLET> out_indices,
+    OutputVertices<Vertex, MAX_VERTICES_PER_MESHLET> out_vertices,
+    OutputPrimitives<Primtive, MAX_TRIANGLES_PER_MESHLET> out_primitives) {
+
+    const u32 meshlet_index = push.uses.u_meshlet_indices.indices[payload.index];
     const MeshletData meshlet_data = push.uses.u_meshlets_data.meshlets[meshlet_index];
     const Mesh mesh = push.uses.u_meshes[meshlet_data.mesh_index];
     const Meshlet meshlet = mesh.meshlets[meshlet_data.meshlet_index];
@@ -218,6 +247,16 @@ void software_rasterization(u32vec3 thread_index : SV_DispatchThreadID, u32vec3 
             clip_position[2] / clip_position[2].w,
         );
 
+        f32vec2 ndc_min = min(min(clip_position[0].xy, clip_position[1].xy), clip_position[2].xy);
+        f32vec2 ndc_max = max(max(clip_position[0].xy, clip_position[1].xy), clip_position[2].xy);
+        let cull_micro_poly_invisible = is_triangle_invisible_micro_triangle( ndc_min, ndc_max, f32vec2(push.uses.u_globals->render_target_size));
+
+        if(cull_micro_poly_invisible) { return; }
+
+        let cull_backfacing_triangle = is_triangle_backfacing(clip_position);
+
+        if(cull_backfacing_triangle) { return; }
+
         u32 data = 0;
         encode_triangle_id(data, meshlet_index, triangle_index);
     
@@ -227,3 +266,6 @@ void software_rasterization(u32vec3 thread_index : SV_DispatchThreadID, u32vec3 
                             push.uses.u_globals->render_target_size, data);
     }
 }
+
+[shader("fragment")]
+void software_rasterization_frag(in Vertex vertex, in Primtive primitive) {}   

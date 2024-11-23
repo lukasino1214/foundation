@@ -113,3 +113,16 @@ bool is_ndc_aabb_hiz_depth_visible(NdcAABB meshlet_ndc_aabb, u32vec2 hiz_res, da
     const bool depth_cull = meshlet_ndc_aabb.ndc_max.z < conservative_depth;
     return depth_cull;
 }
+
+bool is_triangle_invisible_micro_triangle(f32vec2 ndc_min, f32vec2 ndc_max, f32vec2 resolution) {
+    f32 delta = 1.0 / 256.0f;
+    f32vec2 sample_grid_min = (ndc_min * 0.5f + 0.5f) * resolution - 0.5f - delta;
+    f32vec2 sample_grid_max = (ndc_max * 0.5f + 0.5f) * resolution - 0.5f + delta;
+
+    bool prim_visible = !any(equal(floor(sample_grid_max), floor(sample_grid_min)));
+    return !prim_visible && all(greaterThan(ndc_min, -f32vec2(0.99999,0.99999))) && all(lessThan(ndc_max, f32vec2(0.99999,0.99999)));
+}
+
+bool is_triangle_backfacing(f32vec4 clip_positions[3]) {
+    return determinant(daxa_f32mat3x3(clip_positions[0].xyw, clip_positions[1].xyw, clip_positions[2].xyw)) >= 0;
+}

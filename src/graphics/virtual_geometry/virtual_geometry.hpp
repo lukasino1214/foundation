@@ -60,6 +60,7 @@ namespace foundation {
     static inline auto get_virtual_geometry_raster_pipelines() -> std::vector<std::pair<std::string_view, daxa::RasterPipelineCompileInfo>> {
         return {
             {DrawMeshletsTask::name(), DrawMeshletsTask::pipeline_config_info()},
+            {SoftwareRasterizationTask::name(), SoftwareRasterizationTask::pipeline_config_info()},
             {HWDrawMeshletsOnlyDepthTask::name(), HWDrawMeshletsOnlyDepthTask::pipeline_config_info()},
             {SWDrawMeshletsOnlyDepthTask::name(), SWDrawMeshletsOnlyDepthTask::pipeline_config_info()},
         };
@@ -78,7 +79,6 @@ namespace foundation {
             // {SWBuildIndexBufferWriteCommandTask::name(), SWBuildIndexBufferWriteCommandTask::pipeline_config_info()},
             // {SWBuildIndexBufferTask::name(), SWBuildIndexBufferTask::pipeline_config_info()},
             {SoftwareRasterizationWriteCommandTask::name(), SoftwareRasterizationWriteCommandTask::pipeline_config_info()},
-            {SoftwareRasterizationTask::name(), SoftwareRasterizationTask::pipeline_config_info()},
             {CullMeshesWriteCommandTask::name(), CullMeshesWriteCommandTask::pipeline_config_info()},
             {CullMeshesTask::name(), CullMeshesTask::pipeline_config_info()},
             {DrawMeshletsWriteCommandTask::name(), DrawMeshletsWriteCommandTask::pipeline_config_info()},
