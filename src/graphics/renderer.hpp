@@ -31,7 +31,9 @@ namespace foundation {
         daxa::TaskImage swapchain_image = {};
         daxa::TaskImage render_image = {};
         daxa::TaskImage visibility_image = {};
-        daxa::TaskImage depth_image = {};
+        daxa::TaskImage depth_image_d32 = {};
+        daxa::TaskImage depth_image_u32 = {};
+        daxa::TaskImage depth_image_f32 = {};
 
         std::vector<daxa::TaskImage> images = {};
         std::vector<std::pair<daxa::ImageInfo, daxa::TaskImage>> frame_buffer_images = {};

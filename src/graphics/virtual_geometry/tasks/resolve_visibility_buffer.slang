@@ -93,7 +93,7 @@ f32vec3 interpolate_attributes(in BarycentricDeriv derivatives, in f32vec3[3] at
 [[vk::push_constant]] ResolveVisibilityBufferPush push;
 [shader("compute")]
 [numthreads(16, 16, 1)]
-void main(u32vec3 pixel : SV_DispatchThreadID) {
+void resolve_visibility_buffer(u32vec3 pixel : SV_DispatchThreadID) {
     if(any(pixel.xy >= deref(push.uses.u_globals).render_target_size)) { return; }
 
     u32 vis_index = 0;

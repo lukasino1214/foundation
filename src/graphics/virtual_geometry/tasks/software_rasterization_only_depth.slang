@@ -1,13 +1,13 @@
 #include "daxa/daxa.inl"
-#include "software_rasterization.inl"
+#include "software_rasterization_only_depth.inl"
 #include "../../../shader_library/vertex_compression.inl"
 #include "../../../shader_library/visibility_buffer.slang"
 #include "../../../shader_library/meshlet.slang"
 #include "../../../shader_library/cull_util.slang"
 #include "../../../shader_library/software_rasterization.slang"
 
-[[vk::push_constant]] SoftwareRasterizationWriteCommandPush write_push;
-[[vk::push_constant]] SoftwareRasterizationPush push;
+[[vk::push_constant]] SoftwareRasterizationOnlyDepthWriteCommandPush write_push;
+[[vk::push_constant]] SoftwareRasterizationOnlyDepthPush push;
 
 [shader("compute")]
 [numthreads(1, 1, 1)]
@@ -41,12 +41,12 @@ struct Primtive {
     bool cull_primitive : SV_CullPrimitive;
 };
 
-struct VisibilityImageSWFunction : SWRasterFunction {
+struct OnlyDepthSWFunction : SWRasterFunction {
     u32 payload;
-    RWTexture2D<u64> visibility_image;
+    RWTexture2D<u32> depth_image;
 
     void write(u32vec2 position, f32 depth) {
-        AtomicMaxU64(visibility_image[position], encode_visibility_buffer_payload(payload, depth));
+        AtomicMaxU32(depth_image[position], asuint(depth));
     }
 };
 
@@ -130,9 +130,9 @@ void software_rasterization_mesh(
         u32 data = 0;
         encode_triangle_id(data, meshlet_index, triangle_index);
 
-        VisibilityImageSWFunction sw_function;
+        OnlyDepthSWFunction sw_function;
         sw_function.payload = data;
-        sw_function.visibility_image = push.uses.u_visibility_image.get();
+        sw_function.depth_image = push.uses.u_depth_image.get();
     
         rasterize(f32vec3[](f32vec3(floor(clip_position[0].xy), clip_position[0].z), 
                             f32vec3(floor(clip_position[1].xy), clip_position[1].z), 

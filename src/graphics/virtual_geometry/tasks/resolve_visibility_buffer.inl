@@ -25,6 +25,5 @@ struct ResolveVisibilityBufferPush {
 };
 
 #if __cplusplus
-static constexpr inline char const RESOLVE_VISIBILITY_BUFFER_SHADER_PATH[] = "src/graphics/virtual_geometry/tasks/resolve_visibility_buffer.slang";
-using ResolveVisibilityBufferTask = foundation::ComputeDispatchTask<ResolveVisibilityBuffer::Task, ResolveVisibilityBufferPush, RESOLVE_VISIBILITY_BUFFER_SHADER_PATH>;
+using ResolveVisibilityBufferTask = foundation::ComputeDispatchTask<ResolveVisibilityBuffer::Task, ResolveVisibilityBufferPush, "src/graphics/virtual_geometry/tasks/resolve_visibility_buffer.slang", "resolve_visibility_buffer">;
 #endif

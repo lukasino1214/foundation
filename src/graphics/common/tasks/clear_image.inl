@@ -19,6 +19,5 @@ struct ClearImagePush {
 };
 
 #if __cplusplus
-static constexpr inline char const CLEAR_IMAGE_SHADER_PATH[] = "src/graphics/common/tasks/clear_image.slang";
-using ClearImageTask = foundation::ComputeDispatchTask<ClearImage::Task, ClearImagePush, CLEAR_IMAGE_SHADER_PATH>;
+using ClearImageTask = foundation::ComputeDispatchTask<ClearImage::Task, ClearImagePush, "src/graphics/common/tasks/clear_image.slang", "clear_image">;
 #endif

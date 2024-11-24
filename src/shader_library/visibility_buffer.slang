@@ -15,6 +15,17 @@ func AtomicMaxU64(__ref u64 dest, u64 value) -> u64 {
     return original_value;
 }
 
+[ForceInline]
+func AtomicMaxU32(__ref u32 dest, u32 value) -> u32 {
+    u32 original_value;
+    spirv_asm {
+        OpCapability Int64Atomics;
+        %origin:$$u32 = OpAtomicUMax &dest Device None $value;
+        OpStore &original_value %origin
+    };
+    return original_value;
+}
+
 func encode_visibility_buffer_payload(u32 meshlet_data_index, f32 depth) -> u64 {
     const u64 u64_depth = u64(asuint(depth));
     return (u64_depth << 32) | meshlet_data_index;

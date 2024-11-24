@@ -78,7 +78,7 @@ namespace foundation {
         }
     };
 
-    template <typename T_USES_BASE, typename T_PUSH, const char* T_FILE_PATH>
+    template <typename T_USES_BASE, typename T_PUSH, daxa::StringLiteral T_FILE_PATH, daxa::StringLiteral T_ENTRY_POINT>
     struct ComputeDispatchTask : T_USES_BASE {
         T_USES_BASE::AttachmentViews views = {};
         Context* context = {};
@@ -86,13 +86,14 @@ namespace foundation {
         std::function<daxa::DispatchInfo(void)> dispatch_callback = {};
 
         static auto pipeline_config_info() -> daxa::ComputePipelineCompileInfo {
-            auto const shader_path_sv = std::string_view(T_FILE_PATH);
+            auto const shader_path_sv = std::string_view(T_FILE_PATH.value, T_FILE_PATH.SIZE);
+            auto const entry_point_sv = std::string_view(T_ENTRY_POINT.value, T_ENTRY_POINT.SIZE);
             daxa::ShaderLanguage lang = shader_path_sv.ends_with(".glsl") ? daxa::ShaderLanguage::GLSL : daxa::ShaderLanguage::SLANG;
             return daxa::ComputePipelineCompileInfo {
                 .shader_info = daxa::ShaderCompileInfo {
                     .source = daxa::ShaderFile { std::filesystem::path(shader_path_sv) },
                     .compile_options = {
-                        .entry_point = std::string("main"),
+                        .entry_point = std::string(entry_point_sv),
                         .language = lang,
                         .defines = {{ std::string(T_USES_BASE::name()) + "_SHADER", "1"} },
                     },

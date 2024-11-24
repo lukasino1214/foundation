@@ -22,11 +22,15 @@ namespace foundation {
         swapchain_image = daxa::TaskImage{{.swapchain_image = true, .name = "swapchain image"}};
         render_image = daxa::TaskImage{{ .name = "render image" }};
         visibility_image = daxa::TaskImage{{ .name = "visibility image" }};
-        depth_image = daxa::TaskImage{{ .name = "depth image" }};
+        depth_image_d32 = daxa::TaskImage{{ .name = "depth image d32" }};
+        depth_image_u32 = daxa::TaskImage{{ .name = "depth image u32" }};
+        depth_image_f32 = daxa::TaskImage{{ .name = "depth image f32" }};
 
         images = {
             render_image,
-            depth_image,
+            depth_image_d32,
+            depth_image_u32,
+            depth_image_f32,
             visibility_image
         };
         frame_buffer_images = {
@@ -42,9 +46,25 @@ namespace foundation {
                 {
                     .format = daxa::Format::D32_SFLOAT,
                     .usage = daxa::ImageUsageFlagBits::DEPTH_STENCIL_ATTACHMENT | daxa::ImageUsageFlagBits::SHADER_SAMPLED | daxa::ImageUsageFlagBits::TRANSFER_SRC | daxa::ImageUsageFlagBits::TRANSFER_DST | daxa::ImageUsageFlagBits::SHADER_STORAGE,
-                    .name = depth_image.info().name,
+                    .name = depth_image_d32.info().name,
                 },
-                depth_image,
+                depth_image_d32,
+            },
+            {
+                {
+                    .format = daxa::Format::R32_UINT,
+                    .usage = daxa::ImageUsageFlagBits::SHADER_SAMPLED | daxa::ImageUsageFlagBits::TRANSFER_SRC | daxa::ImageUsageFlagBits::TRANSFER_DST | daxa::ImageUsageFlagBits::SHADER_STORAGE,
+                    .name = depth_image_u32.info().name,
+                },
+                depth_image_u32,
+            },
+            {
+                {
+                    .format = daxa::Format::R32_SFLOAT,
+                    .usage = daxa::ImageUsageFlagBits::SHADER_SAMPLED | daxa::ImageUsageFlagBits::TRANSFER_SRC | daxa::ImageUsageFlagBits::TRANSFER_DST | daxa::ImageUsageFlagBits::SHADER_STORAGE,
+                    .name = depth_image_f32.info().name,
+                },
+                depth_image_f32,
             },
             {
                 {
@@ -229,7 +249,9 @@ namespace foundation {
 
         render_task_graph.use_persistent_image(swapchain_image);
         render_task_graph.use_persistent_image(render_image);
-        render_task_graph.use_persistent_image(depth_image);
+        render_task_graph.use_persistent_image(depth_image_d32);
+        render_task_graph.use_persistent_image(depth_image_u32);
+        render_task_graph.use_persistent_image(depth_image_f32);
         render_task_graph.use_persistent_image(visibility_image);
 
         render_task_graph.use_persistent_buffer(shader_globals_buffer);
@@ -312,7 +334,9 @@ namespace foundation {
             .gpu_readback_material = asset_manager->gpu_readback_material_gpu,
             .gpu_readback_mesh = asset_manager->gpu_readback_mesh_gpu,
             .color_image = render_image,
-            .depth_image = depth_image,
+            .depth_image_d32 = depth_image_d32,
+            .depth_image_u32 = depth_image_u32,
+            .depth_image_f32 = depth_image_f32,
             .visibility_image = visibility_image
         });
 

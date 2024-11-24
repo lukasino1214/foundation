@@ -6,9 +6,11 @@
 #include <graphics/virtual_geometry/tasks/resolve_visibility_buffer.inl>
 // #include <graphics/virtual_geometry/tasks/build_index_buffer.inl>
 #include <graphics/virtual_geometry/tasks/software_rasterization.inl>
+#include <graphics/virtual_geometry/tasks/software_rasterization_only_depth.inl>
 #include <graphics/virtual_geometry/tasks/cull_meshes.inl>
 #include <graphics/virtual_geometry/tasks/draw_meshlets.inl>
 #include <graphics/virtual_geometry/tasks/draw_meshlets_only_depth.inl>
+#include <graphics/virtual_geometry/tasks/combine_depth.inl>
 
 #include <pch.hpp>
 
@@ -30,7 +32,9 @@ namespace foundation {
         daxa::TaskBufferView gpu_readback_material = {};
         daxa::TaskBufferView gpu_readback_mesh = {};
         daxa::TaskImageView color_image = {};
-        daxa::TaskImageView depth_image = {};
+        daxa::TaskImageView depth_image_d32 = {};
+        daxa::TaskImageView depth_image_u32 = {};
+        daxa::TaskImageView depth_image_f32 = {};
         daxa::TaskImageView visibility_image = {};
     };
 
@@ -47,6 +51,8 @@ namespace foundation {
         // context->gpu_metrics[SWBuildIndexBufferTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
         context->gpu_metrics[SoftwareRasterizationWriteCommandTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
         context->gpu_metrics[SoftwareRasterizationTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
+        context->gpu_metrics[SoftwareRasterizationOnlyDepthWriteCommandTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
+        context->gpu_metrics[SoftwareRasterizationOnlyDepthTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
         context->gpu_metrics[CullMeshesWriteCommandTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
         context->gpu_metrics[CullMeshesTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
         context->gpu_metrics[DrawMeshletsWriteCommandTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
@@ -55,12 +61,14 @@ namespace foundation {
         context->gpu_metrics[HWDrawMeshletsOnlyDepthTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
         context->gpu_metrics[SWDrawMeshletsOnlyDepthWriteCommandTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
         context->gpu_metrics[SWDrawMeshletsOnlyDepthTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
+        context->gpu_metrics[CombineDepthTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
     }
 
     static inline auto get_virtual_geometry_raster_pipelines() -> std::vector<std::pair<std::string_view, daxa::RasterPipelineCompileInfo>> {
         return {
             {DrawMeshletsTask::name(), DrawMeshletsTask::pipeline_config_info()},
             {SoftwareRasterizationTask::name(), SoftwareRasterizationTask::pipeline_config_info()},
+            {SoftwareRasterizationOnlyDepthTask::name(), SoftwareRasterizationOnlyDepthTask::pipeline_config_info()},
             {HWDrawMeshletsOnlyDepthTask::name(), HWDrawMeshletsOnlyDepthTask::pipeline_config_info()},
             {SWDrawMeshletsOnlyDepthTask::name(), SWDrawMeshletsOnlyDepthTask::pipeline_config_info()},
         };
@@ -79,11 +87,13 @@ namespace foundation {
             // {SWBuildIndexBufferWriteCommandTask::name(), SWBuildIndexBufferWriteCommandTask::pipeline_config_info()},
             // {SWBuildIndexBufferTask::name(), SWBuildIndexBufferTask::pipeline_config_info()},
             {SoftwareRasterizationWriteCommandTask::name(), SoftwareRasterizationWriteCommandTask::pipeline_config_info()},
+            {SoftwareRasterizationOnlyDepthWriteCommandTask::name(), SoftwareRasterizationOnlyDepthWriteCommandTask::pipeline_config_info()},
             {CullMeshesWriteCommandTask::name(), CullMeshesWriteCommandTask::pipeline_config_info()},
             {CullMeshesTask::name(), CullMeshesTask::pipeline_config_info()},
             {DrawMeshletsWriteCommandTask::name(), DrawMeshletsWriteCommandTask::pipeline_config_info()},
             {HWDrawMeshletsOnlyDepthWriteCommandTask::name(), HWDrawMeshletsOnlyDepthWriteCommandTask::pipeline_config_info()},
             {SWDrawMeshletsOnlyDepthWriteCommandTask::name(), SWDrawMeshletsOnlyDepthWriteCommandTask::pipeline_config_info()},
+            {CombineDepthTask::name(), CombineDepthTask::pipeline_config_info()},
         };
     }
 
@@ -94,14 +104,14 @@ namespace foundation {
         });
 
         info.task_graph.add_task({
-            .attachments = {daxa::inl_attachment(daxa::TaskImageAccess::TRANSFER_WRITE, info.depth_image)},
+            .attachments = {daxa::inl_attachment(daxa::TaskImageAccess::TRANSFER_WRITE, info.depth_image_d32)},
             .task = [&](daxa::TaskInterface ti) {
                 ti.recorder.clear_image({
                     .clear_value = daxa::DepthValue { .depth = 0.0f, .stencil = {} },
                     .dst_image = ti.get(daxa::TaskImageAttachmentIndex(0)).ids[0],
                 });
             },
-            .name = "clear depth image",
+            .name = "clear depth image d32",
         });
 
         info.task_graph.add_task(HWDrawMeshletsOnlyDepthWriteCommandTask {
@@ -121,31 +131,59 @@ namespace foundation {
                 HWDrawMeshletsOnlyDepthTask::AT.u_materials | info.gpu_materials,
                 HWDrawMeshletsOnlyDepthTask::AT.u_globals | info.context->shader_globals_buffer,
                 HWDrawMeshletsOnlyDepthTask::AT.u_command | u_command,
-                HWDrawMeshletsOnlyDepthTask::AT.u_depth_image | info.depth_image,
+                HWDrawMeshletsOnlyDepthTask::AT.u_depth_image | info.depth_image_d32,
             },
             .context = info.context,
         });
 
-        info.task_graph.add_task(SWDrawMeshletsOnlyDepthWriteCommandTask {
+        info.task_graph.add_task({
+            .attachments = {daxa::inl_attachment(daxa::TaskImageAccess::TRANSFER_WRITE, info.depth_image_u32)},
+            .task = [&](daxa::TaskInterface ti) {
+                ti.recorder.clear_image({
+                    .clear_value = std::array<u32, 4>{0, 0, 0, 0},
+                    .dst_image = ti.get(daxa::TaskImageAttachmentIndex(0)).ids[0],
+                });
+            },
+            .name = "clear depth image u32",
+        });
+
+        info.task_graph.add_task(SoftwareRasterizationOnlyDepthWriteCommandTask {
             .views = std::array{
-                SWDrawMeshletsOnlyDepthWriteCommandTask::AT.u_meshlet_indices | info.gpu_sw_culled_meshlet_indices,
-                SWDrawMeshletsOnlyDepthWriteCommandTask::AT.u_command | u_command,
+                SoftwareRasterizationOnlyDepthWriteCommandTask::AT.u_meshlet_indices | info.gpu_sw_culled_meshlet_indices,
+                SoftwareRasterizationOnlyDepthWriteCommandTask::AT.u_command | u_command,
             },
             .context = info.context,
         });
 
-         info.task_graph.add_task(SWDrawMeshletsOnlyDepthTask {
+        info.task_graph.add_task(SoftwareRasterizationOnlyDepthTask {
             .views = std::array{
-                SWDrawMeshletsOnlyDepthTask::AT.u_meshlet_indices | info.gpu_sw_culled_meshlet_indices,
-                SWDrawMeshletsOnlyDepthTask::AT.u_meshlets_data | info.gpu_meshlet_data,
-                SWDrawMeshletsOnlyDepthTask::AT.u_meshes | info.gpu_meshes,
-                SWDrawMeshletsOnlyDepthTask::AT.u_transforms | info.gpu_transforms,
-                SWDrawMeshletsOnlyDepthTask::AT.u_materials | info.gpu_materials,
-                SWDrawMeshletsOnlyDepthTask::AT.u_globals | info.context->shader_globals_buffer,
-                SWDrawMeshletsOnlyDepthTask::AT.u_command | u_command,
-                SWDrawMeshletsOnlyDepthTask::AT.u_depth_image | info.depth_image,
+                SoftwareRasterizationOnlyDepthTask::AT.u_meshlet_indices | info.gpu_sw_culled_meshlet_indices,
+                SoftwareRasterizationOnlyDepthTask::AT.u_meshlets_data | info.gpu_meshlet_data,
+                SoftwareRasterizationOnlyDepthTask::AT.u_meshes | info.gpu_meshes,
+                SoftwareRasterizationOnlyDepthTask::AT.u_transforms | info.gpu_transforms,
+                SoftwareRasterizationOnlyDepthTask::AT.u_materials | info.gpu_materials,
+                SoftwareRasterizationOnlyDepthTask::AT.u_globals | info.context->shader_globals_buffer,
+                SoftwareRasterizationOnlyDepthTask::AT.u_command | u_command,
+                SoftwareRasterizationOnlyDepthTask::AT.u_depth_image | info.depth_image_u32,
             },
             .context = info.context,
+        });
+
+        info.task_graph.add_task(CombineDepthTask {
+            .views = std::array{
+                CombineDepthTask::AT.u_globals | info.context->shader_globals_buffer,
+                CombineDepthTask::AT.u_depth_image_d32 | info.depth_image_d32,
+                CombineDepthTask::AT.u_depth_image_u32 | info.depth_image_u32,
+                CombineDepthTask::AT.u_depth_image_f32 | info.depth_image_f32,
+            },
+            .context = info.context,
+            .dispatch_callback = [info]() -> daxa::DispatchInfo {
+                return { 
+                    .x = round_up_div(info.context->shader_globals.render_target_size.x, 16),
+                    .y = round_up_div(info.context->shader_globals.render_target_size.y, 16),
+                    .z = 1
+                };
+            }
         });
 
         u32vec2 hiz_size = info.context->shader_globals.next_lower_po2_render_target_size;
@@ -164,7 +202,7 @@ namespace foundation {
         info.task_graph.add_task(GenerateHizTask{
             .views = std::array{
                 daxa::attachment_view(GenerateHizTask::AT.u_globals, info.context->shader_globals_buffer),
-                daxa::attachment_view(GenerateHizTask::AT.u_src, info.depth_image),
+                daxa::attachment_view(GenerateHizTask::AT.u_src, info.depth_image_f32),
                 daxa::attachment_view(GenerateHizTask::AT.u_mips, hiz),
             },
             .context = info.context
