@@ -223,15 +223,6 @@ namespace foundation {
             ImGui::End();
         }
 
-        ImGui::Begin("Performance Statistics");
-        f64 total_time = 0.0;
-        for(auto& [key, metric] : context.gpu_metrics) {
-            total_time += metric->time_elapsed;
-            ImGui::Text("%s : %f ms", key.data(), metric->time_elapsed);
-        }
-        ImGui::Text("total time : %f ms", total_time);
-        ImGui::End();
-
         ImGui::Begin("File Browser");
         ImGui::End();
 

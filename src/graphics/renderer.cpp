@@ -421,6 +421,87 @@ namespace foundation {
     }
 
     void Renderer::ui_update() {
+        struct PerfomanceCategory {
+            std::string name = {};
+            std::vector<std::string_view> counters = {};
+            std::vector<PerfomanceCategory> performance_categories = {};
+        };
+
+
+        std::vector<PerfomanceCategory> performance_categories = {
+            PerfomanceCategory {
+                .name = "early pass",
+                .counters = {
+                    HWDrawMeshletsOnlyDepthWriteCommandTask::name(),
+                    HWDrawMeshletsOnlyDepthTask::name(),
+                    SoftwareRasterizationOnlyDepthWriteCommandTask::name(),
+                    SoftwareRasterizationOnlyDepthTask::name(),
+                    CombineDepthTask::name(),
+                }
+            },
+            PerfomanceCategory {
+                .name = "culling",
+                .counters = {
+                    GenerateHizTask::name(),
+                    CullMeshesWriteCommandTask::name(),
+                    CullMeshesTask::name(),
+                    PopulateMeshletsWriteCommandTask::name(),
+                    PopulateMeshletsTask::name(),
+                    CullMeshletsWriteCommandTask::name(),
+                    CullMeshletsTask::name(),
+                }
+            },
+            PerfomanceCategory {
+                .name = "late pass",
+                .counters = {
+                    DrawMeshletsWriteCommandTask::name(),
+                    DrawMeshletsTask::name(),
+                    SoftwareRasterizationWriteCommandTask::name(),
+                    SoftwareRasterizationTask::name(),
+                }
+            },
+            PerfomanceCategory {
+                .name = "resolve",
+                .counters = {
+                    ResolveVisibilityBufferTask::name(),
+                }
+            },
+        };
+
+        ImGui::Begin("Performance Statistics");
+        f64 total_time = 0.0f;
+        auto visit = [&](this auto& self, const PerfomanceCategory& performace_category, bool display_imgui) -> void {
+            bool opened = ImGui::TreeNodeEx(performace_category.name.c_str(), 0, "%s", performace_category.name.c_str()) && display_imgui;
+            
+            for(const auto& counter_name : performace_category.counters) {
+                const auto& metric = context->gpu_metrics[counter_name];
+                total_time += metric->time_elapsed;
+            }
+
+            for(const auto& perf : performace_category.performance_categories) {
+                self(perf, false);
+            }
+            
+            if(opened) {
+                for(const auto& counter_name : performace_category.counters) {
+                    const auto& metric = context->gpu_metrics[counter_name];
+                    ImGui::Text("%s : %f ms", counter_name.data(), metric->time_elapsed);
+                }
+
+                for(const auto& perf : performace_category.performance_categories) {
+                    self(perf, true);
+                }
+                ImGui::TreePop();
+            }
+        };
+
+        for(const auto& perf : performance_categories) {
+            visit(perf, true);
+        }
+
+        ImGui::Text("total time : %f ms", total_time);
+        ImGui::End();
+
         ImGui::Begin("Memory Usage");
         ImGui::Text("%s", std::format("Total memory usage for images: {} MBs", std::to_string(s_cast<f64>(context->image_memory_usage) / 1024.0 / 1024.0)).c_str());
         ImGui::Text("%s", std::format("Total memory usage for buffers: {} MBs", std::to_string(s_cast<f64>(context->buffer_memory_usage) / 1024.0 / 1024.0)).c_str());
