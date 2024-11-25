@@ -35,7 +35,7 @@ VertexStageOutput entity_obb_main(u32 vertex_index: SV_VertexID, u32 instance_in
     VertexStageOutput output;
     output.color = obb.color;
     output.sv_position = mul(projection_view_matrix,
-                         mul(push.uses.u_transforms[obb.transform_index].model_matrix,
+                         mul(mat_4x3_to_4x4(push.uses.u_transforms[obb.transform_index].model_matrix),
                          f32vec4(aabb_vertex_base_offsets[vertex_index], 1.0f)));
 
     return output;

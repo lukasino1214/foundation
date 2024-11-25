@@ -125,7 +125,7 @@ void resolve_visibility_buffer(u32vec3 pixel : SV_DispatchThreadID) {
         mesh.vertex_positions[indices[2]]
     );
 
-    const f32mat4x4 transform_matrix = push.uses.u_transforms[meshlet_data.transform_index].model_matrix; 
+    const f32mat4x4 transform_matrix = mat_4x3_to_4x4(push.uses.u_transforms[meshlet_data.transform_index].model_matrix); 
     const f32vec4[3] world_positions = f32vec4[3](
         mul(transform_matrix, f32vec4(positions[0], 1.0)),
         mul(transform_matrix, f32vec4(positions[1], 1.0)),
@@ -166,11 +166,11 @@ void resolve_visibility_buffer(u32vec3 pixel : SV_DispatchThreadID) {
         decode_normal(mesh.vertex_normals[indices[2]])
     );
 
-    const f32mat4x4 normal_matrix = push.uses.u_transforms[meshlet_data.transform_index].normal_matrix; 
-    const f32vec4[3] worldspace_vertex_normals = f32vec4[3](
-        mul(normal_matrix, f32vec4(vertex_normals[0], 0)),
-        mul(normal_matrix, f32vec4(vertex_normals[1], 0)),
-        mul(normal_matrix, f32vec4(vertex_normals[2], 0))
+    const f32mat3x3 normal_matrix = push.uses.u_transforms[meshlet_data.transform_index].normal_matrix; 
+    const f32vec3[3] worldspace_vertex_normals = f32vec3[3](
+        mul(normal_matrix, vertex_normals[0]),
+        mul(normal_matrix, vertex_normals[1]),
+        mul(normal_matrix, vertex_normals[2])
     );
 
     f32vec3 normal = normalize(interpolate_attributes(

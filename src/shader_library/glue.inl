@@ -3,6 +3,9 @@
 #if defined(__cplusplus)
 
 using f32mat4x4 = glm::mat4x4;
+using f32mat4x3 = glm::mat4x3;
+using f32mat3x4 = glm::mat3x4;
+using f32mat3x3 = glm::mat3x3;
 
 using f32vec4 = glm::vec4;
 using f32vec3 = glm::vec3;
@@ -44,6 +47,9 @@ constexpr auto min(const T& a, const T& b) -> T {
 #elif DAXA_LANGUAGE == DAXA_LANGUAGE_SLANG
 
 typedef daxa_f32mat4x4 f32mat4x4;
+typedef daxa_f32mat4x3 f32mat4x3;
+typedef daxa_f32mat3x4 f32mat3x4;
+typedef daxa_f32mat3x3 f32mat3x3;
 
 typedef daxa_f32vec4 f32vec4;
 typedef daxa_f32vec3 f32vec3;
@@ -112,6 +118,9 @@ auto unpack_snorm_2x16(u32 v) -> f32vec2 {
 #elif DAXA_LANGUAGE == DAXA_LANGUAGE_GLSL
 
 #define f32mat4x4 daxa_f32mat4x4
+#define f32mat4x3 daxa_f32mat4x3
+#define f32mat3x4 daxa_f32mat3x4
+#define f32mat3x3 daxa_f32mat3x3
 
 #define f32vec4 daxa_f32vec4
 #define f32vec3 daxa_f32vec3

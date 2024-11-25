@@ -85,8 +85,8 @@ struct ShaderGlobals {
 DAXA_DECL_BUFFER_PTR(ShaderGlobals)
 
 struct TransformInfo {
-    f32mat4x4 model_matrix;
-    f32mat4x4 normal_matrix;
+    f32mat4x3 model_matrix;
+    f32mat3x3 normal_matrix;
 };
 
 DAXA_DECL_BUFFER_PTR(TransformInfo)
@@ -227,10 +227,28 @@ DAXA_DECL_BUFFER_PTR(MeshletIndexBuffer)
 #define SHARED_FUNCTION_INOUT(X) inout X
 #endif
 
-SHARED_FUNCTION daxa_u32 round_up_to_multiple(daxa_u32 value, daxa_u32 multiple_of) {
+SHARED_FUNCTION u32 round_up_to_multiple(u32 value, u32 multiple_of) {
     return ((value + multiple_of - 1) / multiple_of) * multiple_of;
 }
 
-SHARED_FUNCTION daxa_u32 round_up_div(daxa_u32 value, daxa_u32 div) {
+SHARED_FUNCTION u32 round_up_div(u32 value, u32 div) {
     return (value + div - 1) / div;
+}
+
+// cringe(note: glsl is column major and slang/hlsl is row major for indexing but multiplication is column major, dont ask why)
+SHARED_FUNCTION f32mat4x4 mat_4x3_to_4x4(f32mat4x3 mat) {
+#if DAXA_LANGUAGE == DAXA_LANGUAGE_SLANG
+    f32mat4x4 ret = daxa_f32mat4x4(
+        f32vec4(mat[0]),
+        f32vec4(mat[1]),
+        f32vec4(mat[2]),
+        f32vec4(0.0f,0.0f,0.0f, 1.0f));
+#else
+    f32mat4x4 ret = f32mat4x4(
+        f32vec4(mat[0], 0.0),
+        f32vec4(mat[1], 0.0),
+        f32vec4(mat[2], 0.0),
+        f32vec4(mat[3], 1.0));
+#endif
+    return ret;
 }

@@ -33,7 +33,7 @@ void cull_meshes(u32vec3 thread_index : SV_DispatchThreadID) {
             const u32 global_mesh_index = mesh_group.mesh_indices[local_mesh_index];
             const Mesh mesh = push.uses.u_meshes[global_mesh_index];
 
-            const f32mat4x4 model_matrix = push.uses.u_transforms[entity_data.transform_index].model_matrix;
+            const f32mat4x4 model_matrix = mat_4x3_to_4x4(push.uses.u_transforms[entity_data.transform_index].model_matrix);
             const AABB worldspace_aabb = calculate_worldspace_aabb_from_modelspace(model_matrix, mesh.aabb);
 
             if(!is_worldspace_aabb_frusum_visible(push.uses.u_globals->main_camera, worldspace_aabb)) {

@@ -46,7 +46,7 @@ void cull_meshlets(u32vec3 thread_index : SV_DispatchThreadID) {
         const MeshletData meshlet_data = push.uses.u_meshlets_data->meshlets[current_thread_index];
         const Mesh mesh = push.uses.u_meshes[meshlet_data.mesh_index];
         const AABB aabb = mesh.meshlet_aabbs[meshlet_data.meshlet_index];
-        const f32mat4x4 transform = push.uses.u_transforms[meshlet_data.transform_index].model_matrix;
+        const f32mat4x4 transform = mat_4x3_to_4x4(push.uses.u_transforms[meshlet_data.transform_index].model_matrix);
 
         if(is_meshlet_visible(aabb, transform)) {
             const u32 viewport_width = push.uses.u_globals->render_target_size.x;

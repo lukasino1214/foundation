@@ -46,7 +46,7 @@ VertexStageOutput vertex_main(u32 vertex_index: SV_VertexID, u32 instance_index 
 
         output.sv_position = mul(push.uses.u_globals->main_camera.projection_matrix,
                              mul(push.uses.u_globals->main_camera.view_matrix, 
-                             mul(push.uses.u_transforms[meshlet_data.transform_index].model_matrix, vertex_position)));
+                             mul(mat_4x3_to_4x4(push.uses.u_transforms[meshlet_data.transform_index].model_matrix), vertex_position)));
     }
 
     return output;
