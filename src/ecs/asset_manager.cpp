@@ -403,7 +403,7 @@ namespace foundation {
 
         for(u32 global_mesh_index = 0; global_mesh_index < mesh_manifest_entries.size(); global_mesh_index++) {
             MeshManifestEntry& mesh_manifest_entry = mesh_manifest_entries[global_mesh_index];
-            const bool keep_mesh_in_memory = readback_mesh[global_mesh_index] == 1;
+            const bool keep_mesh_in_memory = (readback_mesh[global_mesh_index / 32u] & (1u << (global_mesh_index % 32u))) != 0;
 
             const AssetManifestEntry& asset_manifest = asset_manifest_entries[mesh_manifest_entry.asset_manifest_index];
             const u32 mesh_group_index = asset_manifest.mesh_group_manifest_offset + mesh_manifest_entry.asset_local_mesh_index;
@@ -572,13 +572,16 @@ namespace foundation {
                 .indices = context->device.buffer_device_address(buffer).value() + sizeof(MeshletIndices)
             };
         });
+
+        const u32 readback_mesh_size = round_up_div(s_cast<u32>(mesh_manifest_entries.size()), 32u);
+
         readback_material.resize(material_manifest_entries.size());
         texture_sizes.resize(texture_manifest_entries.size());
-        readback_mesh.resize(mesh_manifest_entries.size());
+        readback_mesh.resize(readback_mesh_size);
         realloc(gpu_readback_material_gpu, s_cast<u32>(material_manifest_entries.size() * sizeof(u32)));
         realloc(gpu_readback_material_cpu, s_cast<u32>(material_manifest_entries.size() * sizeof(u32)));
-        realloc(gpu_readback_mesh_gpu, s_cast<u32>(mesh_manifest_entries.size() * sizeof(u32)));
-        realloc(gpu_readback_mesh_cpu, s_cast<u32>(mesh_manifest_entries.size() * sizeof(u32)));
+        realloc(gpu_readback_mesh_gpu, readback_mesh_size * sizeof(u32));
+        realloc(gpu_readback_mesh_cpu, readback_mesh_size * sizeof(u32));
 
         if(!dirty_meshes.empty()) {
             Mesh mesh = {};

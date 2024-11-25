@@ -523,8 +523,8 @@ namespace foundation {
 
         ImGui::Begin("Mesh readback");
         auto& mesh_readback = asset_manager->readback_mesh;
-        for(u32 i = 0; i < mesh_readback.size(); i++) {
-            ImGui::Text("Mesh %u: %u", i, mesh_readback[i]);
+        for(u32 i = 0; i < asset_manager->mesh_manifest_entries.size(); i++) {
+            ImGui::Text("Mesh %u: %u", i, (mesh_readback[i / 32u] & (1u << (i % 32u))) != 0);
         }
         ImGui::End();
 
