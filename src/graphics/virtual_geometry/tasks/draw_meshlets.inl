@@ -10,7 +10,7 @@
 
 DAXA_DECL_TASK_HEAD_BEGIN(DrawMeshletsWriteCommand)
 DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ, daxa_BufferPtr(MeshletIndices), u_meshlet_indices)
-DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_WRITE, daxa_BufferPtr(DrawIndirectStruct), u_command)
+DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_WRITE, daxa_BufferPtr(DispatchIndirectStruct), u_command)
 DAXA_DECL_TASK_HEAD_END
 
 struct DrawMeshletsWriteCommandPush {
@@ -23,7 +23,7 @@ using DrawMeshletsWriteCommandTask = foundation::WriteIndirectComputeDispatchTas
                                             DrawMeshletsWriteCommand::Task, 
                                             DrawMeshletsWriteCommandPush, 
                                             "src/graphics/virtual_geometry/tasks/draw_meshlets.slang", 
-                                            "draw_meshlets_indices_write_command">;
+                                            "draw_meshlets_write_command">;
 #endif
 
 DAXA_DECL_TASK_HEAD_BEGIN(DrawMeshlets)
@@ -33,7 +33,7 @@ DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ, daxa_BufferPtr(Mesh), u_meshes)
 DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ, daxa_BufferPtr(TransformInfo), u_transforms)
 DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ, daxa_BufferPtr(Material), u_materials)
 DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ, daxa_BufferPtr(ShaderGlobals), u_globals)
-DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ, daxa_BufferPtr(DrawIndirectStruct), u_command)
+DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ, daxa_BufferPtr(DispatchIndirectStruct), u_command)
 DAXA_TH_IMAGE_ID(FRAGMENT_SHADER_STORAGE_READ_WRITE_CONCURRENT, REGULAR_2D, u_visibility_image)
 DAXA_DECL_TASK_HEAD_END
 
@@ -59,10 +59,10 @@ struct DrawMeshletsTask : DrawMeshlets::Task {
 
     static auto pipeline_config_info() -> daxa::RasterPipelineCompileInfo {
         return daxa::RasterPipelineCompileInfo {
-            .vertex_shader_info = daxa::ShaderCompileInfo {
+            .mesh_shader_info = daxa::ShaderCompileInfo {
                 .source = daxa::ShaderSource { daxa::ShaderFile { .path = "src/graphics/virtual_geometry/tasks/draw_meshlets.slang" }, },
                 .compile_options = {
-                    .entry_point = "vertex_main",
+                    .entry_point = "draw_meshlets_mesh",
                     .language = daxa::ShaderLanguage::SLANG,
                     .defines = { { std::string{DrawMeshletsTask::name()} + "_SHADER", "1" } },
                 }
@@ -70,9 +70,17 @@ struct DrawMeshletsTask : DrawMeshlets::Task {
             .fragment_shader_info = daxa::ShaderCompileInfo {
                 .source = daxa::ShaderSource { daxa::ShaderFile { .path = "src/graphics/virtual_geometry/tasks/draw_meshlets.slang" }, },
                 .compile_options = { 
-                    .entry_point = "fragment_main",
+                    .entry_point = "draw_meshlets_frag",
                     .language = daxa::ShaderLanguage::SLANG,
                     .defines = { { std::string{DrawMeshletsTask::name()} + "_SHADER", "1" } } 
+                }
+            },
+            .task_shader_info = daxa::ShaderCompileInfo {
+                .source = daxa::ShaderSource { daxa::ShaderFile { .path = "src/graphics/virtual_geometry/tasks/draw_meshlets.slang" }, },
+                .compile_options = {
+                    .entry_point = "draw_meshlets_task",
+                    .language = daxa::ShaderLanguage::SLANG,
+                    .defines = { { std::string{DrawMeshletsTask::name()} + "_SHADER", "1" } },
                 }
             },
             .raster = {
@@ -92,15 +100,13 @@ struct DrawMeshletsTask : DrawMeshlets::Task {
             .render_area = {.x = 0, .y = 0, .width = size_x, .height = size_y},
         });
 
-        render_cmd.set_pipeline(*context->raster_pipelines.at(DrawMeshlets::Task::name()));
+        render_cmd.set_pipeline(*context->raster_pipelines.at(DrawMeshletsTask::name()));
 
         assign_blob(push.uses, ti.attachment_shader_blob);
         render_cmd.push_constant(push);
 
-        render_cmd.draw_indirect(daxa::DrawIndirectInfo { 
-            .draw_command_buffer = ti.get(AT.u_command).ids[0],
-            .draw_count = 1,
-            .draw_command_stride = sizeof(DrawIndirectStruct),
+        render_cmd.draw_mesh_tasks_indirect(daxa::DrawMeshTasksIndirectInfo {
+            .indirect_buffer = ti.get(this->AT.u_command).ids[0],
         });
 
         ti.recorder = std::move(render_cmd).end_renderpass();

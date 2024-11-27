@@ -42,8 +42,8 @@ namespace foundation {
         // early pass
         context->gpu_metrics[SoftwareRasterizationOnlyDepthWriteCommandTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
         context->gpu_metrics[SoftwareRasterizationOnlyDepthTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
-        context->gpu_metrics[HWDrawMeshletsOnlyDepthWriteCommandTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
-        context->gpu_metrics[HWDrawMeshletsOnlyDepthTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
+        context->gpu_metrics[DrawMeshletsOnlyDepthWriteCommandTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
+        context->gpu_metrics[DrawMeshletsOnlyDepthTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
         context->gpu_metrics[CombineDepthTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
         
         // culling
@@ -68,10 +68,9 @@ namespace foundation {
     static inline auto get_virtual_geometry_raster_pipelines() -> std::vector<std::pair<std::string_view, daxa::RasterPipelineCompileInfo>> {
         return {
             {DrawMeshletsTask::name(), DrawMeshletsTask::pipeline_config_info()},
+            {DrawMeshletsOnlyDepthTask::name(), DrawMeshletsOnlyDepthTask::pipeline_config_info()},
             {SoftwareRasterizationTask::name(), SoftwareRasterizationTask::pipeline_config_info()},
             {SoftwareRasterizationOnlyDepthTask::name(), SoftwareRasterizationOnlyDepthTask::pipeline_config_info()},
-            {HWDrawMeshletsOnlyDepthTask::name(), HWDrawMeshletsOnlyDepthTask::pipeline_config_info()},
-            {SWDrawMeshletsOnlyDepthTask::name(), SWDrawMeshletsOnlyDepthTask::pipeline_config_info()},
         };
     }
 
@@ -92,8 +91,7 @@ namespace foundation {
             {CullMeshesWriteCommandTask::name(), CullMeshesWriteCommandTask::pipeline_config_info()},
             {CullMeshesTask::name(), CullMeshesTask::pipeline_config_info()},
             {DrawMeshletsWriteCommandTask::name(), DrawMeshletsWriteCommandTask::pipeline_config_info()},
-            {HWDrawMeshletsOnlyDepthWriteCommandTask::name(), HWDrawMeshletsOnlyDepthWriteCommandTask::pipeline_config_info()},
-            {SWDrawMeshletsOnlyDepthWriteCommandTask::name(), SWDrawMeshletsOnlyDepthWriteCommandTask::pipeline_config_info()},
+            {DrawMeshletsOnlyDepthWriteCommandTask::name(), DrawMeshletsOnlyDepthWriteCommandTask::pipeline_config_info()},
             {CombineDepthTask::name(), CombineDepthTask::pipeline_config_info()},
         };
     }
@@ -115,24 +113,24 @@ namespace foundation {
             .name = "clear depth image d32",
         });
 
-        info.task_graph.add_task(HWDrawMeshletsOnlyDepthWriteCommandTask {
+        info.task_graph.add_task(DrawMeshletsOnlyDepthWriteCommandTask {
             .views = std::array{
-                HWDrawMeshletsOnlyDepthWriteCommandTask::AT.u_meshlet_indices | info.gpu_hw_culled_meshlet_indices,
-                HWDrawMeshletsOnlyDepthWriteCommandTask::AT.u_command | u_command,
+                DrawMeshletsOnlyDepthWriteCommandTask::AT.u_meshlet_indices | info.gpu_hw_culled_meshlet_indices,
+                DrawMeshletsOnlyDepthWriteCommandTask::AT.u_command | u_command,
             },
             .context = info.context,
         });
 
-         info.task_graph.add_task(HWDrawMeshletsOnlyDepthTask {
+         info.task_graph.add_task(DrawMeshletsOnlyDepthTask {
             .views = std::array{
-                HWDrawMeshletsOnlyDepthTask::AT.u_meshlet_indices | info.gpu_hw_culled_meshlet_indices,
-                HWDrawMeshletsOnlyDepthTask::AT.u_meshlets_data | info.gpu_meshlet_data,
-                HWDrawMeshletsOnlyDepthTask::AT.u_meshes | info.gpu_meshes,
-                HWDrawMeshletsOnlyDepthTask::AT.u_transforms | info.gpu_transforms,
-                HWDrawMeshletsOnlyDepthTask::AT.u_materials | info.gpu_materials,
-                HWDrawMeshletsOnlyDepthTask::AT.u_globals | info.context->shader_globals_buffer,
-                HWDrawMeshletsOnlyDepthTask::AT.u_command | u_command,
-                HWDrawMeshletsOnlyDepthTask::AT.u_depth_image | info.depth_image_d32,
+                DrawMeshletsOnlyDepthTask::AT.u_meshlet_indices | info.gpu_hw_culled_meshlet_indices,
+                DrawMeshletsOnlyDepthTask::AT.u_meshlets_data | info.gpu_meshlet_data,
+                DrawMeshletsOnlyDepthTask::AT.u_meshes | info.gpu_meshes,
+                DrawMeshletsOnlyDepthTask::AT.u_transforms | info.gpu_transforms,
+                DrawMeshletsOnlyDepthTask::AT.u_materials | info.gpu_materials,
+                DrawMeshletsOnlyDepthTask::AT.u_globals | info.context->shader_globals_buffer,
+                DrawMeshletsOnlyDepthTask::AT.u_command | u_command,
+                DrawMeshletsOnlyDepthTask::AT.u_depth_image | info.depth_image_d32,
             },
             .context = info.context,
         });

@@ -432,8 +432,8 @@ namespace foundation {
             PerfomanceCategory {
                 .name = "early pass",
                 .counters = {
-                    HWDrawMeshletsOnlyDepthWriteCommandTask::name(),
-                    HWDrawMeshletsOnlyDepthTask::name(),
+                    DrawMeshletsOnlyDepthWriteCommandTask::name(),
+                    DrawMeshletsOnlyDepthTask::name(),
                     SoftwareRasterizationOnlyDepthWriteCommandTask::name(),
                     SoftwareRasterizationOnlyDepthTask::name(),
                     CombineDepthTask::name(),

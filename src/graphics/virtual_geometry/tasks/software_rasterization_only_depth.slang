@@ -23,7 +23,6 @@ struct MeshPayload {
     u32 index;
 };
 
-groupshared u32 hw_meshlet_count;
 [shader("amplification")]
 [numthreads(1, 1, 1)]
 void software_rasterization_task(u32vec3 local_thread_index : SV_GroupThreadID, u32vec3 global_thread_index : SV_DispatchThreadID, u32vec3 group_index : SV_GroupID) {
