@@ -2,12 +2,31 @@
 #include "glue.inl"
 #include "shared.inl"
 #include "visibility_buffer.slang"
+#include "meshlet.slang"
+#include "cull_util.slang"
 
 #define SUBPIXEL_BITS 8
 #define SUBPIXEL_SAMPLES (1 << SUBPIXEL_BITS)
 
 interface SWRasterFunction {
     void write(u32vec2 position, f32 depth);
+};
+
+struct VisibilityImageSWFunction : SWRasterFunction {
+    u32 payload;
+    RWTexture2D<u64> visibility_image;
+
+    void write(u32vec2 position, f32 depth) {
+        AtomicMaxU64(visibility_image[position], encode_visibility_buffer_payload(payload, depth));
+    }
+};
+
+struct OnlyDepthSWFunction : SWRasterFunction {
+    RWTexture2D<u32> depth_image;
+
+    void write(u32vec2 position, f32 depth) {
+        AtomicMaxU32(depth_image[position], asuint(depth));
+    }
 };
 
 void rasterize<T : SWRasterFunction>(in f32vec3[3] vertices, in i32vec2 viewport_size, T sw_function) {
@@ -89,7 +108,6 @@ void rasterize<T : SWRasterFunction>(in f32vec3[3] vertices, in i32vec2 viewport
             x_0 += min_pixel.x;
             x_1 += min_pixel.x;
             for (f32 x = x_0; x <= x_1; ++x) {
-                // AtomicMaxU64(push.uses.u_visibility_image.get()[u32vec2(x, y)], encode_visibility_buffer_payload(payload, z_x));
                 sw_function.write(u32vec2(x, y), z_x);
                 z_x += grad_z.x;
             }
@@ -106,7 +124,6 @@ void rasterize<T : SWRasterFunction>(in f32vec3[3] vertices, in i32vec2 viewport
         while (true) {
             i32 x = min_pixel.x;
             if (min(min(hec_y_0, hec_y_1), hec_y_2) >= 0.0) {
-                // AtomicMaxU64(push.uses.u_visibility_image.get()[u32vec2(x, y)], encode_visibility_buffer_payload(payload, z_y));
                 sw_function.write(u32vec2(x, y), z_y);
             }
 
@@ -119,7 +136,6 @@ void rasterize<T : SWRasterFunction>(in f32vec3[3] vertices, in i32vec2 viewport
 
                 while (true) {
                     if (min(min(hec_x_0, hec_x_1), hec_x_2) >= 0.0) {
-                        // AtomicMaxU64(push.uses.u_visibility_image.get()[u32vec2(x, y)], encode_visibility_buffer_payload(payload, z_x));
                         sw_function.write(u32vec2(x, y), z_x);
                     }
 
@@ -142,4 +158,118 @@ void rasterize<T : SWRasterFunction>(in f32vec3[3] vertices, in i32vec2 viewport
             ++y;
         }
     }
+}
+
+#define OPTIMIZATION 1
+
+#if OPTIMIZATION == 1
+groupshared f32vec4 shared_positions[MAX_VERTICES_PER_MESHLET];
+#endif
+
+void generic_rasterization<T: SWRasterFunction>(
+    in u32 thread_index, 
+    in u32 meshlet_index, 
+    in Mesh mesh, 
+    in Meshlet meshlet, 
+    in f32mat4x4 pvm, 
+    u32vec2 image_size, 
+    T sw_function) {
+    const f32vec2 scale = f32vec2(0.5, 0.5) * f32vec2(image_size) * f32(SUBPIXEL_SAMPLES);
+    const f32vec2 bias = (0.5 * f32vec2(image_size)) * f32(SUBPIXEL_SAMPLES) + 0.5;
+    
+    #define stupid_indexing(matrix, i, j) matrix[j][i]
+    
+    stupid_indexing(pvm, 0, 0) = stupid_indexing(pvm, 0, 0) * scale.x + stupid_indexing(pvm, 0, 3) * bias.x;
+    stupid_indexing(pvm, 1, 0) = stupid_indexing(pvm, 1, 0) * scale.x + stupid_indexing(pvm, 1, 3) * bias.x;
+    stupid_indexing(pvm, 2, 0) = stupid_indexing(pvm, 2, 0) * scale.x + stupid_indexing(pvm, 2, 3) * bias.x;
+    stupid_indexing(pvm, 3, 0) = stupid_indexing(pvm, 3, 0) * scale.x + stupid_indexing(pvm, 3, 3) * bias.x;
+
+    stupid_indexing(pvm, 0, 1) = stupid_indexing(pvm, 0, 1) * scale.y + stupid_indexing(pvm, 0, 3) * bias.y;
+    stupid_indexing(pvm, 1, 1) = stupid_indexing(pvm, 1, 1) * scale.y + stupid_indexing(pvm, 1, 3) * bias.y;
+    stupid_indexing(pvm, 2, 1) = stupid_indexing(pvm, 2, 1) * scale.y + stupid_indexing(pvm, 2, 3) * bias.y;
+    stupid_indexing(pvm, 3, 1) = stupid_indexing(pvm, 3, 1) * scale.y + stupid_indexing(pvm, 3, 3) * bias.y;
+
+    #undef stupid_indexing
+
+#if OPTIMIZATION
+    if(thread_index < meshlet.vertex_count) {
+        shared_positions[thread_index] = mul(pvm, f32vec4(mesh.vertex_positions[mesh.indirect_vertices[meshlet.indirect_vertex_offset + thread_index]], 1.0f));
+    }
+
+    GroupMemoryBarrierWithGroupSync();
+
+    if(thread_index < meshlet.triangle_count) {
+        f32vec4[3] clip_position = f32vec4[3](
+            shared_positions[get_micro_index(mesh.micro_indices, meshlet.micro_indices_offset + thread_index * 3 + 0)],
+            shared_positions[get_micro_index(mesh.micro_indices, meshlet.micro_indices_offset + thread_index * 3 + 1)],
+            shared_positions[get_micro_index(mesh.micro_indices, meshlet.micro_indices_offset + thread_index * 3 + 2)]
+        );
+    
+        clip_position = f32vec4[3](
+            clip_position[0] / clip_position[0].w,
+            clip_position[1] / clip_position[1].w,
+            clip_position[2] / clip_position[2].w,
+        );
+
+        f32vec2 ndc_min = min(min(clip_position[0].xy, clip_position[1].xy), clip_position[2].xy);
+        f32vec2 ndc_max = max(max(clip_position[0].xy, clip_position[1].xy), clip_position[2].xy);
+
+        if(is_triangle_invisible_micro_triangle( ndc_min, ndc_max, f32vec2(image_size))) { return; }
+        if(is_triangle_backfacing(clip_position)) { return; }
+
+        if(T is VisibilityImageSWFunction) {
+            var vis_sw_function = reinterpret<VisibilityImageSWFunction>(sw_function);
+            encode_triangle_id(vis_sw_function.payload, meshlet_index, thread_index);
+            sw_function = reinterpret<T>(vis_sw_function);
+        } 
+
+        rasterize<T>(f32vec3[](f32vec3(floor(clip_position[0].xy), clip_position[0].z), 
+                               f32vec3(floor(clip_position[1].xy), clip_position[1].z), 
+                               f32vec3(floor(clip_position[2].xy), clip_position[2].z)), 
+                               image_size, sw_function);
+    }
+#else
+    if(thread_index < meshlet.triangle_count) {
+        const u32[3] indices = u32[3](
+            get_vertex_index(mesh, meshlet, thread_index, 0),
+            get_vertex_index(mesh, meshlet, thread_index, 1),
+            get_vertex_index(mesh, meshlet, thread_index, 2)
+        );
+    
+        const f32vec3[3] positions = f32vec3[3](
+            mesh.vertex_positions[indices[0]],
+            mesh.vertex_positions[indices[1]],
+            mesh.vertex_positions[indices[2]]
+        );
+    
+        f32vec4[3] clip_position = f32vec4[3](
+            mul(pvm, f32vec4(positions[0], 1.0f)),
+            mul(pvm, f32vec4(positions[1], 1.0f)),
+            mul(pvm, f32vec4(positions[2], 1.0f))
+        );
+    
+        clip_position = f32vec4[3](
+            clip_position[0] / clip_position[0].w,
+            clip_position[1] / clip_position[1].w,
+            clip_position[2] / clip_position[2].w,
+        );
+
+        f32vec2 ndc_min = min(min(clip_position[0].xy, clip_position[1].xy), clip_position[2].xy);
+        f32vec2 ndc_max = max(max(clip_position[0].xy, clip_position[1].xy), clip_position[2].xy);
+
+        if(is_triangle_invisible_micro_triangle( ndc_min, ndc_max, f32vec2(image_size))) { return; }
+        if(is_triangle_backfacing(clip_position)) { return; }
+
+        if(T is VisibilityImageSWFunction) {
+            var vis_sw_function = reinterpret<VisibilityImageSWFunction>(sw_function);
+            encode_triangle_id(vis_sw_function.payload, meshlet_index, thread_index);
+            sw_function = reinterpret<T>(vis_sw_function);
+        } 
+
+        rasterize<T>(f32vec3[](f32vec3(floor(clip_position[0].xy), clip_position[0].z), 
+                               f32vec3(floor(clip_position[1].xy), clip_position[1].z), 
+                               f32vec3(floor(clip_position[2].xy), clip_position[2].z)), 
+                               image_size, sw_function);
+    }
+#endif
 }
