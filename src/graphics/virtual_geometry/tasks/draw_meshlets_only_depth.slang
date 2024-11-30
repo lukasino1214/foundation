@@ -29,14 +29,6 @@ void draw_meshlets_only_depth_task(u32vec3 local_thread_index : SV_GroupThreadID
     DispatchMesh(1, 1, 1, payload);
 }
 
-struct Vertex {
-    f32vec4 sv_position : SV_Position;
-};
-
-struct Primtive {
-    nointerpolation [[vk::location(0)]] u32 vis_index;
-};
-
 [outputtopology("triangle")]
 [shader("mesh")]
 [numthreads(MAX_TRIANGLES_PER_MESHLET, 1, 1)]
@@ -52,8 +44,6 @@ void draw_meshlets_only_depth_mesh(
     const MeshletData meshlet_data = push.uses.u_meshlets_data.meshlets[meshlet_index];
     const Mesh mesh = push.uses.u_meshes[meshlet_data.mesh_index];
     const Meshlet meshlet = mesh.meshlets[meshlet_data.meshlet_index];
-    SetMeshOutputCounts(meshlet.vertex_count, meshlet.triangle_count);
-    u32 triangle_index = local_thread_index.x;
 
     f32mat4x4 pvm = mat_4x3_to_4x4(push.uses.u_transforms[meshlet_data.transform_index].model_matrix);
     if(push.uses.u_globals.render_as_observer) {
@@ -63,20 +53,18 @@ void draw_meshlets_only_depth_mesh(
         pvm = mul(push.uses.u_globals->main_camera.projection_matrix,
                             mul(push.uses.u_globals->main_camera.view_matrix, pvm));
     }
-    
-    if(triangle_index < meshlet.vertex_count) {
-        out_vertices[triangle_index].sv_position = mul(pvm, f32vec4(mesh.vertex_positions[mesh.indirect_vertices[meshlet.indirect_vertex_offset + triangle_index]], 1.0f));
-    }
 
-    if(triangle_index < meshlet.triangle_count) {
-        out_indices[triangle_index] = u32vec3(
-            get_micro_index(mesh.micro_indices, meshlet.micro_indices_offset + triangle_index * 3 + 0),
-            get_micro_index(mesh.micro_indices, meshlet.micro_indices_offset + triangle_index * 3 + 1),
-            get_micro_index(mesh.micro_indices, meshlet.micro_indices_offset + triangle_index * 3 + 2)
-        );
-        encode_triangle_id(out_primitives[triangle_index].vis_index, meshlet_index, triangle_index);
-    }
+    generic_mesh(
+        local_thread_index.x,
+        meshlet_index,
+        mesh,
+        meshlet,
+        pvm,
+        out_indices,
+        out_vertices,
+        out_primitives
+    );
 }
 
 [shader("fragment")]
-void draw_meshlets_only_depth_frag(u32 vis_index : u32, f32vec4 position: SV_Position) {}   
+void draw_meshlets_only_depth_frag(f32vec4 position: SV_Position) {}   

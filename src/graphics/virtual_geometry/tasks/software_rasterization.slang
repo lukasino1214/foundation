@@ -31,15 +31,6 @@ void software_rasterization_task(u32vec3 local_thread_index : SV_GroupThreadID, 
     DispatchMesh(1, 1, 1, payload);
 }
 
-struct Vertex {
-    f32vec4 sv_position : SV_Position;
-};
-
-struct Primtive {
-    nointerpolation [[vk::location(0)]] u32 vis_index;
-    bool cull_primitive : SV_CullPrimitive;
-};
-
 [outputtopology("triangle")]
 [shader("mesh")]
 [numthreads(MAX_TRIANGLES_PER_MESHLET, 1, 1)]
