@@ -101,7 +101,7 @@ struct DrawMeshletsOnlyDepthTask : DrawMeshletsOnlyDepth::Task {
         auto render_cmd = std::move(ti.recorder).begin_renderpass(daxa::RenderPassBeginInfo {
             .depth_attachment = { daxa::RenderAttachmentInfo {
                 .image_view = ti.get(AT.u_depth_image).ids[0].default_view(),
-                .load_op = daxa::AttachmentLoadOp::LOAD,
+                .load_op = daxa::AttachmentLoadOp::CLEAR,
                 .clear_value = daxa::DepthValue { .depth = 0.0f, .stencil = {} },
             }},
             .render_area = {.x = 0, .y = 0, .width = size_x, .height = size_y},

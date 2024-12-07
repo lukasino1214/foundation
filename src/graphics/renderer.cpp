@@ -7,6 +7,14 @@
 #include <graphics/virtual_geometry/virtual_geometry.hpp>
 
 namespace foundation {
+    struct MiscellaneousTasks {
+        static inline constexpr std::string_view UPDATE_SCENE = "update scene";
+        static inline constexpr std::string_view UPDATE_GLOBALS = "update globals";
+        static inline constexpr std::string_view READBACK_COPY = "readback copy";
+        static inline constexpr std::string_view READBACK_RAM = "readback ram";
+        static inline constexpr std::string_view IMGUI_DRAW = "imgui draw";
+    };
+
     Renderer::Renderer(AppWindow* _window, Context* _context, Scene* _scene, AssetManager* _asset_manager) 
         : window{_window}, context{_context}, scene{_scene}, asset_manager{_asset_manager} {
         ImGui::CreateContext();
@@ -76,6 +84,16 @@ namespace foundation {
             },
         };
 
+        context->gpu_metrics[ClearImageTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
+        context->gpu_metrics[DebugEntityOOBDrawTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
+        context->gpu_metrics[DebugAABBDrawTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
+        context->gpu_metrics[MiscellaneousTasks::UPDATE_SCENE] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
+        context->gpu_metrics[MiscellaneousTasks::UPDATE_GLOBALS] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
+        context->gpu_metrics[MiscellaneousTasks::READBACK_COPY] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
+        context->gpu_metrics[MiscellaneousTasks::READBACK_RAM] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
+        context->gpu_metrics[MiscellaneousTasks::IMGUI_DRAW] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
+        VirtualGeometryTasks::register_gpu_metrics(context);
+
         rebuild_task_graph();
 
         context->shader_globals.samplers = {
@@ -124,13 +142,6 @@ namespace foundation {
                 .name = "nearest repeat ani sampler",
             }),
         };
-
-        context->gpu_metrics[ClearImageTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
-        context->gpu_metrics[DebugEntityOOBDrawTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
-        context->gpu_metrics[DebugAABBDrawTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
-        context->gpu_metrics["readback to cpu"] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
-        context->gpu_metrics["readback copy"] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
-        register_virtual_geometry_gpu_metrics(context);
     }
 
     Renderer::~Renderer() {
@@ -215,7 +226,7 @@ namespace foundation {
             {DebugEntityOOBDrawTask::name(), DebugEntityOOBDrawTask::pipeline_config_info()},
             {DebugAABBDrawTask::name(), DebugAABBDrawTask::pipeline_config_info()}
         };
-        auto virtual_geometry_rasters = get_virtual_geometry_raster_pipelines();
+        auto virtual_geometry_rasters = VirtualGeometryTasks::get_raster_pipelines();
         rasters.insert(rasters.end(), virtual_geometry_rasters.begin(), virtual_geometry_rasters.end());
 
         for (auto [name, info] : rasters) {
@@ -227,7 +238,7 @@ namespace foundation {
         std::vector<std::tuple<std::string_view, daxa::ComputePipelineCompileInfo>> computes = {
             {ClearImageTask::name(), ClearImageTask::pipeline_config_info()},
         };
-        auto virtual_geometry_computes = get_virtual_geometry_compute_pipelines();
+        auto virtual_geometry_computes = VirtualGeometryTasks::get_compute_pipelines();
         computes.insert(computes.end(), virtual_geometry_computes.begin(), virtual_geometry_computes.end());
 
         for (auto [name, info] : computes) {
@@ -276,6 +287,7 @@ namespace foundation {
                 daxa::inl_attachment(daxa::TaskBufferAccess::TRANSFER_WRITE, shader_globals_buffer),
             },
             .task = [&](daxa::TaskInterface const &ti) {
+                context->gpu_metrics[MiscellaneousTasks::UPDATE_GLOBALS]->start(ti.recorder);
                 auto alloc = ti.allocator->allocate_fill(context->shader_globals).value();
                 ti.recorder.copy_buffer_to_buffer({
                     .src_buffer = ti.allocator->buffer(),
@@ -285,8 +297,9 @@ namespace foundation {
                     .size = sizeof(ShaderGlobals),
                 });
                 context->debug_draw_context.update_debug_buffer(context->device, ti.recorder, *ti.allocator);
+                context->gpu_metrics[MiscellaneousTasks::UPDATE_GLOBALS]->end(ti.recorder);
             },
-            .name = "GpuInputUploadTransferTask",
+            .name = std::string{MiscellaneousTasks::UPDATE_GLOBALS},
         });
 
         render_task_graph.add_task({
@@ -295,16 +308,16 @@ namespace foundation {
                 daxa::inl_attachment(daxa::TaskBufferAccess::TRANSFER_READ, asset_manager->gpu_readback_mesh_cpu),
             },
             .task = [&](daxa::TaskInterface const &ti) {
-                context->gpu_metrics["readback to cpu"]->start(ti.recorder);
+                context->gpu_metrics[MiscellaneousTasks::READBACK_RAM]->start(ti.recorder);
 
                 std::memcpy(asset_manager->readback_material.data(), context->device.buffer_host_address(ti.get(asset_manager->gpu_readback_material_cpu).ids[0]).value(), asset_manager->readback_material.size() * sizeof(u32));
                 for(u32 i = 0; i < asset_manager->readback_material.size(); i++) { asset_manager->readback_material[i] = (1 << find_msb(asset_manager->readback_material[i])) >> 1;}
                 
                 std::memcpy(asset_manager->readback_mesh.data(), context->device.buffer_host_address(ti.get(asset_manager->gpu_readback_mesh_cpu).ids[0]).value(), asset_manager->readback_mesh.size() * sizeof(u32));
                 
-                context->gpu_metrics["readback to cpu"]->end(ti.recorder);
+                context->gpu_metrics[MiscellaneousTasks::READBACK_RAM]->end(ti.recorder);
             },
-            .name = "readback to cpu",
+            .name = std::string{MiscellaneousTasks::READBACK_RAM},
         });
 
         render_task_graph.add_task({
@@ -312,12 +325,14 @@ namespace foundation {
                 daxa::inl_attachment(daxa::TaskBufferAccess::TRANSFER_WRITE, scene->gpu_transforms_pool.task_buffer),
             },
             .task = [&](daxa::TaskInterface const &ti) {
+                context->gpu_metrics[MiscellaneousTasks::UPDATE_SCENE]->start(ti.recorder);
                 scene->update_gpu(ti);
+                context->gpu_metrics[MiscellaneousTasks::UPDATE_SCENE]->end(ti.recorder);
             },
-            .name = "SceneUpdateGPU",
+            .name = std::string{MiscellaneousTasks::UPDATE_SCENE},
         });
 
-        build_virtual_geometry_task_graph(VirtualGeometryTaskInfo {
+        VirtualGeometryTasks::build_task_graph(VirtualGeometryTasks::Info {
             .context = context,
             .task_graph = render_task_graph,
             .gpu_scene_data = scene->gpu_scene_data,
@@ -363,10 +378,12 @@ namespace foundation {
         render_task_graph.add_task({
             .attachments = {daxa::inl_attachment(daxa::TaskImageAccess::COLOR_ATTACHMENT, swapchain_image)},
             .task = [&](daxa::TaskInterface ti) {
+                context->gpu_metrics[MiscellaneousTasks::IMGUI_DRAW]->start(ti.recorder);
                 auto size = ti.device.image_info(ti.get(daxa::TaskImageAttachmentIndex(0)).ids[0]).value().size;
                 imgui_renderer.record_commands(ImGui::GetDrawData(), ti.recorder, ti.get(daxa::TaskImageAttachmentIndex(0)).ids[0], size.x, size.y);
+                context->gpu_metrics[MiscellaneousTasks::IMGUI_DRAW]->end(ti.recorder);
             },
-            .name = "ImGui Draw",
+            .name = std::string{MiscellaneousTasks::IMGUI_DRAW},
         });
 
         render_task_graph.add_task({
@@ -377,7 +394,7 @@ namespace foundation {
                 daxa::inl_attachment(daxa::TaskBufferAccess::TRANSFER_READ, asset_manager->gpu_readback_mesh_gpu),
             },
             .task = [&](daxa::TaskInterface const &ti) {
-                context->gpu_metrics["readback copy"]->start(ti.recorder);
+                context->gpu_metrics[MiscellaneousTasks::READBACK_COPY]->start(ti.recorder);
                 ti.recorder.copy_buffer_to_buffer(daxa::BufferCopyInfo {
                     .src_buffer = ti.get(asset_manager->gpu_readback_material_gpu).ids[0],
                     .dst_buffer = ti.get(asset_manager->gpu_readback_material_cpu).ids[0],
@@ -405,9 +422,9 @@ namespace foundation {
                     .size = context->device.buffer_info(ti.get(asset_manager->gpu_readback_mesh_gpu).ids[0]).value().size,
                     .clear_value = 0
                 });
-                context->gpu_metrics["readback copy"]->end(ti.recorder);
+                context->gpu_metrics[MiscellaneousTasks::READBACK_COPY]->end(ti.recorder);
             },
-            .name = "readback copy",
+            .name = std::string{MiscellaneousTasks::READBACK_COPY},
         });
 
         render_task_graph.submit({});
@@ -421,49 +438,65 @@ namespace foundation {
     }
 
     void Renderer::ui_update() {
-        struct PerfomanceCategory {
-            std::string name = {};
-            std::vector<std::string_view> counters = {};
-            std::vector<PerfomanceCategory> performance_categories = {};
+        struct PerfomanceCounter {
+            std::string_view task_name = {};
+            std::string_view name = {};
         };
 
+        struct PerfomanceCategory {
+            std::string name = {};
+            std::vector<PerfomanceCounter> counters = {};
+            std::vector<PerfomanceCategory> performance_categories = {};
+        };
 
         std::vector<PerfomanceCategory> performance_categories = {
             PerfomanceCategory {
                 .name = "early pass",
                 .counters = {
-                    DrawMeshletsOnlyDepthWriteCommandTask::name(),
-                    DrawMeshletsOnlyDepthTask::name(),
-                    SoftwareRasterizationOnlyDepthWriteCommandTask::name(),
-                    SoftwareRasterizationOnlyDepthTask::name(),
-                    CombineDepthTask::name(),
+                    {VirtualGeometryTasks::Tasks::CLEAR_DEPTH_IMAGE_U32, "clear depth image u32"},
+                    {DrawMeshletsOnlyDepthWriteCommandTask::name(), "hw draw meshlets write"},
+                    {DrawMeshletsOnlyDepthTask::name(), "hw draw meshlets"},
+                    {SoftwareRasterizationOnlyDepthWriteCommandTask::name(), "sw draw meshlets write"},
+                    {SoftwareRasterizationOnlyDepthTask::name(), "sw draw meshlets"},
+                    {CombineDepthTask::name(), "combine depth"},
                 }
             },
             PerfomanceCategory {
                 .name = "culling",
                 .counters = {
-                    GenerateHizTask::name(),
-                    CullMeshesWriteCommandTask::name(),
-                    CullMeshesTask::name(),
-                    PopulateMeshletsWriteCommandTask::name(),
-                    PopulateMeshletsTask::name(),
-                    CullMeshletsWriteCommandTask::name(),
-                    CullMeshletsTask::name(),
+                    {GenerateHizTask::name(), "generate hiz"},
+                    {CullMeshesWriteCommandTask::name(), "cull meshes write"},
+                    {CullMeshesTask::name(), "cull meshes"},
+                    {PopulateMeshletsWriteCommandTask::name(), "populate meshlets write"},
+                    {PopulateMeshletsTask::name(), "populate meshlets"},
+                    {CullMeshletsWriteCommandTask::name(), "cull meshlets write"},
+                    {CullMeshletsTask::name(), "cull meshles"},
                 }
             },
             PerfomanceCategory {
                 .name = "late pass",
                 .counters = {
-                    DrawMeshletsWriteCommandTask::name(),
-                    DrawMeshletsTask::name(),
-                    SoftwareRasterizationWriteCommandTask::name(),
-                    SoftwareRasterizationTask::name(),
+                    {VirtualGeometryTasks::Tasks::CLEAR_VISIBILITY_IMAGE, "clear visibility image"},
+                    {DrawMeshletsWriteCommandTask::name(), "hw draw meshlets write"},
+                    {DrawMeshletsTask::name(), "hw draw meshlets"},
+                    {SoftwareRasterizationWriteCommandTask::name(), "sw draw meshlets write"},
+                    {SoftwareRasterizationTask::name(), "sw draw meshlets"},
                 }
             },
             PerfomanceCategory {
                 .name = "resolve",
                 .counters = {
-                    ResolveVisibilityBufferTask::name(),
+                    {ResolveVisibilityBufferTask::name(), "resolve visibility buffer"}
+                }
+            },
+            PerfomanceCategory {
+                .name = "miscellaneous",
+                .counters = {
+                    {MiscellaneousTasks::UPDATE_SCENE, "update scene"},
+                    {MiscellaneousTasks::UPDATE_GLOBALS, "update globals"},
+                    {MiscellaneousTasks::READBACK_COPY, "readback copy"},
+                    {MiscellaneousTasks::READBACK_RAM, "readback ram"},
+                    {MiscellaneousTasks::IMGUI_DRAW, "imgui draw"},
                 }
             },
         };
@@ -474,7 +507,7 @@ namespace foundation {
             bool opened = ImGui::TreeNodeEx(performace_category.name.c_str(), 0, "%s", performace_category.name.c_str()) && display_imgui;
             
             for(const auto& counter_name : performace_category.counters) {
-                const auto& metric = context->gpu_metrics[counter_name];
+                const auto& metric = context->gpu_metrics[counter_name.task_name];
                 total_time += metric->time_elapsed;
             }
 
@@ -484,8 +517,8 @@ namespace foundation {
             
             if(opened) {
                 for(const auto& counter_name : performace_category.counters) {
-                    const auto& metric = context->gpu_metrics[counter_name];
-                    ImGui::Text("%s : %f ms", counter_name.data(), metric->time_elapsed);
+                    const auto& metric = context->gpu_metrics[counter_name.task_name];
+                    ImGui::Text("%s : %f ms", counter_name.name.data(), metric->time_elapsed);
                 }
 
                 for(const auto& perf : performace_category.performance_categories) {
@@ -499,6 +532,7 @@ namespace foundation {
             visit(perf, true);
         }
 
+        ImGui::Separator();
         ImGui::Text("total time : %f ms", total_time);
         ImGui::End();
 
