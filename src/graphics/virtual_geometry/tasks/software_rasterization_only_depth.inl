@@ -67,14 +67,6 @@ struct SoftwareRasterizationOnlyDepthTask : SoftwareRasterizationOnlyDepth::Task
                     .defines = { { std::string{SoftwareRasterizationOnlyDepthTask::name()} + "_SHADER", "1" } },
                 }
             },
-            .fragment_shader_info = daxa::ShaderCompileInfo {
-                .source = daxa::ShaderSource { daxa::ShaderFile { .path = "src/graphics/virtual_geometry/tasks/software_rasterization_only_depth.slang" }, },
-                .compile_options = { 
-                    .entry_point = "software_rasterization_frag",
-                    .language = daxa::ShaderLanguage::SLANG,
-                    .defines = { { std::string{SoftwareRasterizationOnlyDepthTask::name()} + "_SHADER", "1" } } 
-                }
-            },
             .task_shader_info = daxa::ShaderCompileInfo {
                 .source = daxa::ShaderSource { daxa::ShaderFile { .path = "src/graphics/virtual_geometry/tasks/software_rasterization_only_depth.slang" }, },
                 .compile_options = {

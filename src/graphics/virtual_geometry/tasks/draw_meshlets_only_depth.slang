@@ -59,6 +59,3 @@ void draw_meshlets_only_depth_mesh(
         out_primitives
     );
 }
-
-[shader("fragment")]
-void draw_meshlets_only_depth_frag(f32vec4 position: SV_Position) {}   

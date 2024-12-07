@@ -64,14 +64,6 @@ struct DrawMeshletsOnlyDepthTask : DrawMeshletsOnlyDepth::Task {
                     .defines = { { std::string{DrawMeshletsOnlyDepthTask::name()} + "_SHADER", "1" } },
                 }
             },
-            .fragment_shader_info = daxa::ShaderCompileInfo {
-                .source = daxa::ShaderSource { daxa::ShaderFile { .path = "src/graphics/virtual_geometry/tasks/draw_meshlets_only_depth.slang" }, },
-                .compile_options = { 
-                    .entry_point = "draw_meshlets_only_depth_frag",
-                    .language = daxa::ShaderLanguage::SLANG,
-                    .defines = { { std::string{DrawMeshletsOnlyDepthTask::name()} + "_SHADER", "1" } } 
-                }
-            },
             .task_shader_info = daxa::ShaderCompileInfo {
                 .source = daxa::ShaderSource { daxa::ShaderFile { .path = "src/graphics/virtual_geometry/tasks/draw_meshlets_only_depth.slang" }, },
                 .compile_options = {

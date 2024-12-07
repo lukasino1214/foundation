@@ -66,6 +66,3 @@ void software_rasterization_mesh(
         sw_function
     );
 }
-
-[shader("fragment")]
-void software_rasterization_frag(in Vertex vertex, in Primtive primitive) {}   
