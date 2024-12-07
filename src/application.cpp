@@ -52,7 +52,7 @@ namespace foundation {
                 .path = "assets/binary/Sponza/Sponza.bmodel",
             };
 
-            // AssetProcessor::convert_gltf_to_binary("assets/models/Sponza/glTF/Sponza.gltf", "assets/binary/Sponza/Sponza.bmodel");
+            //AssetProcessor::convert_gltf_to_binary("assets/models/Sponza/glTF/Sponza.gltf", "assets/binary/Sponza/Sponza.bmodel");
             asset_manager->load_model(manifesto);
         }
 
@@ -60,19 +60,19 @@ namespace foundation {
         for(u32 x = 0; x < bistro_count; x++) {
             for(u32 y = 0; y < bistro_count; y++) {
                 for(u32 z = 0; z < bistro_count; z++) {
-                        auto entity = scene->create_entity(std::format("bistro {} {} {}", x, y, z));
-                        entity.handle.add<RootEntityTag>();
-                        auto* tc = add_transform(entity);
-                        tc->set_rotation({90.0f, 0.0f, 0.0f});
-                        tc->set_position({200.0f * x, 100.0f * y, 200.0f * z});
+                    auto entity = scene->create_entity(std::format("bistro {} {} {}", x, y, z));
+                    entity.handle.add<RootEntityTag>();
+                    auto* tc = add_transform(entity);
+                    tc->set_rotation({90.0f, 0.0f, 0.0f});
+                    tc->set_position({200.0f * x, 100.0f * y, 200.0f * z});
 
-                        LoadManifestInfo manifesto {
-                            .parent = entity,
-                            .path = "assets/binary/Bistro/Bistro.bmodel",
-                        };
+                    LoadManifestInfo manifesto {
+                        .parent = entity,
+                        .path = "assets/binary/Bistro/Bistro.bmodel",
+                    };
 
-                        // AssetProcessor::convert_gltf_to_binary("assets/models/Bistro/Bistro.glb", "assets/binary/Bistro/Bistro.bmodel");
-                        asset_manager->load_model(manifesto);
+                    //AssetProcessor::convert_gltf_to_binary("assets/models/Bistro/Bistro.glb", "assets/binary/Bistro/Bistro.bmodel");
+                    asset_manager->load_model(manifesto);
                 }
             }
         }

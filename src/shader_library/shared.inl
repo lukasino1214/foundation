@@ -128,12 +128,8 @@ struct MeshGroup {
 
 DAXA_DECL_BUFFER_PTR_ALIGN(MeshGroup, 8)
 
-#define MAX_VERTICES_PER_MESHLET (124)
-#define MAX_TRIANGLES_PER_MESHLET (124)
-
-#define MAX_MESHES (1u << 10u)
-#define MAX_SURVIVING_MESHLETS 1000000
-#define MAX_MATERIALS (1u << 10u)
+#define MAX_VERTICES_PER_MESHLET (64)
+#define MAX_TRIANGLES_PER_MESHLET (64)
 
 struct Meshlet {
     u32 indirect_vertex_offset;
@@ -166,6 +162,7 @@ struct Mesh {
     daxa_BufferPtr(AABB) meshlet_aabbs;
     daxa_BufferPtr(u32) micro_indices;
     daxa_BufferPtr(u32) indirect_vertices;
+    daxa_BufferPtr(u32) primitive_indices;
     daxa_BufferPtr(f32vec3) vertex_positions;
     daxa_BufferPtr(u32) vertex_normals;
     daxa_BufferPtr(u32) vertex_uvs;

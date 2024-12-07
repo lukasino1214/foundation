@@ -331,7 +331,6 @@ namespace foundation {
                         .material_manifest_offset = material_manifest_offset,
                         .manifest_index = mesh_group_manifest.mesh_manifest_indices_offset + mesh_index,
                         .old_mesh = {},
-                        .cached_mesh = mesh_manifest_entries[mesh_group_manifest.mesh_manifest_indices_offset + mesh_index].cached_mesh,
                         .file_path = asset_manifest.path.parent_path() / asset->meshes[mesh_group.mesh_offset + mesh_index].file_path
                     },
                     .asset_processor = asset_processor,
@@ -432,7 +431,6 @@ namespace foundation {
                     .material_manifest_offset = asset_manifest.material_manifest_offset,
                     .manifest_index = mesh_group_manifest_entry.mesh_manifest_indices_offset + mesh_manifest_entry.asset_local_primitive_index,
                     .old_mesh = mesh_manifest_entry.virtual_geometry_render_info->mesh,
-                    .cached_mesh = mesh_manifest_entries[global_mesh_index].cached_mesh,
                     .file_path = asset_manifest.path.parent_path() / asset_manifest.asset->meshes[mesh_group.mesh_offset + mesh_manifest_entry.asset_local_primitive_index].file_path
                 },
                 .asset_processor = asset_processor,

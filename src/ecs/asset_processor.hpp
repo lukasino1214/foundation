@@ -16,6 +16,7 @@ namespace foundation {
         std::vector<AABB> aabbs = {};
         std::vector<u8> micro_indices = {};
         std::vector<u32> indirect_vertices = {};
+        std::vector<u32> primitive_indices = {};
 
         static void serialize(ByteWriter& writer, const ProcessedMeshInfo& value) {
             writer.write(value.mesh_aabb);
@@ -27,6 +28,7 @@ namespace foundation {
             writer.write(value.aabbs);
             writer.write(value.micro_indices);
             writer.write(value.indirect_vertices);
+            writer.write(value.primitive_indices);
         }
 
         static auto deserialize(ByteReader& reader) -> ProcessedMeshInfo { 
@@ -40,6 +42,7 @@ namespace foundation {
             reader.read(value.aabbs);
             reader.read(value.micro_indices);
             reader.read(value.indirect_vertices);
+            reader.read(value.primitive_indices);
             return value;    
         }
     };
@@ -58,7 +61,6 @@ namespace foundation {
         u32 material_manifest_offset = {};
         u32 manifest_index = {};
         Mesh old_mesh = {};
-        std::optional<ProcessedMeshInfo>& cached_mesh;
         std::filesystem::path file_path = {};
     };
 

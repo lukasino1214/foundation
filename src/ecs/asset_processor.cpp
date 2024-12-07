@@ -913,6 +913,7 @@ namespace foundation {
             .aabbs = meshlet_aabbs,
             .micro_indices = meshlet_micro_indices,
             .indirect_vertices = meshlet_indirect_vertices,
+            .primitive_indices = indices
         };
     }
 
@@ -926,29 +927,25 @@ namespace foundation {
 
         if(!context->device.is_buffer_id_valid(std::bit_cast<daxa::BufferId>(info.old_mesh.mesh_buffer))) {
 
-            if(!info.cached_mesh.has_value()) {
-                std::vector<std::byte> uncompressed_data = {};
+            std::vector<std::byte> uncompressed_data = {};
+            {
+                std::vector<byte> data = {};
                 {
-                    std::vector<byte> data = {};
-                    {
-                        PROFILE_ZONE_NAMED(reading_from_disk_and_uncompressing);
-                        data = read_file_to_bytes(info.file_path);
-                    }
-                    {
-                        PROFILE_ZONE_NAMED(decompressing);
-                        uncompressed_data = zstd_decompress(data);
-                    }
+                    PROFILE_ZONE_NAMED(reading_from_disk_and_uncompressing);
+                    data = read_file_to_bytes(info.file_path);
                 }
                 {
-                    ProcessedMeshInfo processed_info = {};
-                    PROFILE_ZONE_NAMED(serializing);
-                    ByteReader reader(uncompressed_data.data(), uncompressed_data.size());
-                    reader.read(processed_info);
-                    info.cached_mesh = std::move(processed_info);
+                    PROFILE_ZONE_NAMED(decompressing);
+                    uncompressed_data = zstd_decompress(data);
                 }
             }
-
-            ProcessedMeshInfo& processed_info = info.cached_mesh.value();
+            ProcessedMeshInfo processed_info = {};
+            {
+                PROFILE_ZONE_NAMED(serializing);
+                ByteReader reader(uncompressed_data.data(), uncompressed_data.size());
+                reader.read(processed_info);
+                uncompressed_data.clear();
+            }
 
             {
                 PROFILE_ZONE_NAMED(creating_buffer);
@@ -958,6 +955,7 @@ namespace foundation {
                     sizeof(AABB) * processed_info.meshlets.size() +
                     sizeof(u8) * processed_info.micro_indices.size() +
                     sizeof(u32) * processed_info.indirect_vertices.size() +
+                    sizeof(u32) * processed_info.primitive_indices.size() +
                     sizeof(f32vec3) * processed_info.positions.size() +
                     sizeof(u32) * processed_info.normals.size() +
                     sizeof(u32) * processed_info.uvs.size();
@@ -994,6 +992,7 @@ namespace foundation {
                 memcpy_data(mesh.meshlet_aabbs, processed_info.aabbs);
                 memcpy_data(mesh.micro_indices, processed_info.micro_indices);
                 memcpy_data(mesh.indirect_vertices, processed_info.indirect_vertices);
+                memcpy_data(mesh.primitive_indices, processed_info.primitive_indices);
                 memcpy_data(mesh.vertex_positions, processed_info.positions);
                 memcpy_data(mesh.vertex_normals, processed_info.normals);
                 memcpy_data(mesh.vertex_uvs, processed_info.uvs);
