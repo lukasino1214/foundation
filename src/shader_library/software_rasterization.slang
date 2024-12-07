@@ -211,8 +211,8 @@ void generic_rasterization<T: SWRasterFunction>(
             clip_position[2] / clip_position[2].w,
         );
 
-        f32vec2 ndc_min = min(min(clip_position[0].xy, clip_position[1].xy), clip_position[2].xy);
-        f32vec2 ndc_max = max(max(clip_position[0].xy, clip_position[1].xy), clip_position[2].xy);
+        const f32vec2 ndc_min = min(min(clip_position[0].xy, clip_position[1].xy), clip_position[2].xy);
+        const f32vec2 ndc_max = max(max(clip_position[0].xy, clip_position[1].xy), clip_position[2].xy);
 
         if(is_triangle_invisible_micro_triangle( ndc_min, ndc_max, f32vec2(image_size))) { return; }
         if(is_triangle_backfacing(clip_position)) { return; }

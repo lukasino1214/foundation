@@ -47,11 +47,9 @@ void draw_meshlets_mesh(
 
     f32mat4x4 pvm = mat_4x3_to_4x4(push.uses.u_transforms[meshlet_data.transform_index].model_matrix);
     if(push.uses.u_globals.render_as_observer) {
-        pvm = mul(push.uses.u_globals->observer_camera.projection_matrix,
-                            mul(push.uses.u_globals->observer_camera.view_matrix, pvm));
+        pvm = mul(push.uses.u_globals->observer_camera.projection_view_matrix, pvm);
     } else {
-        pvm = mul(push.uses.u_globals->main_camera.projection_matrix,
-                            mul(push.uses.u_globals->main_camera.view_matrix, pvm));
+        pvm = mul(push.uses.u_globals->main_camera.projection_view_matrix, pvm);
     }
     
     generic_mesh(

@@ -46,9 +46,9 @@ void cull_meshlets(u32vec3 thread_index : SV_DispatchThreadID) {
         const MeshletData meshlet_data = push.uses.u_meshlets_data->meshlets[current_thread_index];
         const Mesh mesh = push.uses.u_meshes[meshlet_data.mesh_index];
         const AABB aabb = mesh.meshlet_aabbs[meshlet_data.meshlet_index];
-        const f32mat4x4 transform = mat_4x3_to_4x4(push.uses.u_transforms[meshlet_data.transform_index].model_matrix);
+        const f32mat4x4 transform_matrix = mat_4x3_to_4x4(push.uses.u_transforms[meshlet_data.transform_index].model_matrix);
 
-        if(is_meshlet_visible(aabb, transform)) {
+        if(is_meshlet_visible(aabb, transform_matrix)) {
             const u32 viewport_width = push.uses.u_globals->render_target_size.x;
             const u32 viewport_height = push.uses.u_globals->render_target_size.y;
 
@@ -69,9 +69,8 @@ void cull_meshlets(u32vec3 thread_index : SV_DispatchThreadID) {
             f32 min_z = 3.402823466e+38;
             bool clip = false;
             for (u32 i = 0; i < 8; ++i) {
-                const f32vec4 worldspace_corner_position = mul(transform, f32vec4(corners[i], 1));
-                const f32vec4 viewspace_corner_position = mul(push.uses.u_globals->main_camera.view_matrix, worldspace_corner_position);
-                const f32vec4 clipspace_corner_position = mul(push.uses.u_globals->main_camera.projection_matrix, viewspace_corner_position);
+                const f32vec4 worldspace_corner_position = mul(transform_matrix, f32vec4(corners[i], 1));
+                const f32vec4 clipspace_corner_position = mul(push.uses.u_globals->main_camera.projection_view_matrix, worldspace_corner_position);
                 const f32vec3 ndc = clipspace_corner_position.xyz / clipspace_corner_position.w;
                 min_z = min(min_z, ndc.z);
                 if (ndc.x <= -1.0 || ndc.x >= 1.0 || ndc.y <= -1.0 || ndc.y >= 1.0 || min_z <= 0.0) {

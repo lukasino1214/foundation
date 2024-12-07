@@ -45,14 +45,8 @@ void draw_meshlets_only_depth_mesh(
     const Mesh mesh = push.uses.u_meshes[meshlet_data.mesh_index];
     const Meshlet meshlet = mesh.meshlets[meshlet_data.meshlet_index];
 
-    f32mat4x4 pvm = mat_4x3_to_4x4(push.uses.u_transforms[meshlet_data.transform_index].model_matrix);
-    if(push.uses.u_globals.render_as_observer) {
-        pvm = mul(push.uses.u_globals->observer_camera.projection_matrix,
-                            mul(push.uses.u_globals->observer_camera.view_matrix, pvm));
-    } else {
-        pvm = mul(push.uses.u_globals->main_camera.projection_matrix,
-                            mul(push.uses.u_globals->main_camera.view_matrix, pvm));
-    }
+    const f32mat4x4 transform_matrix = mat_4x3_to_4x4(push.uses.u_transforms[meshlet_data.transform_index].model_matrix);
+    const f32mat4x4 pvm = mul(push.uses.u_globals->main_camera.projection_view_matrix, transform_matrix);
 
     generic_mesh(
         local_thread_index.x,

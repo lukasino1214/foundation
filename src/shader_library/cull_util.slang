@@ -124,5 +124,5 @@ bool is_triangle_invisible_micro_triangle(f32vec2 ndc_min, f32vec2 ndc_max, f32v
 }
 
 bool is_triangle_backfacing(f32vec4 clip_positions[3]) {
-    return determinant(daxa_f32mat3x3(clip_positions[0].xyw, clip_positions[1].xyw, clip_positions[2].xyw)) > 0.001f;
+    return determinant(daxa_f32mat3x3(clip_positions[0].xyw, clip_positions[1].xyw, clip_positions[2].xyw)) > 0.00001f;
 }
