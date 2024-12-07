@@ -11,6 +11,9 @@ namespace foundation {
     template<typename T>
     concept HasSerialize = requires(ByteWriter& w, const T& v) { { T::serialize(w, v) } -> std::same_as<void>; };
 
+    template <typename T>
+    concept Memcpyable = !std::is_same_v<T, std::vector<typename T::value_type>> && !std::is_same_v<T, std::string> && !std::is_same_v<T, std::optional<typename T::value_type>>;
+
     struct ByteReader {
         std::byte* data = {};
         usize size = {};
@@ -36,7 +39,13 @@ namespace foundation {
             assert(offset + sizeof(u32) <= size);
             u32 vec_size = read<u32>();
             value.resize(vec_size);
-            for(u32 i = 0; i < value.size(); i++) { read(value[i]); }
+            if constexpr (Memcpyable<T>) {
+                u32 byte_size = vec_size * sizeof(T);
+                char* ptr = r_cast<char*>(read_raw(s_cast<usize>(byte_size)));
+                std::memcpy(value.data(), ptr, byte_size);
+            } else {
+                for(u32 i = 0; i < value.size(); i++) { read(value[i]); }
+            }
         }
 
         template<typename T>
@@ -89,7 +98,11 @@ namespace foundation {
         template<typename T>
         void write(const std::vector<T>& value) {
             write(s_cast<u32>(value.size()));
-            for(const auto& v : value) { write(v); }
+            if constexpr (Memcpyable<T>) {
+                write(value.data(), value.size() * sizeof(T));
+            } else {
+                for(const auto& v : value) { write(v); }
+            }
         }
 
         void write(const std::string& value) {

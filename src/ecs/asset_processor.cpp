@@ -935,7 +935,7 @@ namespace foundation {
                         data = read_file_to_bytes(info.file_path);
                     }
                     {
-                        ZoneTransientN(decompressing, "decompressing", true);
+                        PROFILE_ZONE_NAMED(decompressing);
                         uncompressed_data = zstd_decompress(data);
                     }
                 }
