@@ -12,7 +12,7 @@ DAXA_DECL_TASK_HEAD_BEGIN(DebugEntityOOBDraw)
 DAXA_TH_BUFFER_PTR(VERTEX_SHADER_READ, daxa_BufferPtr(ShaderGlobals), u_globals)
 DAXA_TH_BUFFER_PTR(VERTEX_SHADER_READ, daxa_BufferPtr(TransformInfo), u_transforms)
 DAXA_TH_IMAGE_TYPED(COLOR_ATTACHMENT, daxa::RWTexture2DId<f32vec4>, u_image)
-DAXA_TH_IMAGE_TYPED(FRAGMENT_SHADER_SAMPLED, daxa::RWTexture2DId<u64>, u_visibility_image)
+DAXA_TH_IMAGE_ID(FRAGMENT_SHADER_STORAGE_READ_ONLY, REGULAR_2D, u_visibility_image)
 DAXA_DECL_TASK_HEAD_END
 
 struct DebugEntityOOBDrawPush {
@@ -24,7 +24,7 @@ DAXA_DECL_TASK_HEAD_BEGIN(DebugAABBDraw)
 DAXA_TH_BUFFER_PTR(VERTEX_SHADER_READ, daxa_BufferPtr(ShaderGlobals), u_globals)
 DAXA_TH_BUFFER_PTR(VERTEX_SHADER_READ, daxa_BufferPtr(TransformInfo), u_transforms)
 DAXA_TH_IMAGE_TYPED(COLOR_ATTACHMENT, daxa::RWTexture2DId<f32vec4>, u_image)
-DAXA_TH_IMAGE_TYPED(FRAGMENT_SHADER_SAMPLED, daxa::RWTexture2DId<u64>, u_visibility_image)
+DAXA_TH_IMAGE_ID(FRAGMENT_SHADER_STORAGE_READ_ONLY, REGULAR_2D, u_visibility_image)
 DAXA_DECL_TASK_HEAD_END
 
 struct DebugAABBDrawPush {

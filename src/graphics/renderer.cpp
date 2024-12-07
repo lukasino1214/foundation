@@ -77,7 +77,7 @@ namespace foundation {
             {
                 {
                     .format = daxa::Format::R64_UINT,
-                    .usage = daxa::ImageUsageFlagBits::TRANSFER_SRC | daxa::ImageUsageFlagBits::TRANSFER_DST | daxa::ImageUsageFlagBits::COLOR_ATTACHMENT | daxa::ImageUsageFlagBits::SHADER_SAMPLED | daxa::ImageUsageFlagBits::SHADER_STORAGE,
+                    .usage = daxa::ImageUsageFlagBits::TRANSFER_SRC | daxa::ImageUsageFlagBits::TRANSFER_DST | daxa::ImageUsageFlagBits::SHADER_STORAGE,
                     .name = visibility_image.info().name,
                 },
                 visibility_image,
@@ -470,7 +470,7 @@ namespace foundation {
                     {PopulateMeshletsWriteCommandTask::name(), "populate meshlets write"},
                     {PopulateMeshletsTask::name(), "populate meshlets"},
                     {CullMeshletsWriteCommandTask::name(), "cull meshlets write"},
-                    {CullMeshletsTask::name(), "cull meshles"},
+                    {CullMeshletsTask::name(), "cull meshlets"},
                 }
             },
             PerfomanceCategory {

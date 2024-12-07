@@ -48,7 +48,7 @@ void software_rasterization_mesh(
     const Mesh mesh = push.uses.u_meshes[meshlet_data.mesh_index];
     const Meshlet meshlet = mesh.meshlets[meshlet_data.meshlet_index];
 
-    const f32vec2 scale = f32vec2(0.5, 0.5) * f32vec2(push.uses.u_globals->render_target_size) * f32(SUBPIXEL_SAMPLES);
+    const f32vec2 scale = f32vec2(0.5f, 0.5f) * f32vec2(push.uses.u_globals->render_target_size) * f32(SUBPIXEL_SAMPLES);
     const f32vec2 bias = (0.5 * f32vec2(push.uses.u_globals->render_target_size)) * f32(SUBPIXEL_SAMPLES) + 0.5;
     f32mat4x4 pvm = mat_4x3_to_4x4(push.uses.u_transforms[meshlet_data.transform_index].model_matrix);
     if(push.uses.u_globals.render_as_observer) {
@@ -58,7 +58,7 @@ void software_rasterization_mesh(
     }
 
     VisibilityImageSWFunction sw_function;
-    sw_function.visibility_image = push.uses.u_visibility_image.get();
+    sw_function.visibility_image = tex_rw_u64_table[push.uses.u_visibility_image.index()];
 
     generic_rasterization<VisibilityImageSWFunction>(
         local_thread_index.x,

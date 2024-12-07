@@ -206,9 +206,9 @@ void generic_rasterization<T: SWRasterFunction>(
         );
     
         clip_position = f32vec4[3](
-            clip_position[0] / clip_position[0].w,
-            clip_position[1] / clip_position[1].w,
-            clip_position[2] / clip_position[2].w,
+            clip_position[0] * rcp(clip_position[0].w),
+            clip_position[1] * rcp(clip_position[1].w),
+            clip_position[2] * rcp(clip_position[2].w),
         );
 
         const f32vec2 ndc_min = min(min(clip_position[0].xy, clip_position[1].xy), clip_position[2].xy);
@@ -249,9 +249,9 @@ void generic_rasterization<T: SWRasterFunction>(
         );
     
         clip_position = f32vec4[3](
-            clip_position[0] / clip_position[0].w,
-            clip_position[1] / clip_position[1].w,
-            clip_position[2] / clip_position[2].w,
+            clip_position[0] * rcp(clip_position[0].w),
+            clip_position[1] * rcp(clip_position[1].w),
+            clip_position[2] * rcp(clip_position[2].w),
         );
 
         f32vec2 ndc_min = min(min(clip_position[0].xy, clip_position[1].xy), clip_position[2].xy);

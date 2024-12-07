@@ -11,26 +11,25 @@ struct NdcAABB {
 };
 
 NdcAABB calculate_ndc_aabb_from_worldspace(in f32mat4x4 model_matrix, in f32mat4x4 projection_view_matrix, in AABB aabb) {
-    bool initialized_min_max = false;
     bool behind_near_plane = false;
     NdcAABB ret;
-    for (i32 z = -1; z <= 1; z += 2) {
-        for (i32 y = -1; y <= 1; y += 2) {
-            for (i32 x = -1; x <= 1; x += 2) {
-                const f32vec3 model_corner_position = aabb.center + aabb.extent * f32vec3(x,y,z);
-                const f32vec4 worldspace_corner_position = mul(model_matrix, f32vec4(model_corner_position,1));
-                const f32vec4 clipspace_corner_position = mul(projection_view_matrix, worldspace_corner_position);
-                const f32vec3 ndc_corner_position = clipspace_corner_position.xyz / clipspace_corner_position.w;
-                ret.ndc_min.x = !initialized_min_max ? ndc_corner_position.x : min(ndc_corner_position.x, ret.ndc_min.x);
-                ret.ndc_min.y = !initialized_min_max ? ndc_corner_position.y : min(ndc_corner_position.y, ret.ndc_min.y);
-                ret.ndc_min.z = !initialized_min_max ? ndc_corner_position.z : min(ndc_corner_position.z, ret.ndc_min.z);
-                ret.ndc_max.x = !initialized_min_max ? ndc_corner_position.x : max(ndc_corner_position.x, ret.ndc_max.x);
-                ret.ndc_max.y = !initialized_min_max ? ndc_corner_position.y : max(ndc_corner_position.y, ret.ndc_max.y);
-                ret.ndc_max.z = !initialized_min_max ? ndc_corner_position.z : max(ndc_corner_position.z, ret.ndc_max.z);
-                behind_near_plane = behind_near_plane || (clipspace_corner_position.z > clipspace_corner_position.w);
-                initialized_min_max = true;
-            }
-        }
+
+    const f32mat4x4 mvp = mul(projection_view_matrix, model_matrix);
+    const f32vec3 model_corner_position = aabb.center + aabb.extent * f32vec3(-1.0f, -1.0f, -1.0f);
+    const f32vec4 clipspace_corner_position = mul(mvp, float4(model_corner_position,1));
+    const f32vec3 ndc_corner_position = clipspace_corner_position.xyz * rcp(clipspace_corner_position.w);
+    ret.ndc_min = ndc_corner_position.xyz;
+    ret.ndc_max = ndc_corner_position.xyz;
+    behind_near_plane = behind_near_plane || (clipspace_corner_position.z > clipspace_corner_position.w);
+    
+    for (u32 i = 1; i < 8; ++i) {
+        const f32vec3 corner = f32vec3(i & 0x1, i & 0x2, i & 0x4) * f32vec3(1, 0.5f, 0.25f);
+        const f32vec3 model_corner_position = aabb.center + aabb.extent * corner;
+        const f32vec4 clipspace_corner_position = mul(mvp, f32vec4(model_corner_position, 1.0f));
+        const f32vec3 ndc_corner_position = clipspace_corner_position.xyz * rcp(clipspace_corner_position.w);
+        ret.ndc_min = min(ret.ndc_min, ndc_corner_position.xyz);
+        ret.ndc_max = max(ret.ndc_max, ndc_corner_position.xyz);
+        behind_near_plane = behind_near_plane || (clipspace_corner_position.z > clipspace_corner_position.w);
     }
 
     ret.ndc_min.x = max(ret.ndc_min.x, -1.0f);
