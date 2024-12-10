@@ -22,7 +22,7 @@ NdcAABB calculate_ndc_aabb_from_worldspace(in f32mat4x4 model_matrix, in f32mat4
     ret.ndc_max = ndc_corner_position.xyz;
     behind_near_plane = behind_near_plane || (clipspace_corner_position.z > clipspace_corner_position.w);
     
-    for (u32 i = 1; i < 8; ++i) {
+    for (u32 i = 1; i < 8; i++) {
         const f32vec3 corner = f32vec3(i & 0x1, i & 0x2, i & 0x4) * f32vec3(1, 0.5f, 0.25f);
         const f32vec3 model_corner_position = aabb.center + aabb.extent * corner;
         const f32vec4 clipspace_corner_position = mul(mvp, f32vec4(model_corner_position, 1.0f));

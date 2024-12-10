@@ -166,7 +166,12 @@ void resolve_visibility_buffer(u32vec3 pixel : SV_DispatchThreadID) {
         decode_normal(mesh.vertex_normals[indices[2]])
     );
 
-    const f32mat3x3 normal_matrix = push.uses.u_transforms[meshlet_data.transform_index].normal_matrix; 
+    const f32mat3x3 normal_matrix = f32mat3x3(
+        cross(transform_matrix[1].xyz, transform_matrix[2].xyz), 
+        cross(transform_matrix[2].xyz, transform_matrix[0].xyz), 
+        cross(transform_matrix[0].xyz, transform_matrix[1].xyz)
+    );
+
     const f32vec3[3] worldspace_vertex_normals = f32vec3[3](
         mul(normal_matrix, vertex_normals[0]),
         mul(normal_matrix, vertex_normals[1]),

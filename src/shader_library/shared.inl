@@ -86,7 +86,6 @@ DAXA_DECL_BUFFER_PTR(ShaderGlobals)
 
 struct TransformInfo {
     f32mat4x3 model_matrix;
-    f32mat3x3 normal_matrix;
 };
 
 DAXA_DECL_BUFFER_PTR(TransformInfo)

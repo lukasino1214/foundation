@@ -135,8 +135,7 @@ namespace foundation {
         world->each([&](GlobalTransformComponent& gtc) {
             if(gtc.is_dirty) {
                 if(gpu_transforms_pool.update_handle(task_interface, gtc.gpu_handle, { 
-                    .model_matrix = gtc.model_matrix, 
-                    .normal_matrix = gtc.normal_matrix
+                    .model_matrix = gtc.model_matrix
                 })) {
                     gtc.is_dirty = false;
                 }
