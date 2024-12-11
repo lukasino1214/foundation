@@ -99,3 +99,5 @@ void generic_mesh<V: VertexT, P: PrimtiveT>(
         out_primitives[thread_index] = primitive;
     }
 }
+
+#define SOFTWARE_RASTERIZATION_OPTIMIZATION 2
