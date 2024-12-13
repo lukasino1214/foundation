@@ -90,6 +90,9 @@ namespace foundation {
         u32 triangle_count = {};
         u32 vertex_count = {};
 
+        glm::vec3 model_aabb_max = glm::vec3{std::numeric_limits<f32>::lowest()};
+        glm::vec3 model_aabb_min = glm::vec3{std::numeric_limits<f32>::max()};
+
         for(u32 mesh_index = 0; mesh_index < asset->meshes.size(); mesh_index++) {
             const auto& gltf_mesh = asset->meshes.at(mesh_index);
 
@@ -106,8 +109,13 @@ namespace foundation {
                         .gltf_primitive_index = primitive_index,
                     });
 
+                    const auto& mesh_aabb = processed_mesh_info.mesh_aabb;
+                    model_aabb_max = glm::max(model_aabb_max, mesh_aabb.center + mesh_aabb.extent);
+                    model_aabb_min = glm::min(model_aabb_max, mesh_aabb.center - mesh_aabb.extent);
+
                     meshlet_count += s_cast<u32>(processed_mesh_info.meshlets.size());
                     vertex_count += s_cast<u32>(processed_mesh_info.positions.size());
+                    std::println("{}", vertex_count);
                     for(const auto& meshlet : processed_mesh_info.meshlets) {
                         triangle_count += meshlet.triangle_count;
                     }
@@ -737,6 +745,10 @@ namespace foundation {
                 .meshlet_count = meshlet_count,
                 .triangle_count = triangle_count,
                 .vertex_count = vertex_count,
+                .model_aabb = {
+                    .center = (model_aabb_min + model_aabb_max) * 0.5f,
+                    .extent = (model_aabb_max - model_aabb_min) * 0.5f,
+                }
             });
 
             byte_writer.write(binary_textures);

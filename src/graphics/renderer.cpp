@@ -563,6 +563,7 @@ namespace foundation {
         ImGui::End();
 
         ImGui::Begin("Render options");
+        ImGui::Text("Framebuffer resolution: %ux%u", context->shader_globals.render_target_size.x, context->shader_globals.render_target_size.y);
         bool camera_option = s_cast<bool>(context->shader_globals.render_as_observer);
         ImGui::Checkbox("Render as observer", &camera_option);
         context->shader_globals.render_as_observer = s_cast<b32>(camera_option);

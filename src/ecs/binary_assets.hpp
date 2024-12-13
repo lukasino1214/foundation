@@ -50,12 +50,15 @@ namespace foundation {
         u32 meshlet_count = {}; // this exists to avoid stutters
         u32 triangle_count = {};
         u32 vertex_count = {};
+        AABB model_aabb = {};
 
         static void serialize(ByteWriter& writer, const BinaryModelHeader& value) {
             writer.write(value.name);
             writer.write(value.version);
             writer.write(value.meshlet_count);
             writer.write(value.triangle_count);
+            writer.write(value.vertex_count);
+            writer.write(value.model_aabb);
         }
 
         static auto deserialize(ByteReader& reader) -> BinaryModelHeader { 
@@ -64,6 +67,8 @@ namespace foundation {
             reader.read(value.version);
             reader.read(value.meshlet_count);
             reader.read(value.triangle_count);
+            reader.read(value.vertex_count);
+            reader.read(value.model_aabb);
             return value;    
         }
     };
