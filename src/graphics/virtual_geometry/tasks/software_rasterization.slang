@@ -13,7 +13,11 @@
 [numthreads(1, 1, 1)]
 void software_rasterization_write_command() {
     DispatchIndirectStruct command;
+#if SW_RASTER_COMPUTE == 0
     command.x = write_push.uses.u_meshlet_indices->count;
+#else
+    command.x = 0;
+#endif
     command.y = 1;
     command.z = 1;
     *write_push.uses.u_command = command;
@@ -78,6 +82,7 @@ void software_rasterization_mesh(
 
     VisibilityImageSWFunction sw_function;
     sw_function.visibility_image = tex_rw_u64_table[push.uses.u_visibility_image.index()];
+    sw_function.overdraw_image = push.uses.u_overdraw_image.get();
 
     generic_rasterization<VisibilityImageSWFunction>(
         local_thread_index.x,

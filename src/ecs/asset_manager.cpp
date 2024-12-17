@@ -127,13 +127,13 @@ namespace foundation {
         context->destroy_buffer(gpu_readback_mesh_cpu.get_state().buffers[0]);
 
         for(auto& mesh_manifest : mesh_manifest_entries) {
-            if(mesh_manifest.virtual_geometry_render_info->mesh.mesh_buffer.is_empty()) {
+            if(context->device.is_buffer_id_valid(mesh_manifest.virtual_geometry_render_info->mesh.mesh_buffer)) {
                 context->destroy_buffer(mesh_manifest.virtual_geometry_render_info->mesh.mesh_buffer);
             }
         }
 
         for(auto& texture_manifest : texture_manifest_entries) {
-            if(!texture_manifest.image_id.is_empty()) {
+            if(context->device.is_image_id_valid(texture_manifest.image_id)) {
                 context->destroy_image(texture_manifest.image_id);
             }
         }

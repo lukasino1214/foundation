@@ -15,9 +15,13 @@ interface SWRasterFunction {
 struct VisibilityImageSWFunction : SWRasterFunction {
     u32 payload;
     RWTexture2D<u64> visibility_image;
+    RWTexture2D<u32> overdraw_image;
 
     void write(u32vec2 position, f32 depth) {
         AtomicMaxU64(visibility_image[position], encode_visibility_buffer_payload(payload, depth));
+#if OVERDRAW_DEBUG
+        InterlockedAdd(overdraw_image[position], 1);
+#endif
     }
 };
 
@@ -161,6 +165,7 @@ void rasterize<T : SWRasterFunction>(in f32vec3[3] vertices, in i32vec2 viewport
 }
 
 #define OPTIMIZATION 1
+#define SW_RASTER_COMPUTE 1
 
 #if OPTIMIZATION == 1
 groupshared f32vec4 shared_positions[MAX_VERTICES_PER_MESHLET];

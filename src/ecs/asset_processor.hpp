@@ -12,7 +12,8 @@ namespace foundation {
         std::vector<u32> normals = {};
         std::vector<u32> uvs = {};
         std::vector<Meshlet> meshlets = {};
-        std::vector<BoundingSphere> bounding_spheres = {};
+        std::vector<MeshletBoundingSpheres> bounding_spheres = {};
+        std::vector<MeshletSimplificationError> simplification_errors = {};
         std::vector<AABB> aabbs = {};
         std::vector<u8> micro_indices = {};
         std::vector<u32> indirect_vertices = {};
@@ -25,6 +26,7 @@ namespace foundation {
             writer.write(value.uvs);
             writer.write(value.meshlets);
             writer.write(value.bounding_spheres);
+            writer.write(value.simplification_errors);
             writer.write(value.aabbs);
             writer.write(value.micro_indices);
             writer.write(value.indirect_vertices);
@@ -39,6 +41,7 @@ namespace foundation {
             reader.read(value.uvs);
             reader.read(value.meshlets);
             reader.read(value.bounding_spheres);
+            reader.read(value.simplification_errors);
             reader.read(value.aabbs);
             reader.read(value.micro_indices);
             reader.read(value.indirect_vertices);

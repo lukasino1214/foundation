@@ -34,6 +34,7 @@ namespace foundation {
         daxa::TaskImage depth_image_d32 = {};
         daxa::TaskImage depth_image_u32 = {};
         daxa::TaskImage depth_image_f32 = {};
+        daxa::TaskImage overdraw_image = {};
 
         std::vector<daxa::TaskImage> images = {};
         std::vector<std::pair<daxa::ImageInfo, daxa::TaskImage>> frame_buffer_images = {};

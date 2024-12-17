@@ -144,11 +144,24 @@ struct BoundingSphere {
 };
 DAXA_DECL_BUFFER_PTR(BoundingSphere)
 
+struct MeshletBoundingSpheres {
+    BoundingSphere culling_sphere;
+    BoundingSphere lod_group_sphere;
+    BoundingSphere lod_parent_group_sphere;
+};
+DAXA_DECL_BUFFER_PTR(MeshletBoundingSpheres)
+
 struct AABB {
     f32vec3 center;
     f32vec3 extent;
 };
 DAXA_DECL_BUFFER_PTR(AABB)
+
+struct MeshletSimplificationError {
+    f32 group_error;
+    f32 parent_group_error;
+};
+DAXA_DECL_BUFFER_PTR(MeshletSimplificationError)
 
 struct Mesh {
     daxa_BufferId mesh_buffer;
@@ -157,7 +170,8 @@ struct Mesh {
     u32 vertex_count;
     AABB aabb;
     daxa_BufferPtr(Meshlet) meshlets;
-    daxa_BufferPtr(BoundingSphere) meshlet_bounds;
+    daxa_BufferPtr(MeshletBoundingSpheres) bounding_spheres;
+    daxa_BufferPtr(MeshletSimplificationError) simplification_errors;
     daxa_BufferPtr(AABB) meshlet_aabbs;
     daxa_BufferPtr(u32) micro_indices;
     daxa_BufferPtr(u32) indirect_vertices;
@@ -248,3 +262,5 @@ SHARED_FUNCTION f32mat4x4 mat_4x3_to_4x4(f32mat4x3 mat) {
 #endif
     return ret;
 }
+
+#define OVERDRAW_DEBUG 1

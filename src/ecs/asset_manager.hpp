@@ -134,9 +134,9 @@ namespace foundation {
         daxa::TaskBuffer gpu_readback_mesh_gpu = {};
         daxa::TaskBuffer gpu_readback_mesh_cpu = {};
 
-        u32 total_meshlet_count = {};
-        u32 total_triangle_count = {};
-        u32 total_vertex_count = {};
-        u32 total_mesh_count = {};
+        usize total_meshlet_count = {};
+        usize total_triangle_count = {};
+        usize total_vertex_count = {};
+        usize total_mesh_count = {};
     };
 }

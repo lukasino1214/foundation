@@ -33,13 +33,15 @@ namespace foundation {
         depth_image_d32 = daxa::TaskImage{{ .name = "depth image d32" }};
         depth_image_u32 = daxa::TaskImage{{ .name = "depth image u32" }};
         depth_image_f32 = daxa::TaskImage{{ .name = "depth image f32" }};
+        overdraw_image = daxa::TaskImage{{ .name = "overdraw image" }};
 
         images = {
             render_image,
             depth_image_d32,
             depth_image_u32,
             depth_image_f32,
-            visibility_image
+            visibility_image,
+            overdraw_image
         };
         frame_buffer_images = {
             {
@@ -81,6 +83,14 @@ namespace foundation {
                     .name = visibility_image.info().name,
                 },
                 visibility_image,
+            },
+            {
+                {
+                    .format = daxa::Format::R32_UINT,
+                    .usage = daxa::ImageUsageFlagBits::TRANSFER_DST | daxa::ImageUsageFlagBits::SHADER_STORAGE,
+                    .name = overdraw_image.info().name,
+                },
+                overdraw_image,
             },
         };
 
@@ -264,6 +274,7 @@ namespace foundation {
         render_task_graph.use_persistent_image(depth_image_u32);
         render_task_graph.use_persistent_image(depth_image_f32);
         render_task_graph.use_persistent_image(visibility_image);
+        render_task_graph.use_persistent_image(overdraw_image);
 
         render_task_graph.use_persistent_buffer(shader_globals_buffer);
         render_task_graph.use_persistent_buffer(scene->gpu_transforms_pool.task_buffer);
@@ -352,7 +363,8 @@ namespace foundation {
             .depth_image_d32 = depth_image_d32,
             .depth_image_u32 = depth_image_u32,
             .depth_image_f32 = depth_image_f32,
-            .visibility_image = visibility_image
+            .visibility_image = visibility_image,
+            .overdraw_image = overdraw_image,
         });
 
         render_task_graph.add_task(DebugEntityOOBDrawTask {
@@ -458,6 +470,8 @@ namespace foundation {
                     {DrawMeshletsOnlyDepthTask::name(), "hw draw meshlets"},
                     {SoftwareRasterizationOnlyDepthWriteCommandTask::name(), "sw draw meshlets write"},
                     {SoftwareRasterizationOnlyDepthTask::name(), "sw draw meshlets"},
+                    {SoftwareRasterizationOnlyDepthComputeWriteCommandTask::name(), "sw draw meshlets write compute"},
+                    {SoftwareRasterizationOnlyDepthComputeTask::name(), "sw draw meshlets compute"},
                     {CombineDepthTask::name(), "combine depth"},
                 }
             },
@@ -481,6 +495,8 @@ namespace foundation {
                     {DrawMeshletsTask::name(), "hw draw meshlets"},
                     {SoftwareRasterizationWriteCommandTask::name(), "sw draw meshlets write"},
                     {SoftwareRasterizationTask::name(), "sw draw meshlets"},
+                    {SoftwareRasterizationComputeWriteCommandTask::name(), "sw draw meshlets write compute"},
+                    {SoftwareRasterizationComputeTask::name(), "sw draw meshlets compute"},
                 }
             },
             PerfomanceCategory {

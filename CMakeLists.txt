@@ -75,13 +75,15 @@ find_package(glfw3 CONFIG REQUIRED)
 find_package(glm CONFIG REQUIRED)
 find_package(Stb REQUIRED)
 find_package(zstd CONFIG REQUIRED)
-find_package(meshoptimizer CONFIG REQUIRED)
 find_package(flecs CONFIG REQUIRED)
 find_package(fastgltf CONFIG REQUIRED)
 find_package(Tracy CONFIG REQUIRED)
 find_package(imguizmo CONFIG REQUIRED)
 find_package(Lua REQUIRED)
 find_package(sol2 CONFIG REQUIRED)
+find_package(metis CONFIG REQUIRED)
+
+add_subdirectory(deps/meshoptimizer)
 
 add_executable(${PROJECT_NAME} 
     "src/main.cpp"
@@ -130,12 +132,13 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     glm::glm 
     fastgltf::fastgltf 
     $<IF:$<TARGET_EXISTS:zstd::libzstd_shared>,zstd::libzstd_shared,zstd::libzstd_static>
-    meshoptimizer::meshoptimizer
+    meshoptimizer
     $<IF:$<TARGET_EXISTS:flecs::flecs>,flecs::flecs,flecs::flecs_static>
     Tracy::TracyClient
     imguizmo::imguizmo
     ${LUA_LIBRARIES}
     sol2
+    metis
 )
 target_include_directories(${PROJECT_NAME} PRIVATE ${Stb_INCLUDE_DIR})
 target_include_directories(${PROJECT_NAME} PRIVATE "${NVTT_DIR}/include")

@@ -42,6 +42,8 @@ namespace foundation {
             return entity.add_component<LocalTransformComponent>();
         };
 
+#define COOK_ASSETS 0
+
         {
             auto entity = scene->create_entity("sponza");
             entity.handle.add<RootEntityTag>();
@@ -51,12 +53,18 @@ namespace foundation {
                 .parent = entity,
                 .path = "assets/binary/Sponza/Sponza.bmodel",
             };
-
-            //AssetProcessor::convert_gltf_to_binary("assets/models/Sponza/glTF/Sponza.gltf", "assets/binary/Sponza/Sponza.bmodel");
+#if COOK_ASSETS
+            AssetProcessor::convert_gltf_to_binary("assets/models/Sponza/glTF/Sponza.gltf", "assets/binary/Sponza/Sponza.bmodel");
+#else
             asset_manager->load_model(manifesto);
+#endif
         }
 
+#if COOK_ASSETS
+        u32 bistro_count = 1;
+#else
         u32 bistro_count = 5;
+#endif
         for(u32 x = 0; x < bistro_count; x++) {
             for(u32 y = 0; y < bistro_count; y++) {
                 for(u32 z = 0; z < bistro_count; z++) {
@@ -70,9 +78,11 @@ namespace foundation {
                         .parent = entity,
                         .path = "assets/binary/Bistro/Bistro.bmodel",
                     };
-
-                    //AssetProcessor::convert_gltf_to_binary("assets/models/Bistro/Bistro.glb", "assets/binary/Bistro/Bistro.bmodel");
+#if COOK_ASSETS
+                    AssetProcessor::convert_gltf_to_binary("assets/models/Bistro/Bistro.glb", "assets/binary/Bistro/Bistro.bmodel");
+#else           
                     asset_manager->load_model(manifesto);
+#endif                
                 }
             }
         }
@@ -228,9 +238,9 @@ namespace foundation {
 
         ImGui::Begin("Asset Manager Statistics");
         ImGui::Text("Mesh Count: %u", s_cast<u32>(asset_manager->mesh_manifest_entries.size()));
-        ImGui::Text("Meshlet Count: %u", asset_manager->total_meshlet_count);
-        ImGui::Text("Triangle Count: %u", asset_manager->total_triangle_count);
-        ImGui::Text("Vertex Count: %u", asset_manager->total_vertex_count);
+        ImGui::Text("Meshlet Count: %zu", asset_manager->total_meshlet_count);
+        ImGui::Text("Triangle Count: %zu", asset_manager->total_triangle_count);
+        ImGui::Text("Vertex Count: %zu", asset_manager->total_vertex_count);
         ImGui::End();
 
         scene_hierarchy_panel.draw();

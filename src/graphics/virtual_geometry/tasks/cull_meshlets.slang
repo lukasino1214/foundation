@@ -35,6 +35,25 @@ void write_meshlet(MeshletIndices* meshlets_indices, in u32 index) {
     meshlets_indices.indices[i] = index;
 }
 
+bool lod_error_is_imperceptible(BoundingSphere lod_sphere, f32 simplification_error, const f32mat4x4 world_from_local) {
+    let sphere_world_space = mul(world_from_local, f32vec4(lod_sphere.center, 1.0)).xyz;
+    let radius_world_space = lod_sphere.radius;
+    let error_world_space = simplification_error;
+
+    var projected_error = error_world_space;
+    const f32mat4x4 view = push.uses.u_globals->main_camera.view_matrix;
+    const f32mat4x4 clip_from_view = push.uses.u_globals->main_camera.projection_matrix;
+
+    let distance_to_closest_point_on_sphere = distance(sphere_world_space, push.uses.u_globals->main_camera.position) - radius_world_space;
+    let distance_to_closest_point_on_sphere_clamped_to_znear = max(distance_to_closest_point_on_sphere, clip_from_view[2][3]);
+    projected_error /= distance_to_closest_point_on_sphere_clamped_to_znear;
+
+    projected_error *= -clip_from_view[1][1] * 0.5;
+    projected_error *= push.uses.u_globals->render_target_size.y;
+
+    return projected_error < 1.0;
+}
+
 [shader("compute")]
 [numthreads(16, 1, 1)]
 void cull_meshlets(u32vec3 thread_index : SV_DispatchThreadID) {
@@ -49,6 +68,12 @@ void cull_meshlets(u32vec3 thread_index : SV_DispatchThreadID) {
         const f32mat4x4 transform_matrix = mat_4x3_to_4x4(push.uses.u_transforms[meshlet_data.transform_index].model_matrix);
 
         if(is_meshlet_visible(aabb, transform_matrix)) {
+            const MeshletBoundingSpheres bounding_spheres = mesh.bounding_spheres[meshlet_data.meshlet_index];
+            const MeshletSimplificationError simplification_errors = mesh.simplification_errors[meshlet_data.meshlet_index];
+            let lod_is_ok = lod_error_is_imperceptible(bounding_spheres.lod_group_sphere, simplification_errors.group_error, transform_matrix);
+            let parent_lod_is_ok = lod_error_is_imperceptible(bounding_spheres.lod_parent_group_sphere, simplification_errors.parent_group_error, transform_matrix);
+            if (!lod_is_ok || parent_lod_is_ok) { return; }
+
             const u32 viewport_width = push.uses.u_globals->render_target_size.x;
             const u32 viewport_height = push.uses.u_globals->render_target_size.y;
 

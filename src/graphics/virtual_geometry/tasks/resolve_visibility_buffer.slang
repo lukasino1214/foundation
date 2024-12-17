@@ -90,6 +90,24 @@ f32vec3 interpolate_attributes(in BarycentricDeriv derivatives, in f32vec3[3] at
         attributes[2] * derivatives.m_lambda.z;
 }
 
+f32vec3 turbo_color_map(f32 x) {
+    const f32vec4 kRedVec4 = f32vec4(0.13572138, 4.61539260, -42.66032258, 132.13108234);
+    const f32vec4 kGreenVec4 = f32vec4(0.09140261, 2.19418839, 4.84296658, -14.18503333);
+    const f32vec4 kBlueVec4 = f32vec4(0.10667330, 12.64194608, -60.58204836, 110.36276771);
+    const f32vec2 kRedVec2 = f32vec2(-152.94239396, 59.28637943);
+    const f32vec2 kGreenVec2 = f32vec2(4.27729857, 2.82956604);
+    const f32vec2 kBlueVec2 = f32vec2(-89.90310912, 27.34824973);
+
+    x = clamp(x, 0, 1);
+    f32vec4 v4 = f32vec4( 1.0, x, x * x, x * x * x);
+    f32vec2 v2 = v4.zw * v4.z;
+    return f32vec3(
+      dot(v4, kRedVec4)   + dot(v2, kRedVec2),
+      dot(v4, kGreenVec4) + dot(v2, kGreenVec2),
+      dot(v4, kBlueVec4)  + dot(v2, kBlueVec2)
+    );
+}
+
 [[vk::push_constant]] ResolveVisibilityBufferPush push;
 [shader("compute")]
 [numthreads(16, 16, 1)]
@@ -253,5 +271,10 @@ void resolve_visibility_buffer(u32vec3 pixel : SV_DispatchThreadID) {
         // }
         
     // color = f32vec4(normal * 0.5 + 0.5, 1.0f);
+
+#if OVERDRAW_DEBUG
+    color.rgb = turbo_color_map(float(push.uses.u_overdraw_image.get()[pixel.xy]) / 24.0);
+#endif
+
     push.uses.u_image.get()[pixel.xy] = color;
 }
