@@ -263,4 +263,4 @@ SHARED_FUNCTION f32mat4x4 mat_4x3_to_4x4(f32mat4x3 mat) {
     return ret;
 }
 
-#define OVERDRAW_DEBUG 1
+#define OVERDRAW_DEBUG 0

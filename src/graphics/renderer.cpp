@@ -470,8 +470,6 @@ namespace foundation {
                     {DrawMeshletsOnlyDepthTask::name(), "hw draw meshlets"},
                     {SoftwareRasterizationOnlyDepthWriteCommandTask::name(), "sw draw meshlets write"},
                     {SoftwareRasterizationOnlyDepthTask::name(), "sw draw meshlets"},
-                    {SoftwareRasterizationOnlyDepthComputeWriteCommandTask::name(), "sw draw meshlets write compute"},
-                    {SoftwareRasterizationOnlyDepthComputeTask::name(), "sw draw meshlets compute"},
                     {CombineDepthTask::name(), "combine depth"},
                 }
             },
@@ -495,8 +493,6 @@ namespace foundation {
                     {DrawMeshletsTask::name(), "hw draw meshlets"},
                     {SoftwareRasterizationWriteCommandTask::name(), "sw draw meshlets write"},
                     {SoftwareRasterizationTask::name(), "sw draw meshlets"},
-                    {SoftwareRasterizationComputeWriteCommandTask::name(), "sw draw meshlets write compute"},
-                    {SoftwareRasterizationComputeTask::name(), "sw draw meshlets compute"},
                 }
             },
             PerfomanceCategory {

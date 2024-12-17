@@ -165,7 +165,6 @@ void rasterize<T : SWRasterFunction>(in f32vec3[3] vertices, in i32vec2 viewport
 }
 
 #define OPTIMIZATION 1
-#define SW_RASTER_COMPUTE 1
 
 #if OPTIMIZATION == 1
 groupshared f32vec4 shared_positions[MAX_VERTICES_PER_MESHLET];

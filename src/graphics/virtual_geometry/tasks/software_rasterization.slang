@@ -13,61 +13,17 @@
 [numthreads(1, 1, 1)]
 void software_rasterization_write_command() {
     DispatchIndirectStruct command;
-#if SW_RASTER_COMPUTE == 0
     command.x = write_push.uses.u_meshlet_indices->count;
-#else
-    command.x = 0;
-#endif
     command.y = 1;
     command.z = 1;
     *write_push.uses.u_command = command;
 }
 
-struct MeshPayload {
-    u32 index;
-#if SOFTWARE_RASTERIZATION_OPTIMIZATION == 2
-    MeshletData meshlet_data;
-#endif
-};
-
-[shader("amplification")]
-[numthreads(1, 1, 1)]
-void software_rasterization_task(u32vec3 local_thread_index : SV_GroupThreadID, u32vec3 global_thread_index : SV_DispatchThreadID, u32vec3 group_index : SV_GroupID) {
-    MeshPayload payload;
-#if SOFTWARE_RASTERIZATION_OPTIMIZATION == 0
-    payload.index = global_thread_index.x;
-#elif SOFTWARE_RASTERIZATION_OPTIMIZATION == 1
-    payload.index = push.uses.u_meshlet_indices.indices[global_thread_index.x];
-#elif SOFTWARE_RASTERIZATION_OPTIMIZATION == 2
-    payload.index = push.uses.u_meshlet_indices.indices[global_thread_index.x];
-    payload.meshlet_data = push.uses.u_meshlets_data.meshlets[payload.index];
-#endif
-    DispatchMesh(1, 1, 1, payload);
-}
-
-[outputtopology("triangle")]
-[shader("mesh")]
+[shader("compute")]
 [numthreads(MAX_TRIANGLES_PER_MESHLET, 1, 1)]
-void software_rasterization_mesh(
-    in payload MeshPayload payload,
-    u32vec3 local_thread_index : SV_GroupThreadID,
-    u32vec3 group_index : SV_GroupID,
-    u32vec3 global_thread_index : SV_DispatchThreadID,
-    OutputIndices<u32vec3, MAX_TRIANGLES_PER_MESHLET> out_indices,
-    OutputVertices<Vertex, MAX_VERTICES_PER_MESHLET> out_vertices,
-    OutputPrimitives<Primtive, MAX_TRIANGLES_PER_MESHLET> out_primitives) {
-
-#if SOFTWARE_RASTERIZATION_OPTIMIZATION == 0
-    const u32 meshlet_index = push.uses.u_meshlet_indices.indices[payload.index];
-#elif SOFTWARE_RASTERIZATION_OPTIMIZATION == 1
-    const u32 meshlet_index = payload.index;
-#elif SOFTWARE_RASTERIZATION_OPTIMIZATION == 2
-    const u32 meshlet_index = payload.index;
-    const MeshletData meshlet_data = payload.meshlet_data;
-#endif
-#if SOFTWARE_RASTERIZATION_OPTIMIZATION != 2
+void software_rasterization(u32vec3 local_thread_index : SV_GroupThreadID, u32vec3 group_index : SV_GroupID) {
+    const u32 meshlet_index = push.uses.u_meshlet_indices.indices[group_index.x];
     const MeshletData meshlet_data = push.uses.u_meshlets_data.meshlets[meshlet_index];
-#endif
     const Mesh mesh = push.uses.u_meshes[meshlet_data.mesh_index];
     const Meshlet meshlet = mesh.meshlets[meshlet_data.meshlet_index];
 
@@ -94,6 +50,3 @@ void software_rasterization_mesh(
         sw_function
     );
 }
-
-[shader("fragment")]
-void software_rasterization_frag(in Vertex vertex, in Primtive primitive) {}   

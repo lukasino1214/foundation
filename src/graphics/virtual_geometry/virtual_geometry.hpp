@@ -7,8 +7,6 @@
 // #include <graphics/virtual_geometry/tasks/build_index_buffer.inl>
 #include <graphics/virtual_geometry/tasks/software_rasterization.inl>
 #include <graphics/virtual_geometry/tasks/software_rasterization_only_depth.inl>
-#include <graphics/virtual_geometry/tasks/software_rasterization_compute.inl>
-#include <graphics/virtual_geometry/tasks/software_rasterization_only_depth_compute.inl>
 #include <graphics/virtual_geometry/tasks/cull_meshes.inl>
 #include <graphics/virtual_geometry/tasks/draw_meshlets.inl>
 #include <graphics/virtual_geometry/tasks/draw_meshlets_only_depth.inl>
@@ -52,8 +50,6 @@ namespace foundation {
             context->gpu_metrics[Tasks::CLEAR_VISIBILITY_IMAGE] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
             
             // early pass
-            context->gpu_metrics[SoftwareRasterizationOnlyDepthWriteCommandTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
-            context->gpu_metrics[SoftwareRasterizationOnlyDepthTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
             context->gpu_metrics[DrawMeshletsOnlyDepthWriteCommandTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
             context->gpu_metrics[DrawMeshletsOnlyDepthTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
             context->gpu_metrics[CombineDepthTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
@@ -70,24 +66,20 @@ namespace foundation {
             // late pass
             context->gpu_metrics[DrawMeshletsWriteCommandTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
             context->gpu_metrics[DrawMeshletsTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
-            context->gpu_metrics[SoftwareRasterizationWriteCommandTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
-            context->gpu_metrics[SoftwareRasterizationTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
 
             // resolve
             context->gpu_metrics[ResolveVisibilityBufferTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
         
-            context->gpu_metrics[SoftwareRasterizationOnlyDepthComputeWriteCommandTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
-            context->gpu_metrics[SoftwareRasterizationOnlyDepthComputeTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
-            context->gpu_metrics[SoftwareRasterizationComputeWriteCommandTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
-            context->gpu_metrics[SoftwareRasterizationComputeTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
+            context->gpu_metrics[SoftwareRasterizationOnlyDepthWriteCommandTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
+            context->gpu_metrics[SoftwareRasterizationOnlyDepthTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
+            context->gpu_metrics[SoftwareRasterizationWriteCommandTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
+            context->gpu_metrics[SoftwareRasterizationTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
         }
 
         static inline auto get_raster_pipelines() -> std::vector<std::pair<std::string_view, daxa::RasterPipelineCompileInfo>> {
             return {
                 {DrawMeshletsTask::name(), DrawMeshletsTask::pipeline_config_info()},
                 {DrawMeshletsOnlyDepthTask::name(), DrawMeshletsOnlyDepthTask::pipeline_config_info()},
-                {SoftwareRasterizationTask::name(), SoftwareRasterizationTask::pipeline_config_info()},
-                {SoftwareRasterizationOnlyDepthTask::name(), SoftwareRasterizationOnlyDepthTask::pipeline_config_info()},
             };
         }
 
@@ -103,17 +95,15 @@ namespace foundation {
                 // {HWBuildIndexBufferTask::name(), HWBuildIndexBufferTask::pipeline_config_info()},
                 // {SWBuildIndexBufferWriteCommandTask::name(), SWBuildIndexBufferWriteCommandTask::pipeline_config_info()},
                 // {SWBuildIndexBufferTask::name(), SWBuildIndexBufferTask::pipeline_config_info()},
-                {SoftwareRasterizationWriteCommandTask::name(), SoftwareRasterizationWriteCommandTask::pipeline_config_info()},
-                {SoftwareRasterizationOnlyDepthWriteCommandTask::name(), SoftwareRasterizationOnlyDepthWriteCommandTask::pipeline_config_info()},
                 {CullMeshesWriteCommandTask::name(), CullMeshesWriteCommandTask::pipeline_config_info()},
                 {CullMeshesTask::name(), CullMeshesTask::pipeline_config_info()},
                 {DrawMeshletsWriteCommandTask::name(), DrawMeshletsWriteCommandTask::pipeline_config_info()},
                 {DrawMeshletsOnlyDepthWriteCommandTask::name(), DrawMeshletsOnlyDepthWriteCommandTask::pipeline_config_info()},
                 {CombineDepthTask::name(), CombineDepthTask::pipeline_config_info()},
-                {SoftwareRasterizationComputeWriteCommandTask::name(), SoftwareRasterizationComputeWriteCommandTask::pipeline_config_info()},
-                {SoftwareRasterizationOnlyDepthComputeWriteCommandTask::name(), SoftwareRasterizationOnlyDepthComputeWriteCommandTask::pipeline_config_info()},
-                {SoftwareRasterizationComputeTask::name(), SoftwareRasterizationComputeTask::pipeline_config_info()},
-                {SoftwareRasterizationOnlyDepthComputeTask::name(), SoftwareRasterizationOnlyDepthComputeTask::pipeline_config_info()},
+                {SoftwareRasterizationWriteCommandTask::name(), SoftwareRasterizationWriteCommandTask::pipeline_config_info()},
+                {SoftwareRasterizationOnlyDepthWriteCommandTask::name(), SoftwareRasterizationOnlyDepthWriteCommandTask::pipeline_config_info()},
+                {SoftwareRasterizationTask::name(), SoftwareRasterizationTask::pipeline_config_info()},
+                {SoftwareRasterizationOnlyDepthTask::name(), SoftwareRasterizationOnlyDepthTask::pipeline_config_info()},
             };
         }
 
@@ -188,28 +178,6 @@ namespace foundation {
                     SoftwareRasterizationOnlyDepthTask::AT.u_globals | info.context->shader_globals_buffer,
                     SoftwareRasterizationOnlyDepthTask::AT.u_command | u_command,
                     SoftwareRasterizationOnlyDepthTask::AT.u_depth_image | info.depth_image_u32,
-                },
-                .context = info.context,
-            });
-
-            info.task_graph.add_task(SoftwareRasterizationOnlyDepthComputeWriteCommandTask {
-                .views = std::array{
-                    SoftwareRasterizationOnlyDepthComputeWriteCommandTask::AT.u_meshlet_indices | info.gpu_sw_culled_meshlet_indices,
-                    SoftwareRasterizationOnlyDepthComputeWriteCommandTask::AT.u_command | u_command,
-                },
-                .context = info.context,
-            });
-
-            info.task_graph.add_task(SoftwareRasterizationOnlyDepthComputeTask {
-                .views = std::array{
-                    SoftwareRasterizationOnlyDepthComputeTask::AT.u_meshlet_indices | info.gpu_sw_culled_meshlet_indices,
-                    SoftwareRasterizationOnlyDepthComputeTask::AT.u_meshlets_data | info.gpu_meshlet_data,
-                    SoftwareRasterizationOnlyDepthComputeTask::AT.u_meshes | info.gpu_meshes,
-                    SoftwareRasterizationOnlyDepthComputeTask::AT.u_transforms | info.gpu_transforms,
-                    SoftwareRasterizationOnlyDepthComputeTask::AT.u_materials | info.gpu_materials,
-                    SoftwareRasterizationOnlyDepthComputeTask::AT.u_globals | info.context->shader_globals_buffer,
-                    SoftwareRasterizationOnlyDepthComputeTask::AT.u_command | u_command,
-                    SoftwareRasterizationOnlyDepthComputeTask::AT.u_depth_image | info.depth_image_u32,
                 },
                 .context = info.context,
             });
@@ -380,29 +348,6 @@ namespace foundation {
                     SoftwareRasterizationTask::AT.u_command | u_command,
                     SoftwareRasterizationTask::AT.u_visibility_image | info.visibility_image,
                     SoftwareRasterizationTask::AT.u_overdraw_image | info.overdraw_image,
-                },
-                .context = info.context,
-            });
-
-            info.task_graph.add_task(SoftwareRasterizationComputeWriteCommandTask {
-                .views = std::array{
-                    SoftwareRasterizationComputeWriteCommandTask::AT.u_meshlet_indices | info.gpu_sw_culled_meshlet_indices,
-                    SoftwareRasterizationComputeWriteCommandTask::AT.u_command | u_command,
-                },
-                .context = info.context,
-            });
-
-            info.task_graph.add_task(SoftwareRasterizationComputeTask {
-                .views = std::array{
-                    SoftwareRasterizationComputeTask::AT.u_meshlet_indices | info.gpu_sw_culled_meshlet_indices,
-                    SoftwareRasterizationComputeTask::AT.u_meshlets_data | info.gpu_meshlet_data,
-                    SoftwareRasterizationComputeTask::AT.u_meshes | info.gpu_meshes,
-                    SoftwareRasterizationComputeTask::AT.u_transforms | info.gpu_transforms,
-                    SoftwareRasterizationComputeTask::AT.u_materials | info.gpu_materials,
-                    SoftwareRasterizationComputeTask::AT.u_globals | info.context->shader_globals_buffer,
-                    SoftwareRasterizationComputeTask::AT.u_command | u_command,
-                    SoftwareRasterizationComputeTask::AT.u_visibility_image | info.visibility_image,
-                    SoftwareRasterizationComputeTask::AT.u_overdraw_image | info.overdraw_image,
                 },
                 .context = info.context,
             });
