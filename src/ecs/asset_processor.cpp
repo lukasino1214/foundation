@@ -1245,6 +1245,10 @@ namespace foundation {
             CONE_WEIGHT
         );
 
+        for(const Meshlet& meshlet : meshlets) {
+            meshopt_optimizeMeshlet(&meshlet_indirect_vertices[meshlet.indirect_vertex_offset], &meshlet_micro_indices[meshlet.micro_indices_offset], meshlet.triangle_count, meshlet.vertex_count);
+        }
+        
         std::vector<MeshletBoundingSpheres> bounding_spheres(meshlet_count);
         std::vector<AABB> meshlet_aabbs(meshlet_count);
         f32vec3 mesh_aabb_max = glm::vec3{std::numeric_limits<f32>::lowest()};

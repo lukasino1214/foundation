@@ -51,8 +51,6 @@ void cull_meshes(u32vec3 thread_index : SV_DispatchThreadID) {
 
             if(mesh.mesh_buffer.value == 0) { continue; }
             MeshData mesh_data;
-            mesh_data.mesh_group_index = entity_data.mesh_group_index;
-            mesh_data.local_mesh_index = local_mesh_index;
             mesh_data.global_mesh_index = global_mesh_index;
             mesh_data.transform_index = entity_data.transform_index;
 

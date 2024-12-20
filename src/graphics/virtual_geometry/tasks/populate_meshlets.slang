@@ -33,7 +33,6 @@ void populate_meshlets(u32vec3 thread_index : SV_DispatchThreadID) {
 
         for(u32 i = 0; i < mesh.meshlet_count; i++) {
             MeshletData meshlet_data;
-            meshlet_data.mesh_group_index = mesh_data.mesh_group_index;
             meshlet_data.mesh_index = mesh_data.global_mesh_index;
             meshlet_data.meshlet_index = i;
             meshlet_data.transform_index = mesh_data.transform_index;

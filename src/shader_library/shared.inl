@@ -185,7 +185,6 @@ DAXA_DECL_BUFFER_PTR_ALIGN(Mesh, 8)
 
 struct MeshletData {
     u32 mesh_index;
-    u32 mesh_group_index;
     u32 meshlet_index;
     u32 transform_index;
 };
@@ -198,8 +197,6 @@ struct EntityData {
 DAXA_DECL_BUFFER_PTR(EntityData)
 
 struct MeshData {
-    u32 mesh_group_index;
-    u32 local_mesh_index;
     u32 global_mesh_index;
     u32 transform_index;
 };
