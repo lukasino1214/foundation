@@ -16,7 +16,7 @@ NdcAABB calculate_ndc_aabb_from_worldspace(in f32mat4x4 model_matrix, in f32mat4
 
     const f32mat4x4 mvp = mul(projection_view_matrix, model_matrix);
     const f32vec3 model_corner_position = aabb.center + aabb.extent * f32vec3(-1.0f, -1.0f, -1.0f);
-    const f32vec4 clipspace_corner_position = mul(mvp, float4(model_corner_position,1));
+    const f32vec4 clipspace_corner_position = mul(mvp, f32vec4(model_corner_position,1));
     const f32vec3 ndc_corner_position = clipspace_corner_position.xyz * rcp(clipspace_corner_position.w);
     ret.ndc_min = ndc_corner_position.xyz;
     ret.ndc_max = ndc_corner_position.xyz;
