@@ -29,12 +29,8 @@ void software_rasterization(u32vec3 local_thread_index : SV_GroupThreadID, u32ve
 
     const f32vec2 scale = f32vec2(0.5f, 0.5f) * f32vec2(push.uses.u_globals->render_target_size) * f32(SUBPIXEL_SAMPLES);
     const f32vec2 bias = (0.5 * f32vec2(push.uses.u_globals->render_target_size)) * f32(SUBPIXEL_SAMPLES) + 0.5;
-    f32mat4x4 pvm = mat_4x3_to_4x4(push.uses.u_transforms[meshlet_data.transform_index].model_matrix);
-    if(push.uses.u_globals.render_as_observer) {
-        pvm = mul(push.uses.u_globals->observer_camera.projection_view_matrix, pvm);
-    } else {
-        pvm = mul(push.uses.u_globals->main_camera.projection_view_matrix, pvm);
-    }
+    const f32mat4x4 transform_matrix = mat_4x3_to_4x4(push.uses.u_transforms[meshlet_data.transform_index].model_matrix);
+    const f32mat4x4 pvm = mul(push.uses.u_globals->main_camera.projection_view_matrix, transform_matrix);
 
     OnlyDepthSWFunction sw_function;
     sw_function.depth_image = push.uses.u_depth_image.get();
