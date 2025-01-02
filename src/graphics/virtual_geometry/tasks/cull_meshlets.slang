@@ -15,8 +15,8 @@ void cull_meshlets_write_command() {
     command.y = 1;
     command.z = 1;
     *write_push.uses.u_command = command;
-    write_push.uses.u_hw_culled_meshlet_indices->count = 0;
-    write_push.uses.u_sw_culled_meshlet_indices->count = 0;
+    write_push.uses.u_meshlets_data_merged->hw_count = 0;
+    write_push.uses.u_meshlets_data_merged->sw_count = 0;
 }
 
 bool is_meshlet_visible(AABB aabb, f32mat4x4 model) {
@@ -127,9 +127,13 @@ void cull_meshlets(u32vec3 thread_index : SV_DispatchThreadID) {
             abs(max_viewport.y - min_viewport.y) < 32;
 
         if(is_sw_candidate && push.uses.u_globals->render_as_observer == 0) {
-            write_meshlet(push.uses.u_sw_culled_meshlet_indices, current_thread_index);
+            u32 i = 0;
+            InterlockedAdd(push.uses.u_meshlets_data_merged->sw_count, 1, i);
+            push.uses.u_meshlets_data_merged.sw_meshlet_data[i] = meshlet_data;
         } else {
-            write_meshlet(push.uses.u_hw_culled_meshlet_indices, current_thread_index);
+            u32 i = 0;
+            InterlockedAdd(push.uses.u_meshlets_data_merged->hw_count, 1, i);
+            push.uses.u_meshlets_data_merged.hw_meshlet_data[i] = meshlet_data;
         }
     }
 }

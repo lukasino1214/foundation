@@ -127,7 +127,11 @@ void resolve_visibility_buffer(u32vec3 pixel : SV_DispatchThreadID) {
     u32 triangle_index = 0;
     decode_triangle_id(vis_index, meshlet_data_index, triangle_index);
 
+#if MERGED_MESHLETS_DATA == 0
     const MeshletData meshlet_data = push.uses.u_meshlets_data->meshlets[meshlet_data_index];
+#else
+    const MeshletData meshlet_data = push.uses.u_meshlets_data_merged.meshlet_data[meshlet_data_index];
+#endif
     const Mesh mesh = push.uses.u_meshes[meshlet_data.mesh_index];
     const Meshlet meshlet = mesh.meshlets[meshlet_data.meshlet_index];
 

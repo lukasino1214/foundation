@@ -13,7 +13,7 @@
 [numthreads(1, 1, 1)]
 void software_rasterization_write_command() {
     DispatchIndirectStruct command;
-    command.x = write_push.uses.u_meshlet_indices->count;
+    command.x = write_push.uses.u_meshlets_data_merged->sw_count;
     command.y = 1;
     command.z = 1;
     *write_push.uses.u_command = command;
@@ -22,8 +22,7 @@ void software_rasterization_write_command() {
 [shader("compute")]
 [numthreads(MAX_TRIANGLES_PER_MESHLET, 1, 1)]
 void software_rasterization(u32vec3 local_thread_index : SV_GroupThreadID, u32vec3 group_index : SV_GroupID) {
-    const u32 meshlet_index = push.uses.u_meshlet_indices.indices[group_index.x];
-    const MeshletData meshlet_data = push.uses.u_meshlets_data.meshlets[meshlet_index];
+    const MeshletData meshlet_data = push.uses.u_meshlets_data_merged.sw_meshlet_data[group_index.x];
     const Mesh mesh = push.uses.u_meshes[meshlet_data.mesh_index];
     const Meshlet meshlet = mesh.meshlets[meshlet_data.meshlet_index];
 
@@ -35,6 +34,8 @@ void software_rasterization(u32vec3 local_thread_index : SV_GroupThreadID, u32ve
     VisibilityImageSWFunction sw_function;
     sw_function.visibility_image = tex_rw_u64_table[push.uses.u_visibility_image.index()];
     sw_function.overdraw_image = push.uses.u_overdraw_image.get();
+
+    const u32 meshlet_index = push.uses.u_meshlets_data_merged.sw_offset + group_index.x;
 
     generic_rasterization<VisibilityImageSWFunction>(
         local_thread_index.x,

@@ -226,6 +226,17 @@ struct MeshletIndexBuffer {
 };
 DAXA_DECL_BUFFER_PTR(MeshletIndexBuffer)
 
+struct MeshletsDataMerged {
+    u32 hw_count;
+    u32 sw_count;
+    u32 hw_offset;
+    u32 sw_offset;
+    daxa_BufferPtr(MeshletData) meshlet_data;
+    daxa_BufferPtr(MeshletData) hw_meshlet_data;
+    daxa_BufferPtr(MeshletData) sw_meshlet_data;
+};
+DAXA_DECL_BUFFER_PTR(MeshletsDataMerged)
+
 #if defined(__cplusplus)
 #define SHARED_FUNCTION inline
 #define SHARED_FUNCTION_INOUT(X) X &

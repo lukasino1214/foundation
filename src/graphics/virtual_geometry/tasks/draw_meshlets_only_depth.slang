@@ -10,7 +10,7 @@
 [numthreads(1, 1, 1)]
 void draw_meshlets_only_depth_write_command() {
     DispatchIndirectStruct command;
-    command.x = write_push.uses.u_meshlet_indices->count;
+    command.x = write_push.uses.u_meshlets_data_merged->hw_count;
     command.y = 1;
     command.z = 1;
     *write_push.uses.u_command = command;
@@ -40,17 +40,18 @@ void draw_meshlets_only_depth_mesh(
     OutputIndices<u32vec3, MAX_TRIANGLES_PER_MESHLET> out_indices,
     OutputVertices<Vertex, MAX_VERTICES_PER_MESHLET> out_vertices,
     OutputPrimitives<Primtive, MAX_TRIANGLES_PER_MESHLET> out_primitives) {
-    const u32 meshlet_index = push.uses.u_meshlet_indices.indices[payload.index];
-    const MeshletData meshlet_data = push.uses.u_meshlets_data.meshlets[meshlet_index];
+    const MeshletData meshlet_data = push.uses.u_meshlets_data_merged.hw_meshlet_data[payload.index];
     const Mesh mesh = push.uses.u_meshes[meshlet_data.mesh_index];
     const Meshlet meshlet = mesh.meshlets[meshlet_data.meshlet_index];
-
+    
     f32mat4x4 pvm = mat_4x3_to_4x4(push.uses.u_transforms[meshlet_data.transform_index].model_matrix);
     if(push.uses.u_globals.render_as_observer) {
         pvm = mul(push.uses.u_globals->observer_camera.projection_view_matrix, pvm);
     } else {
         pvm = mul(push.uses.u_globals->main_camera.projection_view_matrix, pvm);
     }
+
+    const u32 meshlet_index = push.uses.u_meshlets_data_merged.hw_offset + payload.index;
 
     generic_mesh(
         local_thread_index.x,

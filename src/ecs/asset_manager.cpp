@@ -76,18 +76,6 @@ namespace foundation {
             "culled meshes data"
         });
 
-        gpu_hw_culled_meshlet_indices = make_task_buffer(context, {
-            sizeof(MeshletsData),
-            daxa::MemoryFlagBits::DEDICATED_MEMORY,
-            "hw culled meshlet indices"
-        });
-
-        gpu_sw_culled_meshlet_indices = make_task_buffer(context, {
-            sizeof(MeshletsData),
-            daxa::MemoryFlagBits::DEDICATED_MEMORY,
-            "sw culled meshlet indices"
-        });
-
         gpu_readback_material_gpu = make_task_buffer(context, {
             sizeof(u32),
             daxa::MemoryFlagBits::DEDICATED_MEMORY,
@@ -111,6 +99,12 @@ namespace foundation {
             daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
             "readback mesh cpu"
         });
+
+        gpu_meshlets_data_merged = make_task_buffer(context, {
+            sizeof(MeshletsDataMerged),
+            daxa::MemoryFlagBits::DEDICATED_MEMORY,
+            "meshlets data merged"
+        });
     }
     AssetManager::~AssetManager() {
         context->destroy_buffer(gpu_meshes.get_state().buffers[0]);
@@ -118,9 +112,8 @@ namespace foundation {
         context->destroy_buffer(gpu_mesh_groups.get_state().buffers[0]);
         context->destroy_buffer(gpu_mesh_indices.get_state().buffers[0]);
         context->destroy_buffer(gpu_meshlet_data.get_state().buffers[0]);
+        context->destroy_buffer(gpu_meshlets_data_merged.get_state().buffers[0]);
         context->destroy_buffer(gpu_culled_meshes_data.get_state().buffers[0]);
-        context->destroy_buffer(gpu_hw_culled_meshlet_indices.get_state().buffers[0]);
-        context->destroy_buffer(gpu_sw_culled_meshlet_indices.get_state().buffers[0]);
         context->destroy_buffer(gpu_readback_material_gpu.get_state().buffers[0]);
         context->destroy_buffer(gpu_readback_material_cpu.get_state().buffers[0]);
         context->destroy_buffer(gpu_readback_mesh_gpu.get_state().buffers[0]);
@@ -558,16 +551,15 @@ namespace foundation {
                 .meshes = context->device.buffer_device_address(buffer).value() + sizeof(MeshesData)
             };
         });
-        realloc_special(gpu_hw_culled_meshlet_indices, total_meshlet_count * sizeof(u32) + sizeof(MeshletIndices), [&](const daxa::BufferId& buffer) -> MeshletIndices {
-            return MeshletIndices {
-                .count = 0,
-                .indices = context->device.buffer_device_address(buffer).value() + sizeof(MeshletIndices)
-            };
-        });
-        realloc_special(gpu_sw_culled_meshlet_indices, total_meshlet_count * sizeof(u32) + sizeof(MeshletIndices), [&](const daxa::BufferId& buffer) -> MeshletIndices {
-            return MeshletIndices {
-                .count = 0,
-                .indices = context->device.buffer_device_address(buffer).value() + sizeof(MeshletIndices)
+        realloc_special(gpu_meshlets_data_merged, total_meshlet_count * sizeof(MeshletData) * 2 + sizeof(MeshletsDataMerged), [&](const daxa::BufferId& buffer) -> MeshletsDataMerged {
+            return MeshletsDataMerged {
+                .hw_count = 0,
+                .sw_count = 0,
+                .hw_offset = 0,
+                .sw_offset = s_cast<u32>(total_meshlet_count),
+                .meshlet_data = context->device.buffer_device_address(buffer).value() + sizeof(MeshletsDataMerged),
+                .hw_meshlet_data = context->device.buffer_device_address(buffer).value() + sizeof(MeshletsDataMerged),
+                .sw_meshlet_data = context->device.buffer_device_address(buffer).value() + sizeof(MeshletsDataMerged) + total_meshlet_count * sizeof(MeshletData)
             };
         });
 

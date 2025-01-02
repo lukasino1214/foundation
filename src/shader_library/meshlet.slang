@@ -19,12 +19,12 @@ u32 get_vertex_index(Mesh mesh, Meshlet meshlet, u32 triangle_index, u32 offset)
 }
 
 void encode_triangle_id(inout u32 id, in u32 meshlet_index, in u32 triangle_index) {
-    id = (meshlet_index << 8) | (triangle_index);
+    id = (meshlet_index << 6) | (triangle_index);
 }
 
 void decode_triangle_id(in u32 id, out u32 meshlet_index, out u32 triangle_index) {
-    meshlet_index = id >> 8;
-    triangle_index = id & 0xFF;
+    meshlet_index = id >> 6;
+    triangle_index = id & 0x3F;
 }
 
 #define DECL_GET_SET(TYPE, FIELD)\
