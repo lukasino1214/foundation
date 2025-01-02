@@ -19,16 +19,6 @@ void cull_meshlets_write_command() {
     write_push.uses.u_meshlets_data_merged->sw_count = 0;
 }
 
-bool is_meshlet_visible(AABB aabb, f32mat4x4 model) {
-    const AABB worldspace_aabb = calculate_worldspace_aabb_from_modelspace(model, aabb);
-    if(!is_worldspace_aabb_frusum_visible(push.uses.u_globals->main_camera, worldspace_aabb)) {
-        return false;
-    }
-
-    const NdcAABB ndc_aabb = calculate_ndc_aabb_from_worldspace(model, push.uses.u_globals->main_camera.projection_view_matrix, aabb);
-    return !is_ndc_aabb_hiz_depth_visible(ndc_aabb, push.uses.u_globals->next_lower_po2_render_target_size, push.uses.u_hiz);
-}
-
 bool lod_error_is_imperceptible(BoundingSphere lod_sphere, f32 simplification_error, const f32mat4x4 transform_matrix, const f32mat4x4 projection_matrix) {
     let sphere_world_space = mul(transform_matrix, f32vec4(lod_sphere.center, 1.0)).xyz;
     let radius_world_space = lod_sphere.radius;
