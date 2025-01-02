@@ -29,12 +29,6 @@ bool is_meshlet_visible(AABB aabb, f32mat4x4 model) {
     return !is_ndc_aabb_hiz_depth_visible(ndc_aabb, push.uses.u_globals->next_lower_po2_render_target_size, push.uses.u_hiz);
 }
 
-void write_meshlet(MeshletIndices* meshlets_indices, in u32 index) {
-    u32 i = 0;
-    InterlockedAdd(meshlets_indices->count, 1, i);
-    meshlets_indices.indices[i] = index;
-}
-
 bool lod_error_is_imperceptible(BoundingSphere lod_sphere, f32 simplification_error, const f32mat4x4 transform_matrix, const f32mat4x4 projection_matrix) {
     let sphere_world_space = mul(transform_matrix, f32vec4(lod_sphere.center, 1.0)).xyz;
     let radius_world_space = lod_sphere.radius;

@@ -32,10 +32,10 @@ namespace foundation {
             daxa::TaskBufferView gpu_mesh_groups = {};
             daxa::TaskBufferView gpu_mesh_indices = {};
             daxa::TaskBufferView gpu_meshlet_data = {};
+            daxa::TaskBufferView gpu_meshlets_data_merged = {};
             daxa::TaskBufferView gpu_culled_meshes_data = {};
             daxa::TaskBufferView gpu_readback_material = {};
             daxa::TaskBufferView gpu_readback_mesh = {};
-            daxa::TaskBufferView gpu_meshlets_data_merged = {};
             daxa::TaskImageView color_image = {};
             daxa::TaskImageView depth_image_d32 = {};
             daxa::TaskImageView depth_image_u32 = {};

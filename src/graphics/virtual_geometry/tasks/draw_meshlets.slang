@@ -52,7 +52,7 @@ void draw_meshlets_mesh(
     }
 
     const u32 meshlet_index = push.uses.u_meshlets_data_merged.hw_offset + payload.index;
-    
+
     generic_mesh(
         local_thread_index.x,
         meshlet_index,
