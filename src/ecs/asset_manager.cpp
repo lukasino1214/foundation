@@ -64,12 +64,6 @@ namespace foundation {
             "mesh indices"
         });
 
-        gpu_meshlet_data = make_task_buffer(context, {
-            sizeof(MeshletsData),
-            daxa::MemoryFlagBits::DEDICATED_MEMORY,
-            "meshlet data"
-        });
-
         gpu_culled_meshes_data = make_task_buffer(context, {
             sizeof(MeshesData),
             daxa::MemoryFlagBits::DEDICATED_MEMORY,
@@ -105,19 +99,25 @@ namespace foundation {
             daxa::MemoryFlagBits::DEDICATED_MEMORY,
             "meshlets data merged"
         });
+
+        gpu_prefix_sum_work_expansion_mesh = make_task_buffer(context, {
+            sizeof(PrefixSumWorkExpansion),
+            daxa::MemoryFlagBits::DEDICATED_MEMORY,
+            "prefix sum work expansion mesh"
+        });
     }
     AssetManager::~AssetManager() {
         context->destroy_buffer(gpu_meshes.get_state().buffers[0]);
         context->destroy_buffer(gpu_materials.get_state().buffers[0]);
         context->destroy_buffer(gpu_mesh_groups.get_state().buffers[0]);
         context->destroy_buffer(gpu_mesh_indices.get_state().buffers[0]);
-        context->destroy_buffer(gpu_meshlet_data.get_state().buffers[0]);
         context->destroy_buffer(gpu_meshlets_data_merged.get_state().buffers[0]);
         context->destroy_buffer(gpu_culled_meshes_data.get_state().buffers[0]);
         context->destroy_buffer(gpu_readback_material_gpu.get_state().buffers[0]);
         context->destroy_buffer(gpu_readback_material_cpu.get_state().buffers[0]);
         context->destroy_buffer(gpu_readback_mesh_gpu.get_state().buffers[0]);
         context->destroy_buffer(gpu_readback_mesh_cpu.get_state().buffers[0]);
+        context->destroy_buffer(gpu_prefix_sum_work_expansion_mesh.get_state().buffers[0]);
 
         for(auto& mesh_manifest : mesh_manifest_entries) {
             if(context->device.is_buffer_id_valid(mesh_manifest.virtual_geometry_render_info->mesh.mesh_buffer)) {
@@ -175,6 +175,7 @@ namespace foundation {
             byte_reader.read(asset.nodes);
             byte_reader.read(asset.mesh_groups);
             byte_reader.read(asset.meshes);
+            total_unique_mesh_count += s_cast<u32>(asset.meshes.size());
             total_mesh_count += s_cast<u32>(asset.meshes.size());
 
             asset_manifest_entries.push_back(AssetManifestEntry {
@@ -484,7 +485,7 @@ namespace foundation {
         PROFILE_SCOPE;
         auto cmd_recorder = context->device.create_command_recorder({ .name = "asset manager update" });
 
-        auto realloc = [&](daxa::TaskBuffer& task_buffer, u32 new_size) {
+        auto realloc = [&](daxa::TaskBuffer& task_buffer, usize new_size) {
             daxa::BufferId buffer = task_buffer.get_state().buffers[0];
             auto info = context->device.buffer_info(buffer).value();
             if(info.size < new_size) {
@@ -505,7 +506,7 @@ namespace foundation {
             }
         };
 
-        auto realloc_special = [&](daxa::TaskBuffer& task_buffer, u32 new_size, auto lambda) {
+        auto realloc_special = [&](daxa::TaskBuffer& task_buffer, usize new_size, auto lambda) {
             daxa::BufferId buffer = task_buffer.get_state().buffers[0];
             auto info = context->device.buffer_info(buffer).value();
             if(info.size < new_size) {
@@ -539,12 +540,6 @@ namespace foundation {
         realloc(gpu_materials, s_cast<u32>(material_manifest_entries.size() * sizeof(Material)));
         realloc(gpu_mesh_groups, s_cast<u32>(mesh_group_manifest_entries.size() * sizeof(MeshGroup)));
         realloc(gpu_mesh_indices, s_cast<u32>(mesh_manifest_entries.size() * sizeof(u32)));
-        realloc_special(gpu_meshlet_data, total_meshlet_count * sizeof(MeshletData) + sizeof(MeshletsData), [&](const daxa::BufferId& buffer) -> MeshletsData {
-            return MeshletsData {
-                .count = 0,
-                .meshlets = context->device.buffer_device_address(buffer).value() + sizeof(MeshletsData)
-            };
-        });
         realloc_special(gpu_culled_meshes_data, s_cast<u32>(total_mesh_count * sizeof(MeshData) + sizeof(MeshesData)), [&](const daxa::BufferId& buffer) -> MeshesData {
             return MeshesData {
                 .count = 0,
@@ -560,6 +555,16 @@ namespace foundation {
                 .meshlet_data = context->device.buffer_device_address(buffer).value() + sizeof(MeshletsDataMerged),
                 .hw_meshlet_data = context->device.buffer_device_address(buffer).value() + sizeof(MeshletsDataMerged),
                 .sw_meshlet_data = context->device.buffer_device_address(buffer).value() + sizeof(MeshletsDataMerged) + total_meshlet_count * sizeof(MeshletData)
+            };
+        });
+        realloc_special(gpu_prefix_sum_work_expansion_mesh, total_mesh_count * sizeof(u32) * 3 + sizeof(PrefixSumWorkExpansion), [&](const daxa::BufferId& buffer) -> PrefixSumWorkExpansion {
+            return PrefixSumWorkExpansion {
+                .merged_expansion_count_thread_count = 0,
+                .expansions_max = s_cast<u32>(total_mesh_count),
+                .workgroup_count = 0,
+                .expansions_inclusive_prefix_sum = context->device.buffer_device_address(buffer).value() + sizeof(PrefixSumWorkExpansion) + total_mesh_count * sizeof(u32) * 0,
+                .expansions_src_work_item = context->device.buffer_device_address(buffer).value() + sizeof(PrefixSumWorkExpansion) + total_mesh_count * sizeof(u32) * 1,
+                .expansions_expansion_factor = context->device.buffer_device_address(buffer).value() + sizeof(PrefixSumWorkExpansion) + total_mesh_count * sizeof(u32) * 2
             };
         });
 

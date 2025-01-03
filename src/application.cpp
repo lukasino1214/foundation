@@ -237,7 +237,8 @@ namespace foundation {
         ImGui::End();
 
         ImGui::Begin("Asset Manager Statistics");
-        ImGui::Text("Mesh Count: %u", s_cast<u32>(asset_manager->mesh_manifest_entries.size()));
+        ImGui::Text("Unique Mesh Count: %u", s_cast<u32>(asset_manager->total_unique_mesh_count));
+        ImGui::Text("Mesh Count: %u", s_cast<u32>(asset_manager->total_mesh_count));
         ImGui::Text("Meshlet Count: %zu", asset_manager->total_meshlet_count);
         ImGui::Text("Triangle Count: %zu", asset_manager->total_triangle_count);
         ImGui::Text("Vertex Count: %zu", asset_manager->total_vertex_count);

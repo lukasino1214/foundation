@@ -237,6 +237,16 @@ struct MeshletsDataMerged {
 };
 DAXA_DECL_BUFFER_PTR(MeshletsDataMerged)
 
+struct PrefixSumWorkExpansion {
+    u64 merged_expansion_count_thread_count;
+    u32 expansions_max;
+    u32 workgroup_count;
+    daxa_BufferPtr(u32) expansions_inclusive_prefix_sum;
+    daxa_BufferPtr(u32) expansions_src_work_item;
+    daxa_BufferPtr(u32) expansions_expansion_factor;
+};
+DAXA_DECL_BUFFER_PTR(PrefixSumWorkExpansion)
+
 #if defined(__cplusplus)
 #define SHARED_FUNCTION inline
 #define SHARED_FUNCTION_INOUT(X) X &

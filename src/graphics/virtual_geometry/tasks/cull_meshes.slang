@@ -1,6 +1,7 @@
 #include "daxa/daxa.inl"
 #include "cull_meshes.inl"
 #include "../../../shader_library/cull_util.slang"
+#include "../../../shader_library/work_expansion.slang"
 
 [[vk::push_constant]] CullMeshesWriteCommandPush write_push;
 [[vk::push_constant]] CullMeshesPush push;
@@ -16,6 +17,8 @@ void cull_meshes_write_command() {
     command.z = 1;
     *write_push.uses.u_command = command;
     write_push.uses.u_culled_meshes_data->count = 0;
+    write_push.uses.u_prefix_sum_work_expansion_mesh->merged_expansion_count_thread_count = 0;
+    write_push.uses.u_prefix_sum_work_expansion_mesh->workgroup_count = 0;
 }
 
 [shader("compute")]
@@ -57,6 +60,8 @@ void cull_meshes(u32vec3 thread_index : SV_DispatchThreadID) {
             u32 offset = 0;
             InterlockedAdd(push.uses.u_culled_meshes_data->count, 1, offset);
             push.uses.u_culled_meshes_data->meshes[offset] = mesh_data;
+            
+            prefix_sum_expansion_add_workitems(push.uses.u_prefix_sum_work_expansion_mesh, offset, mesh.meshlet_count, 16);
         }
     }
 }

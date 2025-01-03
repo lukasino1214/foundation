@@ -115,6 +115,43 @@ auto unpack_snorm_2x16(u32 v) -> f32vec2 {
     };
 }
 
+[__readNone]
+[ForceInline]
+func AtomicMaxU64(__ref u64 dest, u64 value) -> u64 {
+    u64 original_value;
+    spirv_asm {
+        OpCapability Int64Atomics;
+        %origin:$$u64 = OpAtomicUMax &dest Device None $value;
+        OpStore &original_value %origin
+    };
+    return original_value;
+}
+
+[__readNone]
+[ForceInline]
+func AtomicMaxU32(__ref u32 dest, u32 value) -> u32 {
+    u32 original_value;
+    spirv_asm {
+        OpCapability Int64Atomics;
+        %origin:$$u32 = OpAtomicUMax &dest Device None $value;
+        OpStore &original_value %origin
+    };
+    return original_value;
+}
+
+[ForceInline]
+[ForceInline]
+func AtomicAddU64(__ref uint64_t dest, uint64_t value) -> uint64_t {
+    uint64_t original_value;
+    spirv_asm
+    {
+        OpCapability Int64Atomics;
+        %origin:$$uint64_t = OpAtomicIAdd &dest Device None $value;
+        OpStore &original_value %origin
+    };
+    return original_value;
+}
+
 #elif DAXA_LANGUAGE == DAXA_LANGUAGE_GLSL
 
 #define f32mat4x4 daxa_f32mat4x4

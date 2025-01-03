@@ -124,17 +124,18 @@ namespace foundation {
         daxa::TaskBuffer gpu_materials = {};
         daxa::TaskBuffer gpu_mesh_groups = {};
         daxa::TaskBuffer gpu_mesh_indices = {};
-        daxa::TaskBuffer gpu_meshlet_data = {};
         daxa::TaskBuffer gpu_meshlets_data_merged = {};
         daxa::TaskBuffer gpu_culled_meshes_data = {};
         daxa::TaskBuffer gpu_readback_material_gpu = {};
         daxa::TaskBuffer gpu_readback_material_cpu = {};
         daxa::TaskBuffer gpu_readback_mesh_gpu = {};
         daxa::TaskBuffer gpu_readback_mesh_cpu = {};
+        daxa::TaskBuffer gpu_prefix_sum_work_expansion_mesh = {};
 
+        usize total_mesh_count = {};
         usize total_meshlet_count = {};
         usize total_triangle_count = {};
         usize total_vertex_count = {};
-        usize total_mesh_count = {};
+        usize total_unique_mesh_count = {};
     };
 }
