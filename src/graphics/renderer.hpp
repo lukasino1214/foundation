@@ -5,6 +5,7 @@
 #include <graphics/window.hpp>
 #include <graphics/context.hpp>
 #include <daxa/utils/imgui.hpp>
+#include <utils/performace_metrics.hpp>
 
 namespace foundation {
     struct Renderer {
@@ -44,6 +45,8 @@ namespace foundation {
         daxa::TaskGraph render_task_graph = {};
 
         daxa::ImGuiRenderer imgui_renderer = {};
+
+        std::vector<PerfomanceCategory> performace_metrics = {};
 
         bool startup = true;
         glm::vec2 viewport_size = { 0, 0 };

@@ -152,6 +152,19 @@ namespace foundation {
                 .name = "nearest repeat ani sampler",
             }),
         };
+
+        const auto virtual_geometry_performance_metrics = VirtualGeometryTasks::register_performance_metrics();
+        performace_metrics.insert(performace_metrics.end(), virtual_geometry_performance_metrics.begin(), virtual_geometry_performance_metrics.end());
+        performace_metrics.push_back(PerfomanceCategory {
+            .name = "miscellaneous",
+            .counters = {
+                {MiscellaneousTasks::UPDATE_SCENE, "update scene"},
+                {MiscellaneousTasks::UPDATE_GLOBALS, "update globals"},
+                {MiscellaneousTasks::READBACK_COPY, "readback copy"},
+                {MiscellaneousTasks::READBACK_RAM, "readback ram"},
+                {MiscellaneousTasks::IMGUI_DRAW, "imgui draw"},
+            }
+        });
     }
 
     Renderer::~Renderer() {
@@ -448,67 +461,6 @@ namespace foundation {
     }
 
     void Renderer::ui_update() {
-        struct PerfomanceCounter {
-            std::string_view task_name = {};
-            std::string_view name = {};
-        };
-
-        struct PerfomanceCategory {
-            std::string name = {};
-            std::vector<PerfomanceCounter> counters = {};
-            std::vector<PerfomanceCategory> performance_categories = {};
-        };
-
-        std::vector<PerfomanceCategory> performance_categories = {
-            PerfomanceCategory {
-                .name = "early pass",
-                .counters = {
-                    {VirtualGeometryTasks::Tasks::CLEAR_DEPTH_IMAGE_U32, "clear depth image u32"},
-                    {DrawMeshletsOnlyDepthWriteCommandTask::name(), "hw draw meshlets write"},
-                    {DrawMeshletsOnlyDepthTask::name(), "hw draw meshlets"},
-                    {SoftwareRasterizationOnlyDepthWriteCommandTask::name(), "sw draw meshlets write"},
-                    {SoftwareRasterizationOnlyDepthTask::name(), "sw draw meshlets"},
-                    {CombineDepthTask::name(), "combine depth"},
-                }
-            },
-            PerfomanceCategory {
-                .name = "culling",
-                .counters = {
-                    {GenerateHizTask::name(), "generate hiz"},
-                    {CullMeshesWriteCommandTask::name(), "cull meshes write"},
-                    {CullMeshesTask::name(), "cull meshes"},
-                    {CullMeshletsWriteCommandTask::name(), "cull meshlets write"},
-                    {CullMeshletsTask::name(), "cull meshlets"},
-                }
-            },
-            PerfomanceCategory {
-                .name = "late pass",
-                .counters = {
-                    {VirtualGeometryTasks::Tasks::CLEAR_VISIBILITY_IMAGE, "clear visibility image"},
-                    {DrawMeshletsWriteCommandTask::name(), "hw draw meshlets write"},
-                    {DrawMeshletsTask::name(), "hw draw meshlets"},
-                    {SoftwareRasterizationWriteCommandTask::name(), "sw draw meshlets write"},
-                    {SoftwareRasterizationTask::name(), "sw draw meshlets"},
-                }
-            },
-            PerfomanceCategory {
-                .name = "resolve",
-                .counters = {
-                    {ResolveVisibilityBufferTask::name(), "resolve visibility buffer"}
-                }
-            },
-            PerfomanceCategory {
-                .name = "miscellaneous",
-                .counters = {
-                    {MiscellaneousTasks::UPDATE_SCENE, "update scene"},
-                    {MiscellaneousTasks::UPDATE_GLOBALS, "update globals"},
-                    {MiscellaneousTasks::READBACK_COPY, "readback copy"},
-                    {MiscellaneousTasks::READBACK_RAM, "readback ram"},
-                    {MiscellaneousTasks::IMGUI_DRAW, "imgui draw"},
-                }
-            },
-        };
-
         ImGui::Begin("Performance Statistics");
         f64 total_time = 0.0f;
         auto visit = [&](this auto& self, const PerfomanceCategory& performace_category, bool display_imgui) -> void {
@@ -536,7 +488,7 @@ namespace foundation {
             }
         };
 
-        for(const auto& perf : performance_categories) {
+        for(const auto& perf : performace_metrics) {
             visit(perf, true);
         }
 
