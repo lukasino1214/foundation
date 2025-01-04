@@ -143,7 +143,7 @@ namespace foundation {
         });
 
         world->each([&](GlobalTransformComponent& tc, OOBComponent& oob){
-            context->debug_draw_context.entity_oobs.push_back(ShaderDebugEntityOOBDraw{ 
+            context->shader_debug_draw_context.entity_oob_draws.draw(ShaderDebugEntityOOBDraw{ 
                 .color = oob.color,
                 .transform_index = tc.gpu_handle.index
             });

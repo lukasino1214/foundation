@@ -41,11 +41,29 @@ struct ShaderDebugAABBDraw {
 };
 DAXA_DECL_BUFFER_PTR(ShaderDebugAABBDraw)
 
+struct ShaderDebugCircleDraw {
+    f32vec3 color;
+    f32vec3 position;
+    f32 radius;
+};
+DAXA_DECL_BUFFER_PTR(ShaderDebugCircleDraw)
+
+struct ShaderDebugLineDraw {
+    f32vec3 color;
+    f32vec3 start;
+    f32vec3 end;
+};
+DAXA_DECL_BUFFER_PTR(ShaderDebugLineDraw)
+
 struct ShaderDebugBufferHead {
     DrawIndirectStruct entity_oob_draw_indirect_info;
     DrawIndirectStruct aabb_draw_indirect_info;
+    DrawIndirectStruct circle_draw_indirect_info;
+    DrawIndirectStruct line_draw_indirect_info;
     daxa_RWBufferPtr(ShaderDebugEntityOOBDraw) entity_oob_draws;
     daxa_RWBufferPtr(ShaderDebugAABBDraw) aabb_draws;
+    daxa_RWBufferPtr(ShaderDebugCircleDraw) circle_draws;
+    daxa_RWBufferPtr(ShaderDebugLineDraw) line_draws;
 };
 DAXA_DECL_BUFFER_PTR(ShaderDebugBufferHead)
 

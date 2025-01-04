@@ -3,11 +3,13 @@
 #include <graphics/helper.hpp>
 
 namespace foundation {
-    DebugDrawContext::DebugDrawContext(Context* _context) : context{_context} {
+    ShaderDebugDrawContext::ShaderDebugDrawContext(Context* _context) : context{_context} {
         PROFILE_SCOPE;
         usize size = sizeof(ShaderDebugBufferHead);
-        size += sizeof(ShaderDebugEntityOOBDraw) * max_entity_oob_draws;
-        size += sizeof(ShaderDebugAABBDraw) * max_aabb_draws;
+        size += sizeof(ShaderDebugEntityOOBDraw) * entity_oob_draws.max_draws;
+        size += sizeof(ShaderDebugAABBDraw) * aabb_draws.max_draws;
+        size += sizeof(ShaderDebugCircleDraw) * circle_draws.max_draws;
+        size += sizeof(ShaderDebugLineDraw) * line_draws.max_draws;
 
         this->buffer = context->create_buffer(daxa::BufferInfo {
             .size = size,
@@ -16,30 +18,32 @@ namespace foundation {
         });
     }
 
-    DebugDrawContext::~DebugDrawContext() {
+    ShaderDebugDrawContext::~ShaderDebugDrawContext() {
         context->destroy_buffer(this->buffer);
     }
 
-    void DebugDrawContext::update_debug_buffer(daxa::Device& device, daxa::CommandRecorder& recorder, daxa::TransferMemoryPool& allocator) {
-        const usize entity_oob_draws_offset = sizeof(ShaderDebugBufferHead);
-        const usize aabb_draws_offset = entity_oob_draws_offset  + sizeof(ShaderDebugAABBDraw) * max_aabb_draws;
-        
-        auto head = ShaderDebugBufferHead {
-            .entity_oob_draw_indirect_info = {
-                .vertex_count = aabb_vertices,
-                .instance_count = s_cast<u32>(entity_oobs.size()),
+    void ShaderDebugDrawContext::update_debug_buffer(daxa::Device& device, daxa::CommandRecorder& recorder, daxa::TransferMemoryPool& allocator) {
+        u32 memory_offset = sizeof(ShaderDebugBufferHead);
+        auto head = ShaderDebugBufferHead {};
+
+        auto updade_draws = [&](DrawIndirectStruct& gpu_draw, auto& cpu_draw, u64& buffer_ptr) {
+            const u32 offset = memory_offset;
+            memory_offset += cpu_draw.max_draws * sizeof(decltype(cpu_draw.cpu_debug_draws[0]));
+
+            gpu_draw = DrawIndirectStruct {
+                .vertex_count = cpu_draw.vertices,
+                .instance_count = std::min(static_cast<u32>(cpu_draw.cpu_debug_draws.size()), cpu_draw.max_draws),
                 .first_vertex = 0,
-                .first_instance = 0,
-            },
-            .aabb_draw_indirect_info = {
-                .vertex_count = aabb_vertices,
-                .instance_count = s_cast<u32>(aabbs.size()),
-                .first_vertex = 0,
-                .first_instance = 0,
-            },
-            .entity_oob_draws = device.buffer_device_address(buffer).value() + entity_oob_draws_offset,
-            .aabb_draws = device.buffer_device_address(buffer).value() + aabb_draws_offset,
+                .first_instance = 0
+            };
+
+            buffer_ptr = device.buffer_device_address(buffer).value() + offset;
         };
+
+        updade_draws(head.entity_oob_draw_indirect_info, entity_oob_draws, head.entity_oob_draws);
+        updade_draws(head.aabb_draw_indirect_info, aabb_draws, head.aabb_draws);
+        updade_draws(head.circle_draw_indirect_info, circle_draws, head.circle_draws);
+        updade_draws(head.line_draw_indirect_info, line_draws, head.line_draws);
 
         auto alloc = allocator.allocate_fill(head).value();
         recorder.copy_buffer_to_buffer({
@@ -50,35 +54,27 @@ namespace foundation {
             .size = sizeof(ShaderDebugBufferHead),
         });
 
-        if (!entity_oobs.empty())
-        {
-            u32 size = s_cast<u32>(entity_oobs.size() * sizeof(ShaderDebugEntityOOBDraw));
-            auto entity_oob_draws = allocator.allocate(size, 4).value();
-            std::memcpy(entity_oob_draws.host_address, entity_oobs.data(), size);
-            recorder.copy_buffer_to_buffer({
-                .src_buffer = allocator.buffer(),
-                .dst_buffer = buffer,
-                .src_offset = entity_oob_draws.buffer_offset,
-                .dst_offset = entity_oob_draws_offset,
-                .size = size,
-            });
-            entity_oobs.clear();
-        }
+        auto upload_draws = [&](const DrawIndirectStruct& gpu_draw, auto& cpu_draw, const u64& buffer_ptr) {
+            const u32 upload_size = sizeof(decltype(cpu_draw.cpu_debug_draws[0])) * gpu_draw.instance_count;
+            if (upload_size > 0) {
+                usize offset = buffer_ptr - device.buffer_device_address(buffer).value();
+                auto draws_allocation = allocator.allocate(upload_size,4).value();
+                std::memcpy(draws_allocation.host_address, cpu_draw.cpu_debug_draws.data(), upload_size);
+                recorder.copy_buffer_to_buffer({
+                    .src_buffer = allocator.buffer(),
+                    .dst_buffer = buffer,
+                    .src_offset = draws_allocation.buffer_offset,
+                    .dst_offset = offset,
+                    .size = upload_size,
+                });
+                cpu_draw.cpu_debug_draws.clear();
+            }
+        };
 
-        if (!aabbs.empty())
-        {
-            u32 size = s_cast<u32>(aabbs.size() * sizeof(ShaderDebugEntityOOBDraw));
-            auto aabb_draws = allocator.allocate(size, 4).value();
-            std::memcpy(aabb_draws.host_address, aabbs.data(), size);
-            recorder.copy_buffer_to_buffer({
-                .src_buffer = allocator.buffer(),
-                .dst_buffer = buffer,
-                .src_offset = aabb_draws.buffer_offset,
-                .dst_offset = aabb_draws_offset,
-                .size = size,
-            });
-            aabbs.clear();
-        }
+        upload_draws(head.entity_oob_draw_indirect_info, entity_oob_draws, head.entity_oob_draws);
+        upload_draws(head.aabb_draw_indirect_info, aabb_draws, head.aabb_draws);
+        upload_draws(head.circle_draw_indirect_info, circle_draws, head.circle_draws);
+        upload_draws(head.line_draw_indirect_info, line_draws, head.line_draws);
     }
 
     Context::Context(const AppWindow &window)
@@ -127,8 +123,8 @@ namespace foundation {
                             .name = "globals",
                         })},
             gpu_metric_pool{std::make_unique<GPUMetricPool>(device)},
-            debug_draw_context{this} {
-        shader_globals.debug = device.buffer_device_address(debug_draw_context.buffer).value();
+            shader_debug_draw_context{this} {
+        shader_globals.debug = device.buffer_device_address(shader_debug_draw_context.buffer).value();
     }
 
     Context::~Context() {

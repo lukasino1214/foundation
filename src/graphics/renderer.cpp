@@ -97,6 +97,8 @@ namespace foundation {
         context->gpu_metrics[ClearImageTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
         context->gpu_metrics[DebugEntityOOBDrawTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
         context->gpu_metrics[DebugAABBDrawTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
+        context->gpu_metrics[DebugCircleDrawTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
+        context->gpu_metrics[DebugLineDrawTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
         context->gpu_metrics[MiscellaneousTasks::UPDATE_SCENE] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
         context->gpu_metrics[MiscellaneousTasks::UPDATE_GLOBALS] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
         context->gpu_metrics[MiscellaneousTasks::READBACK_COPY] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
@@ -247,7 +249,9 @@ namespace foundation {
     void Renderer::compile_pipelines() {
         std::vector<std::tuple<std::string_view, daxa::RasterPipelineCompileInfo>> rasters = {
             {DebugEntityOOBDrawTask::name(), DebugEntityOOBDrawTask::pipeline_config_info()},
-            {DebugAABBDrawTask::name(), DebugAABBDrawTask::pipeline_config_info()}
+            {DebugAABBDrawTask::name(), DebugAABBDrawTask::pipeline_config_info()},
+            {DebugCircleDrawTask::name(), DebugCircleDrawTask::pipeline_config_info()},
+            {DebugLineDrawTask::name(), DebugLineDrawTask::pipeline_config_info()},
         };
         auto virtual_geometry_rasters = VirtualGeometryTasks::get_raster_pipelines();
         rasters.insert(rasters.end(), virtual_geometry_rasters.begin(), virtual_geometry_rasters.end());
@@ -319,7 +323,7 @@ namespace foundation {
                     .dst_offset = 0,
                     .size = sizeof(ShaderGlobals),
                 });
-                context->debug_draw_context.update_debug_buffer(context->device, ti.recorder, *ti.allocator);
+                context->shader_debug_draw_context.update_debug_buffer(context->device, ti.recorder, *ti.allocator);
                 context->gpu_metrics[MiscellaneousTasks::UPDATE_GLOBALS]->end(ti.recorder);
             },
             .name = std::string{MiscellaneousTasks::UPDATE_GLOBALS},
@@ -394,6 +398,26 @@ namespace foundation {
                 DebugAABBDrawTask::AT.u_transforms | scene->gpu_transforms_pool.task_buffer,
                 DebugAABBDrawTask::AT.u_image | render_image,
                 DebugAABBDrawTask::AT.u_visibility_image | visibility_image,
+            },
+            .context = context,
+        });
+
+        render_task_graph.add_task(DebugCircleDrawTask {
+            .views = std::array{
+                DebugCircleDrawTask::AT.u_globals | context->shader_globals_buffer,
+                DebugCircleDrawTask::AT.u_transforms | scene->gpu_transforms_pool.task_buffer,
+                DebugCircleDrawTask::AT.u_image | render_image,
+                DebugCircleDrawTask::AT.u_visibility_image | visibility_image,
+            },
+            .context = context,
+        });
+
+        render_task_graph.add_task(DebugLineDrawTask {
+            .views = std::array{
+                DebugLineDrawTask::AT.u_globals | context->shader_globals_buffer,
+                DebugLineDrawTask::AT.u_transforms | scene->gpu_transforms_pool.task_buffer,
+                DebugLineDrawTask::AT.u_image | render_image,
+                DebugLineDrawTask::AT.u_visibility_image | visibility_image,
             },
             .context = context,
         });

@@ -7,17 +7,31 @@
 
 namespace foundation {
     struct Context;
-    struct DebugDrawContext {
-        u32 max_entity_oob_draws = 128'000;
-        u32 max_aabb_draws = 128'000;
-        u32 aabb_vertices = 24;
+
+    template<typename T>
+    struct CPUDebugDraws {
+        u32 max_draws = {};
+        u32 vertices = {};
+        std::vector<T> cpu_debug_draws = {};
+
+        void draw(const T& draw) {
+            if(cpu_debug_draws.size() < max_draws) {
+                cpu_debug_draws.push_back(draw);
+            }
+        }
+    };
+
+    struct ShaderDebugDrawContext {
+        CPUDebugDraws<ShaderDebugEntityOOBDraw> entity_oob_draws = { .max_draws = 128'000, .vertices = 24 };
+        CPUDebugDraws<ShaderDebugAABBDraw> aabb_draws = { .max_draws = 128'000, .vertices = 24 };
+        CPUDebugDraws<ShaderDebugCircleDraw> circle_draws = { .max_draws = 128'000, .vertices = 32 };
+        CPUDebugDraws<ShaderDebugLineDraw> line_draws = { .max_draws = 128'000, .vertices = 2 };
+
         daxa::BufferId buffer = {};
         Context* context = {};
-        std::vector<ShaderDebugEntityOOBDraw> entity_oobs = {};
-        std::vector<ShaderDebugAABBDraw> aabbs = {};
 
-        DebugDrawContext(Context* _context);
-        ~DebugDrawContext();
+        ShaderDebugDrawContext(Context* _context);
+        ~ShaderDebugDrawContext();
         void update_debug_buffer(daxa::Device& device, daxa::CommandRecorder& recorder, daxa::TransferMemoryPool& allocator);
     };
 
@@ -90,7 +104,7 @@ namespace foundation {
 
         std::unordered_map<daxa::SamplerInfo, daxa::SamplerId, SamplerInfoHasher, SamplerInfoEquality> samplers = {};
 
-        DebugDrawContext debug_draw_context;
+        ShaderDebugDrawContext shader_debug_draw_context;
 
         auto get_sampler(const daxa::SamplerInfo& info) -> daxa::SamplerId;
 
