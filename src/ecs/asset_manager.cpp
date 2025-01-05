@@ -300,15 +300,15 @@ namespace foundation {
 
             for(u32 children_index = 0; children_index < node.children.size(); children_index++) {
                 Entity& child_entity = node_index_to_entity[children_index];
-                child_entity.handle.child_of(parent_entity.handle);
+                parent_entity.set_child(child_entity);
             }
         }
 
         for(u32 node_index = 0; node_index < s_cast<u32>(asset->nodes.size()); node_index++) {
             Entity& entity = node_index_to_entity[node_index];
-            auto parent = entity.handle.parent();
-            if(!parent.null()) {
-                entity.handle.child_of(info.parent.handle);
+            auto parent = entity.get_parent();
+            if(!parent.get_handle().null()) {
+                info.parent.set_child(entity);
             }
         }
 
@@ -442,7 +442,7 @@ namespace foundation {
 
         std::vector<Entity> node_index_to_entity = {};
         for(u32 node_index = 0; node_index < s_cast<u32>(asset->nodes.size()); node_index++) {
-            node_index_to_entity.push_back(scene->create_entity(std::format("asset {} {} {}", asset_manifest_entries.size(), asset->nodes[node_index].name, info.parent.handle.name().c_str())));
+            node_index_to_entity.push_back(scene->create_entity(std::format("asset {} {} {}", asset_manifest_entries.size(), asset->nodes[node_index].name, info.parent.get_name().data())));
         }
 
         for(u32 node_index = 0; node_index < s_cast<u32>(asset->nodes.size()); node_index++) {
@@ -468,15 +468,15 @@ namespace foundation {
 
             for(u32 children_index = 0; children_index < node.children.size(); children_index++) {
                 Entity& child_entity = node_index_to_entity[children_index];
-                child_entity.handle.child_of(parent_entity.handle);
+                parent_entity.set_child(child_entity);
             }
         }
 
         for(u32 node_index = 0; node_index < s_cast<u32>(asset->nodes.size()); node_index++) {
             Entity& entity = node_index_to_entity[node_index];
-            auto parent = entity.handle.parent();
-            if(!parent.null()) {
-                entity.handle.child_of(info.parent.handle);
+            auto parent = entity.get_parent();
+            if(!parent.get_handle().null()) {
+                info.parent.set_child(entity);
             }
         }
     }

@@ -46,7 +46,7 @@ namespace foundation {
 
         {
             auto entity = scene->create_entity("sponza");
-            entity.handle.add<RootEntityTag>();
+            entity.get_handle().add<RootEntityTag>();
             add_transform(entity);
 
             LoadManifestInfo manifesto {
@@ -69,7 +69,7 @@ namespace foundation {
             for(u32 y = 0; y < bistro_count; y++) {
                 for(u32 z = 0; z < bistro_count; z++) {
                     auto entity = scene->create_entity(std::format("bistro {} {} {}", x, y, z));
-                    entity.handle.add<RootEntityTag>();
+                    entity.get_handle().add<RootEntityTag>();
                     auto* tc = add_transform(entity);
                     tc->set_rotation({90.0f, 0.0f, 0.0f});
                     tc->set_position({200.0f * x, 100.0f * y, 200.0f * z});
@@ -89,7 +89,7 @@ namespace foundation {
 
         {
             auto cube1 = scene->create_entity("aabb 1");
-            cube1.handle.add<RootEntityTag>();
+            cube1.get_handle().add<RootEntityTag>();
             {
                 auto* tc = add_transform(cube1);
                 tc->set_position({0.0f, 0.0, 0.0f});
@@ -102,7 +102,7 @@ namespace foundation {
             }
 
             auto cube2 = scene->create_entity("aabb 2");
-            cube2.handle.child_of(cube1.handle);
+            cube1.set_child(cube2);
             {
                 auto* tc = add_transform(cube2);
                 tc->set_position({0.0f, 2.5, 0.0f});
@@ -116,7 +116,7 @@ namespace foundation {
             }
 
             auto cube3 = scene->create_entity("aabb 3");
-            cube3.handle.child_of(cube2.handle);
+            cube2.set_child(cube3);
             {
                 auto* tc = add_transform(cube3);
                 tc->set_position({0.0f, 2.5, 0.0f});
@@ -130,7 +130,7 @@ namespace foundation {
             }
 
             auto cube4 = scene->create_entity("aabb 4");
-            cube4.handle.child_of(cube3.handle);
+            cube3.set_child(cube4);
             {
                 auto* tc = add_transform(cube4);
                 tc->set_position({0.0f, 2.5, 0.0f});

@@ -381,8 +381,8 @@ namespace foundation {
         }
 
         auto string_input(const char* label_ID, std::string &value, const ImGuiInputTextFlags input_flags) -> bool {
-            std::memset(&buffer, 0, sizeof(buffer));
-            std::memcpy(&buffer, value.c_str(), sizeof(buffer));
+            std::memset(buffer.data(), 0, sizeof(buffer));
+            std::memcpy(buffer.data(), value.c_str(), sizeof(buffer));
             bool modified =  ImGui::InputText("##Tag", buffer.data(), buffer.size());
             if(modified) { value = std::string(buffer.data()); }
             return modified;

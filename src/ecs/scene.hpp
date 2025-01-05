@@ -16,7 +16,7 @@ namespace foundation {
         ~Scene();
 
         auto create_entity(const std::string_view& _name) -> Entity;
-        void destroy_entity(const Entity& entity);
+        void destroy_entity(Entity& entity);
 
         void update(f32 delta_time);
         void update_gpu(const daxa::TaskInterface& task_interface);

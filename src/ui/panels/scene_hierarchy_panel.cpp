@@ -19,7 +19,7 @@ namespace foundation {
 
             f32 line_height = GImGui->Font->FontSize + GImGui->Style.FramePadding.y * 2.0f;
 
-            bool open = ImGui::TreeNodeEx(reinterpret_cast<void*>(typeid(T).hash_code() << s_cast<uint32_t>(entity.handle)), treeNodeFlags, "%s", component_name.data());
+            bool open = ImGui::TreeNodeEx(reinterpret_cast<void*>(typeid(T).hash_code() << s_cast<uint32_t>(entity.get_handle())), treeNodeFlags, "%s", component_name.data());
             ImGui::PopStyleVar();
 
             ImGui::SameLine(content_region_available.x - line_height * 0.5f);
@@ -39,9 +39,9 @@ namespace foundation {
             if (open) {
                 if constexpr(std::is_same_v<T, EntityTag>) {
                     GUI::begin_properties();
-                    std::string name{entity.handle.name()};
+                    std::string name{entity.get_name()};
                     bool changed = GUI::string_property("Tag:", name, nullptr, ImGuiInputTextFlags_None);
-                    if(changed) { entity.handle.set_name(name.c_str()); }
+                    if(changed) { entity.set_name(name); }
                     GUI::end_properties();
                 } else {
                     T* component = component = entity.get_component<T>();
@@ -83,7 +83,7 @@ namespace foundation {
 
         bool selected = false;
         if (selected_entity) {
-            if(selected_entity.handle == entity.handle) {
+            if(selected_entity.get_handle() == entity.get_handle()) {
                 selected = true;
                 treeNodeFlags |= ImGuiTreeNodeFlags_Selected;
                 ImGui::PushStyleColor(ImGuiCol_Header, { 0.18823529411f, 0.18823529411f, 0.18823529411f, 1.0f });
@@ -91,7 +91,7 @@ namespace foundation {
             }
         }
 
-        bool opened = ImGui::TreeNodeEx(reinterpret_cast<void*>((uint64_t)(uint32_t)entity.handle), treeNodeFlags, "%s", entity.handle.name().c_str());
+        bool opened = ImGui::TreeNodeEx(reinterpret_cast<void*>((uint64_t)(uint32_t)entity.get_handle()), treeNodeFlags, "%s", entity.get_name().data());
 
         if (ImGui::IsItemClicked(ImGuiPopupFlags_MouseButtonLeft) || ImGui::IsItemClicked(ImGuiPopupFlags_MouseButtonRight)) {
             selected_entity = entity;
@@ -104,7 +104,7 @@ namespace foundation {
                     Entity created_entity = scene->create_entity("Empty Entity");
 
                     if(selected_entity) {
-                        created_entity.handle.child_of(selected_entity.handle);
+                        selected_entity.set_child(created_entity);
                     }
                 }
             }
@@ -121,7 +121,7 @@ namespace foundation {
         }
 
         if (opened) {
-            entity.handle.children([&](flecs::entity _child) {
+            entity.get_handle().children([&](flecs::entity _child) {
                 Entity child = { _child, scene };
                 tree(child, iteration + 1);
             });
@@ -158,7 +158,7 @@ namespace foundation {
                 Entity created_entity = scene->create_entity("Empty Entity");
 
                 if(selected_entity) {
-                    created_entity.handle.child_of(selected_entity.handle);
+                    selected_entity.set_child(created_entity);
                 }
             }
 

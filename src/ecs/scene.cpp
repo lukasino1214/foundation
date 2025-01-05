@@ -35,8 +35,8 @@ namespace foundation {
         return Entity(e, this);
     }
 
-    void Scene::destroy_entity(const Entity& entity) {
-        entity.handle.destruct();
+    void Scene::destroy_entity(Entity& entity) {
+        entity.get_handle().destruct();
     }
 
     void Scene::update(f32 delta_time) {

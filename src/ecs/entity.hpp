@@ -8,8 +8,20 @@ namespace foundation {
         Entity(flecs::entity _handle, Scene* _scene);
         Entity() = default;
 
+private:
         flecs::entity handle = {};
         Scene* scene = {};
+public:
+        auto get_handle() -> flecs::entity;
+
+        void set_name(const std::string_view& name);
+        auto get_name() -> std::string_view;
+
+        void set_child(Entity& entity);
+        auto get_children() -> std::vector<Entity>;
+
+        void set_parent(Entity& entity);
+        auto get_parent() -> Entity;
 
         operator bool() const { return handle.is_valid(); }
 
