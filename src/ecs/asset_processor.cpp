@@ -8,7 +8,7 @@
 #include <random>
 #include <nvtt/nvtt.h>
 #include <utils/zstd.hpp>
-#include <fastgltf/parser.hpp>
+#include <fastgltf/core.hpp>
 #include <fastgltf/types.hpp>
 
 #include <glm/ext/quaternion_geometric.hpp>
@@ -43,17 +43,14 @@ namespace foundation {
             fastgltf::Parser parser{};
             fastgltf::Options gltf_options = fastgltf::Options::DontRequireValidAssetMember | fastgltf::Options::AllowDouble | fastgltf::Options::LoadGLBBuffers | fastgltf::Options::LoadExternalBuffers;
 
-            fastgltf::GltfDataBuffer data;
-            data.loadFromFile(input_path);
-            fastgltf::GltfType type = fastgltf::determineGltfFileType(&data);
-            fastgltf::Asset fastgltf_asset;
-            if (type == fastgltf::GltfType::glTF) {
-                fastgltf_asset = std::move(parser.loadGLTF(&data, input_path.parent_path(), gltf_options).get());
-            } else if (type == fastgltf::GltfType::GLB) {
-                fastgltf_asset = std::move(parser.loadBinaryGLTF(&data, input_path.parent_path(), gltf_options).get());
+            auto gltf_file = fastgltf::MappedGltfFile::FromPath(input_path);
+            
+            if(gltf_file.error() != fastgltf::Error::None) {
+                throw std::runtime_error("something went wrong");
             }
-
-            asset = std::make_unique<fastgltf::Asset>(std::move(fastgltf_asset));
+            
+            auto fastgltf_asset = parser.loadGltf(gltf_file.get(), input_path.parent_path(), gltf_options);
+            asset = std::make_unique<fastgltf::Asset>(std::move(fastgltf_asset.get()));
         }
 
         std::vector<BinaryNode> binary_nodes = {};
@@ -65,7 +62,7 @@ namespace foundation {
 
             glm::mat4 transform = {};
 
-            if(const auto* trs = std::get_if<fastgltf::Node::TRS>(&node.transform)) {
+            if(const auto* trs = std::get_if<fastgltf::TRS>(&node.transform)) {
                 glm::quat quat;
                 quat.x = trs->rotation[0];
                 quat.y = trs->rotation[1];
@@ -75,7 +72,7 @@ namespace foundation {
                 transform = glm::translate(glm::mat4(1.0f), { trs->translation[0], trs->translation[1], trs->translation[2]}) 
                     * glm::toMat4(quat) 
                     * glm::scale(glm::mat4(1.0f), { trs->scale[0], trs->scale[1], trs->scale[2]});
-            } else if(const auto* transform_matrix = std::get_if<fastgltf::Node::TransformMatrix>(&node.transform)) {
+            } else if(const auto* transform_matrix = std::get_if<fastgltf::math::fmat4x4>(&node.transform)) {
                 transform = *r_cast<const glm::mat4*>(transform_matrix);
             }
 
@@ -347,6 +344,9 @@ namespace foundation {
                     },
                     [&](const fastgltf::sources::ByteView& bv) -> std::span<const std::byte> {
                         return bv.bytes;
+                    },
+                    [&](const fastgltf::sources::Array& array) -> std::span<const std::byte> {
+                        return std::span(reinterpret_cast<const std::byte*>(array.bytes.data()), array.bytes.size());
                     },
                 }, buffer.data).subspan(byteOffset, byteLength);
             };
@@ -1167,7 +1167,7 @@ namespace foundation {
         std::vector<glm::vec3> vert_positions = {};
         auto* position_attribute_iter = gltf_primitive.findAttribute("POSITION");
         if(position_attribute_iter != gltf_primitive.attributes.end()) {
-            vert_positions = load_data<glm::vec3, false>(gltf_asset, gltf_asset.accessors[position_attribute_iter->second]);
+            vert_positions = load_data<glm::vec3, false>(gltf_asset, gltf_asset.accessors[position_attribute_iter->accessorIndex]);
         }
 
         auto fill = [](auto& vec, u32 required_size = 0) {
@@ -1186,7 +1186,7 @@ namespace foundation {
         {
             auto* normal_attribute_iter = gltf_primitive.findAttribute("NORMAL");
             if(normal_attribute_iter != gltf_primitive.attributes.end()) {
-                vert_normals = load_data<glm::vec3, false>(gltf_asset, gltf_asset.accessors[normal_attribute_iter->second]);
+                vert_normals = load_data<glm::vec3, false>(gltf_asset, gltf_asset.accessors[normal_attribute_iter->accessorIndex]);
             } else {
                 fill(vert_normals, vertex_count);
             }
@@ -1202,7 +1202,7 @@ namespace foundation {
             std::vector<glm::vec2> vert_uvs = {};
             auto* uvs_attribute_iter = gltf_primitive.findAttribute("TEXCOORD_0");
             if(uvs_attribute_iter != gltf_primitive.attributes.end()) {
-                vert_uvs = load_data<glm::vec2, false>(gltf_asset, gltf_asset.accessors[uvs_attribute_iter->second]);
+                vert_uvs = load_data<glm::vec2, false>(gltf_asset, gltf_asset.accessors[uvs_attribute_iter->accessorIndex]);
             } else {
                 fill(vert_uvs, vertex_count);
             }

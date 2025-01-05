@@ -33,7 +33,9 @@
       "tracy",
       "imguizmo",
       "sol2",
-      "metis"
+      "metis",
+      "meshoptimizer",
+      "lua"
     ],
   "builtin-baseline": "f5c5b8ddbb88dec7eed4a5ac54c36d1c64d2d29d",
   "vcpkg-configuration": {
@@ -41,7 +43,10 @@
       "deps/Daxa",
       "deps/Daxa/cmake/vcpkg-overlay-ports/glfw3",
       "deps/Daxa/cmake/vcpkg-overlay-ports/fsr2",
-      "deps/daxa/cmake/vcpkg-overlay-ports/shader-slang"
+      "deps/daxa/cmake/vcpkg-overlay-ports/shader-slang",
+      "cmake/vcpkg-overlay-ports/meshoptimizer",
+      "cmake/vcpkg-overlay-ports/sol2",
+      "cmake/vcpkg-overlay-ports/fastgltf"
     ]
   }
 }
