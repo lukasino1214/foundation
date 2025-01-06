@@ -46,7 +46,9 @@
       "deps/daxa/cmake/vcpkg-overlay-ports/shader-slang",
       "cmake/vcpkg-overlay-ports/meshoptimizer",
       "cmake/vcpkg-overlay-ports/sol2",
-      "cmake/vcpkg-overlay-ports/fastgltf"
+      "cmake/vcpkg-overlay-ports/fastgltf",
+      "cmake/vcpkg-overlay-ports/imgui",
+      "cmake/vcpkg-overlay-ports/imguizmo"
     ]
   }
 }

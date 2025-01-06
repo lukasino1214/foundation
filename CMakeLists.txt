@@ -104,6 +104,7 @@ add_executable(${PROJECT_NAME}
     "src/scripting/scripting_engine.cpp"
     "src/ui/panels/viewport_panel.cpp"
     "src/ui/panels/scene_hierarchy_panel.cpp"
+    "src/ui/panels/file_browser.cpp"
     "src/ui/ui.cpp"
     "src/utils/file_io.cpp"
     "src/utils/zstd.cpp"

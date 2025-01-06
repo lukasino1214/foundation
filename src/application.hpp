@@ -3,6 +3,7 @@
 #include "ecs/asset_manager.hpp"
 #include "ecs/asset_processor.hpp"
 #include "ecs/scene.hpp"
+#include "ui/panels/file_browser.hpp"
 #include "ui/panels/viewport_panel.hpp"
 #include "ui/panels/scene_hierarchy_panel.hpp"
 #include <pch.hpp>
@@ -39,5 +40,6 @@ namespace foundation {
 
         ViewportPanel viewport_panel;
         SceneHierarchyPanel scene_hierarchy_panel;
+        FileBrowser file_browser;
     };
 }

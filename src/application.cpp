@@ -251,5 +251,7 @@ namespace foundation {
         } else {
             viewport_panel.draw(main_camera, delta_time, renderer->render_image);
         }
+
+        file_browser.draw();
     }
 }

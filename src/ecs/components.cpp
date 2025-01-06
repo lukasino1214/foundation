@@ -7,15 +7,15 @@ namespace foundation {
     void LocalTransformComponent::draw() {
         GUI::begin_properties(ImGuiTableFlags_BordersInnerV);
 
-        static std::array<f32, 3> reset_values = { 0.0f, 0.0f, 0.0f };
-        static std::array<const char*, 3> tooltips = { "Some tooltip.", "Some tooltip.", "Some tooltip." };
+        // static std::array<f32, 3> reset_values = { 0.0f, 0.0f, 0.0f };
+        // static std::array<const char*, 3> tooltips = { "Some tooltip.", "Some tooltip.", "Some tooltip." };
 
-        if (GUI::vec3_property("Position:", position, reset_values.data(), tooltips.data())) { is_dirty = true; }
-        if (GUI::vec3_property("Rotation:", rotation, reset_values.data(), tooltips.data())) { is_dirty = true; }
+        // if (GUI::vec3_property("Position:", position, reset_values.data(), tooltips.data())) { is_dirty = true; }
+        // if (GUI::vec3_property("Rotation:", rotation, reset_values.data(), tooltips.data())) { is_dirty = true; }
 
-        reset_values = { 1.0f, 1.0f, 1.0f };
+        // reset_values = { 1.0f, 1.0f, 1.0f };
 
-        if (GUI::vec3_property("Scale:", scale, reset_values.data(), tooltips.data())) { is_dirty = true; }
+        // if (GUI::vec3_property("Scale:", scale, reset_values.data(), tooltips.data())) { is_dirty = true; }
 
         GUI::end_properties();
     }
@@ -50,17 +50,17 @@ namespace foundation {
     void GlobalTransformComponent::draw() {
         GUI::begin_properties(ImGuiTableFlags_BordersInnerV);
 
-        static std::array<f32, 3> reset_values = { 0.0f, 0.0f, 0.0f };
-        static std::array<const char*, 3> tooltips = { "Some tooltip.", "Some tooltip.", "Some tooltip." };
+        // static std::array<f32, 3> reset_values = { 0.0f, 0.0f, 0.0f };
+        // static std::array<const char*, 3> tooltips = { "Some tooltip.", "Some tooltip.", "Some tooltip." };
 
-        glm::vec3 _position = position;
-        GUI::vec3_property("Position:", _position, reset_values.data(), tooltips.data());
-        glm::vec3 _rotation = rotation;
-        GUI::vec3_property("Rotation:", _rotation, reset_values.data(), tooltips.data());
+        // glm::vec3 _position = position;
+        // GUI::vec3_property("Position:", _position, reset_values.data(), tooltips.data());
+        // glm::vec3 _rotation = rotation;
+        // GUI::vec3_property("Rotation:", _rotation, reset_values.data(), tooltips.data());
 
-        reset_values = { 1.0f, 1.0f, 1.0f };
-        glm::vec3 _scale = scale;
-        GUI::vec3_property("Scale:", _scale, reset_values.data(), tooltips.data());
+        // reset_values = { 1.0f, 1.0f, 1.0f };
+        // glm::vec3 _scale = scale;
+        // GUI::vec3_property("Scale:", _scale, reset_values.data(), tooltips.data());
 
         GUI::end_properties();
     }
@@ -92,11 +92,11 @@ namespace foundation {
     void OOBComponent::draw() {
         GUI::begin_properties(ImGuiTableFlags_BordersInnerV);
 
-        static std::array<f32, 3> reset_values = { 0.0f, 0.0f, 0.0f };
-        static std::array<const char*, 3> tooltips = { "Some tooltip.", "Some tooltip.", "Some tooltip." };
+        // static std::array<f32, 3> reset_values = { 0.0f, 0.0f, 0.0f };
+        // static std::array<const char*, 3> tooltips = { "Some tooltip.", "Some tooltip.", "Some tooltip." };
 
-        GUI::vec3_property("Extent:", extent, reset_values.data(), tooltips.data());
-        GUI::vec3_property("Color:", color, reset_values.data(), tooltips.data());
+        // GUI::vec3_property("Extent:", extent, reset_values.data(), tooltips.data());
+        // GUI::vec3_property("Color:", color, reset_values.data(), tooltips.data());
 
         GUI::end_properties();
     }

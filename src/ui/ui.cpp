@@ -85,14 +85,13 @@ namespace foundation {
             ImGui::ItemSize(size, style.FramePadding.y);
             if (!ImGui::ItemAdd(bb, id)) { return false; }
 
-            if (g.LastItemData.InFlags & ImGuiItemFlags_ButtonRepeat) {
-                flags |= ImGuiButtonFlags_Repeat;
-            }
-
+            bool repeat = g.LastItemData.ItemFlags & ImGuiItemFlags_ButtonRepeat;
             bool hovered = false;
             bool held = false;
-            bool pressed = ImGui::ButtonBehavior(bb, id, &hovered, &held, flags);
 
+            if(repeat) { ImGui::PushItemFlag(ImGuiItemFlags_ButtonRepeat, true); }
+            bool pressed = ImGui::ButtonBehavior(bb, id, &hovered, &held, flags);
+            if(repeat) { ImGui::PopItemFlag(); }
             // Render
             const ImU32 col = ImGui::GetColorU32((held && hovered) ? ImGuiCol_ButtonActive : hovered ? ImGuiCol_ButtonHovered : ImGuiCol_Button);
             ImGui::RenderNavHighlight(bb, id);
@@ -206,7 +205,7 @@ namespace foundation {
                 ImGui::DataTypeFormatString(buf.data(), buf.size(), data_type, value, localFormat);
 
 
-                flags |= ImGuiInputTextFlags_AutoSelectAll | ImGuiInputTextFlags_NoMarkEdited; // We call MarkItemEdited() ourselves by comparing the actual data rather than the string.
+                flags |= ImGuiInputTextFlags_AutoSelectAll; // We call MarkItemEdited() ourselves by comparing the actual data rather than the string.
 
                 bool value_changed = false;
                 if (step != s_cast<T>(0)) {
@@ -223,16 +222,15 @@ namespace foundation {
                     // Step buttons
                     const ImVec2 backup_frame_padding = style.FramePadding;
                     style.FramePadding.x = style.FramePadding.y;
-                    ImGuiButtonFlags button_flags = ImGuiButtonFlags_Repeat | ImGuiButtonFlags_DontClosePopups;
                     if (flags & ImGuiInputTextFlags_ReadOnly) { ImGui::BeginDisabled(); }
                     ImGui::SameLine(0, style.ItemInnerSpacing.x);
-                    if (ImGui::ButtonEx("-", ImVec2(button_size, button_size), button_flags))
+                    if (ImGui::ButtonEx("-", ImVec2(button_size, button_size)))
                     {
                         value_reference -= g.IO.KeyCtrl ? s_cast<T>(stepFast) : s_cast<T>(step);
                         value_changed = true;
                     }
                     ImGui::SameLine(0, style.ItemInnerSpacing.x);
-                    if (ImGui::ButtonEx("+", ImVec2(button_size, button_size), button_flags))
+                    if (ImGui::ButtonEx("+", ImVec2(button_size, button_size)))
                     {
                         value_reference += g.IO.KeyCtrl ? s_cast<T>(stepFast) : s_cast<T>(step);
                         value_changed = true;
@@ -279,7 +277,7 @@ namespace foundation {
                 bool temp_input_is_active = temp_input_allowed && ImGui::TempInputIsActive(id);
                 if (!temp_input_is_active) {
                     // Tabbing or CTRL-clicking on Drag turns it into an InputText
-                    const bool input_requested_by_tabbing = temp_input_allowed && (g.LastItemData.StatusFlags & ImGuiItemStatusFlags_FocusedByTabbing) != 0;
+                    const bool input_requested_by_tabbing = temp_input_allowed;
                     const bool clicked = (hovered && g.IO.MouseClicked[0]);
                     const bool double_clicked = (hovered && g.IO.MouseClickedCount[0] == 2);
                     const bool make_active = (input_requested_by_tabbing || clicked || double_clicked || g.NavActivateId == id);
