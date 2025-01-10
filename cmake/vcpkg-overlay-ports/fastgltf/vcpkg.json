@@ -14,5 +14,10 @@
       "name": "vcpkg-cmake-config",
       "host": true
     }
-  ]
+  ],
+  "vcpkg-configuration": {
+    "overlay-ports": [
+      "../simdjson"
+    ]
+  }
 }

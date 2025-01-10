@@ -463,10 +463,12 @@ namespace foundation {
             glm::vec3 scale = {};
             math::decompose_transform(node.transform, position, rotation, scale);
 
-            auto* local_transform = parent_entity.get_component<LocalTransformComponent>();
-            local_transform->set_position(position);
-            local_transform->set_rotation(rotation);
-            local_transform->set_scale(scale);
+            if(parent_entity.has_component<LocalTransformComponent>()) {
+                auto* local_transform = parent_entity.get_component<LocalTransformComponent>();
+                local_transform->set_position(position);
+                local_transform->set_rotation(rotation);
+                local_transform->set_scale(scale);
+            }
 
             for(u32 children_index = 0; children_index < node.children.size(); children_index++) {
                 Entity& child_entity = node_index_to_entity[children_index];

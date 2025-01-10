@@ -1,0 +1,11 @@
+﻿diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 979dd50..6ed08f0 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -178,3 +178,5 @@ endif()
+ if (FASTGLTF_ENABLE_DOCS)
+     add_subdirectory(docs)
+ endif()
++
++target_link_options(fastgltf PRIVATE "/FUNCTIONPADMIN")
+\ No newline at end of file

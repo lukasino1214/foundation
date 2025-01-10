@@ -4,6 +4,8 @@ vcpkg_from_github(
     REF v${VERSION}
     SHA512 6fbb9c5a98dad8616562d60ed5eb08030c101edd81fb028d906ea0aa8261369e942c0eeadf163283c8acac7858728b9277ef557cb8d38e972c7fe97771c0b4c4
     HEAD_REF master
+    PATCHES
+        link-option-livepp.patch
 )
 
 # If we want basisu support in gltfpack we need a particular fork of basisu

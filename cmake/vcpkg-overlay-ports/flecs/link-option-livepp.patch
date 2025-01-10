@@ -1,0 +1,18 @@
+﻿diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 3b0a27409..413344848 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -63,11 +63,13 @@ endmacro()
+ 
+ if(FLECS_SHARED)
+     add_flecs_target(flecs SHARED)
++    target_link_options(flecs PRIVATE "/FUNCTIONPADMIN")
+ endif()
+ 
+ if(FLECS_STATIC)
+     add_flecs_target(flecs_static STATIC)
+     target_compile_definitions(flecs_static PUBLIC flecs_STATIC)
++    target_link_options(flecs_static PRIVATE "/FUNCTIONPADMIN")
+ endif()
+ 
+ if(FLECS_TESTS)

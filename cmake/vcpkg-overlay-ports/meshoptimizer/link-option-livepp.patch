@@ -1,0 +1,11 @@
+﻿diff --git a/CMakeLists.txt b/CMakeLists.txt
+index f8e9fba..34c849e 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -170,3 +170,5 @@ install(FILES
+     ${CMAKE_CURRENT_BINARY_DIR}/meshoptimizerConfigVersion.cmake
+     COMPONENT meshoptimizer
+     DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/meshoptimizer)
++
++target_link_options(meshoptimizer PRIVATE "/FUNCTIONPADMIN")
+\ No newline at end of file

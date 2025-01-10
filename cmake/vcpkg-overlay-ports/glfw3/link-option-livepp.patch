@@ -1,0 +1,10 @@
+﻿diff --git a/src/CMakeLists.txt b/src/CMakeLists.txt
+index 1057a6f9..061dc390 100644
+--- a/src/CMakeLists.txt
++++ b/src/CMakeLists.txt
+@@ -366,3 +366,4 @@ if (GLFW_INSTALL)
+             LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}")
+ endif()
+ 
++target_link_options(glfw PRIVATE "/FUNCTIONPADMIN")
+\ No newline at end of file

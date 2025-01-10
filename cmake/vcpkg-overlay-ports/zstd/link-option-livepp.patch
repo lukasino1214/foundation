@@ -1,0 +1,20 @@
+﻿diff --git a/build/cmake/lib/CMakeLists.txt b/build/cmake/lib/CMakeLists.txt
+index 5d514ccb..080a8bef 100644
+--- a/build/cmake/lib/CMakeLists.txt
++++ b/build/cmake/lib/CMakeLists.txt
+@@ -134,6 +134,7 @@ if (ZSTD_BUILD_SHARED)
+     add_definition(libzstd_shared ZSTDLIB_VISIBLE)
+     add_definition(libzstd_shared ZSTDERRORLIB_VISIBLE)
+     add_definition(libzstd_shared ZDICTLIB_VISIBLE)
++    target_link_options(libzstd_shared PRIVATE "/FUNCTIONPADMIN")
+ endif ()
+ if (ZSTD_BUILD_STATIC)
+     add_library(libzstd_static STATIC ${Sources} ${Headers})
+@@ -150,6 +151,7 @@ if (ZSTD_BUILD_STATIC)
+     add_definition(libzstd_static ZDICTLIB_VISIBLE)
+     add_definition(libzstd_static ZSTDLIB_STATIC_API)
+     add_definition(libzstd_static ZDICTLIB_STATIC_API)
++    target_link_options(libzstd_static PRIVATE "/FUNCTIONPADMIN")
+ endif ()
+ if (ZSTD_BUILD_SHARED AND NOT ZSTD_BUILD_STATIC)
+     if (NOT BUILD_SHARED_LIBS)

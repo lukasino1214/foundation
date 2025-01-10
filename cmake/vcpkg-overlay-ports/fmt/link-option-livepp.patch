@@ -1,0 +1,11 @@
+﻿diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 586ead51..513edae0 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -529,3 +529,5 @@ if (FMT_MASTER_PROJECT AND EXISTS ${gitignore})
+   set(CPACK_RESOURCE_FILE_README ${PROJECT_SOURCE_DIR}/README.md)
+   include(CPack)
+ endif ()
++
++target_link_options(fmt PRIVATE "/FUNCTIONPADMIN")
+\ No newline at end of file

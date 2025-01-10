@@ -26,6 +26,7 @@ vcpkg_from_github(
         "${PATCH_FIX_ANDROID_ISSUE_74}"
         "${PATCH_UWP_DISABLE_MEMORYMAPPEDFILE}"
         "${PATCH_UWP_WINAPI_FAMILY}"
+        link-option-livepp.patch
 )
 
 vcpkg_cmake_configure(
@@ -41,5 +42,3 @@ file(WRITE "${CURRENT_PACKAGES_DIR}/share/fastgltf/fastgltfConfig.cmake" "
 include(CMakeFindDependencyMacro)
 find_dependency(simdjson)
 ${contents}")
-
-file(REMOVE_RECURSE "${CURRENT_PACKAGES_DIR}/debug/include")

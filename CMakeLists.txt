@@ -83,6 +83,7 @@ find_package(Lua REQUIRED)
 find_package(sol2 CONFIG REQUIRED)
 find_package(metis CONFIG REQUIRED)
 find_package(meshoptimizer CONFIG REQUIRED)
+find_package(simdjson CONFIG REQUIRED)
 
 add_executable(${PROJECT_NAME} 
     "src/main.cpp"
@@ -140,9 +141,18 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     sol2
     metis
     meshoptimizer::meshoptimizer
+    simdjson::simdjson
 )
+
 target_include_directories(${PROJECT_NAME} PRIVATE ${Stb_INCLUDE_DIR} ${LUA_INCLUDE_DIR})
 target_include_directories(${PROJECT_NAME} PRIVATE "${NVTT_DIR}/include")
+
+if(TRUE)
+  target_compile_options(${PROJECT_NAME} PUBLIC -g -gcodeview -fms-hotpatch -ffunction-sections -Xclang -mno-constructor-aliases)
+  target_link_options(${PROJECT_NAME} PUBLIC -Xlinker /FUNCTIONPADMIN)
+  target_include_directories(${PROJECT_NAME} PRIVATE "deps/LivePP/API/x64")
+  target_compile_definitions(${PROJECT_NAME} PUBLIC LPP_PATH="${CMAKE_CURRENT_SOURCE_DIR}/deps/LivePP" LPP_ENABLED)
+endif()
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
     target_link_libraries(${PROJECT_NAME} PRIVATE Dwmapi)

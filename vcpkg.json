@@ -35,7 +35,8 @@
       "sol2",
       "metis",
       "meshoptimizer",
-      "lua"
+      "lua",
+      "simdjson"
     ],
   "builtin-baseline": "f5c5b8ddbb88dec7eed4a5ac54c36d1c64d2d29d",
   "vcpkg-configuration": {
@@ -48,7 +49,12 @@
       "cmake/vcpkg-overlay-ports/sol2",
       "cmake/vcpkg-overlay-ports/fastgltf",
       "cmake/vcpkg-overlay-ports/imgui",
-      "cmake/vcpkg-overlay-ports/imguizmo"
+      "cmake/vcpkg-overlay-ports/imguizmo",
+      "cmake/vcpkg-overlay-ports/zstd",
+      "cmake/vcpkg-overlay-ports/fmt",
+      "cmake/vcpkg-overlay-ports/simdjson",
+      "cmake/vcpkg-overlay-ports/lua",
+      "cmake/vcpkg-overlay-ports/flecs"
     ]
   }
 }

@@ -1,0 +1,87 @@
+﻿diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 35c0c923..f3f8b96f 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -67,11 +67,13 @@ set(SIMDJSON_SOURCES src/simdjson.cpp)
+ 
+ add_library(simdjson ${SIMDJSON_SOURCES})
+ add_library(simdjson::simdjson ALIAS simdjson)
++target_link_options(simdjson PRIVATE "/FUNCTIONPADMIN")
+ set(SIMDJSON_LIBRARIES simdjson)
+ 
+ if(SIMDJSON_BUILD_STATIC_LIB)
+   add_library(simdjson_static STATIC ${SIMDJSON_SOURCES})
+   add_library(simdjson::simdjson_static ALIAS simdjson_static)
++  target_link_options(simdjson_static PRIVATE "/FUNCTIONPADMIN")
+   list(APPEND SIMDJSON_LIBRARIES simdjson_static)
+ endif()
+ 
+@@ -372,4 +374,4 @@ if(NOT SIMDJSON_SANITIZE)
+       WORKING_DIRECTORY ${PROJECT_BINARY_DIR}
+     )
+   endif()
+-endif()
++endif()
+\ No newline at end of file
+diff --git a/cmake/developer-options.cmake b/cmake/developer-options.cmake
+index 4e1068cf..50d2859f 100644
+--- a/cmake/developer-options.cmake
++++ b/cmake/developer-options.cmake
+@@ -2,6 +2,7 @@
+ # Flags used by exes and by the simdjson library (project-wide flags)
+ #
+ add_library(simdjson-internal-flags INTERFACE)
++add_link_options(/FUNCTIONPADMIN)
+ 
+ 
+ option(SIMDJSON_CHECK_EOF "Check for the end of the input buffer. The setting is unnecessary since we require padding of the inputs. You should expect tests to fail with this option turned on." OFF)
+diff --git a/singleheader/CMakeLists.txt b/singleheader/CMakeLists.txt
+index ce6814aa..abed0ce9 100644
+--- a/singleheader/CMakeLists.txt
++++ b/singleheader/CMakeLists.txt
+@@ -96,6 +96,7 @@ add_custom_target(singleheader-files DEPENDS ${SINGLEHEADER_FILES})
+ # Include this if you intend to #include "simdjson.cpp" in your own .cpp files.
+ #
+ add_library(simdjson-singleheader-include-source INTERFACE)
++add_link_options(/FUNCTIONPADMIN)
+ target_include_directories(simdjson-singleheader-include-source INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}>)
+ add_dependencies(simdjson-singleheader-include-source singleheader-files)
+ 
+@@ -103,6 +104,7 @@ add_dependencies(simdjson-singleheader-include-source singleheader-files)
+ # Include this to get "simdjson.cpp" included in your project as one of the sources.
+ #
+ add_library(simdjson-singleheader-source INTERFACE)
++add_link_options(/FUNCTIONPADMIN)
+ target_sources(simdjson-singleheader-source INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/simdjson.cpp>)
+ target_link_libraries(simdjson-singleheader-source INTERFACE simdjson-singleheader-include-source)
+ 
+@@ -138,6 +140,7 @@ endif()
+ # Under Windows you should not mix static and dynamic. Pick one. The following test is static.
+ if(NOT SIMDJSON_LEGACY_VISUAL_STUDIO AND NOT SIMDJSON_WINDOWS_DLL)
+   add_library(simdjson-singleheader STATIC "")
++  target_link_options(simdjson-singleheader PRIVATE "/FUNCTIONPADMIN")
+   target_link_libraries(simdjson-singleheader simdjson-singleheader-source simdjson-internal-flags)
+   add_compile_only_test(simdjson-singleheader)
+   set_property(TEST simdjson-singleheader APPEND PROPERTY LABELS per_implementation singleheader)
+@@ -156,9 +159,11 @@ endif()
+ if (NOT (${CMAKE_CURRENT_SOURCE_DIR} STREQUAL ${CMAKE_CURRENT_BINARY_DIR}))
+ 
+   add_library(simdjson-singleheader-include-source-direct-from-repository INTERFACE)
++  add_link_options(/FUNCTIONPADMIN)
+   target_include_directories(simdjson-singleheader-include-source-direct-from-repository INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
+ 
+   add_library(simdjson-singleheader-source-direct-from-repository INTERFACE)
++  add_link_options(/FUNCTIONPADMIN)
+   target_sources(simdjson-singleheader-source-direct-from-repository INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})
+   target_link_libraries(simdjson-singleheader-source-direct-from-repository INTERFACE simdjson-singleheader-include-source-direct-from-repository)
+ 
+diff --git a/windows/CMakeLists.txt b/windows/CMakeLists.txt
+index 2be783bc..8be4a439 100644
+--- a/windows/CMakeLists.txt
++++ b/windows/CMakeLists.txt
+@@ -1,4 +1,5 @@
+ add_library(simdjson-windows-headers INTERFACE)
++add_link_options(/FUNCTIONPADMIN)
+ if(MSVC OR MINGW)
+   target_include_directories(simdjson-windows-headers INTERFACE .)
+   # getopt.h triggers bogus CRT_SECURE warnings. If you include them, you need this.
