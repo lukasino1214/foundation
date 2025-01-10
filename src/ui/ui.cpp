@@ -2,8 +2,6 @@
 
 #include <type_traits>
 
-
-
 namespace foundation {
     const u32 boldFontIndex = 1;
     static i32 s_UIContextID = 0;
@@ -640,6 +638,16 @@ namespace foundation {
             end_property();
 
             return modified;
+        }
+    }
+
+    namespace ui {
+        void indent(f32 width, f32 height) {
+            ImGui::Dummy(ImVec2{width, height});
+        }
+
+        auto drag_float(const BetterDragFloatInfo& info) -> bool {
+            return true;
         }
     }
 }

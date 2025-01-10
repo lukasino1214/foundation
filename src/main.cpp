@@ -17,6 +17,7 @@ auto main() -> i32 {
 
     lppAgent.EnableModule(lpp::LppGetCurrentModulePath(), lpp::LPP_MODULES_OPTION_ALL_IMPORT_MODULES, nullptr, nullptr);
 #endif
+    Logger::init();
 
     Application app;
     app.run();

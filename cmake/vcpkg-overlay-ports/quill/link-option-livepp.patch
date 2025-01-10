@@ -1,0 +1,16 @@
+﻿diff --git a/cmake/QuillUtils.cmake b/cmake/QuillUtils.cmake
+index fa7ed77..eed0b8f 100644
+--- a/cmake/QuillUtils.cmake
++++ b/cmake/QuillUtils.cmake
+@@ -45,8 +45,8 @@ function(set_common_compile_options target_name)
+                 $<$<CXX_COMPILER_ID:MSVC>:/wd4702 /GR- /EHs-c- /D_HAS_EXCEPTIONS=0>)
+     else ()
+         # Additional MSVC specific options
+-        if (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+-            target_compile_options(${target_name} ${COMPILE_OPTIONS_VISIBILITY} /EHsc)
+-        endif ()
++        # if (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
++        #     target_compile_options(${target_name} ${COMPILE_OPTIONS_VISIBILITY} /EHsc)
++        # endif ()
+     endif ()
+ endfunction()

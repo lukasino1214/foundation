@@ -233,9 +233,6 @@ namespace foundation {
             ImGui::End();
         }
 
-        ImGui::Begin("File Browser");
-        ImGui::End();
-
         ImGui::Begin("Asset Manager Statistics");
         ImGui::Text("Unique Mesh Count: %u", s_cast<u32>(asset_manager->total_unique_mesh_count));
         ImGui::Text("Mesh Count: %u", s_cast<u32>(asset_manager->total_mesh_count));

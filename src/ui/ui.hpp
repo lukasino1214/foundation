@@ -7,7 +7,6 @@
 #include <imgui.h>
 #include <imgui_internal.h>
 
-
 namespace foundation {
     namespace GUI {
         void generate_ID();
@@ -39,5 +38,23 @@ namespace foundation {
         auto f32_property(const char* label, f32 &value, const char* tooltip = nullptr, ImGuiInputTextFlags input_flags = ImGuiInputTextFlags_None) -> bool;
         auto vec2_property(const char* label, glm::vec2 &value, const f32 *reset_values, const char** tooltips = nullptr) -> bool;
         auto vec3_property(const char* label, glm::vec3 &value, const f32 *reset_values, const char** tooltips = nullptr) -> bool;
+    }
+
+    namespace ui {
+        void indent(f32 width, f32 height);
+
+        struct BetterDragFloatInfo {
+            std::string text = {};
+            f32 * value = {};
+            f32 speed = {};
+            f32 min = {};
+            f32 max = {};
+            std::string format = {};
+            f32 text_width = {};
+            i32 left_offset = {};
+            bool clip = {};
+        };
+        
+        auto drag_float(const BetterDragFloatInfo& info) -> bool;
     }
 }

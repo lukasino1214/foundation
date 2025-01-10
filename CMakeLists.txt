@@ -84,6 +84,7 @@ find_package(sol2 CONFIG REQUIRED)
 find_package(metis CONFIG REQUIRED)
 find_package(meshoptimizer CONFIG REQUIRED)
 find_package(simdjson CONFIG REQUIRED)
+find_package(quill CONFIG REQUIRED)
 
 add_executable(${PROJECT_NAME} 
     "src/main.cpp"
@@ -110,6 +111,7 @@ add_executable(${PROJECT_NAME}
     "src/utils/file_io.cpp"
     "src/utils/zstd.cpp"
     "src/utils/file_watcher.cpp"
+    "src/utils/logger.cpp"
 )
 
 target_precompile_headers(${PROJECT_NAME} PRIVATE "src/pch.hpp")
@@ -142,6 +144,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     metis
     meshoptimizer::meshoptimizer
     simdjson::simdjson
+    quill::quill
 )
 
 target_include_directories(${PROJECT_NAME} PRIVATE ${Stb_INCLUDE_DIR} ${LUA_INCLUDE_DIR})

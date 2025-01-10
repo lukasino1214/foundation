@@ -1,5 +1,6 @@
 #pragma once
 
+#include <ui/ui.hpp>
 #include "ecs/asset_manager.hpp"
 #include "ecs/asset_processor.hpp"
 #include "ecs/scene.hpp"

@@ -91,7 +91,7 @@ namespace foundation {
             }
 
             ImGui::SameLine();
-            ImGui::Dummy({8, 1});
+            ui::indent(8, 1);
 
             if(node.is_open) {
                 std::vector<u32> with_children = {};
