@@ -39,11 +39,9 @@ namespace foundation {
             auto visit = [&](this auto& self, const std::filesystem::path& search_path, const TreeNode& previous_parent_node, TreeNode& parent_node) -> void {
                 for(const auto& entry : std::filesystem::directory_iterator(search_path)) {
                     if(entry.is_directory()) {
-                        bool found = false;
                         TreeNode previous_child_node;
-
                         for(const auto& search_node : previous_parent_node.children) {
-                            if(entry.path() == search_node.path) { found = true; previous_child_node = search_node; break; }
+                            if(entry.path() == search_node.path) { previous_child_node = search_node; break; }
                         }
 
                         TreeNode child_node;
@@ -72,6 +70,8 @@ namespace foundation {
         if(ImGui::Button("go back")) {
             update(current_path.parent_path());
         }
+        ImGui::SameLine();
+        ImGui::Text("%ls", selected_path.c_str());
 
         ImGui::BeginChild("File Hiearchy", ImVec2(0,0), ImGuiChildFlags_Border | ImGuiChildFlags_AutoResizeX);
         
@@ -135,11 +135,23 @@ namespace foundation {
             for(const auto& item : vec) {
                 ImGui::PushID(item.string().c_str());
                 ImGui::SetCursorPosX(ImGui::GetCursorPosX() + (ImGui::GetColumnWidth() / 2) - (thumbnail_size / 2));
-                bool clicked = ImGui::Button(std::string{std::string(is_folder ? "folder" : "file") + "###"}.c_str(), ImVec2{thumbnail_size, thumbnail_size});
-                if(clicked && is_folder) {
-                    folder_clicked = true;
-                    clicked_path = current_path / item;
+
+                if(current_path / item == selected_path) { ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetStyle().Colors[ImGuiCol_ButtonHovered]); }
+                ImGui::Button(std::string{std::string(is_folder ? "folder" : "file") + "###"}.c_str(), ImVec2{thumbnail_size, thumbnail_size});
+                if(current_path / item == selected_path) { ImGui::PopStyleColor(); }
+
+                if(ImGui::IsItemClicked(ImGuiMouseButton_Left)) {
+                    selected_path = current_path / item;
                 }
+
+                if(ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left) && ImGui::IsItemHovered()) {
+                    std::println("double clicked");
+                    if(is_folder) {
+                        folder_clicked = true;
+                        clicked_path = current_path / item;
+                    }
+                }
+
                 ImGui::SetCursorPosX(ImGui::GetCursorPosX() + (ImGui::GetColumnWidth() / 2) - (ImGui::CalcTextSize(item.string().c_str()).x / 2));
                 ImGui::TextWrapped("%s", item.string().c_str());
                 ImGui::PopID();

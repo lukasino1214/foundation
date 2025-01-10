@@ -81,6 +81,8 @@ namespace foundation {
     void SceneHierarchyPanel::tree(Entity& entity, const u32 iteration) {
         ImGuiTreeNodeFlags treeNodeFlags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_FramePadding | ImGuiTreeNodeFlags_SpanAvailWidth;
 
+        if(!entity.has_children()) { treeNodeFlags |= ImGuiTreeNodeFlags_Leaf; }
+
         bool selected = false;
         if (selected_entity) {
             if(selected_entity.get_handle() == entity.get_handle()) {

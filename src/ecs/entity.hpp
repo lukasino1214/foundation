@@ -19,9 +19,11 @@ public:
 
         void set_child(Entity& entity);
         auto get_children() -> std::vector<Entity>;
+        auto has_children() -> bool;
 
         void set_parent(Entity& entity);
         auto get_parent() -> Entity;
+        auto has_parent() -> bool;
 
         operator bool() const { return handle.is_valid(); }
 

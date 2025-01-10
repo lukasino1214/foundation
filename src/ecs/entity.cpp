@@ -31,11 +31,24 @@ namespace foundation {
         return children;
     }
 
+    auto Entity::has_children() -> bool {
+        ecs_iter_t it = ecs_each_pair(*scene->world, EcsChildOf, handle);
+        if (ecs_iter_is_true(&it)) {
+            return true;
+        }
+
+        return false;
+    }
+
     void Entity::set_parent(Entity& entity) {
         handle.child_of(entity.handle);
     }
 
     auto Entity::get_parent() -> Entity {
         return Entity{handle.parent(), scene};
+    }
+
+    auto Entity::has_parent() -> bool {
+        return handle.parent().has<EntityTag>();
     }
 }

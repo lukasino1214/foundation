@@ -14,6 +14,8 @@ namespace foundation {
 
         void draw();
 
+        std::filesystem::path selected_path = {};
+
         std::filesystem::path root_path = {};
         std::filesystem::path current_path = {};
         std::filesystem::file_time_type cached_time_stamp = {};
