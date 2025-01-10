@@ -22,7 +22,7 @@ namespace foundation {
             daxa::MemoryFlagBits::DEDICATED_MEMORY, 
             "scene data"
         }); 
-        query_transforms = world->query_builder<GlobalTransformComponent, LocalTransformComponent, GlobalTransformComponent*>().term_at(3).cascade(flecs::ChildOf).optional().build();
+        query_transforms = world->query_builder<GlobalTransformComponent, LocalTransformComponent, GlobalTransformComponent*>().term_at(2).cascade(flecs::ChildOf).optional().build();
     }
 
     Scene::~Scene() {

@@ -1,6 +1,3 @@
-[submodule "deps/meshoptimizer"]
-	path = deps/meshoptimizer
-	url = https://github.com/zeux/meshoptimizer.git
 [submodule "deps/Daxa"]
 	path = deps/Daxa
 	url = https://github.com/lukasino1214/Daxa.git

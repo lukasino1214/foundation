@@ -293,10 +293,12 @@ namespace foundation {
             glm::vec3 scale = {};
             math::decompose_transform(node.transform, position, rotation, scale);
 
-            auto* local_transform = parent_entity.get_component<LocalTransformComponent>();
-            local_transform->set_position(position);
-            local_transform->set_rotation(rotation);
-            local_transform->set_scale(scale);
+            if(parent_entity.has_component<LocalTransformComponent>()) {
+                auto* local_transform = parent_entity.get_component<LocalTransformComponent>();
+                local_transform->set_position(position);
+                local_transform->set_rotation(rotation);
+                local_transform->set_scale(scale);
+            }
 
             for(u32 children_index = 0; children_index < node.children.size(); children_index++) {
                 Entity& child_entity = node_index_to_entity[children_index];
@@ -403,12 +405,12 @@ namespace foundation {
             const MeshGroupManifestEntry mesh_group_manifest_entry = mesh_group_manifest_entries[mesh_group_index];
             const auto& mesh_group = asset_manifest.asset->mesh_groups.at(mesh_manifest_entry.asset_local_mesh_index);
 
+            if(!mesh_manifest_entry.virtual_geometry_render_info.has_value()) { continue; }
             const daxa::BufferId mesh_buffer = mesh_manifest_entry.virtual_geometry_render_info->mesh.mesh_buffer;
             bool is_in_memory = !mesh_buffer.is_empty() && context->device.is_buffer_id_valid(mesh_buffer);
             
             mesh_manifest_entry.unload_delay++;
             
-            if(!mesh_manifest_entry.virtual_geometry_render_info.has_value()) { continue; }
             if(mesh_manifest_entry.unload_delay < 254) { continue; }
             if(mesh_manifest_entry.loading) { continue; }
             if(keep_mesh_in_memory == is_in_memory) { continue; }
