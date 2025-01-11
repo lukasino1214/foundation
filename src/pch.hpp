@@ -92,4 +92,5 @@ inline constexpr auto find_next_lower_po2(daxa::u32 v) -> daxa::u32 {
 #define PROFILE_ZONE_NAMED(name)
 #endif
 
+#define LOG_ON
 #include <utils/logger.hpp>

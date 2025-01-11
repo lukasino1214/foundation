@@ -6,7 +6,6 @@
 #include <fastgltf/glm_element_traits.hpp>
 #include <shader_library/vertex_compression.inl>
 #include <random>
-#include <nvtt/nvtt.h>
 #include <utils/zstd.hpp>
 #include <fastgltf/core.hpp>
 #include <fastgltf/types.hpp>
@@ -23,8 +22,13 @@
 
 #include <numeric>
 #include <metis.h>
-#include <unordered_set>
-#include <set>
+
+#if defined(__clang__)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wold-style-cast"
+#include <nvtt/nvtt.h>
+#pragma clang diagnostic pop
+#endif
 
 static constexpr i32 TARGET_MESHLETS_PER_GROUP = 8;
 static constexpr f32 SIMPLIFICATION_FAILURE_PERCENTAGE = 0.95f;
@@ -41,7 +45,7 @@ namespace foundation {
         std::unique_ptr<fastgltf::Asset> asset = {};
         {
             fastgltf::Parser parser{};
-            fastgltf::Options gltf_options = fastgltf::Options::DontRequireValidAssetMember | fastgltf::Options::AllowDouble | fastgltf::Options::LoadGLBBuffers | fastgltf::Options::LoadExternalBuffers;
+            fastgltf::Options gltf_options = fastgltf::Options::DontRequireValidAssetMember | fastgltf::Options::AllowDouble | fastgltf::Options::LoadExternalBuffers;
 
             auto gltf_file = fastgltf::MappedGltfFile::FromPath(input_path);
             
@@ -781,7 +785,7 @@ namespace foundation {
 
     struct PairHasher {
         template <class T1, class T2>
-        auto operator()(const const std::pair<T1,T2>& pair) const -> usize {
+        auto operator()(const std::pair<T1,T2>& pair) const -> usize {
             usize hash = std::hash<usize>()(s_cast<usize>(pair.first));
             hash ^= std::hash<usize>()(pair.second) + 0x9e3779b9 + (hash<<6) + (hash>>2);
             return hash;
@@ -891,26 +895,27 @@ namespace foundation {
         std::vector<i32> group_per_meshlet = {};
         group_per_meshlet.resize(info.simplification_queue.size());
 
-        i32 result = METIS_PartGraphKway(&nvtxs, 
-                        &ncon, 
-                        xadj.data(), 
-                        adjncy.data(), 
-                        nullptr, 
-                        nullptr, 
-                        adjwgt.data(), 
-                        &partition_count, 
-                        nullptr, 
-                        nullptr, 
-                        options, 
-                        &edgecut, 
-                        group_per_meshlet.data());
+        METIS_PartGraphKway(&nvtxs, 
+            &ncon, 
+            xadj.data(), 
+            adjncy.data(), 
+            nullptr, 
+            nullptr, 
+            adjwgt.data(), 
+            &partition_count, 
+            nullptr, 
+            nullptr, 
+            options, 
+            &edgecut, 
+            group_per_meshlet.data());
+
 
         std::vector<std::vector<u32>> groups = {};
-        groups.resize(partition_count);
+        groups.resize(s_cast<usize>(partition_count));
 
         u32 meshlet_queue_id = 0;
-        for(const u32 meshlet_group : group_per_meshlet) {
-            groups[meshlet_group].push_back(info.simplification_queue[meshlet_queue_id]);
+        for(const i32 meshlet_group : group_per_meshlet) {
+            groups[s_cast<usize>(meshlet_group)].push_back(info.simplification_queue[meshlet_queue_id]);
             meshlet_queue_id++;
         }
         
@@ -1520,7 +1525,14 @@ namespace foundation {
                 memcpy_data(mesh.vertex_uvs, processed_info.uvs);
                 
                 mesh.mesh_buffer = mesh_buffer;
-                mesh.material_index = info.material_manifest_offset + info.asset->meshes[info.asset->mesh_groups[info.mesh_group_index].mesh_offset + info.mesh_index].material_index.value();
+
+                const BinaryMesh& binary_mesh = info.asset->meshes[info.asset->mesh_groups[info.mesh_group_index].mesh_offset + info.mesh_index];
+                if(binary_mesh.material_index.has_value()) {
+                    mesh.material_index = info.material_manifest_offset + binary_mesh.material_index.value();
+                } else {
+                    mesh.material_index = INVALID_ID;
+                }
+
                 mesh.meshlet_count = s_cast<u32>(processed_info.meshlets.size());
                 mesh.vertex_count = s_cast<u32>(processed_info.positions.size());
             }

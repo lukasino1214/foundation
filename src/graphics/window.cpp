@@ -58,7 +58,7 @@ namespace foundation {
         {
             i32 x = 0;
             i32 y = 0;
-            const auto pixels = stbi_load("assets/icons/froge.png", &x, &y, nullptr, 4);
+            auto *const pixels = stbi_load("assets/icons/froge.png", &x, &y, nullptr, 4);
             if (pixels != nullptr) {
                 const auto image = GLFWimage{
                     .width  = x,
@@ -88,8 +88,11 @@ namespace foundation {
             };
 
             if (!is_windows11_or_greater()) {
-                MSG msg 
-                {.hwnd = hwnd, .message = WM_NCACTIVATE, .wParam = FALSE, .lParam = 0};
+                MSG msg {};
+                msg.hwnd = hwnd;
+                msg.message = WM_NCACTIVATE;
+                msg.wParam = FALSE;
+                msg.lParam = 0;
                 TranslateMessage(&msg);
                 DispatchMessage(&msg);
                 msg.wParam = TRUE;

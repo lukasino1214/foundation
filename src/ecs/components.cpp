@@ -5,7 +5,7 @@
 
 namespace foundation {
     void LocalTransformComponent::draw() {
-        GUI::begin_properties(ImGuiTableFlags_BordersInnerV);
+        // GUI::begin_properties(ImGuiTableFlags_BordersInnerV);
 
         // static std::array<f32, 3> reset_values = { 0.0f, 0.0f, 0.0f };
         // static std::array<const char*, 3> tooltips = { "Some tooltip.", "Some tooltip.", "Some tooltip." };
@@ -17,7 +17,11 @@ namespace foundation {
 
         // if (GUI::vec3_property("Scale:", scale, reset_values.data(), tooltips.data())) { is_dirty = true; }
 
-        GUI::end_properties();
+        if(ImGui::DragFloat3("Position:", &position.x)) { is_dirty = true; }
+        if(ImGui::DragFloat3("Rotation:", &rotation.x)) { is_dirty = true; }
+        if(ImGui::DragFloat3("Scale:", &scale.x)) { is_dirty = true; }
+
+        // GUI::end_properties();
     }
 
     void LocalTransformComponent::set_position(glm::vec3 _position) {

@@ -93,6 +93,7 @@ namespace foundation {
                     return score;
                 },
                 .flags = daxa::DeviceFlagBits::BUFFER_DEVICE_ADDRESS_CAPTURE_REPLAY_BIT | daxa::DeviceFlagBits::SHADER_ATOMIC64 | daxa::DeviceFlagBits::IMAGE_ATOMIC64 | daxa::DeviceFlagBits::MESH_SHADER,
+                .max_allowed_buffers = 100000,
                 .name = "my device",
             })},
             swapchain{window.create_swapchain(this->device)},

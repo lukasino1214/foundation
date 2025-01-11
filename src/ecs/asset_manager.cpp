@@ -281,12 +281,13 @@ namespace foundation {
             const auto& node = asset->nodes[node_index];
             Entity& parent_entity = node_index_to_entity[node_index];
             if(node.mesh_index.has_value()) {
-                parent_entity.add_component<GlobalTransformComponent>();
-                parent_entity.add_component<LocalTransformComponent>();
                 auto* mesh_component = parent_entity.add_component<MeshComponent>();
                 mesh_component->mesh_group_index = asset_manifest.mesh_group_manifest_offset + node.mesh_index.value();
                 parent_entity.add_component<RenderInfo>();
             }
+
+            parent_entity.add_component<GlobalTransformComponent>();
+            parent_entity.add_component<LocalTransformComponent>();
 
             glm::vec3 position = {};
             glm::vec3 rotation = {};
@@ -308,8 +309,12 @@ namespace foundation {
 
         for(u32 node_index = 0; node_index < s_cast<u32>(asset->nodes.size()); node_index++) {
             Entity& entity = node_index_to_entity[node_index];
-            auto parent = entity.get_parent();
-            if(!parent.get_handle().null()) {
+            // auto parent = entity.get_parent();
+            // if(!parent.get_handle().null()) {
+            //     info.parent.set_child(entity);
+            // }
+
+            if(!entity.has_parent()) {
                 info.parent.set_child(entity);
             }
         }
@@ -356,6 +361,8 @@ namespace foundation {
     }
 
     void AssetManager::update_textures() {
+        return;
+
         if(texture_sizes.empty()) { return; }
         std::fill(texture_sizes.begin(), texture_sizes.end(), 16);
         for(u32 texture_index = 0; texture_index < texture_manifest_entries.size(); texture_index++) {
@@ -394,6 +401,8 @@ namespace foundation {
     }
 
     void AssetManager::update_meshes() {
+        return;
+
         if(readback_mesh.empty()) { return; }
 
         for(u32 global_mesh_index = 0; global_mesh_index < mesh_manifest_entries.size(); global_mesh_index++) {
@@ -451,12 +460,13 @@ namespace foundation {
             const auto& node = asset->nodes[node_index];
             Entity& parent_entity = node_index_to_entity[node_index];
             if(node.mesh_index.has_value()) {
-                parent_entity.add_component<GlobalTransformComponent>();
-                parent_entity.add_component<LocalTransformComponent>();
                 auto* mesh_component = parent_entity.add_component<MeshComponent>();
                 mesh_component->mesh_group_index = asset_manifest.mesh_group_manifest_offset + node.mesh_index.value();
                 parent_entity.add_component<RenderInfo>();
             }
+
+            parent_entity.add_component<GlobalTransformComponent>();
+            parent_entity.add_component<LocalTransformComponent>();
 
             glm::vec3 position = {};
             glm::vec3 rotation = {};
@@ -478,8 +488,12 @@ namespace foundation {
 
         for(u32 node_index = 0; node_index < s_cast<u32>(asset->nodes.size()); node_index++) {
             Entity& entity = node_index_to_entity[node_index];
-            auto parent = entity.get_parent();
-            if(!parent.get_handle().null()) {
+            // auto parent = entity.get_parent();
+            // if(!parent.get_handle().null()) {
+            //     info.parent.set_child(entity);
+            // }
+
+            if(!entity.has_parent()) {
                 info.parent.set_child(entity);
             }
         }
@@ -489,68 +503,17 @@ namespace foundation {
         PROFILE_SCOPE;
         auto cmd_recorder = context->device.create_command_recorder({ .name = "asset manager update" });
 
-        auto realloc = [&](daxa::TaskBuffer& task_buffer, usize new_size) {
-            daxa::BufferId buffer = task_buffer.get_state().buffers[0];
-            auto info = context->device.buffer_info(buffer).value();
-            if(info.size < new_size) {
-                context->destroy_buffer_deferred(cmd_recorder, buffer);
-                std::println("INFO: {} resized from {} bytes to {} bytes", std::string{info.name.c_str().data()}, std::to_string(info.size), std::to_string(new_size));
-                u32 old_size = s_cast<u32>(info.size);
-                info.size = new_size;
-                daxa::BufferId new_buffer = context->create_buffer(info);
-                cmd_recorder.copy_buffer_to_buffer(daxa::BufferCopyInfo {
-                    .src_buffer = buffer,
-                    .dst_buffer = new_buffer,
-                    .src_offset = 0,
-                    .dst_offset = 0,
-                    .size = old_size,
-                });
-
-                task_buffer.set_buffers({ .buffers=std::array{new_buffer} });
-            }
-        };
-
-        auto realloc_special = [&](daxa::TaskBuffer& task_buffer, usize new_size, auto lambda) {
-            daxa::BufferId buffer = task_buffer.get_state().buffers[0];
-            auto info = context->device.buffer_info(buffer).value();
-            if(info.size < new_size) {
-                context->destroy_buffer_deferred(cmd_recorder, buffer);
-                std::println("INFO: {} resized from {} bytes to {} bytes", std::string{info.name.c_str().data()}, std::to_string(info.size), std::to_string(new_size));
-                info.size = new_size;
-                daxa::BufferId new_buffer = context->create_buffer(info);
-
-                auto data = lambda(new_buffer);
-
-                daxa::BufferId staging_buffer = context->create_buffer(daxa::BufferInfo {
-                    .size = sizeof(decltype(data)),
-                    .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
-                    .name = std::string{"staging"} + std::string{info.name.c_str().data()}
-                });
-                context->destroy_buffer_deferred(cmd_recorder, staging_buffer);
-                std::memcpy(context->device.buffer_host_address(staging_buffer).value(), &data, sizeof(decltype(data)));
-                cmd_recorder.copy_buffer_to_buffer({
-                    .src_buffer = staging_buffer,
-                    .dst_buffer = new_buffer,
-                    .src_offset = 0,
-                    .dst_offset = 0,
-                    .size = sizeof(decltype(data)),
-                });
-
-                task_buffer.set_buffers({ .buffers=std::array{new_buffer} });
-            }
-        };
-
-        realloc(gpu_meshes, s_cast<u32>(mesh_manifest_entries.size() * sizeof(Mesh)));
-        realloc(gpu_materials, s_cast<u32>(material_manifest_entries.size() * sizeof(Material)));
-        realloc(gpu_mesh_groups, s_cast<u32>(mesh_group_manifest_entries.size() * sizeof(MeshGroup)));
-        realloc(gpu_mesh_indices, s_cast<u32>(mesh_manifest_entries.size() * sizeof(u32)));
-        realloc_special(gpu_culled_meshes_data, s_cast<u32>(total_mesh_count * sizeof(MeshData) + sizeof(MeshesData)), [&](const daxa::BufferId& buffer) -> MeshesData {
+        reallocate_buffer(context, cmd_recorder, gpu_meshes, s_cast<u32>(mesh_manifest_entries.size() * sizeof(Mesh)));
+        reallocate_buffer(context, cmd_recorder, gpu_materials, s_cast<u32>(material_manifest_entries.size() * sizeof(Material)));
+        reallocate_buffer(context, cmd_recorder, gpu_mesh_groups, s_cast<u32>(mesh_group_manifest_entries.size() * sizeof(MeshGroup)));
+        reallocate_buffer(context, cmd_recorder, gpu_mesh_indices, s_cast<u32>(mesh_manifest_entries.size() * sizeof(u32)));
+        reallocate_buffer<MeshesData>(context, cmd_recorder, gpu_culled_meshes_data, s_cast<u32>(total_mesh_count * sizeof(MeshData) + sizeof(MeshesData)), [&](const daxa::BufferId& buffer) -> MeshesData {
             return MeshesData {
                 .count = 0,
                 .meshes = context->device.buffer_device_address(buffer).value() + sizeof(MeshesData)
             };
         });
-        realloc_special(gpu_meshlets_data_merged, total_meshlet_count * sizeof(MeshletData) * 2 + sizeof(MeshletsDataMerged), [&](const daxa::BufferId& buffer) -> MeshletsDataMerged {
+        reallocate_buffer<MeshletsDataMerged>(context, cmd_recorder, gpu_meshlets_data_merged, total_meshlet_count * sizeof(MeshletData) * 2 + sizeof(MeshletsDataMerged), [&](const daxa::BufferId& buffer) -> MeshletsDataMerged {
             return MeshletsDataMerged {
                 .hw_count = 0,
                 .sw_count = 0,
@@ -561,7 +524,7 @@ namespace foundation {
                 .sw_meshlet_data = context->device.buffer_device_address(buffer).value() + sizeof(MeshletsDataMerged) + total_meshlet_count * sizeof(MeshletData)
             };
         });
-        realloc_special(gpu_prefix_sum_work_expansion_mesh, total_mesh_count * sizeof(u32) * 3 + sizeof(PrefixSumWorkExpansion), [&](const daxa::BufferId& buffer) -> PrefixSumWorkExpansion {
+        reallocate_buffer<PrefixSumWorkExpansion>(context, cmd_recorder, gpu_prefix_sum_work_expansion_mesh, total_mesh_count * sizeof(u32) * 3 + sizeof(PrefixSumWorkExpansion), [&](const daxa::BufferId& buffer) -> PrefixSumWorkExpansion {
             return PrefixSumWorkExpansion {
                 .merged_expansion_count_thread_count = 0,
                 .expansions_max = s_cast<u32>(total_mesh_count),
@@ -577,10 +540,10 @@ namespace foundation {
         readback_material.resize(material_manifest_entries.size());
         texture_sizes.resize(texture_manifest_entries.size());
         readback_mesh.resize(readback_mesh_size);
-        realloc(gpu_readback_material_gpu, s_cast<u32>(material_manifest_entries.size() * sizeof(u32)));
-        realloc(gpu_readback_material_cpu, s_cast<u32>(material_manifest_entries.size() * sizeof(u32)));
-        realloc(gpu_readback_mesh_gpu, readback_mesh_size * sizeof(u32));
-        realloc(gpu_readback_mesh_cpu, readback_mesh_size * sizeof(u32));
+        reallocate_buffer(context, cmd_recorder, gpu_readback_material_gpu, s_cast<u32>(material_manifest_entries.size() * sizeof(u32)));
+        reallocate_buffer(context, cmd_recorder, gpu_readback_material_cpu, s_cast<u32>(material_manifest_entries.size() * sizeof(u32)));
+        reallocate_buffer(context, cmd_recorder, gpu_readback_mesh_gpu, readback_mesh_size * sizeof(u32));
+        reallocate_buffer(context, cmd_recorder, gpu_readback_mesh_cpu, readback_mesh_size * sizeof(u32));
 
         if(!dirty_meshes.empty()) {
             Mesh mesh = {};
@@ -691,10 +654,13 @@ namespace foundation {
                 auto& mesh_manifest = mesh_manifest_entries[mesh_upload_info.manifest_index];
                 mesh_manifest.loading = false;
                 auto& asset_manifest = asset_manifest_entries[mesh_manifest.asset_manifest_index];
-                u32 material_index = mesh_upload_info.material_manifest_offset + asset_manifest.asset->meshes[asset_manifest.asset->mesh_groups[mesh_manifest.asset_local_mesh_index].mesh_offset + mesh_manifest.asset_local_primitive_index].material_index.value();
-                auto& material_manifest = material_manifest_entries.at(material_index);
+                const BinaryMesh& binary_mesh = asset_manifest.asset->meshes[asset_manifest.asset->mesh_groups[mesh_manifest.asset_local_mesh_index].mesh_offset + mesh_manifest.asset_local_primitive_index];
 
-                if(!mesh_manifest.virtual_geometry_render_info.has_value()) {
+                mesh_manifest.virtual_geometry_render_info = MeshManifestEntry::VirtualGeometryRenderInfo { .mesh = mesh_upload_info.mesh, };
+                if(!mesh_manifest.virtual_geometry_render_info.has_value() && binary_mesh.material_index.has_value()) {
+                    u32 material_index = mesh_upload_info.material_manifest_offset + binary_mesh.material_index.value();
+                    auto& material_manifest = material_manifest_entries.at(material_index);
+
                     cmd_recorder.copy_buffer_to_buffer(daxa::BufferCopyInfo {
                         .src_buffer = material_null_buffer,
                         .dst_buffer = gpu_materials.get_state().buffers[0],
@@ -702,12 +668,8 @@ namespace foundation {
                         .dst_offset = material_manifest.material_manifest_index * sizeof(Material),
                         .size = sizeof(Material),
                     });
+                    mesh_manifest.virtual_geometry_render_info->material_manifest_index = material_manifest.material_manifest_index;
                 }
-
-                mesh_manifest.virtual_geometry_render_info = MeshManifestEntry::VirtualGeometryRenderInfo {
-                    .mesh = mesh_upload_info.mesh,
-                    .material_manifest_index = material_manifest.material_manifest_index,
-                };
             }
 
             daxa::BufferId staging_buffer = context->create_buffer({

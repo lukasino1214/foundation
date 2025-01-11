@@ -221,6 +221,8 @@ namespace foundation {
     }
 
     void Renderer::recreate_framebuffer(const glm::uvec2& size) {
+        LOG_INFO("resizing framebuffers from [{}, {}] to [{}, {}]", context->shader_globals.render_target_size.x, context->shader_globals.render_target_size.y, size.x, size.y);
+
         for (auto &[info, timg] : frame_buffer_images) {
             for(auto image : timg.get_state().images) {
                 context->destroy_image(image);
@@ -258,7 +260,12 @@ namespace foundation {
 
         for (auto [name, info] : rasters) {
             auto compilation_result = this->context->pipeline_manager.add_raster_pipeline(info);
-            std::cout << std::string{name} + " " << compilation_result.to_string() << std::endl;
+            if(compilation_result.value()->is_valid()) {
+                LOG_INFO("SUCCESSFULLY compiled pipeline {}", name);
+            } else {
+                LOG_ERROR("FAILED to compile pipeline {} with message \n {}", name, compilation_result.message());
+            }
+
             this->context->raster_pipelines[name] = compilation_result.value();
         }
 
@@ -270,7 +277,12 @@ namespace foundation {
 
         for (auto [name, info] : computes) {
             auto compilation_result = this->context->pipeline_manager.add_compute_pipeline(info);
-            std::cout << std::string{name} + " " << compilation_result.to_string() << std::endl;
+            if(compilation_result.value()->is_valid()) {
+                LOG_INFO("SUCCESSFULLY compiled pipeline {}", name);
+            } else {
+                LOG_ERROR("FAILED to compile pipeline {} with message \n {}", name, compilation_result.message());
+            }
+            
             this->context->compute_pipelines[name] = compilation_result.value();
         }
     }
@@ -486,7 +498,7 @@ namespace foundation {
 
     void Renderer::ui_update() {
         ImGui::Begin("Performance Statistics");
-        f64 total_time = 0.0f;
+        f64 total_time = 0.0;
         auto visit = [&](this auto& self, const PerfomanceCategory& performace_category, bool display_imgui) -> void {
             bool opened = ImGui::TreeNodeEx(performace_category.name.c_str(), 0, "%s", performace_category.name.c_str()) && display_imgui;
             

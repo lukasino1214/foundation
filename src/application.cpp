@@ -71,8 +71,7 @@ namespace foundation {
                     auto entity = scene->create_entity(std::format("bistro {} {} {}", x, y, z));
                     entity.get_handle().add<RootEntityTag>();
                     auto* tc = add_transform(entity);
-                    tc->set_rotation({90.0f, 0.0f, 0.0f});
-                    tc->set_position({200.0f * x, 100.0f * y, 200.0f * z});
+                    tc->set_position({200.0f * s_cast<f32>(x), 100.0f * s_cast<f32>(y), 200.0f * s_cast<f32>(z)});
 
                     LoadManifestInfo manifesto {
                         .parent = entity,
@@ -86,6 +85,22 @@ namespace foundation {
                 }
             }
         }
+
+//         {
+//             auto entity = scene->create_entity("small city");
+//             entity.get_handle().add<RootEntityTag>();
+//             add_transform(entity);
+
+//             LoadManifestInfo manifesto {
+//                 .parent = entity,
+//                 .path = "assets/binary/small_city/small_city.bmodel",
+//             };
+// #if COOK_ASSETS
+//                     AssetProcessor::convert_gltf_to_binary("assets/models/small_city/small_city.gltf", "assets/binary/small_city/small_city.bmodel");
+// #else           
+//                     asset_manager->load_model(manifesto);
+// #endif      
+//         }
 
         {
             auto cube1 = scene->create_entity("aabb 1");
