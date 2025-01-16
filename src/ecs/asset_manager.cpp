@@ -286,20 +286,15 @@ namespace foundation {
                 parent_entity.add_component<RenderInfo>();
             }
 
-            parent_entity.add_component<GlobalTransformComponent>();
-            parent_entity.add_component<LocalTransformComponent>();
-
             glm::vec3 position = {};
             glm::vec3 rotation = {};
             glm::vec3 scale = {};
             math::decompose_transform(node.transform, position, rotation, scale);
 
-            if(parent_entity.has_component<LocalTransformComponent>()) {
-                auto* local_transform = parent_entity.get_component<LocalTransformComponent>();
-                local_transform->set_position(position);
-                local_transform->set_rotation(rotation);
-                local_transform->set_scale(scale);
-            }
+            parent_entity.add_component<TransformComponent>();
+            parent_entity.set_local_position(position);
+            parent_entity.set_local_rotation(rotation);
+            parent_entity.set_local_scale(scale);
 
             for(u32 children_index = 0; children_index < node.children.size(); children_index++) {
                 Entity& child_entity = node_index_to_entity[children_index];
@@ -309,10 +304,6 @@ namespace foundation {
 
         for(u32 node_index = 0; node_index < s_cast<u32>(asset->nodes.size()); node_index++) {
             Entity& entity = node_index_to_entity[node_index];
-            // auto parent = entity.get_parent();
-            // if(!parent.get_handle().null()) {
-            //     info.parent.set_child(entity);
-            // }
 
             if(!entity.has_parent()) {
                 info.parent.set_child(entity);
@@ -361,8 +352,6 @@ namespace foundation {
     }
 
     void AssetManager::update_textures() {
-        return;
-
         if(texture_sizes.empty()) { return; }
         std::fill(texture_sizes.begin(), texture_sizes.end(), 16);
         for(u32 texture_index = 0; texture_index < texture_manifest_entries.size(); texture_index++) {
@@ -401,8 +390,6 @@ namespace foundation {
     }
 
     void AssetManager::update_meshes() {
-        return;
-
         if(readback_mesh.empty()) { return; }
 
         for(u32 global_mesh_index = 0; global_mesh_index < mesh_manifest_entries.size(); global_mesh_index++) {
@@ -465,20 +452,15 @@ namespace foundation {
                 parent_entity.add_component<RenderInfo>();
             }
 
-            parent_entity.add_component<GlobalTransformComponent>();
-            parent_entity.add_component<LocalTransformComponent>();
-
             glm::vec3 position = {};
             glm::vec3 rotation = {};
             glm::vec3 scale = {};
             math::decompose_transform(node.transform, position, rotation, scale);
 
-            if(parent_entity.has_component<LocalTransformComponent>()) {
-                auto* local_transform = parent_entity.get_component<LocalTransformComponent>();
-                local_transform->set_position(position);
-                local_transform->set_rotation(rotation);
-                local_transform->set_scale(scale);
-            }
+            parent_entity.add_component<TransformComponent>();
+            parent_entity.set_local_position(position);
+            parent_entity.set_local_rotation(rotation);
+            parent_entity.set_local_scale(scale);
 
             for(u32 children_index = 0; children_index < node.children.size(); children_index++) {
                 Entity& child_entity = node_index_to_entity[children_index];
@@ -488,10 +470,6 @@ namespace foundation {
 
         for(u32 node_index = 0; node_index < s_cast<u32>(asset->nodes.size()); node_index++) {
             Entity& entity = node_index_to_entity[node_index];
-            // auto parent = entity.get_parent();
-            // if(!parent.get_handle().null()) {
-            //     info.parent.set_child(entity);
-            // }
 
             if(!entity.has_parent()) {
                 info.parent.set_child(entity);

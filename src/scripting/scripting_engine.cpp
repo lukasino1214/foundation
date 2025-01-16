@@ -183,24 +183,16 @@ namespace foundation {
         lua->set_function("normalize", sol::resolve<glm::vec3(const glm::vec3&)>(glm::normalize));
         lua->set_function("length", sol::resolve<f32(const glm::vec3&)>(glm::length));
 
-        lua->new_usertype<LocalTransformComponent>("LocalTransformComponent", 
-            "get_position", &LocalTransformComponent::get_position,
-            "set_position", &LocalTransformComponent::set_position,
-            "get_rotation", &LocalTransformComponent::get_rotation,
-            "set_rotation", &LocalTransformComponent::set_rotation,
-            "get_scale", &LocalTransformComponent::get_scale,
-            "set_scale", &LocalTransformComponent::set_scale
-        );
-
-        lua->new_usertype<GlobalTransformComponent>("GlobalTransformComponent", 
-            "get_position", &GlobalTransformComponent::get_position,
-            "get_rotation", &GlobalTransformComponent::get_rotation,
-            "get_scale", &GlobalTransformComponent::get_scale
-        );
-
         lua->new_usertype<Entity>("Entity", 
-            "get_local_transform_component", &Entity::get_component<LocalTransformComponent>,
-            "get_global_transform_component", &Entity::get_component<GlobalTransformComponent>
+            "set_local_position", &Entity::set_local_position,
+            "set_local_rotation", &Entity::set_local_rotation,
+            "set_local_scale", &Entity::set_local_scale,
+            "get_local_position", &Entity::get_local_position,
+            "get_local_rotation", &Entity::get_local_rotation,
+            "get_local_scale", &Entity::get_local_scale,
+            "get_global_position", &Entity::get_global_position,
+            "get_global_rotation", &Entity::get_global_rotation,
+            "get_global_scale", &Entity::get_global_scale
         );
 
         lua->set("entity", entity);

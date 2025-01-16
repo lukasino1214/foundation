@@ -38,14 +38,23 @@ namespace foundation {
 
             if (open) {
                 if constexpr(std::is_same_v<T, EntityTag>) {
-                    GUI::begin_properties();
-                    std::string name{entity.get_name()};
-                    bool changed = GUI::string_property("Tag:", name, nullptr, ImGuiInputTextFlags_None);
-                    if(changed) { entity.set_name(name); }
-                    GUI::end_properties();
+                    // GUI::begin_properties();
+                    // std::string name{entity.get_name()};
+                    // bool changed = GUI::string_property("Tag:", name, nullptr, ImGuiInputTextFlags_None);
+                    // if(changed) { entity.set_name(name); }
+                    // GUI::end_properties();
                 } else {
-                    T* component = component = entity.get_component<T>();
-                    component->draw();
+                    if constexpr(std::is_same_v<T, TransformComponent>) {
+                        glm::vec3 position = entity.get_local_position();
+                        if(ImGui::DragFloat3("Position: ", &position[0])) { entity.set_local_position(position); }
+                        glm::vec3 rotation = entity.get_local_rotation();
+                        if(ImGui::DragFloat3("Rotation: ", &rotation[0])) { entity.set_local_rotation(rotation); }
+                        glm::vec3 scale = entity.get_local_scale();
+                        if(ImGui::DragFloat3("Scale: ", &scale[0])) { entity.set_local_scale(scale); }
+                    } else {
+                        T* component = component = entity.get_component<T>();
+                        component->draw();
+                    }
                 }
                 GUI::indent(0.0f, GImGui->Style.ItemSpacing.y);
                 ImGui::TreePop();
@@ -176,12 +185,8 @@ namespace foundation {
                 draw_component<EntityTag>(selected_entity, "Name Component");
             }
 
-            if(selected_entity.has_component<LocalTransformComponent>()) {
-                draw_component<LocalTransformComponent>(selected_entity, "Local Transform Component");
-            }
-
-            if(selected_entity.has_component<GlobalTransformComponent>()) {
-                draw_component<GlobalTransformComponent>(selected_entity, "Global Transform Component");
+            if(selected_entity.has_component<TransformComponent>()) {
+                draw_component<TransformComponent>(selected_entity, "Transform Component");
             }
 
             if(selected_entity.has_component<ModelComponent>()) {

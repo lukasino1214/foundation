@@ -37,17 +37,12 @@ namespace foundation {
         main_camera.camera.resize(s_cast<i32>(window.get_width()), s_cast<i32>(window.get_height()));
         observer_camera.camera.resize(s_cast<i32>(window.get_width()), s_cast<i32>(window.get_height()));
 
-        auto add_transform = [](Entity entity) -> LocalTransformComponent* {
-            entity.add_component<GlobalTransformComponent>();
-            return entity.add_component<LocalTransformComponent>();
-        };
-
 #define COOK_ASSETS 0
 
         {
             auto entity = scene->create_entity("sponza");
             entity.get_handle().add<RootEntityTag>();
-            add_transform(entity);
+            entity.add_component<TransformComponent>();
 
             LoadManifestInfo manifesto {
                 .parent = entity,
@@ -70,8 +65,8 @@ namespace foundation {
                 for(u32 z = 0; z < bistro_count; z++) {
                     auto entity = scene->create_entity(std::format("bistro {} {} {}", x, y, z));
                     entity.get_handle().add<RootEntityTag>();
-                    auto* tc = add_transform(entity);
-                    tc->set_position({200.0f * s_cast<f32>(x), 100.0f * s_cast<f32>(y), 200.0f * s_cast<f32>(z)});
+                    entity.add_component<TransformComponent>();
+                    entity.set_local_position({200.0f * s_cast<f32>(x), 100.0f * s_cast<f32>(y), 200.0f * s_cast<f32>(z)});
 
                     LoadManifestInfo manifesto {
                         .parent = entity,
@@ -103,54 +98,20 @@ namespace foundation {
 //         }
 
         {
-            auto cube1 = scene->create_entity("aabb 1");
-            cube1.get_handle().add<RootEntityTag>();
-            {
-                auto* tc = add_transform(cube1);
-                tc->set_position({0.0f, 0.0, 0.0f});
-                
-                cube1.add_component<OOBComponent>();
-                auto* script = cube1.add_component<ScriptComponent>();
+            Entity parent = {};
+            for(u32 index = 0; index < 16; index++) {
+                Entity entity = scene->create_entity(std::string{"cube "} + std::to_string(index));
+                entity.add_component<TransformComponent>();
+                if(index == 0) { entity.get_handle().add<RootEntityTag>(); entity.set_local_scale({10.0f, 10.0, 10.0f}); }
+                if(index != 0) { parent.set_child(entity); }
+                entity.set_local_position({0.0f, 0.0, 0.0f});
+                if(index != 0) { entity.set_local_position({0.0f, 5, 0.0f}); entity.set_local_scale({0.5f, 0.5f, 0.5f}); }
+                entity.add_component<OOBComponent>();
+                auto* script = entity.add_component<ScriptComponent>();
                 script->path = "assets/scripts/test.lua";
                 file_watcher.watch("assets/scripts/test.lua");
-                scripting_engine.init_script(script, cube1, "assets/scripts/test.lua"); 
-            }
-
-            auto cube2 = scene->create_entity("aabb 2");
-            cube1.set_child(cube2);
-            {
-                auto* tc = add_transform(cube2);
-                tc->set_position({0.0f, 2.5, 0.0f});
-                tc->set_scale({0.5f, 0.5, 0.5f});
-
-                cube2.add_component<OOBComponent>();
-                auto* script = cube2.add_component<ScriptComponent>();
-                script->path = "assets/scripts/test.lua";
-                file_watcher.watch("assets/scripts/test.lua");
-                scripting_engine.init_script(script, cube2, "assets/scripts/test.lua"); 
-            }
-
-            auto cube3 = scene->create_entity("aabb 3");
-            cube2.set_child(cube3);
-            {
-                auto* tc = add_transform(cube3);
-                tc->set_position({0.0f, 2.5, 0.0f});
-                tc->set_scale({0.5f, 0.5, 0.5f});
-
-                cube3.add_component<OOBComponent>();
-                auto* script = cube3.add_component<ScriptComponent>();
-                script->path = "assets/scripts/test.lua";
-                file_watcher.watch("assets/scripts/test.lua");
-                scripting_engine.init_script(script, cube3, "assets/scripts/test.lua"); 
-            }
-
-            auto cube4 = scene->create_entity("aabb 4");
-            cube3.set_child(cube4);
-            {
-                auto* tc = add_transform(cube4);
-                tc->set_position({0.0f, 2.5, 0.0f});
-                tc->set_scale({0.5f, 0.5, 0.5f});
-                cube4.add_component<OOBComponent>();
+                scripting_engine.init_script(script, entity, "assets/scripts/test.lua");
+                parent = entity;
             }
         }
 

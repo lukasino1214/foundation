@@ -6,6 +6,7 @@
 #include <glm/ext/quaternion_geometric.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/quaternion.hpp>
+#include <glm/gtx/string_cast.hpp>
 
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/matrix_decompose.hpp>
@@ -22,7 +23,8 @@ namespace foundation {
             daxa::MemoryFlagBits::DEDICATED_MEMORY, 
             "scene data"
         }); 
-        query_transforms = world->query_builder<GlobalTransformComponent, LocalTransformComponent, GlobalTransformComponent*>().term_at(2).cascade(flecs::ChildOf).optional().cached().build();
+
+        query_transforms = world->query_builder<GlobalPosition, GlobalRotation, GlobalScale, GlobalMatrix, LocalPosition, LocalRotation, LocalScale, LocalMatrix, GlobalMatrix*, TransformDirty, GPUTransformIndex>().term_at(8).cascade(flecs::ChildOf).optional().cached().build();
     }
 
     Scene::~Scene() {
@@ -59,42 +61,6 @@ namespace foundation {
                 lua["update"](delta_time);
             }
         });
-    
-        query_transforms.each([&](flecs::entity entity, GlobalTransformComponent& gtc, LocalTransformComponent& ltc, GlobalTransformComponent* parent_gtc){
-            PROFILE_SCOPE_NAMED(update_transform);
-
-            if(ltc.is_dirty) {
-                {
-                    PROFILE_SCOPE_NAMED(mark_children);
-                    entity.children([&](flecs::entity c) {
-                        Entity child { c, this };
-                        if(child.has_component<LocalTransformComponent>()) {
-                            auto* child_ltc = child.get_component<LocalTransformComponent>();
-                            child_ltc->is_dirty |= true;
-                        }
-                   });
-                }
-
-                {
-                    PROFILE_SCOPE_NAMED(matrix_mul);
-                    ltc.model_matrix = glm::translate(glm::mat4(1.0f), ltc.position) 
-                        * glm::toMat4(glm::quat(glm::radians(ltc.rotation))) 
-                        * glm::scale(glm::mat4(1.0f), ltc.scale);
-
-                    ltc.normal_matrix = glm::transpose(glm::inverse(ltc.model_matrix));
-
-                    gtc.model_matrix = (parent_gtc ? parent_gtc->model_matrix : glm::mat4{1.0f}) * ltc.model_matrix;
-                    gtc.normal_matrix = (parent_gtc ? parent_gtc->normal_matrix : glm::mat4{1.0f}) * ltc.normal_matrix;
-                }
-
-                {
-                    PROFILE_SCOPE_NAMED(decompose_transform);
-                    math::decompose_transform(gtc.model_matrix, gtc.position, gtc.rotation, gtc.scale);
-                    ltc.is_dirty = false;
-                    gtc.is_dirty = true;
-                }
-            }
-        });
     }
 
     void Scene::update_gpu(const daxa::TaskInterface& task_interface) {
@@ -105,14 +71,14 @@ namespace foundation {
 
         {
             bool scene_data_updated = false;
-            world->each([&](RenderInfo& info, GlobalTransformComponent& tc, MeshComponent&mesh){
+            world->each([&](RenderInfo& info, GPUTransformIndex& gpu_transform, MeshComponent&mesh){
                 if(info.is_dirty) {
                     scene_data_updated = true;
                     scene_data.entity_count++;
 
                     gpu_entities_data_pool.update_handle(task_interface, info.gpu_handle, {
                         .mesh_group_index = mesh.mesh_group_index.value(),
-                        .transform_index = tc.gpu_handle.index
+                        .transform_index = gpu_transform.gpu_handle.index
                     });
 
                     info.is_dirty = false;
@@ -132,20 +98,34 @@ namespace foundation {
             }
         }
 
-        world->each([&](GlobalTransformComponent& gtc) {
-            if(gtc.is_dirty) {
-                if(gpu_transforms_pool.update_handle(task_interface, gtc.gpu_handle, { 
-                    .model_matrix = gtc.model_matrix
-                })) {
-                    gtc.is_dirty = false;
-                }
+        query_transforms.each([&](flecs::entity entity, GlobalPosition& global_position, GlobalRotation& global_rotation, GlobalScale& global_scale, GlobalMatrix& global_matrix, LocalPosition& local_position, LocalRotation& local_rotation, LocalScale& local_scale, LocalMatrix& local_matrix, GlobalMatrix* parent_global_matrix, TransformDirty, GPUTransformIndex& gpu_transform) {
+            entity.children([&](flecs::entity c){
+                c.add<TransformDirty>();
+            });
+
+            local_matrix.matrix = glm::translate(glm::mat4(1.0f), local_position.position) 
+                * glm::toMat4(glm::quat(glm::radians(local_rotation.rotation))) 
+                * glm::scale(glm::mat4(1.0f), local_scale.scale);
+
+            global_matrix.matrix = (parent_global_matrix ? parent_global_matrix->matrix : glm::mat4{1.0f}) * local_matrix.matrix;
+            math::decompose_transform(global_matrix.matrix, global_position.position, global_rotation.rotation, global_scale.scale);
+
+            entity.remove<TransformDirty>();
+            entity.add<TransformDirty>();
+
+            if(gpu_transforms_pool.update_handle(task_interface, gpu_transform.gpu_handle, { 
+                .model_matrix = global_matrix.matrix
+            })) {
+                entity.remove<TransformDirty>();
+            } else {
+                LOG_INFO("hehe");
             }
         });
 
-        world->each([&](GlobalTransformComponent& tc, OOBComponent& oob){
+        world->each([&](GPUTransformIndex& gpu_transform, OOBComponent& oob){
             context->shader_debug_draw_context.entity_oob_draws.draw(ShaderDebugEntityOOBDraw{ 
                 .color = oob.color,
-                .transform_index = tc.gpu_handle.index
+                .transform_index = gpu_transform.gpu_handle.index
             });
         });
     }

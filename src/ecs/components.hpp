@@ -12,40 +12,20 @@ namespace foundation {
     struct EntityTag {};
     struct RootEntityTag {};
 
-    struct LocalTransformComponent {
-        glm::vec3 position = { 0.0f, 0.0f, 0.0f };
-        glm::vec3 rotation = { 0.0f, 0.0f, 0.0f };
-        glm::vec3 scale = { 1.0f, 1.0f, 1.0f };
-        glm::mat4 model_matrix{1.0f};
-        glm::mat4 normal_matrix{1.0f};
-        bool is_dirty = true;
+    struct LocalPosition { glm::vec3 position{ 0.0f, 0.0f, 0.0f }; };
+    struct LocalRotation { glm::vec3 rotation{ 0.0f, 0.0f, 0.0f }; };
+    struct LocalScale { glm::vec3 scale{ 1.0f, 1.0f, 1.0f }; };
+    struct LocalMatrix { glm::mat4 matrix{1.0f}; };
 
-        void set_position(glm::vec3 _position);
-        void set_rotation(glm::vec3 _rotation);
-        void set_scale(glm::vec3 _scale);
+    struct GlobalPosition { glm::vec3 position{ 0.0f, 0.0f, 0.0f }; };
+    struct GlobalRotation { glm::vec3 rotation{ 0.0f, 0.0f, 0.0f }; };
+    struct GlobalScale { glm::vec3 scale{ 1.0f, 1.0f, 1.0f }; };
+    struct GlobalMatrix { glm::mat4 matrix{1.0f}; };
 
-        auto get_position() -> glm::vec3;
-        auto get_rotation() -> glm::vec3;
-        auto get_scale() -> glm::vec3;
+    struct TransformDirty {};
+    struct GPUTransformIndex { CPUManagedGPUPool<TransformInfo>::Handle gpu_handle = {}; };
 
-        void draw();
-    };
-
-    struct GlobalTransformComponent {
-        glm::vec3 position = { 0.0f, 0.0f, 0.0f };
-        glm::vec3 rotation = { 0.0f, 0.0f, 0.0f };
-        glm::vec3 scale = { 1.0f, 1.0f, 1.0f };
-        glm::mat4 model_matrix{1.0f};
-        glm::mat4 normal_matrix{1.0f};
-        bool is_dirty = true;
-        CPUManagedGPUPool<TransformInfo>::Handle gpu_handle = {};
-
-        auto get_position() -> glm::vec3;
-        auto get_rotation() -> glm::vec3;
-        auto get_scale() -> glm::vec3;
-
-        void draw();
-    };
+    struct TransformComponent {};
 
     struct ModelComponent {
         std::filesystem::path path;

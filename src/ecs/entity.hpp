@@ -29,12 +29,25 @@ public:
 
         template<typename T>
         auto add_component() -> T* {
+            if constexpr (std::is_same_v<T, TransformComponent>) {
+                handle.add<GlobalPosition>();
+                handle.add<GlobalRotation>();
+                handle.add<GlobalScale>();
+                handle.add<GlobalMatrix>();
+                handle.add<TransformDirty>();
+                handle.set<GPUTransformIndex>({ scene->gpu_transforms_pool.allocate_handle() });
+
+                handle.add<LocalPosition>();
+                handle.add<LocalRotation>();
+                handle.add<LocalScale>();
+                handle.add<LocalMatrix>();
+                handle.add<TransformDirty>();
+                handle.add<TransformComponent>();
+                return nullptr;
+            }
+
             handle.set<T>(T{});
             T* component =  handle.get_mut<T>();
-
-            if constexpr (std::is_same_v<T, GlobalTransformComponent>) {
-                component->gpu_handle = scene->gpu_transforms_pool.allocate_handle();
-            }
 
             if constexpr (std::is_same_v<T, RenderInfo>) {
                 component->gpu_handle = scene->gpu_entities_data_pool.allocate_handle();
@@ -64,5 +77,17 @@ public:
         void remove_component() const {
             handle.remove<T>();
         }
+
+        void set_local_position(const glm::vec3& value);
+        void set_local_rotation(const glm::vec3& value);
+        void set_local_scale(const glm::vec3& value);
+
+        auto get_local_position() const -> glm::vec3;
+        auto get_local_rotation() const -> glm::vec3;
+        auto get_local_scale() const -> glm::vec3;
+
+        auto get_global_position() const -> glm::vec3;
+        auto get_global_rotation() const -> glm::vec3;
+        auto get_global_scale() const -> glm::vec3;
     };
 }
