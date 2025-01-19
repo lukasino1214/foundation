@@ -40,6 +40,7 @@ namespace foundation {
         std::vector<daxa::TaskImage> images = {};
         std::vector<std::pair<daxa::ImageInfo, daxa::TaskImage>> frame_buffer_images = {};
 
+        daxa::TaskBuffer mouse_selection_readback = {};
         std::vector<daxa::TaskBuffer> buffers = {};
 
         daxa::TaskGraph render_task_graph = {};

@@ -45,12 +45,22 @@ namespace foundation {
                     // GUI::end_properties();
                 } else {
                     if constexpr(std::is_same_v<T, TransformComponent>) {
-                        glm::vec3 position = entity.get_local_position();
-                        if(ImGui::DragFloat3("Position: ", &position[0])) { entity.set_local_position(position); }
-                        glm::vec3 rotation = entity.get_local_rotation();
-                        if(ImGui::DragFloat3("Rotation: ", &rotation[0])) { entity.set_local_rotation(rotation); }
-                        glm::vec3 scale = entity.get_local_scale();
-                        if(ImGui::DragFloat3("Scale: ", &scale[0])) { entity.set_local_scale(scale); }
+                        {
+                           glm::vec3 position = entity.get_local_position();
+                            if(ImGui::DragFloat3("Local Position: ", &position[0])) { entity.set_local_position(position); }
+                            glm::vec3 rotation = entity.get_local_rotation();
+                            if(ImGui::DragFloat3("Local Rotation: ", &rotation[0])) { entity.set_local_rotation(rotation); }
+                            glm::vec3 scale = entity.get_local_scale();
+                            if(ImGui::DragFloat3("Local Scale: ", &scale[0])) { entity.set_local_scale(scale); }
+                        }
+                        {
+                           glm::vec3 position = entity.get_global_position();
+                            if(ImGui::DragFloat3("Global Position: ", &position[0])) {}
+                            glm::vec3 rotation = entity.get_global_rotation();
+                            if(ImGui::DragFloat3("Global Rotation: ", &rotation[0])) {}
+                            glm::vec3 scale = entity.get_global_scale();
+                            if(ImGui::DragFloat3("Global Scale: ", &scale[0])) {}
+                        }
                     } else {
                         T* component = component = entity.get_component<T>();
                         component->draw();

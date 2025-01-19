@@ -89,6 +89,13 @@ struct CameraInfo {
 };
 DAXA_DECL_BUFFER_PTR(CameraInfo)
 
+struct MouseSelectionReadback {
+    u32vec2 mouse_position;
+    u32 state;
+    u32 id;
+};
+DAXA_DECL_BUFFER_PTR(MouseSelectionReadback)
+
 struct ShaderGlobals {
     CameraInfo main_camera;
     CameraInfo observer_camera;
@@ -98,6 +105,7 @@ struct ShaderGlobals {
     u32vec2 next_lower_po2_render_target_size;
     f32vec2 next_lower_po2_render_target_size_inv;
     Samplers samplers;
+    MouseSelectionReadback mouse_selection_readback;
     daxa_BufferPtr(ShaderDebugBufferHead) debug;
 };
 DAXA_DECL_BUFFER_PTR(ShaderGlobals)

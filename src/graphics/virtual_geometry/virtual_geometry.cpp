@@ -338,6 +338,7 @@ namespace foundation {
                 ResolveVisibilityBufferTask::AT.u_transforms | info.gpu_transforms,
                 ResolveVisibilityBufferTask::AT.u_materials | info.gpu_materials,
                 ResolveVisibilityBufferTask::AT.u_readback_material | info.gpu_readback_material,
+                ResolveVisibilityBufferTask::AT.u_mouse_selection_readback | info.gpu_mouse_selection_readback,
                 ResolveVisibilityBufferTask::AT.u_visibility_image | info.visibility_image,
                 ResolveVisibilityBufferTask::AT.u_overdraw_image | info.overdraw_image,
                 ResolveVisibilityBufferTask::AT.u_image | info.color_image,

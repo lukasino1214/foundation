@@ -95,6 +95,16 @@ namespace foundation {
             },
         };
 
+        mouse_selection_readback = make_task_buffer(context, daxa::BufferInfo {
+            .size = sizeof(MouseSelectionReadback),
+            .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
+            .name = "mouse selection readback"
+        });
+
+        buffers = {
+            mouse_selection_readback
+        };
+
         context->gpu_metrics[ClearImageTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
         context->gpu_metrics[DebugEntityOOBDrawTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
         context->gpu_metrics[DebugAABBDrawTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
@@ -322,6 +332,8 @@ namespace foundation {
         render_task_graph.use_persistent_buffer(asset_manager->gpu_readback_mesh_cpu);
         render_task_graph.use_persistent_buffer(asset_manager->gpu_prefix_sum_work_expansion_mesh);
 
+        render_task_graph.use_persistent_buffer(mouse_selection_readback);
+
         render_task_graph.add_task({
             .attachments = {
                 daxa::inl_attachment(daxa::TaskBufferAccess::TRANSFER_WRITE, shader_globals_buffer),
@@ -387,6 +399,7 @@ namespace foundation {
             .gpu_readback_material = asset_manager->gpu_readback_material_gpu,
             .gpu_readback_mesh = asset_manager->gpu_readback_mesh_gpu,
             .gpu_prefix_sum_work_expansion_mesh = asset_manager->gpu_prefix_sum_work_expansion_mesh,
+            .gpu_mouse_selection_readback = mouse_selection_readback,
             .color_image = render_image,
             .depth_image_d32 = depth_image_d32,
             .depth_image_u32 = depth_image_u32,
@@ -485,6 +498,19 @@ namespace foundation {
                 context->gpu_metrics[MiscellaneousTasks::READBACK_COPY]->end(ti.recorder);
             },
             .name = std::string{MiscellaneousTasks::READBACK_COPY},
+        });
+
+        render_task_graph.add_task({
+            .attachments = {
+                daxa::inl_attachment(daxa::TaskBufferAccess::TRANSFER_WRITE, mouse_selection_readback),
+            },
+            .task = [&](daxa::TaskInterface const &ti) {
+                auto readback = *context->device.buffer_host_address_as<MouseSelectionReadback>(ti.get(mouse_selection_readback).ids[0]).value();
+                if(context->shader_globals.mouse_selection_readback.state == 1) {
+                    context->shader_globals.mouse_selection_readback.id = readback.id;
+                }
+            },
+            .name = "mouse selection readback",
         });
 
         render_task_graph.submit({});

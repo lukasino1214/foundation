@@ -70,7 +70,7 @@ namespace foundation {
 
         {
             bool scene_data_updated = false;
-            world->each([&](RenderInfo& info, GPUTransformIndex& gpu_transform, MeshComponent&mesh){
+            world->each([&](flecs::entity entity, RenderInfo& info, GPUTransformIndex& gpu_transform, MeshComponent&mesh){
                 if(info.is_dirty) {
                     scene_data_updated = true;
                     scene_data.entity_count++;
@@ -79,6 +79,8 @@ namespace foundation {
                         .mesh_group_index = mesh.mesh_group_index.value(),
                         .transform_index = gpu_transform.gpu_handle.index
                     });
+
+                    transform_handle_to_entity[gpu_transform.gpu_handle.index] = entity;
 
                     info.is_dirty = false;
                 }

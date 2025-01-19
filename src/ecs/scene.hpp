@@ -45,5 +45,6 @@ namespace foundation {
         CPUManagedGPUPool<TransformInfo> gpu_transforms_pool;
         CPUManagedGPUPool<EntityData> gpu_entities_data_pool;
         flecs::query<GlobalPosition, GlobalRotation, GlobalScale, GlobalMatrix, LocalPosition, LocalRotation, LocalScale, LocalMatrix, GlobalMatrix*, TransformDirty, GPUTransformIndex> query_transforms = {};
+        std::unordered_map<decltype(CPUManagedGPUPool<TransformInfo>::Handle::index), flecs::entity> transform_handle_to_entity = {};
     };
 }
