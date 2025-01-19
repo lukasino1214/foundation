@@ -1,6 +1,5 @@
 #include <application.hpp>
 #include <imgui.h>
-#include <glm/gtx/string_cast.hpp>
 #include "ecs/components.hpp"
 
 namespace foundation {
@@ -219,6 +218,7 @@ namespace foundation {
 
         scene_hierarchy_panel.draw();
         renderer->ui_update();
+        viewport_panel.selected_entity = scene_hierarchy_panel.selected_entity;
         if(context.shader_globals.render_as_observer != 0u) {
             viewport_panel.draw(observer_camera, delta_time, renderer->render_image);
         } else {

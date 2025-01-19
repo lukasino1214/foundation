@@ -5,6 +5,7 @@
 #include "common/tasks/clear_image.inl"
 #include "common/tasks/debug.inl"
 #include <graphics/virtual_geometry/virtual_geometry.hpp>
+#include <ImGuizmo.h>
 
 namespace foundation {
     struct MiscellaneousTasks {
@@ -494,6 +495,7 @@ namespace foundation {
     void Renderer::ui_render_start() {
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
+        ImGuizmo::BeginFrame();
     }
 
     void Renderer::ui_update() {

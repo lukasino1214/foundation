@@ -3,6 +3,8 @@
 #include <graphics/context.hpp>
 #include <graphics/camera.hpp>
 #include <daxa/utils/imgui.hpp>
+#include <ecs/entity.hpp>
+#include <graphics/camera.hpp>
 
 namespace foundation {
     struct ViewportPanel {
@@ -19,5 +21,7 @@ namespace foundation {
         AppWindow* window = {};
         daxa::ImGuiRenderer* imgui_renderer = {};
         ResizeCallback resize_callback;
+        Entity selected_entity = {};
+        i32 gizmo_type = -1;
     };
 }
