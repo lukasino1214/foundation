@@ -218,7 +218,7 @@ namespace foundation {
         ImGui::End();
 
         if(context.shader_globals.mouse_selection_readback.state == 1) {
-            LOG_INFO("{}", context.shader_globals.mouse_selection_readback.id);
+            // LOG_INFO("{}", context.shader_globals.mouse_selection_readback.id);
             scene_hierarchy_panel.selected_entity = Entity { scene->transform_handle_to_entity[context.shader_globals.mouse_selection_readback.id], scene.get() };
         }
 

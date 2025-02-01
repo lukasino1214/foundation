@@ -492,14 +492,16 @@ namespace foundation {
             };
         });
         reallocate_buffer<MeshletsDataMerged>(context, cmd_recorder, gpu_meshlets_data_merged, total_meshlet_count * sizeof(MeshletData) * 2 + sizeof(MeshletsDataMerged), [&](const daxa::BufferId& buffer) -> MeshletsDataMerged {
+            u32 sw_offset = std::min(total_meshlet_count, 33554431llu);
+            
             return MeshletsDataMerged {
                 .hw_count = 0,
                 .sw_count = 0,
                 .hw_offset = 0,
-                .sw_offset = s_cast<u32>(total_meshlet_count),
+                .sw_offset = sw_offset,
                 .meshlet_data = context->device.buffer_device_address(buffer).value() + sizeof(MeshletsDataMerged),
                 .hw_meshlet_data = context->device.buffer_device_address(buffer).value() + sizeof(MeshletsDataMerged),
-                .sw_meshlet_data = context->device.buffer_device_address(buffer).value() + sizeof(MeshletsDataMerged) + total_meshlet_count * sizeof(MeshletData)
+                .sw_meshlet_data = context->device.buffer_device_address(buffer).value() + sizeof(MeshletsDataMerged) + sw_offset * sizeof(MeshletData)
             };
         });
         reallocate_buffer<PrefixSumWorkExpansion>(context, cmd_recorder, gpu_prefix_sum_work_expansion_mesh, total_mesh_count * sizeof(u32) * 3 + sizeof(PrefixSumWorkExpansion), [&](const daxa::BufferId& buffer) -> PrefixSumWorkExpansion {

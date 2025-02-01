@@ -340,15 +340,18 @@ namespace foundation {
             },
             .task = [&](daxa::TaskInterface const &ti) {
                 context->gpu_metrics[MiscellaneousTasks::UPDATE_GLOBALS]->start(ti.recorder);
-                auto alloc = ti.allocator->allocate_fill(context->shader_globals).value();
-                ti.recorder.copy_buffer_to_buffer({
-                    .src_buffer = ti.allocator->buffer(),
-                    .dst_buffer = ti.get(shader_globals_buffer).ids[0],
-                    .src_offset = alloc.buffer_offset,
-                    .dst_offset = 0,
-                    .size = sizeof(ShaderGlobals),
-                });
-                context->shader_debug_draw_context.update_debug_buffer(context->device, ti.recorder, *ti.allocator);
+                auto alloc = ti.allocator->allocate_fill(context->shader_globals);
+                if(alloc.has_value()) {
+                    ti.recorder.copy_buffer_to_buffer({
+                        .src_buffer = ti.allocator->buffer(),
+                        .dst_buffer = ti.get(shader_globals_buffer).ids[0],
+                        .src_offset = alloc->buffer_offset,
+                        .dst_offset = 0,
+                        .size = sizeof(ShaderGlobals),
+                    });
+
+                    context->shader_debug_draw_context.update_debug_buffer(context->device, ti.recorder, *ti.allocator);
+                }
                 context->gpu_metrics[MiscellaneousTasks::UPDATE_GLOBALS]->end(ti.recorder);
             },
             .name = std::string{MiscellaneousTasks::UPDATE_GLOBALS},
