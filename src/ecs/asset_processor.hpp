@@ -58,7 +58,7 @@ namespace foundation {
 
     struct LoadMeshInfo {
         std::filesystem::path asset_path = {};
-        BinaryAssetInfo* asset = {};
+        const BinaryAssetInfo* asset = {};
         u32 mesh_group_index = {};
         u32 mesh_index = {};
         u32 material_manifest_offset = {};
@@ -85,7 +85,7 @@ namespace foundation {
 
     struct LoadTextureInfo {
         std::filesystem::path asset_path = {};
-        BinaryAssetInfo* asset = {};
+        const BinaryAssetInfo* asset = {};
         u32 texture_index = {};
         u32 texture_manifest_index = {};
         u32 requested_resolution = {};

@@ -141,140 +141,151 @@ namespace foundation {
         auto* mc = info.parent.add_component<ModelComponent>();
         mc->path = info.path;
 
-        for(const auto& asset_manifest : asset_manifest_entries) {
-            if(info.path == asset_manifest.path) {
-                already_loaded_model(info, asset_manifest);
-                return;
+        bool asset_isnt_in_memory = true;
+        const AssetManifestEntry* asset_manifest = {};
+        const BinaryAssetInfo* asset = {};
+
+        for(const auto& asset_manifest_ : asset_manifest_entries) {
+            if(info.path == asset_manifest_.path) {
+                asset_isnt_in_memory = false;
+                asset_manifest = std::addressof(asset_manifest_);
+                asset = asset_manifest->asset.get();
             }
         }
 
-        u32 const asset_manifest_index = s_cast<u32>(asset_manifest_entries.size());
-        u32 const texture_manifest_offset = s_cast<u32>(texture_manifest_entries.size());
-        u32 const material_manifest_offset = s_cast<u32>(material_manifest_entries.size());
-        u32 const mesh_manifest_offset = s_cast<u32>(mesh_manifest_entries.size());
-        u32 const mesh_group_manifest_offset = s_cast<u32>(mesh_group_manifest_entries.size());
+        if(asset_isnt_in_memory) {
+            u32 const asset_manifest_index = s_cast<u32>(asset_manifest_entries.size());
+            u32 const texture_manifest_offset = s_cast<u32>(texture_manifest_entries.size());
+            u32 const material_manifest_offset = s_cast<u32>(material_manifest_entries.size());
+            u32 const mesh_manifest_offset = s_cast<u32>(mesh_manifest_entries.size());
+            u32 const mesh_group_manifest_offset = s_cast<u32>(mesh_group_manifest_entries.size());
 
-        std::filesystem::path binary_path = info.path;
+            std::filesystem::path binary_path = info.path;
 
-        {
-            std::vector<byte> data = read_file_to_bytes(binary_path);
-            std::vector<byte> uncompressed_data = zstd_decompress(data);
+            {
+                std::vector<byte> data = read_file_to_bytes(binary_path);
+                std::vector<byte> uncompressed_data = zstd_decompress(data);
 
-            ByteReader byte_reader{ uncompressed_data.data(), uncompressed_data.size() };
+                ByteReader byte_reader{ uncompressed_data.data(), uncompressed_data.size() };
 
-            BinaryModelHeader header = {};
-            byte_reader.read(header);
+                BinaryModelHeader header = {};
+                byte_reader.read(header);
 
-            total_meshlet_count += header.meshlet_count;
-            total_triangle_count += header.triangle_count;
-            total_vertex_count += header.vertex_count;
+                total_meshlet_count += header.meshlet_count;
+                total_triangle_count += header.triangle_count;
+                total_vertex_count += header.vertex_count;
 
-            BinaryAssetInfo asset = {};
-            byte_reader.read(asset.textures);
-            byte_reader.read(asset.materials);
-            byte_reader.read(asset.nodes);
-            byte_reader.read(asset.mesh_groups);
-            byte_reader.read(asset.meshes);
-            total_unique_mesh_count += s_cast<u32>(asset.meshes.size());
-            total_mesh_count += s_cast<u32>(asset.meshes.size());
+                BinaryAssetInfo binary_asset = {};
+                byte_reader.read(binary_asset.textures);
+                byte_reader.read(binary_asset.materials);
+                byte_reader.read(binary_asset.nodes);
+                byte_reader.read(binary_asset.mesh_groups);
+                byte_reader.read(binary_asset.meshes);
+                total_unique_mesh_count += s_cast<u32>(binary_asset.meshes.size());
 
-            asset_manifest_entries.push_back(AssetManifestEntry {
-                .path = info.path,
-                .texture_manifest_offset = texture_manifest_offset,
-                .material_manifest_offset = material_manifest_offset,
-                .mesh_manifest_offset = mesh_manifest_offset,
-                .mesh_group_manifest_offset = mesh_group_manifest_offset,
-                .parent = info.parent,
-                .asset = std::make_unique<BinaryAssetInfo>(std::move(asset)),
-                .header = header
-            });
-        }
-
-        const auto& asset_manifest = asset_manifest_entries.back();
-        const auto& asset = asset_manifest.asset;
-
-        for (u32 i = 0; i < s_cast<u32>(asset->textures.size()); ++i) {
-            std::vector<TextureManifestEntry::MaterialManifestIndex> indices = {};
-            const BinaryTexture& texture = asset->textures[i];
-            indices.reserve(texture.material_indices.size());
-            for(const auto& v : texture.material_indices) {
-                indices.push_back({
-                    .material_type = v.material_type,
-                    .material_manifest_index = v.material_index + material_manifest_offset,
+                asset_manifest_entries.push_back(AssetManifestEntry {
+                    .path = info.path,
+                    .texture_manifest_offset = texture_manifest_offset,
+                    .material_manifest_offset = material_manifest_offset,
+                    .mesh_manifest_offset = mesh_manifest_offset,
+                    .mesh_group_manifest_offset = mesh_group_manifest_offset,
+                    .parent = info.parent,
+                    .asset = std::make_unique<BinaryAssetInfo>(std::move(binary_asset)),
+                    .header = header
                 });
             }
 
-            texture_manifest_entries.push_back(TextureManifestEntry{
-                .asset_manifest_index = asset_manifest_index,
-                .asset_local_index = i,
-                .material_manifest_indices = indices, 
-                .image_id = {},
-                .sampler_id = {},
-                .current_resolution = {},
-                .max_resolution = texture.resolution,
-                .name = texture.name,
-            });
-        }
+            asset_manifest = &asset_manifest_entries.back();
+            asset = asset_manifest->asset.get();
 
-        for (u32 material_index = 0; material_index < s_cast<u32>(asset->materials.size()); material_index++) {
-            auto make_texture_info = [texture_manifest_offset](const std::optional<BinaryMaterial::BinaryTextureInfo>& info) -> std::optional<MaterialManifestEntry::TextureInfo> {
-                if(!info.has_value()) { return std::nullopt; }
-                return std::make_optional(MaterialManifestEntry::TextureInfo {
-                    .texture_manifest_index = info->texture_index + texture_manifest_offset,
-                    .sampler_index = 0
-                });
-            };
+            for (u32 i = 0; i < s_cast<u32>(asset->textures.size()); ++i) {
+                std::vector<TextureManifestEntry::MaterialManifestIndex> indices = {};
+                const BinaryTexture& texture = asset->textures[i];
+                indices.reserve(texture.material_indices.size());
+                for(const auto& v : texture.material_indices) {
+                    indices.push_back({
+                        .material_type = v.material_type,
+                        .material_manifest_index = v.material_index + material_manifest_offset,
+                    });
+                }
 
-            const BinaryMaterial& material = asset->materials[material_index];
-            material_manifest_entries.push_back(MaterialManifestEntry{
-                .albedo_info = make_texture_info(material.albedo_info),
-                .alpha_mask_info = make_texture_info(material.alpha_mask_info),
-                .normal_info = make_texture_info(material.normal_info),
-                .roughness_info = make_texture_info(material.roughness_info),
-                .metalness_info = make_texture_info(material.metalness_info),
-                .emissive_info = make_texture_info(material.emissive_info),
-                .metallic_factor = material.metallic_factor,
-                .roughness_factor = material.roughness_factor,
-                .emissive_factor = material.emissive_factor,
-                .alpha_mode = material.alpha_mode,
-                .alpha_cutoff = material.alpha_cutoff,
-                .double_sided = material.double_sided,
-                .asset_manifest_index = asset_manifest_index,
-                .asset_local_index = material_index,
-                .material_manifest_index = material_manifest_offset + material_index,
-                .name = material.name.c_str(),
-            });
-        }
-        
-        for(u32 mesh_group_index = 0; mesh_group_index < asset->mesh_groups.size(); mesh_group_index++) {
-            const auto& mesh_group = asset->mesh_groups.at(mesh_group_index);
-
-            u32 mesh_manifest_indices_offset = s_cast<u32>(mesh_manifest_entries.size());
-            mesh_manifest_entries.reserve(mesh_manifest_entries.size() + mesh_group.mesh_count);
-            
-            for(u32 mesh_index = 0; mesh_index < mesh_group.mesh_count; mesh_index++) {
-                dirty_meshes.push_back(s_cast<u32>(mesh_manifest_entries.size()));
-                mesh_manifest_entries.push_back(MeshManifestEntry {
+                texture_manifest_entries.push_back(TextureManifestEntry{
                     .asset_manifest_index = asset_manifest_index,
-                    .asset_local_mesh_index = mesh_group_index,
-                    .asset_local_primitive_index = mesh_index,
-                    .virtual_geometry_render_info = std::nullopt
+                    .asset_local_index = i,
+                    .material_manifest_indices = indices, 
+                    .image_id = {},
+                    .sampler_id = {},
+                    .current_resolution = {},
+                    .max_resolution = texture.resolution,
+                    .name = texture.name,
                 });
             }
 
-            dirty_mesh_groups.push_back(s_cast<u32>(mesh_group_manifest_entries.size()));
-            mesh_group_manifest_entries.push_back(MeshGroupManifestEntry {
-                .mesh_manifest_indices_offset = mesh_manifest_indices_offset,
-                .mesh_count = mesh_group.mesh_count,
-                .asset_manifest_index = asset_manifest_index,
-                .asset_local_index = mesh_group_index,
-                .name = {},
-            });
+            for (u32 material_index = 0; material_index < s_cast<u32>(asset->materials.size()); material_index++) {
+                auto make_texture_info = [texture_manifest_offset](const std::optional<BinaryMaterial::BinaryTextureInfo>& info) -> std::optional<MaterialManifestEntry::TextureInfo> {
+                    if(!info.has_value()) { return std::nullopt; }
+                    return std::make_optional(MaterialManifestEntry::TextureInfo {
+                        .texture_manifest_index = info->texture_index + texture_manifest_offset,
+                        .sampler_index = 0
+                    });
+                };
+
+                const BinaryMaterial& material = asset->materials[material_index];
+                material_manifest_entries.push_back(MaterialManifestEntry{
+                    .albedo_info = make_texture_info(material.albedo_info),
+                    .alpha_mask_info = make_texture_info(material.alpha_mask_info),
+                    .normal_info = make_texture_info(material.normal_info),
+                    .roughness_info = make_texture_info(material.roughness_info),
+                    .metalness_info = make_texture_info(material.metalness_info),
+                    .emissive_info = make_texture_info(material.emissive_info),
+                    .metallic_factor = material.metallic_factor,
+                    .roughness_factor = material.roughness_factor,
+                    .emissive_factor = material.emissive_factor,
+                    .alpha_mode = material.alpha_mode,
+                    .alpha_cutoff = material.alpha_cutoff,
+                    .double_sided = material.double_sided,
+                    .asset_manifest_index = asset_manifest_index,
+                    .asset_local_index = material_index,
+                    .material_manifest_index = material_manifest_offset + material_index,
+                    .name = material.name.c_str(),
+                });
+            }
+            
+            for(u32 mesh_group_index = 0; mesh_group_index < asset->mesh_groups.size(); mesh_group_index++) {
+                const auto& mesh_group = asset->mesh_groups.at(mesh_group_index);
+
+                u32 mesh_manifest_indices_offset = s_cast<u32>(mesh_manifest_entries.size());
+                mesh_manifest_entries.reserve(mesh_manifest_entries.size() + mesh_group.mesh_count);
+                
+                for(u32 mesh_index = 0; mesh_index < mesh_group.mesh_count; mesh_index++) {
+                    dirty_meshes.push_back(s_cast<u32>(mesh_manifest_entries.size()));
+                    mesh_manifest_entries.push_back(MeshManifestEntry {
+                        .asset_manifest_index = asset_manifest_index,
+                        .asset_local_mesh_index = mesh_group_index,
+                        .asset_local_primitive_index = mesh_index,
+                        .virtual_geometry_render_info = std::nullopt
+                    });
+                }
+
+                dirty_mesh_groups.push_back(s_cast<u32>(mesh_group_manifest_entries.size()));
+                mesh_group_manifest_entries.push_back(MeshGroupManifestEntry {
+                    .mesh_manifest_indices_offset = mesh_manifest_indices_offset,
+                    .mesh_count = mesh_group.mesh_count,
+                    .asset_manifest_index = asset_manifest_index,
+                    .asset_local_index = mesh_group_index,
+                    .name = {},
+                });
+            }
         }
+
+        total_meshlet_count += asset_manifest->header.meshlet_count;
+        total_triangle_count += asset_manifest->header.triangle_count;
+        total_vertex_count += asset_manifest->header.vertex_count;
+        total_mesh_count += s_cast<u32>(asset->meshes.size());
 
         std::vector<Entity> node_index_to_entity = {};
         for(u32 node_index = 0; node_index < s_cast<u32>(asset->nodes.size()); node_index++) {
-            node_index_to_entity.push_back(scene->create_entity("gltf asset " + std::to_string(asset_manifest_entries.size()) + " " + std::string{asset->nodes[node_index].name}));
+            node_index_to_entity.push_back(scene->create_entity(std::format("asset {} {} {}", asset_manifest_entries.size(), asset->nodes[node_index].name, info.parent.get_name().data())));
         }
 
         for(u32 node_index = 0; node_index < s_cast<u32>(asset->nodes.size()); node_index++) {
@@ -282,7 +293,7 @@ namespace foundation {
             Entity& parent_entity = node_index_to_entity[node_index];
             if(node.mesh_index.has_value()) {
                 auto* mesh_component = parent_entity.add_component<MeshComponent>();
-                mesh_component->mesh_group_index = asset_manifest.mesh_group_manifest_offset + node.mesh_index.value();
+                mesh_component->mesh_group_index = asset_manifest->mesh_group_manifest_offset + node.mesh_index.value();
                 parent_entity.add_component<RenderInfo>();
             }
 
@@ -310,43 +321,45 @@ namespace foundation {
             }
         }
 
-        for(u32 mesh_group_index = 0; mesh_group_index < asset->mesh_groups.size(); mesh_group_index++) {
-            const auto& mesh_group = asset->mesh_groups.at(mesh_group_index);
-            const auto& mesh_group_manifest = mesh_group_manifest_entries[mesh_group_manifest_offset + mesh_group_index];
-            for(u32 mesh_index = 0; mesh_index < mesh_group.mesh_count; mesh_index++) {
-                thread_pool->async_dispatch(std::make_shared<LoadMeshTask>(LoadMeshTask::TaskInfo{
-                    .load_info = {
-                        .asset_path = info.path,
-                        .asset = asset.get(),
-                        .mesh_group_index = mesh_group_index,
-                        .mesh_index = mesh_index,
-                        .material_manifest_offset = material_manifest_offset,
-                        .manifest_index = mesh_group_manifest.mesh_manifest_indices_offset + mesh_index,
-                        .old_mesh = {},
-                        .file_path = asset_manifest.path.parent_path() / asset->meshes[mesh_group.mesh_offset + mesh_index].file_path
-                    },
-                    .asset_processor = asset_processor,
-                }), TaskPriority::LOW);
+        if(asset_isnt_in_memory) {
+            for(u32 mesh_group_index = 0; mesh_group_index < asset->mesh_groups.size(); mesh_group_index++) {
+                const auto& mesh_group = asset->mesh_groups.at(mesh_group_index);
+                const auto& mesh_group_manifest = mesh_group_manifest_entries[asset_manifest->mesh_group_manifest_offset + mesh_group_index];
+                for(u32 mesh_index = 0; mesh_index < mesh_group.mesh_count; mesh_index++) {
+                    thread_pool->async_dispatch(std::make_shared<LoadMeshTask>(LoadMeshTask::TaskInfo{
+                        .load_info = {
+                            .asset_path = info.path,
+                            .asset = asset,
+                            .mesh_group_index = mesh_group_index,
+                            .mesh_index = mesh_index,
+                            .material_manifest_offset = asset_manifest->material_manifest_offset,
+                            .manifest_index = mesh_group_manifest.mesh_manifest_indices_offset + mesh_index,
+                            .old_mesh = {},
+                            .file_path = asset_manifest->path.parent_path() / asset->meshes[mesh_group.mesh_offset + mesh_index].file_path
+                        },
+                        .asset_processor = asset_processor,
+                    }), TaskPriority::LOW);
+                }
             }
-        }
 
-        for (u32 texture_index = 0; texture_index < s_cast<u32>(asset->textures.size()); texture_index++) {
-            auto const texture_manifest_index = texture_index + asset_manifest.texture_manifest_offset;
-            auto const & texture_manifest_entry = texture_manifest_entries.at(texture_manifest_index);
+            for (u32 texture_index = 0; texture_index < s_cast<u32>(asset->textures.size()); texture_index++) {
+                auto const texture_manifest_index = texture_index + asset_manifest->texture_manifest_offset;
+                auto const & texture_manifest_entry = texture_manifest_entries.at(texture_manifest_index);
 
-            if (!texture_manifest_entry.material_manifest_indices.empty()) {
-                thread_pool->async_dispatch(
-                std::make_shared<LoadTextureTask>(LoadTextureTask::TaskInfo{
-                    .load_info = {
-                        .asset_path = asset_manifest.path,
-                        .asset = asset.get(),
-                        .texture_index = texture_index,
-                        .texture_manifest_index = texture_manifest_index,
-                        .old_image = {},
-                        .image_path = asset_manifest.path.parent_path() / asset->textures[texture_index].file_path,
-                    },
-                    .asset_processor = asset_processor,
-                }), TaskPriority::LOW);
+                if (!texture_manifest_entry.material_manifest_indices.empty()) {
+                    thread_pool->async_dispatch(
+                    std::make_shared<LoadTextureTask>(LoadTextureTask::TaskInfo{
+                        .load_info = {
+                            .asset_path = asset_manifest->path,
+                            .asset = asset,
+                            .texture_index = texture_index,
+                            .texture_manifest_index = texture_manifest_index,
+                            .old_image = {},
+                            .image_path = asset_manifest->path.parent_path() / asset->textures[texture_index].file_path,
+                        },
+                        .asset_processor = asset_processor,
+                    }), TaskPriority::LOW);
+                }
             }
         }
     }
@@ -427,53 +440,6 @@ namespace foundation {
                 },
                 .asset_processor = asset_processor,
             }), TaskPriority::LOW);
-        }
-    }
-
-    void AssetManager::already_loaded_model(LoadManifestInfo& info, const AssetManifestEntry& asset_manifest) {
-        const auto& asset = asset_manifest.asset;
-
-        total_meshlet_count += asset_manifest.header.meshlet_count;
-        total_triangle_count += asset_manifest.header.triangle_count;
-        total_vertex_count += asset_manifest.header.vertex_count;
-        total_mesh_count += s_cast<u32>(asset->meshes.size());
-
-        std::vector<Entity> node_index_to_entity = {};
-        for(u32 node_index = 0; node_index < s_cast<u32>(asset->nodes.size()); node_index++) {
-            node_index_to_entity.push_back(scene->create_entity(std::format("asset {} {} {}", asset_manifest_entries.size(), asset->nodes[node_index].name, info.parent.get_name().data())));
-        }
-
-        for(u32 node_index = 0; node_index < s_cast<u32>(asset->nodes.size()); node_index++) {
-            const auto& node = asset->nodes[node_index];
-            Entity& parent_entity = node_index_to_entity[node_index];
-            if(node.mesh_index.has_value()) {
-                auto* mesh_component = parent_entity.add_component<MeshComponent>();
-                mesh_component->mesh_group_index = asset_manifest.mesh_group_manifest_offset + node.mesh_index.value();
-                parent_entity.add_component<RenderInfo>();
-            }
-
-            glm::vec3 position = {};
-            glm::vec3 rotation = {};
-            glm::vec3 scale = {};
-            math::decompose_transform(node.transform, position, rotation, scale);
-
-            parent_entity.add_component<TransformComponent>();
-            parent_entity.set_local_position(position);
-            parent_entity.set_local_rotation(rotation);
-            parent_entity.set_local_scale(scale);
-
-            for(u32 children_index = 0; children_index < node.children.size(); children_index++) {
-                Entity& child_entity = node_index_to_entity[children_index];
-                parent_entity.set_child(child_entity);
-            }
-        }
-
-        for(u32 node_index = 0; node_index < s_cast<u32>(asset->nodes.size()); node_index++) {
-            Entity& entity = node_index_to_entity[node_index];
-
-            if(!entity.has_parent()) {
-                info.parent.set_child(entity);
-            }
         }
     }
 

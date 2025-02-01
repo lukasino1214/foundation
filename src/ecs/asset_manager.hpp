@@ -92,7 +92,6 @@ namespace foundation {
         ~AssetManager();
 
         void load_model(LoadManifestInfo& info);
-        void already_loaded_model(LoadManifestInfo& info, const AssetManifestEntry& asset_manifest);
 
         struct RecordManifestUpdateInfo {
             std::span<const MeshUploadInfo> uploaded_meshes = {};
