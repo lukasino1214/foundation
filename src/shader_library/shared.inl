@@ -209,12 +209,12 @@ struct Mesh {
 
 DAXA_DECL_BUFFER_PTR_ALIGN(Mesh, 8)
 
-struct MeshletData {
+struct MeshletInstanceData {
     u32 mesh_index;
     u32 meshlet_index;
     u32 transform_index;
 };
-DAXA_DECL_BUFFER_PTR(MeshletData)
+DAXA_DECL_BUFFER_PTR(MeshletInstanceData)
 
 struct EntityData {
     u32 mesh_group_index;
@@ -234,32 +234,14 @@ struct MeshesData {
 };
 DAXA_DECL_BUFFER_PTR(MeshesData)
 
-struct MeshletsData {
-    u32 count;
-    daxa_BufferPtr(MeshletData) meshlets;
-};
-DAXA_DECL_BUFFER_PTR(MeshletsData)
-
-struct MeshletIndices {
-    u32 count;
-    daxa_BufferPtr(u32) indices;
-};
-DAXA_DECL_BUFFER_PTR(MeshletIndices)
-
-struct MeshletIndexBuffer {
-    u32 count;
-    daxa_BufferPtr(u32) indices;
-};
-DAXA_DECL_BUFFER_PTR(MeshletIndexBuffer)
-
 struct MeshletsDataMerged {
     u32 hw_count;
     u32 sw_count;
     u32 hw_offset;
     u32 sw_offset;
-    daxa_BufferPtr(MeshletData) meshlet_data;
-    daxa_BufferPtr(MeshletData) hw_meshlet_data;
-    daxa_BufferPtr(MeshletData) sw_meshlet_data;
+    daxa_BufferPtr(MeshletInstanceData) meshlet_instance_data;
+    daxa_BufferPtr(MeshletInstanceData) hw_meshlet_data;
+    daxa_BufferPtr(MeshletInstanceData) sw_meshlet_data;
 };
 DAXA_DECL_BUFFER_PTR(MeshletsDataMerged)
 

@@ -112,18 +112,18 @@ void cull_meshlets(u32vec3 thread_index : SV_DispatchThreadID) {
         abs(max_viewport.x - min_viewport.x) < 32 &&
         abs(max_viewport.y - min_viewport.y) < 32;
 
-    MeshletData meshlet_data;
-    meshlet_data.mesh_index = mesh_data.global_mesh_index;
-    meshlet_data.meshlet_index = meshlet_index;
-    meshlet_data.transform_index = mesh_data.transform_index;
+    MeshletInstanceData meshlet_instance_data;
+    meshlet_instance_data.mesh_index = mesh_data.global_mesh_index;
+    meshlet_instance_data.meshlet_index = meshlet_index;
+    meshlet_instance_data.transform_index = mesh_data.transform_index;
 
     if(is_sw_candidate && push.uses.u_globals->render_as_observer == 0) {
         u32 i = 0;
         InterlockedAdd(push.uses.u_meshlets_data_merged->sw_count, 1, i);
-        push.uses.u_meshlets_data_merged.sw_meshlet_data[i] = meshlet_data;
+        push.uses.u_meshlets_data_merged.sw_meshlet_data[i] = meshlet_instance_data;
     } else {
         u32 i = 0;
         InterlockedAdd(push.uses.u_meshlets_data_merged->hw_count, 1, i);
-        push.uses.u_meshlets_data_merged.hw_meshlet_data[i] = meshlet_data;
+        push.uses.u_meshlets_data_merged.hw_meshlet_data[i] = meshlet_instance_data;
     }
 }

@@ -127,16 +127,16 @@ void resolve_visibility_buffer(u32vec3 pixel : SV_DispatchThreadID) {
     u32 triangle_index = 0;
     decode_triangle_id(vis_index, meshlet_data_index, triangle_index);
 
-    const MeshletData meshlet_data = push.uses.u_meshlets_data_merged.meshlet_data[meshlet_data_index];
-    const Mesh mesh = push.uses.u_meshes[meshlet_data.mesh_index];
-    const Meshlet meshlet = mesh.meshlets[meshlet_data.meshlet_index];
+    const MeshletInstanceData meshlet_instance_data = push.uses.u_meshlets_data_merged.meshlet_instance_data[meshlet_data_index];
+    const Mesh mesh = push.uses.u_meshes[meshlet_instance_data.mesh_index];
+    const Meshlet meshlet = mesh.meshlets[meshlet_instance_data.meshlet_index];
 
     if(push.uses.u_globals->mouse_selection_readback.state == 1 && 
         push.uses.u_globals->mouse_selection_readback.id == INVALID_ID && 
         pixel.x == push.uses.u_globals->mouse_selection_readback.mouse_position.x && 
         pixel.y == push.uses.u_globals->mouse_selection_readback.mouse_position.y) {
-        push.uses.u_globals->mouse_selection_readback.id = meshlet_data.transform_index;
-        push.uses.u_mouse_selection_readback->id = meshlet_data.transform_index;
+        push.uses.u_globals->mouse_selection_readback.id = meshlet_instance_data.transform_index;
+        push.uses.u_mouse_selection_readback->id = meshlet_instance_data.transform_index;
     }
 
     const u32[3] indices = u32[3](
@@ -151,7 +151,7 @@ void resolve_visibility_buffer(u32vec3 pixel : SV_DispatchThreadID) {
         mesh.vertex_positions[indices[2]]
     );
 
-    const f32mat4x4 transform_matrix = mat_4x3_to_4x4(push.uses.u_transforms[meshlet_data.transform_index].model_matrix); 
+    const f32mat4x4 transform_matrix = mat_4x3_to_4x4(push.uses.u_transforms[meshlet_instance_data.transform_index].model_matrix); 
     const f32vec4[3] world_positions = f32vec4[3](
         mul(transform_matrix, f32vec4(positions[0], 1.0)),
         mul(transform_matrix, f32vec4(positions[1], 1.0)),
@@ -212,7 +212,7 @@ void resolve_visibility_buffer(u32vec3 pixel : SV_DispatchThreadID) {
         )
     ));
 
-    f32vec4 color = f32vec4(hsv_to_rgb(f32vec3(f32(meshlet_data.meshlet_index) * M_GOLDEN_CONJ, 0.875, 0.85)), 1.0);
+    f32vec4 color = f32vec4(hsv_to_rgb(f32vec3(f32(meshlet_instance_data.meshlet_index) * M_GOLDEN_CONJ, 0.875, 0.85)), 1.0);
     if(mesh.material_index != INVALID_ID) {
         daxa_ImageViewId normal_image_id = push.uses.u_materials[mesh.material_index].normal_image_id;
         if(normal_image_id.value != 0) {

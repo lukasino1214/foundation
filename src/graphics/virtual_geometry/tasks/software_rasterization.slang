@@ -22,13 +22,13 @@ void software_rasterization_write_command() {
 [shader("compute")]
 [numthreads(MAX_TRIANGLES_PER_MESHLET, 1, 1)]
 void software_rasterization(u32vec3 local_thread_index : SV_GroupThreadID, u32vec3 group_index : SV_GroupID) {
-    const MeshletData meshlet_data = push.uses.u_meshlets_data_merged.sw_meshlet_data[group_index.x];
-    const Mesh mesh = push.uses.u_meshes[meshlet_data.mesh_index];
-    const Meshlet meshlet = mesh.meshlets[meshlet_data.meshlet_index];
+    const MeshletInstanceData meshlet_instance_data = push.uses.u_meshlets_data_merged.sw_meshlet_data[group_index.x];
+    const Mesh mesh = push.uses.u_meshes[meshlet_instance_data.mesh_index];
+    const Meshlet meshlet = mesh.meshlets[meshlet_instance_data.meshlet_index];
 
     const f32vec2 scale = f32vec2(0.5f, 0.5f) * f32vec2(push.uses.u_globals->render_target_size) * f32(SUBPIXEL_SAMPLES);
     const f32vec2 bias = (0.5 * f32vec2(push.uses.u_globals->render_target_size)) * f32(SUBPIXEL_SAMPLES) + 0.5;
-    const f32mat4x4 transform_matrix = mat_4x3_to_4x4(push.uses.u_transforms[meshlet_data.transform_index].model_matrix);
+    const f32mat4x4 transform_matrix = mat_4x3_to_4x4(push.uses.u_transforms[meshlet_instance_data.transform_index].model_matrix);
     const f32mat4x4 pvm = mul(push.uses.u_globals->main_camera.projection_view_matrix, transform_matrix);
 
     VisibilityImageSWFunction sw_function;

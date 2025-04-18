@@ -40,11 +40,11 @@ void draw_meshlets_only_depth_mesh(
     OutputIndices<u32vec3, MAX_TRIANGLES_PER_MESHLET> out_indices,
     OutputVertices<Vertex, MAX_VERTICES_PER_MESHLET> out_vertices,
     OutputPrimitives<Primtive, MAX_TRIANGLES_PER_MESHLET> out_primitives) {
-    const MeshletData meshlet_data = push.uses.u_meshlets_data_merged.hw_meshlet_data[payload.index];
-    const Mesh mesh = push.uses.u_meshes[meshlet_data.mesh_index];
-    const Meshlet meshlet = mesh.meshlets[meshlet_data.meshlet_index];
+    const MeshletInstanceData meshlet_instance_data = push.uses.u_meshlets_data_merged.hw_meshlet_data[payload.index];
+    const Mesh mesh = push.uses.u_meshes[meshlet_instance_data.mesh_index];
+    const Meshlet meshlet = mesh.meshlets[meshlet_instance_data.meshlet_index];
 
-    const f32mat4x4 transform_matrix = mat_4x3_to_4x4(push.uses.u_transforms[meshlet_data.transform_index].model_matrix);
+    const f32mat4x4 transform_matrix = mat_4x3_to_4x4(push.uses.u_transforms[meshlet_instance_data.transform_index].model_matrix);
     const f32mat4x4 pvm = mul(push.uses.u_globals->main_camera.projection_view_matrix, transform_matrix);
 
     const u32 meshlet_index = push.uses.u_meshlets_data_merged.hw_offset + payload.index;
