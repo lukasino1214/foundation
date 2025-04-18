@@ -18,7 +18,7 @@ namespace foundation {
         void ui_update();
         void ui_render_end();
 
-        void window_resized();
+        void window_resized() const;
 
         void recreate_framebuffer(const glm::uvec2& size);
         void compile_pipelines();

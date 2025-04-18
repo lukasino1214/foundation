@@ -2,12 +2,16 @@
 #include <ecs/components.hpp>
 #include <graphics/helper.hpp>
 
+#include <utility>
+#include <utility>
 #include <utils/byte_utils.hpp>
 #include <utils/zstd.hpp>
 #include <math/decompose.hpp>
 #include <utils/file_io.hpp>
 
 namespace foundation {
+    static constexpr usize MAXIMUM_MESHLET_COUNT = ~u32(0u) >> (find_msb(MAX_TRIANGLES_PER_MESHLET));
+
     struct LoadTextureTask : Task {
         struct TaskInfo {
             LoadTextureInfo load_info = {};
@@ -16,9 +20,9 @@ namespace foundation {
         };
 
         TaskInfo info = {};
-        explicit LoadTextureTask(TaskInfo const & info) : info{info} { chunk_count = 1; }
+        explicit LoadTextureTask(TaskInfo info) : info{std::move(info)} { chunk_count = 1; }
 
-        virtual void callback(u32, u32) override {
+        virtual void callback(u32 /*chunk_index*/, u32 /*thread_index*/) override {
             info.asset_processor->load_texture(info.load_info);
         };
     };
@@ -31,9 +35,9 @@ namespace foundation {
         };
 
         TaskInfo info;
-        LoadMeshTask(const TaskInfo& info) : info{info} { chunk_count = 1; }
+        LoadMeshTask(TaskInfo info) : info{std::move(info)} { chunk_count = 1; }
 
-        virtual void callback(u32, u32) override {
+        virtual void callback(u32 /*chunk_index*/, u32 /*thread_index*/) override {
             info.asset_processor->load_gltf_mesh(info.load_info);
         };
     };
@@ -458,7 +462,7 @@ namespace foundation {
             };
         });
         reallocate_buffer<MeshletsDataMerged>(context, cmd_recorder, gpu_meshlets_data_merged, total_meshlet_count * sizeof(MeshletData) * 2 + sizeof(MeshletsDataMerged), [&](const daxa::BufferId& buffer) -> MeshletsDataMerged {
-            u32 sw_offset = std::min(total_meshlet_count, 33554431llu);
+            u32 sw_offset = s_cast<u32>(std::min(total_meshlet_count, MAXIMUM_MESHLET_COUNT));
             
             return MeshletsDataMerged {
                 .hw_count = 0,

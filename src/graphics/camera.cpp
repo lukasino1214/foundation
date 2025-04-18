@@ -15,11 +15,11 @@ namespace foundation {
         proj_mat[1][1] *= -1.0f;
     }
 
-    auto Camera3D::get_vp() -> glm::mat4 {
+    auto Camera3D::get_vp() const noexcept -> glm::mat4 {
         return proj_mat * view_mat;
     }
 
-    auto Camera3D::get_view() -> glm::mat4 {
+    auto Camera3D::get_view() const noexcept -> glm::mat4 {
         return view_mat;
     }
 

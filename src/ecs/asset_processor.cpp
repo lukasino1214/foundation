@@ -35,7 +35,7 @@ static constexpr f32 SIMPLIFICATION_FAILURE_PERCENTAGE = 0.95f;
 
 namespace foundation {
     AssetProcessor::AssetProcessor(Context* _context) : context{_context}, mesh_upload_mutex{std::make_unique<std::mutex>()} { PROFILE_SCOPE; }
-    AssetProcessor::~AssetProcessor() {}
+    AssetProcessor::~AssetProcessor() = default;
 
     void AssetProcessor::convert_gltf_to_binary(const std::filesystem::path& input_path, const std::filesystem::path& output_path) {
         if(!std::filesystem::exists(input_path)) {
@@ -775,14 +775,6 @@ namespace foundation {
         write_bytes_to_file(compressed_data, output_path);
     }
 
-    struct FindConnectedMeshletsInfo {
-        const std::vector<u32>& simplification_queue;
-        const std::vector<Meshlet>& meshlets;
-        const std::vector<u32>& meshlet_indirect_vertices;
-        const std::vector<u8>& meshlet_micro_indices;
-        const std::vector<glm::vec3>& positions;
-    };
-
     struct PairHasher {
         template <class T1, class T2>
         auto operator()(const std::pair<T1,T2>& pair) const -> usize {
@@ -794,6 +786,14 @@ namespace foundation {
 
     using MeshletPair = std::pair<u32, u32>;
     using MeshletCountPair = std::pair<u32, u32>;
+
+    struct FindConnectedMeshletsInfo {
+        const std::vector<u32>& simplification_queue;
+        const std::vector<Meshlet>& meshlets;
+        const std::vector<u32>& meshlet_indirect_vertices;
+        const std::vector<u8>& meshlet_micro_indices;
+        const std::vector<glm::vec3>& positions;
+    };
 
     static auto find_connected_meshlets(const FindConnectedMeshletsInfo& info) -> std::vector<std::vector<MeshletCountPair>> {
         std::vector<std::vector<u32>> vertices_to_meshlets = {};
@@ -856,12 +856,12 @@ namespace foundation {
         return connected_meshlets_per_meshlet;
     }
 
-    struct GroupMeshlets {
+    struct GroupMeshletsInfo {
         const std::vector<std::vector<MeshletCountPair>>& connected_meshlets_per_meshlet = {};
         const std::vector<u32>& simplification_queue = {};
     };
 
-    static auto group_meshlets(const GroupMeshlets& info) -> std::vector<std::vector<u32>> {
+    static auto group_meshlets(const GroupMeshletsInfo& info) -> std::vector<std::vector<u32>> {
         std::vector<i32> xadj = {};
         xadj.reserve(info.simplification_queue.size() + 1);
 
@@ -878,8 +878,8 @@ namespace foundation {
 
         xadj.push_back(s_cast<i32>(adjncy.size()));
 
-        idx_t options[METIS_NOPTIONS];
-        METIS_SetDefaultOptions(options);
+        std::array<idx_t, METIS_NOPTIONS> options = {};
+        METIS_SetDefaultOptions(options.data());
         options[METIS_OPTION_SEED] = 17;
 
         i32 ncon = 1;
@@ -905,7 +905,7 @@ namespace foundation {
             &partition_count, 
             nullptr, 
             nullptr, 
-            options, 
+            options.data(), 
             &edgecut, 
             group_per_meshlet.data());
 
@@ -922,7 +922,7 @@ namespace foundation {
         return groups;
     };
 
-    struct LockGroupBorders {
+    struct LockGroupBordersInfo {
         std::vector<u8>& vertex_locks;
         const std::vector<std::vector<u32>>& groups;
         const std::vector<Meshlet>& meshlets;
@@ -930,7 +930,7 @@ namespace foundation {
         const std::vector<glm::vec3>& positions;
     };
 
-    static void lock_group_borders(const LockGroupBorders& info) {
+    static void lock_group_borders(const LockGroupBordersInfo& info) {
         std::vector<i32> locks = {};
         locks.resize(info.positions.size());
         std::fill(locks.begin(), locks.end(), -1);
@@ -958,7 +958,7 @@ namespace foundation {
         }
     };
 
-    struct SimplifyMeshletGroup {
+    struct SimplifyMeshletGroupInfo {
         const std::vector<u32>& group_meshlets;
         const std::vector<Meshlet>& meshlets;
         const std::vector<u32>& meshlet_indirect_vertices;
@@ -968,7 +968,7 @@ namespace foundation {
         const std::vector<u8>& vertex_locks;
     };
 
-    auto simplify_meshlet_group(const SimplifyMeshletGroup& info) -> std::optional<std::pair<std::vector<u32>, f32>> {
+    static auto simplify_meshlet_group(const SimplifyMeshletGroupInfo& info) -> std::optional<std::pair<std::vector<u32>, f32>> {
         std::vector<u32> group_indices = {};
 
         for(const u32 meshlet_id : info.group_meshlets) {
@@ -1016,15 +1016,15 @@ namespace foundation {
         return {{simplified_group_indices, error}};
     }
 
-    struct ComputeLODGroupData {
+    struct ComputeLODGroupDataInfo {
         const std::vector<u32>& group_meshlets;
         f32& group_error;
         std::vector<MeshletBoundingSpheres>& bounding_spheres;
         std::vector<MeshletSimplificationError>& simplification_errors;
     };
 
-    static auto compute_lod_group_data(ComputeLODGroupData& info) -> BoundingSphere {
-        BoundingSphere group_bounding_sphere = BoundingSphere {
+    static auto compute_lod_group_data(ComputeLODGroupDataInfo& info) -> BoundingSphere {
+        auto group_bounding_sphere = BoundingSphere {
             .center = { 0.0f, 0.0f, 0.0f },
             .radius = 0.0f
         };
@@ -1055,7 +1055,7 @@ namespace foundation {
         return group_bounding_sphere;
     }
 
-    struct SplitSimplifiedGroupIntoNewMeshlets {
+    struct SplitSimplifiedGroupIntoNewMeshletsInfo {
         const std::vector<u32>& simplified_group_indices;
         const std::vector<glm::vec3>& positions;
         std::vector<u32>& meshlet_indirect_vertices;
@@ -1064,7 +1064,7 @@ namespace foundation {
         std::vector<Meshlet>& meshlets;
     };
 
-    static auto split_simplified_group_into_new_meshlets(SplitSimplifiedGroupIntoNewMeshlets& info) -> std::pair<u32, std::vector<BoundingSphere>> {
+    static auto split_simplified_group_into_new_meshlets(SplitSimplifiedGroupIntoNewMeshletsInfo& info) -> std::pair<u32, std::vector<BoundingSphere>> {
         constexpr usize MAX_VERTICES = MAX_VERTICES_PER_MESHLET;
         constexpr usize MAX_TRIANGLES = MAX_TRIANGLES_PER_MESHLET;
         constexpr f32 CONE_WEIGHT = 1.0f;
@@ -1231,12 +1231,12 @@ namespace foundation {
             indices = std::move(optimized_indices);
         }
 
-        size_t max_meshlets = meshopt_buildMeshletsBound(indices.size(), MAX_VERTICES, MAX_TRIANGLES);
+        usize max_meshlets = meshopt_buildMeshletsBound(indices.size(), MAX_VERTICES, MAX_TRIANGLES);
         std::vector<Meshlet> meshlets(max_meshlets);
         std::vector<u32> meshlet_indirect_vertices(max_meshlets * MAX_VERTICES);
         std::vector<u8> meshlet_micro_indices(max_meshlets * MAX_TRIANGLES * 3);
 
-        size_t meshlet_count = meshopt_buildMeshlets(
+        usize meshlet_count = meshopt_buildMeshlets(
             r_cast<meshopt_Meshlet*>(meshlets.data()),
             meshlet_indirect_vertices.data(),
             meshlet_micro_indices.data(),
@@ -1308,9 +1308,6 @@ namespace foundation {
         meshlet_micro_indices.resize(last.micro_indices_offset + ((last.triangle_count * 3u + 3u) & ~3u));
         meshlets.resize(meshlet_count);
 
-
-
-
         std::vector<MeshletSimplificationError> simplification_errors = {};
         simplification_errors.resize(meshlets.size());
         std::fill(simplification_errors.begin(), simplification_errors.end(), MeshletSimplificationError {
@@ -1337,12 +1334,12 @@ namespace foundation {
                 .positions = vert_positions,
             });
 
-            std::vector<std::vector<u32>> groups = group_meshlets(GroupMeshlets {
+            std::vector<std::vector<u32>> groups = group_meshlets(GroupMeshletsInfo {
                 .connected_meshlets_per_meshlet = connected_meshlets_per_meshlet,
                 .simplification_queue = simplification_queue,
             });
 
-            lock_group_borders(LockGroupBorders {
+            lock_group_borders(LockGroupBordersInfo {
                 .vertex_locks = vertex_locks,
                 .groups = groups,
                 .meshlets = meshlets,
@@ -1358,7 +1355,7 @@ namespace foundation {
                     continue; 
                 }
 
-                std::optional<std::pair<std::vector<u32>, f32>> simplification_result = simplify_meshlet_group(SimplifyMeshletGroup {
+                std::optional<std::pair<std::vector<u32>, f32>> simplification_result = simplify_meshlet_group(SimplifyMeshletGroupInfo {
                     .group_meshlets = group_meshlets,
                     .meshlets = meshlets,
                     .meshlet_indirect_vertices = meshlet_indirect_vertices,
@@ -1376,7 +1373,7 @@ namespace foundation {
 
                 auto [simplified_group_indices, group_error] = simplification_result.value();
             
-                auto compute_lod_group_data_info = ComputeLODGroupData {
+                auto compute_lod_group_data_info = ComputeLODGroupDataInfo {
                     .group_meshlets = group_meshlets,
                     .group_error = group_error,
                     .bounding_spheres = bounding_spheres,
@@ -1385,7 +1382,7 @@ namespace foundation {
 
                 BoundingSphere group_bounding_sphere = compute_lod_group_data(compute_lod_group_data_info);
 
-                auto split_simplified_group_into_new_meshlets_info = SplitSimplifiedGroupIntoNewMeshlets {
+                auto split_simplified_group_into_new_meshlets_info = SplitSimplifiedGroupIntoNewMeshletsInfo {
                     .simplified_group_indices = simplified_group_indices,
                     .positions = vert_positions,
                     .meshlet_indirect_vertices = meshlet_indirect_vertices,

@@ -1,7 +1,7 @@
 #include "scripting_engine.hpp"
-#include <ecs/components.hpp>
 #include <ecs/entity.hpp>
 #include <utils/file_io.hpp>
+#include <graphics/window.hpp>
 
 namespace foundation {
     void ScriptingEngine::init_script(ScriptComponent* script, Entity entity, const std::filesystem::path& path) {

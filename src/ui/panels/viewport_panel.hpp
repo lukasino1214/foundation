@@ -4,7 +4,6 @@
 #include <graphics/camera.hpp>
 #include <daxa/utils/imgui.hpp>
 #include <ecs/entity.hpp>
-#include <graphics/camera.hpp>
 
 namespace foundation {
     struct ViewportPanel {

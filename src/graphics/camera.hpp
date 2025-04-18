@@ -10,8 +10,8 @@ namespace foundation {
         glm::mat4 view_mat{};
 
         void resize(i32 size_x, i32 size_y);
-        auto get_vp() -> glm::mat4;
-        auto get_view() -> glm::mat4;
+        [[nodiscard]] auto get_vp() const noexcept -> glm::mat4;
+        [[nodiscard]] auto get_view() const noexcept -> glm::mat4;
     };
 
     namespace input {

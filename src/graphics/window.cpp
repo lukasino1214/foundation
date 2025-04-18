@@ -72,14 +72,14 @@ namespace foundation {
 
     #if defined(_WIN32)
         {
-            auto hwnd = s_cast<HWND>(glfwGetWin32Window(glfw_handle));
-            BOOL value = true;
+            auto* hwnd = s_cast<HWND>(glfwGetWin32Window(glfw_handle));
+            BOOL value = 1;
             DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &value, sizeof(value));
             auto is_windows11_or_greater = []() -> bool {
                 using Fn_RtlGetVersion = void(WINAPI *)(OSVERSIONINFOEX *);
                 Fn_RtlGetVersion fn_RtlGetVersion = nullptr;
-                auto ntdll_dll = LoadLibrary(TEXT("ntdll.dll"));
-                if (ntdll_dll) { fn_RtlGetVersion = r_cast<Fn_RtlGetVersion>(GetProcAddress(ntdll_dll, "RtlGetVersion")); }
+                auto* ntdll_dll = LoadLibrary(TEXT("ntdll.dll"));
+                if (ntdll_dll != nullptr) { fn_RtlGetVersion = r_cast<Fn_RtlGetVersion>(GetProcAddress(ntdll_dll, "RtlGetVersion")); }
                 auto version_info = OSVERSIONINFOEX{};
                 version_info.dwOSVersionInfoSize = sizeof(OSVERSIONINFOEX);
                 fn_RtlGetVersion(&version_info);
@@ -218,11 +218,11 @@ namespace foundation {
         return x >= 0 && x <= width && y >= 0 && y <= height;
     }
 
-    void AppWindow::capture_cursor() {
+    void AppWindow::capture_cursor() const {
         glfwSetInputMode(this->glfw_handle, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
     }
 
-    void AppWindow::release_cursor() {
+    void AppWindow::release_cursor() const {
         glfwSetInputMode(this->glfw_handle, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
     }
 
@@ -230,7 +230,7 @@ namespace foundation {
         return glfwGetInputMode(this->glfw_handle, GLFW_CURSOR) == GLFW_CURSOR_DISABLED;
     }
 
-    auto AppWindow::update() -> bool {
+    auto AppWindow::update() const -> bool {
         this->window_state->key_down_old = this->window_state->key_down;
         this->window_state->mouse_button_down_old = this->window_state->mouse_button_down;
         this->window_state->old_cursor_pos_x = this->get_cursor_x();

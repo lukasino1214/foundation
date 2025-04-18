@@ -54,11 +54,6 @@ void cull_meshlets(u32vec3 thread_index : SV_DispatchThreadID) {
     const f32mat4x4 transform_matrix = mat_4x3_to_4x4(push.uses.u_transforms[mesh_data.transform_index].model_matrix);
     const u32vec2 viewport_size = push.uses.u_globals->render_target_size.xy;
 
-    MeshletData meshlet_data;
-    meshlet_data.mesh_index = mesh_data.global_mesh_index;
-    meshlet_data.meshlet_index = meshlet_index;
-    meshlet_data.transform_index = mesh_data.transform_index;
-
     const f32mat4x4 mvp = mul(push.uses.u_globals->main_camera.projection_view_matrix, transform_matrix);
     const f32mat4x4 projection_matrix = push.uses.u_globals->main_camera.projection_matrix;
     
@@ -94,12 +89,12 @@ void cull_meshlets(u32vec3 thread_index : SV_DispatchThreadID) {
     ndc_aabb.ndc_max.y = min(ndc_aabb.ndc_max.y,  1.0f);
     if(behind_near_plane) { ndc_aabb.ndc_min = ndc_aabb.ndc_max = f32vec3(0.0f, 0.0f, INVALID_NDC_AABB_Z); }
     
-    if(is_ndc_aabb_hiz_depth_visible(ndc_aabb, push.uses.u_globals->next_lower_po2_render_target_size, push.uses.u_hiz)) {
+    if(!is_ndc_aabb_hiz_depth_visible(ndc_aabb, push.uses.u_globals->next_lower_po2_render_target_size, push.uses.u_hiz)) {
         return;
     }
     
-    const MeshletBoundingSpheres bounding_spheres = mesh.bounding_spheres[meshlet_data.meshlet_index];
-    const MeshletSimplificationError simplification_errors = mesh.simplification_errors[meshlet_data.meshlet_index];
+    const MeshletBoundingSpheres bounding_spheres = mesh.bounding_spheres[meshlet_index];
+    const MeshletSimplificationError simplification_errors = mesh.simplification_errors[meshlet_index];
     let lod_is_ok = lod_error_is_imperceptible(bounding_spheres.lod_group_sphere, simplification_errors.group_error, transform_matrix, projection_matrix);
     let parent_lod_is_ok = lod_error_is_imperceptible(bounding_spheres.lod_parent_group_sphere, simplification_errors.parent_group_error, transform_matrix, projection_matrix);
     if (!lod_is_ok || parent_lod_is_ok) { 
@@ -116,6 +111,11 @@ void cull_meshlets(u32vec3 thread_index : SV_DispatchThreadID) {
         !behind_near_plane && 
         abs(max_viewport.x - min_viewport.x) < 32 &&
         abs(max_viewport.y - min_viewport.y) < 32;
+
+    MeshletData meshlet_data;
+    meshlet_data.mesh_index = mesh_data.global_mesh_index;
+    meshlet_data.meshlet_index = meshlet_index;
+    meshlet_data.transform_index = mesh_data.transform_index;
 
     if(is_sw_candidate && push.uses.u_globals->render_as_observer == 0) {
         u32 i = 0;

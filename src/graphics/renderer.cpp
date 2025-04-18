@@ -227,7 +227,7 @@ namespace foundation {
         }
     }
 
-    void Renderer::window_resized() {
+    void Renderer::window_resized() const {
         context->swapchain.resize();
     }
 
@@ -366,8 +366,8 @@ namespace foundation {
                 context->gpu_metrics[MiscellaneousTasks::READBACK_RAM]->start(ti.recorder);
 
                 std::memcpy(asset_manager->readback_material.data(), context->device.buffer_host_address(ti.get(asset_manager->gpu_readback_material_cpu).ids[0]).value(), asset_manager->readback_material.size() * sizeof(u32));
-                for(u32 i = 0; i < asset_manager->readback_material.size(); i++) { asset_manager->readback_material[i] = (1 << find_msb(asset_manager->readback_material[i])) >> 1;}
-                
+                for(u32 i = 0; i < asset_manager->readback_material.size(); i++) { asset_manager->readback_material[i] = (1 << find_msb(asset_manager->readback_material[i])) >> 1; }
+
                 std::memcpy(asset_manager->readback_mesh.data(), context->device.buffer_host_address(ti.get(asset_manager->gpu_readback_mesh_cpu).ids[0]).value(), asset_manager->readback_mesh.size() * sizeof(u32));
                 
                 context->gpu_metrics[MiscellaneousTasks::READBACK_RAM]->end(ti.recorder);
@@ -585,7 +585,7 @@ namespace foundation {
         ImGui::Begin("Mesh readback");
         auto& mesh_readback = asset_manager->readback_mesh;
         for(u32 i = 0; i < asset_manager->mesh_manifest_entries.size(); i++) {
-            ImGui::Text("Mesh %u: %u", i, (mesh_readback[i / 32u] & (1u << (i % 32u))) != 0);
+            ImGui::Text("Mesh %u: %u", i, s_cast<i32>((mesh_readback[i / 32u] & (1u << (i % 32u))) != 0));
         }
         ImGui::End();
 

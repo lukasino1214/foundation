@@ -25,7 +25,7 @@ namespace foundation {
             explicit CompilePipelinesTask(Renderer* renderer)
                 : renderer{renderer} { chunk_count = 1; }
 
-            void callback(u32, u32) override {
+            void callback(u32 /*chunk_index*/, u32 /*thread_index*/) override {
                 renderer->compile_pipelines();
             }
         };
@@ -97,29 +97,29 @@ namespace foundation {
 // #endif      
 //         }
 
-        {
-            Entity parent = {};
-            for(u32 index = 0; index < 16; index++) {
-                Entity entity = scene->create_entity(std::string{"cube "} + std::to_string(index));
-                entity.add_component<TransformComponent>();
-                if(index == 0) { entity.get_handle().add<RootEntityTag>(); entity.set_local_scale({10.0f, 10.0, 10.0f}); }
-                if(index != 0) { parent.set_child(entity); }
-                entity.set_local_position({0.0f, 0.0, 0.0f});
-                if(index != 0) { entity.set_local_position({0.0f, 5, 0.0f}); entity.set_local_scale({0.5f, 0.5f, 0.5f}); }
-                entity.add_component<OOBComponent>();
-                auto* script = entity.add_component<ScriptComponent>();
-                script->path = "assets/scripts/test.lua";
-                file_watcher.watch("assets/scripts/test.lua");
-                scripting_engine.init_script(script, entity, "assets/scripts/test.lua");
-                parent = entity;
-            }
-        }
+        // {
+        //     Entity parent = {};
+        //     for(u32 index = 0; index < 16; index++) {
+        //         Entity entity = scene->create_entity(std::string{"cube "} + std::to_string(index));
+        //         entity.add_component<TransformComponent>();
+        //         if(index == 0) { entity.get_handle().add<RootEntityTag>(); entity.set_local_scale({10.0f, 10.0, 10.0f}); }
+        //         if(index != 0) { parent.set_child(entity); }
+        //         entity.set_local_position({0.0f, 0.0, 0.0f});
+        //         if(index != 0) { entity.set_local_position({0.0f, 5, 0.0f}); entity.set_local_scale({0.5f, 0.5f, 0.5f}); }
+        //         entity.add_component<OOBComponent>();
+        //         auto* script = entity.add_component<ScriptComponent>();
+        //         script->path = "assets/scripts/test.lua";
+        //         file_watcher.watch("assets/scripts/test.lua");
+        //         scripting_engine.init_script(script, entity, "assets/scripts/test.lua");
+        //         parent = entity;
+        //     }
+        // }
 
         viewport_panel = ViewportPanel(&context, &window, &renderer->imgui_renderer, [&](const glm::uvec2& size){ renderer->recreate_framebuffer(size); });
         thread_pool->block_on(compile_pipelines_task);
     }
 
-    Application::~Application() {}
+    Application::~Application() = default;
 
     auto Application::run() -> i32 {
         while(!window.window_state->close_requested) {

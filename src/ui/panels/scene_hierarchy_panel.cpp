@@ -5,9 +5,6 @@
 
 #include <ui/ui.hpp>
 
-#include <iostream>
-
-
 namespace foundation {
     template<typename T>
     void SceneHierarchyPanel::draw_component(Entity entity, const std::string_view& component_name) {
@@ -19,7 +16,7 @@ namespace foundation {
 
             f32 line_height = GImGui->Font->FontSize + GImGui->Style.FramePadding.y * 2.0f;
 
-            bool open = ImGui::TreeNodeEx(reinterpret_cast<void*>(typeid(T).hash_code() << s_cast<uint32_t>(entity.get_handle())), treeNodeFlags, "%s", component_name.data());
+            bool open = ImGui::TreeNodeEx(r_cast<void*>(typeid(T).hash_code() << s_cast<uint32_t>(entity.get_handle())), treeNodeFlags, "%s", component_name.data());
             ImGui::PopStyleVar();
 
             ImGui::SameLine(content_region_available.x - line_height * 0.5f);
@@ -112,7 +109,7 @@ namespace foundation {
             }
         }
 
-        bool opened = ImGui::TreeNodeEx(reinterpret_cast<void*>((uint64_t)(uint32_t)entity.get_handle()), treeNodeFlags, "%s", entity.get_name().data());
+        bool opened = ImGui::TreeNodeEx(r_cast<void*>((uint64_t)(uint32_t)entity.get_handle()), treeNodeFlags, "%s", entity.get_name().data());
 
         if (ImGui::IsItemClicked(ImGuiPopupFlags_MouseButtonLeft) || ImGui::IsItemClicked(ImGuiPopupFlags_MouseButtonRight)) {
             selected_entity = entity;
@@ -167,14 +164,14 @@ namespace foundation {
 
         {
             PROFILE_SCOPE_NAMED(scene_world_each);
-            root_entities_query.each([&](flecs::entity e, RootEntityTag tag){
+            root_entities_query.each([&](flecs::entity e, RootEntityTag){
                 Entity entity = { e, scene };
                 tree(entity, 0);
             });
         }
 
         if (ImGui::IsMouseDown(0) && ImGui::IsWindowHovered()) { selected_entity = {}; }
-        if (ImGui::BeginPopupContextWindow(0, ImGuiPopupFlags_NoOpenOverItems | ImGuiPopupFlags_MouseButtonRight)) {
+        if (ImGui::BeginPopupContextWindow(nullptr, ImGuiPopupFlags_NoOpenOverItems | ImGuiPopupFlags_MouseButtonRight)) {
             if (ImGui::MenuItem("Create Empty Entity")) {
                 Entity created_entity = scene->create_entity("Empty Entity");
 
@@ -211,7 +208,7 @@ namespace foundation {
                 draw_component<OOBComponent>(selected_entity, "OOB Component");
             }
             
-            if (ImGui::BeginPopupContextWindow(0, ImGuiPopupFlags_NoOpenOverItems | ImGuiPopupFlags_MouseButtonRight)) {
+            if (ImGui::BeginPopupContextWindow(nullptr, ImGuiPopupFlags_NoOpenOverItems | ImGuiPopupFlags_MouseButtonRight)) {
                 // add_new_component<TransformComponent>(selected_entity, "Add Transform Component");
                 // add_new_component<MeshComponent>(selected_entity, "Add Mesh Component");
 

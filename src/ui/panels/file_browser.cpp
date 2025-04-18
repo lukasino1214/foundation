@@ -128,13 +128,13 @@ namespace foundation {
         i32 cell_size = thumbnail_size + padding;
         i32 column_count = std::max(s_cast<i32>(width) / cell_size, 1);
 
-        ImGui::Columns(column_count, 0, false);
+        ImGui::Columns(column_count, nullptr, false);
 
 
         auto draw_thumbnail = [&](const auto& vec, bool is_folder){
             for(const auto& item : vec) {
                 ImGui::PushID(item.string().c_str());
-                ImGui::SetCursorPosX(ImGui::GetCursorPosX() + (ImGui::GetColumnWidth() / 2) - (thumbnail_size / 2));
+                ImGui::SetCursorPosX(ImGui::GetCursorPosX() + (ImGui::GetColumnWidth() / 2) - (s_cast<f32>(thumbnail_size) / 2));
 
                 if(current_path / item == selected_path) { ImGui::PushStyleColor(ImGuiCol_Button, ImGui::GetStyle().Colors[ImGuiCol_ButtonHovered]); }
                 ImGui::Button(std::string{std::string(is_folder ? "folder" : "file") + "###"}.c_str(), ImVec2{thumbnail_size, thumbnail_size});

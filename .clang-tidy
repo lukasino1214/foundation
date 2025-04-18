@@ -19,8 +19,13 @@ Checks: "*,
         -bugprone-easily-swappable-parameters,
         -readability-simplify-boolean-expr,
         -hicpp-signed-bitwise,
-        -cppcoreguidelines-avoid-magic-numbers,readability-magic-numbers,
+        -cppcoreguidelines-avoid-magic-numbers,
         -readability-magic-numbers,
+        -readability-redundant-string-cstr,
+        -cppcoreguidelines-pro-type-union-access,
+        -cppcoreguidelines-pro-bounds-pointer-arithmetic,
+        -cppcoreguidelines-avoid-const-or-ref-data-members,
+        -readability-redundant-member-init
 "
 WarningsAsErrors: ''
 HeaderFilterRegex: ''

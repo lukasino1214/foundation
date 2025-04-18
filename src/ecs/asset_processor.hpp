@@ -51,7 +51,7 @@ namespace foundation {
     };
 
     struct ProcessMeshInfo {
-        fastgltf::Asset * asset;
+        fastgltf::Asset* asset;
         u32 gltf_mesh_index = {};
         u32 gltf_primitive_index = {};
     };

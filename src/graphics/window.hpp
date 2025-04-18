@@ -149,7 +149,7 @@ namespace foundation {
 
         auto create_swapchain(daxa::Device& device) const -> daxa::Swapchain;
 
-        auto update() -> bool;
+        auto update() const -> bool;
 
         [[nodiscard]] auto key_pressed(Key key) const -> bool;
         [[nodiscard]] auto key_just_pressed(Key key) const -> bool;
@@ -164,8 +164,8 @@ namespace foundation {
         [[nodiscard]] auto get_cursor_change_x() const -> i32;
         [[nodiscard]] auto get_cursor_change_y() const -> i32;
         [[nodiscard]] auto is_cursor_over_window() const -> bool;
-        void capture_cursor();
-        void release_cursor();
+        void capture_cursor() const;
+        void release_cursor() const;
         [[nodiscard]] auto is_cursor_captured() const -> bool;
 
         [[nodiscard]] auto is_focused() const -> bool;

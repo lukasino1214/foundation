@@ -83,7 +83,7 @@ bool is_worldspace_aabb_frusum_visible(in CameraInfo camera_info, in AABB aabb) 
 }
 
 bool is_ndc_aabb_hiz_depth_visible(NdcAABB meshlet_ndc_aabb, u32vec2 hiz_res, daxa_ImageViewId hiz) {
-    if(meshlet_ndc_aabb.ndc_max.z == INVALID_NDC_AABB_Z) { return false; }
+    if(meshlet_ndc_aabb.ndc_max.z == INVALID_NDC_AABB_Z) { return true; }
     const f32vec2 f_hiz_resolution = hiz_res;
     const f32vec2 min_uv = (meshlet_ndc_aabb.ndc_min.xy + 1.0f) * 0.5f;
     const f32vec2 max_uv = (meshlet_ndc_aabb.ndc_max.xy + 1.0f) * 0.5f;
@@ -110,7 +110,7 @@ bool is_ndc_aabb_hiz_depth_visible(NdcAABB meshlet_ndc_aabb, u32vec2 hiz_res, da
 
     const f32 conservative_depth = min(min(fetch.x,fetch.y), min(fetch.z, fetch.w));
     const bool depth_cull = meshlet_ndc_aabb.ndc_max.z < conservative_depth;
-    return depth_cull;
+    return !depth_cull;
 }
 
 bool is_triangle_invisible_micro_triangle(f32vec2 ndc_min, f32vec2 ndc_max, f32vec2 resolution) {

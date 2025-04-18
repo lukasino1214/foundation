@@ -1,10 +1,9 @@
 #pragma once
 
-#include <graphics/window.hpp>
-
 namespace foundation {
     struct ScriptComponent;
     struct Entity;
+    struct AppWindow;
     
     struct ScriptingEngine {
         AppWindow* window = {};

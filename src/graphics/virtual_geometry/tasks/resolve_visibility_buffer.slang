@@ -34,10 +34,10 @@ BarycentricDeriv calc_bary_and_deriv(f32vec4 pt0, f32vec4 pt1, f32vec4 pt2, f32v
     ret.m_lambda.x = interpW * (invW[0] + deltaVec.x*ret.m_ddx.x + deltaVec.y*ret.m_ddy.x);
     ret.m_lambda.y = interpW * (0.0f    + deltaVec.x*ret.m_ddx.y + deltaVec.y*ret.m_ddy.y);
     ret.m_lambda.z = interpW * (0.0f    + deltaVec.x*ret.m_ddx.z + deltaVec.y*ret.m_ddy.z); 
-    ret.m_ddx *= (2.0f/winSize.x);
-    ret.m_ddy *= (2.0f/winSize.y);
-    ddxSum    *= (2.0f/winSize.x);
-    ddySum    *= (2.0f/winSize.y);  
+    ret.m_ddx *= (2.0f / winSize.x);
+    ret.m_ddy *= (2.0f / winSize.y);
+    ddxSum    *= (2.0f / winSize.x);
+    ddySum    *= (2.0f / winSize.y);  
     ret.m_ddy *= -1.0f;
     ddySum    *= -1.0f; 
     f32 interpW_ddx = 1.0f / (interpInvW + ddxSum);

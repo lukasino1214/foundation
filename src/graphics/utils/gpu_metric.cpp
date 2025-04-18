@@ -6,7 +6,7 @@ namespace foundation {
             .name = "gpu metric pool"
     })}, timestamp_period(s_cast<f64>(device.properties().limits.timestamp_period)) {}
 
-    GPUMetricPool::~GPUMetricPool() {}
+    GPUMetricPool::~GPUMetricPool() = default;
 
     GPUMetric::GPUMetric(GPUMetricPool* _gpu_metric_pool) : gpu_metric_pool{_gpu_metric_pool}, index{gpu_metric_pool->query_count} {
         gpu_metric_pool->query_count += 2;

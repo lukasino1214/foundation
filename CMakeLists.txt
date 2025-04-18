@@ -150,7 +150,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
 target_include_directories(${PROJECT_NAME} PRIVATE ${Stb_INCLUDE_DIR} ${LUA_INCLUDE_DIR})
 target_include_directories(${PROJECT_NAME} PRIVATE "${NVTT_DIR}/include")
 
-if(TRUE)
+if(FALSE)
   target_compile_options(${PROJECT_NAME} PUBLIC -g -gcodeview -fms-hotpatch -ffunction-sections -Xclang -mno-constructor-aliases)
   target_link_options(${PROJECT_NAME} PUBLIC -Xlinker /FUNCTIONPADMIN)
   target_include_directories(${PROJECT_NAME} PRIVATE "deps/LivePP/API/x64")

@@ -4,7 +4,7 @@
 
 namespace foundation {
     struct GPUMetricPool {
-        GPUMetricPool(const daxa::Device& _device);
+        explicit GPUMetricPool(const daxa::Device& _device);
         ~GPUMetricPool();
 
     private:
@@ -17,7 +17,7 @@ namespace foundation {
     };
 
     struct GPUMetric {
-        GPUMetric(GPUMetricPool* _gpu_metric_pool);
+        explicit GPUMetric(GPUMetricPool* _gpu_metric_pool);
         ~GPUMetric();
 
         void start(daxa::CommandRecorder& cmd_list);

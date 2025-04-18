@@ -46,7 +46,7 @@ void cull_meshes(u32vec3 thread_index : SV_DispatchThreadID) {
             const f32mat4x4 projection_view_matrix = push.uses.u_globals->main_camera.projection_view_matrix;
             const NdcAABB ndc_aabb = calculate_ndc_aabb_from_worldspace(model_matrix, projection_view_matrix, mesh.aabb);
 
-            if(is_ndc_aabb_hiz_depth_visible(ndc_aabb, push.uses.u_globals->next_lower_po2_render_target_size, push.uses.u_hiz)) {
+            if(!is_ndc_aabb_hiz_depth_visible(ndc_aabb, push.uses.u_globals->next_lower_po2_render_target_size, push.uses.u_hiz)) {
                 continue;
             }
 
