@@ -23,7 +23,7 @@ namespace foundation {
         return view_mat;
     }
 
-    void ControlledCamera3D::update(AppWindow& window, f32 dt) {
+    void ControlledCamera3D::update(NativeWIndow& window, f32 dt) {
         if(window.is_cursor_captured()) {
             rotation.x += s_cast<f32>(window.get_cursor_change_x()) * mouse_sens * 0.0001f * camera.fov;
             rotation.y += s_cast<f32>(window.get_cursor_change_y()) * mouse_sens * 0.0001f * camera.fov;

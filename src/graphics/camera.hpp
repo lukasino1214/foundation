@@ -48,6 +48,6 @@ namespace foundation {
         f32 drag = 7.5f;
         f32 acceleration = 10.0f;
 
-        void update(AppWindow& window, f32 dt);
+        void update(NativeWIndow& window, f32 dt);
     };
 }

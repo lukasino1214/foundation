@@ -13,7 +13,7 @@
 #include <math/decompose.hpp>
 
 namespace foundation {
-    Scene::Scene(const std::string_view& _name, Context* _context, AppWindow* _window, ScriptingEngine* _scripting_engine, FileWatcher* _file_watcher)
+    Scene::Scene(const std::string_view& _name, Context* _context, NativeWIndow* _window, ScriptingEngine* _scripting_engine, FileWatcher* _file_watcher)
      : name{_name}, world{std::make_unique<flecs::world>()}, context{_context}, window{_window}, scripting_engine{_scripting_engine}, file_watcher{_file_watcher},
         gpu_transforms_pool(context, "gpu_transforms"), gpu_entities_data_pool(context, "gpu_entities_data") {
         PROFILE_SCOPE;

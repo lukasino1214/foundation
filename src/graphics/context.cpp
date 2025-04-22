@@ -77,7 +77,7 @@ namespace foundation {
         upload_draws(head.line_draw_indirect_info, line_draws, head.line_draws);
     }
 
-    Context::Context(const AppWindow &window)
+    Context::Context(const NativeWIndow &window)
         : instance{daxa::create_instance({})},
             device{instance.create_device(daxa::DeviceInfo{
                 // .enable_buffer_device_address_capture_replay = true,

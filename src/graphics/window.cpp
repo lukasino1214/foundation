@@ -12,7 +12,7 @@
 #include <stb_image.h>
 
 namespace foundation {
-    AppWindow::AppWindow(i32 width, i32 height, std::string_view _name)
+    NativeWIndow::NativeWIndow(i32 width, i32 height, std::string_view _name)
         : window_state{std::make_unique<WindowState>()},
         name{_name},
         glfw_handle{[&]() {
@@ -103,12 +103,12 @@ namespace foundation {
     #endif //_WIN32
     }
 
-    AppWindow::~AppWindow() {
+    NativeWIndow::~NativeWIndow() {
         glfwDestroyWindow(this->glfw_handle);
         glfwTerminate();
     }
 
-    auto AppWindow::create_swapchain(daxa::Device& device) const -> daxa::Swapchain {
+    auto NativeWIndow::create_swapchain(daxa::Device& device) const -> daxa::Swapchain {
         auto get_native_platform = []() -> daxa::NativeWindowPlatform {
             switch (glfwGetPlatform()) {
                 case GLFW_PLATFORM_WIN32:
@@ -154,61 +154,61 @@ namespace foundation {
         });
     }
 
-    auto AppWindow::get_name() const -> const std::string & {
+    auto NativeWIndow::get_name() const -> const std::string & {
         return this->name;
     }
 
-    auto AppWindow::is_focused() const -> bool {
+    auto NativeWIndow::is_focused() const -> bool {
         return this->window_state->focused;
     }
 
-    auto AppWindow::key_pressed(Key key) const -> bool {
+    auto NativeWIndow::key_pressed(Key key) const -> bool {
         return window_state->key_down[s_cast<u32>(key)];
     }
 
-    auto AppWindow::key_just_pressed(Key key) const -> bool {
+    auto NativeWIndow::key_just_pressed(Key key) const -> bool {
         return !this->window_state->key_down_old[s_cast<u32>(key)] && this->window_state->key_down[s_cast<u32>(key)];
     }
 
-    auto AppWindow::key_just_released(Key key) const -> bool {
+    auto NativeWIndow::key_just_released(Key key) const -> bool {
         return this->window_state->key_down_old[s_cast<u32>(key)] && !this->window_state->key_down[s_cast<u32>(key)];
     }
 
-    auto AppWindow::button_pressed(Button button) const -> bool {
+    auto NativeWIndow::button_pressed(Button button) const -> bool {
         return this->window_state->mouse_button_down[s_cast<u32>(button)];
     }
 
-    auto AppWindow::button_just_pressed(Button button) const -> bool {
+    auto NativeWIndow::button_just_pressed(Button button) const -> bool {
         return !this->window_state->mouse_button_down_old[s_cast<u32>(button)] && this->window_state->mouse_button_down[s_cast<u32>(button)];
     }
 
-    auto AppWindow::button_just_released(Button button) const -> bool {
+    auto NativeWIndow::button_just_released(Button button) const -> bool {
         return this->window_state->mouse_button_down_old[s_cast<u32>(button)] && !this->window_state->mouse_button_down[s_cast<u32>(button)];
     }
 
-    auto AppWindow::get_cursor_x() const -> i32 {
+    auto NativeWIndow::get_cursor_x() const -> i32 {
         f64 x = {};
         f64 y = {};
         glfwGetCursorPos(this->glfw_handle, &x, &y);
         return s_cast<i32>(std::floor(x));
     }
 
-    auto AppWindow::get_cursor_y() const -> i32 {
+    auto NativeWIndow::get_cursor_y() const -> i32 {
         f64 x = {};
         f64 y = {};
         glfwGetCursorPos(this->glfw_handle, &x, &y);
         return s_cast<i32>(std::floor(y));
     }
 
-    auto AppWindow::get_cursor_change_x() const -> i32 {
+    auto NativeWIndow::get_cursor_change_x() const -> i32 {
         return this->window_state->cursor_change_x;
     }
 
-    auto AppWindow::get_cursor_change_y() const -> i32 {
+    auto NativeWIndow::get_cursor_change_y() const -> i32 {
         return this->window_state->cursor_change_y;
     }
 
-    auto AppWindow::is_cursor_over_window() const -> bool {
+    auto NativeWIndow::is_cursor_over_window() const -> bool {
         f64 x = {};
         f64 y = {};
         glfwGetCursorPos(this->glfw_handle, &x, &y);
@@ -218,19 +218,19 @@ namespace foundation {
         return x >= 0 && x <= width && y >= 0 && y <= height;
     }
 
-    void AppWindow::capture_cursor() const {
+    void NativeWIndow::capture_cursor() const {
         glfwSetInputMode(this->glfw_handle, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
     }
 
-    void AppWindow::release_cursor() const {
+    void NativeWIndow::release_cursor() const {
         glfwSetInputMode(this->glfw_handle, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
     }
 
-    auto AppWindow::is_cursor_captured() const -> bool {
+    auto NativeWIndow::is_cursor_captured() const -> bool {
         return glfwGetInputMode(this->glfw_handle, GLFW_CURSOR) == GLFW_CURSOR_DISABLED;
     }
 
-    auto AppWindow::update() const -> bool {
+    auto NativeWIndow::update() const -> bool {
         this->window_state->key_down_old = this->window_state->key_down;
         this->window_state->mouse_button_down_old = this->window_state->mouse_button_down;
         this->window_state->old_cursor_pos_x = this->get_cursor_x();
@@ -245,28 +245,28 @@ namespace foundation {
         return this->window_state->close_requested;
     }
 
-    void AppWindow::set_width(u32 width) const {
+    void NativeWIndow::set_width(u32 width) const {
         i32 old_width = {};
         i32 old_height = {};
         glfwGetWindowSize(this->glfw_handle, &old_width, &old_height);
         glfwSetWindowSize(this->glfw_handle, s_cast<i32>(width), old_height);
     }
 
-    void AppWindow::set_height(u32 height) const {
+    void NativeWIndow::set_height(u32 height) const {
         i32 old_width = {};
         i32 old_height = {};
         glfwGetWindowSize(this->glfw_handle, &old_width, &old_height);
         glfwSetWindowSize(this->glfw_handle, old_width, s_cast<i32>(height));
     }
 
-    auto AppWindow::get_width() const -> u32 {
+    auto NativeWIndow::get_width() const -> u32 {
         i32 width = {};
         i32 height = {};
         glfwGetWindowSize(this->glfw_handle, &width, &height);
         return s_cast<u32>(width);
     }
 
-    auto AppWindow::get_height() const -> u32 {
+    auto NativeWIndow::get_height() const -> u32 {
         i32 width = {};
         i32 height = {};
         glfwGetWindowSize(this->glfw_handle, &width, &height);

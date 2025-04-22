@@ -5,7 +5,7 @@
 #include <glm/gtc/type_ptr.hpp>
 
 namespace foundation {
-    ViewportPanel::ViewportPanel(Context* _context, AppWindow* _window, daxa::ImGuiRenderer* _imgui_renderer, ResizeCallback  _resize_callback)
+    ViewportPanel::ViewportPanel(Context* _context, NativeWIndow* _window, daxa::ImGuiRenderer* _imgui_renderer, ResizeCallback  _resize_callback)
         : context{_context}, window{_window}, imgui_renderer{_imgui_renderer}, resize_callback{std::move(_resize_callback)} {}
 
     void ViewportPanel::draw(ControlledCamera3D& camera, f32 delta_time, daxa::TaskImage& color_image) {
@@ -33,7 +33,7 @@ namespace foundation {
         pos.x += ImGui::GetWindowPos().x;
         pos.y += ImGui::GetWindowPos().y;
 
-        if(ImGui::IsWindowHovered() && window->button_just_pressed(GLFW_MOUSE_BUTTON_1)  && !ImGuizmo::IsUsingAny()) {
+        if(ImGui::IsWindowHovered() && window->button_just_pressed(Button::Button_1)  && !ImGuizmo::IsUsingAny()) {
             auto mouse_pos = ImGui::GetMousePos();
             // LOG_INFO("pos: {} {}", mouse_pos.x, mouse_pos.y);
             auto window_pos = ImGui::GetWindowPos();
@@ -100,8 +100,8 @@ namespace foundation {
             ImGuizmo::Manipulate(glm::value_ptr(camera.camera.get_view()), glm::value_ptr(proj_mat), s_cast<ImGuizmo::OPERATION>(gizmo_type), ImGuizmo::WORLD, glm::value_ptr(mod_mat), nullptr, nullptr, nullptr, nullptr);
         }
 
-        if(ImGui::IsWindowHovered() && !ImGuizmo::IsUsingAny()) { if(window->button_just_pressed(GLFW_MOUSE_BUTTON_1)) { window->capture_cursor(); } }
-        if(window->button_just_released(GLFW_MOUSE_BUTTON_1)) { window->release_cursor(); }
+        if(ImGui::IsWindowHovered() && !ImGuizmo::IsUsingAny()) { if(window->button_just_pressed(Button::Button_1)) { window->capture_cursor(); } }
+        if(window->button_just_released(Button::Button_1)) { window->release_cursor(); }
         camera.update(*window, delta_time);
 
         ImGui::End();

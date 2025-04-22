@@ -127,6 +127,21 @@ namespace foundation {
         Menu = GLFW_KEY_MENU,
     };
 
+    enum struct Button : u32 {
+        Button_1 = GLFW_MOUSE_BUTTON_1,
+        Button_2 = GLFW_MOUSE_BUTTON_2,
+        Button_3 = GLFW_MOUSE_BUTTON_3,
+        Button_4 = GLFW_MOUSE_BUTTON_4,
+        Button_5 = GLFW_MOUSE_BUTTON_5,
+        Button_6 = GLFW_MOUSE_BUTTON_6,
+        Button_7 = GLFW_MOUSE_BUTTON_7,
+        Button_8 = GLFW_MOUSE_BUTTON_8,
+        Last = GLFW_MOUSE_BUTTON_LAST,
+        Left = GLFW_MOUSE_BUTTON_LEFT,
+        Right = GLFW_MOUSE_BUTTON_RIGHT,
+        Middle = GLFW_MOUSE_BUTTON_MIDDLE,
+    };
+
     struct WindowState {
         bool close_requested = {};
         bool resize_requested = {};
@@ -141,11 +156,9 @@ namespace foundation {
         i32 cursor_change_y = {};
     };
 
-    using Button = i32;
-
-    struct AppWindow {
-        AppWindow(i32 width, i32 height, std::string_view _name);
-        ~AppWindow();
+    struct NativeWIndow {
+        NativeWIndow(i32 width, i32 height, std::string_view _name);
+        ~NativeWIndow();
 
         auto create_swapchain(daxa::Device& device) const -> daxa::Swapchain;
 

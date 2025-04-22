@@ -9,7 +9,7 @@
 
 namespace foundation {
     struct Renderer {
-        Renderer(AppWindow* _window, Context* _context, Scene* _scene, AssetManager* _asset_manager);
+        Renderer(NativeWIndow* _window, Context* _context, Scene* _scene, AssetManager* _asset_manager);
         ~Renderer();
 
         void render();
@@ -24,7 +24,7 @@ namespace foundation {
         void compile_pipelines();
         void rebuild_task_graph();
 
-        AppWindow* window = {};
+        NativeWIndow* window = {};
         Context* context = {};
         Scene* scene = {};
         AssetManager* asset_manager = {};

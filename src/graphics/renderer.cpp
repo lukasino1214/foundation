@@ -16,7 +16,7 @@ namespace foundation {
         static inline constexpr std::string_view IMGUI_DRAW = "imgui draw";
     };
 
-    Renderer::Renderer(AppWindow* _window, Context* _context, Scene* _scene, AssetManager* _asset_manager) 
+    Renderer::Renderer(NativeWIndow* _window, Context* _context, Scene* _scene, AssetManager* _asset_manager) 
         : window{_window}, context{_context}, scene{_scene}, asset_manager{_asset_manager} {
         ImGui::CreateContext();
         ImGui_ImplGlfw_InitForVulkan(window->glfw_handle, true);

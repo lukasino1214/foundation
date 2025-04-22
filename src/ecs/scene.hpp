@@ -24,7 +24,7 @@ namespace foundation {
     struct GPUTransformIndex;
 
     struct Scene {
-        Scene(const std::string_view& _name, Context* _context, AppWindow* _window, ScriptingEngine* _scripting_engine, FileWatcher* _file_watcher);
+        Scene(const std::string_view& _name, Context* _context, NativeWIndow* _window, ScriptingEngine* _scripting_engine, FileWatcher* _file_watcher);
         ~Scene();
 
         auto create_entity(const std::string_view& _name) -> Entity;
@@ -36,7 +36,7 @@ namespace foundation {
         std::string name;
         std::unique_ptr<flecs::world> world;
         Context* context;
-        AppWindow* window;
+        NativeWIndow* window;
         ScriptingEngine* scripting_engine = {};
         FileWatcher* file_watcher = {};
 

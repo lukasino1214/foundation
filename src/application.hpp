@@ -24,7 +24,7 @@ namespace foundation {
         void update();
         void ui_update();
 
-        AppWindow window;
+        NativeWIndow window;
         Context context;
         FileWatcher file_watcher = {};
         ScriptingEngine scripting_engine = {};
