@@ -333,7 +333,7 @@ namespace foundation {
                 create_alpha_mask |= material.alpha_mode != 0;
             }
 
-            auto get_data = [&](const fastgltf::Buffer& buffer, std::size_t byteOffset, std::size_t byteLength) {
+            auto get_data = [&](const fastgltf::Buffer& buffer, usize byteOffset, usize byteLength) {
                 return std::visit(fastgltf::visitor {
                     [](auto&) -> std::span<const std::byte> {
                         assert(false && "Tried accessing a buffer with no data, likely because no buffers were loaded. Perhaps you forgot to specify the LoadExternalBuffers option?");
@@ -783,7 +783,7 @@ namespace foundation {
             return hash;
         }
     };
-
+#pragma region FIND CONNECTED MESHLETS
     using MeshletPair = std::pair<u32, u32>;
     using MeshletCountPair = std::pair<u32, u32>;
 
@@ -855,7 +855,9 @@ namespace foundation {
 
         return connected_meshlets_per_meshlet;
     }
+#pragma endregion
 
+#pragma region GROUP MESHLETS
     struct GroupMeshletsInfo {
         const std::vector<std::vector<MeshletCountPair>>& connected_meshlets_per_meshlet = {};
         const std::vector<u32>& simplification_queue = {};
@@ -921,7 +923,9 @@ namespace foundation {
         
         return groups;
     };
+#pragma endregion
 
+#pragma region LOCK BORDERS
     struct LockGroupBordersInfo {
         std::vector<u8>& vertex_locks;
         const std::vector<std::vector<u32>>& groups;
@@ -957,7 +961,9 @@ namespace foundation {
             info.vertex_locks[i] = s_cast<u8>(locks[i] == -2);
         }
     };
+#pragma endregion
 
+#pragma region SIMPLIFY MESHLET GROUP
     struct SimplifyMeshletGroupInfo {
         const std::vector<u32>& group_meshlets;
         const std::vector<Meshlet>& meshlets;
@@ -988,7 +994,7 @@ namespace foundation {
         f32 error = 0.0f;
         std::vector<u32> simplified_group_indices = {};
         simplified_group_indices.resize(group_indices.size());
-        size_t index_count = meshopt_simplifyWithAttributes(
+        usize index_count = meshopt_simplifyWithAttributes(
             simplified_group_indices.data(), 
             group_indices.data(), 
             group_indices.size(), 
@@ -1015,7 +1021,9 @@ namespace foundation {
 
         return {{simplified_group_indices, error}};
     }
-
+#pragma endregion
+    
+#pragma region COMPUTE LOD GROUP DATA 
     struct ComputeLODGroupDataInfo {
         const std::vector<u32>& group_meshlets;
         f32& group_error;
@@ -1054,7 +1062,9 @@ namespace foundation {
 
         return group_bounding_sphere;
     }
+#pragma endregion
 
+#pragma region SPLIT SIMPLIFIED GROUP INTO MESHLETS
     struct SplitSimplifiedGroupIntoNewMeshletsInfo {
         const std::vector<u32>& simplified_group_indices;
         const std::vector<glm::vec3>& positions;
@@ -1065,83 +1075,28 @@ namespace foundation {
     };
 
     static auto split_simplified_group_into_new_meshlets(SplitSimplifiedGroupIntoNewMeshletsInfo& info) -> std::pair<u32, std::vector<BoundingSphere>> {
-        constexpr usize MAX_VERTICES = MAX_VERTICES_PER_MESHLET;
-        constexpr usize MAX_TRIANGLES = MAX_TRIANGLES_PER_MESHLET;
-        constexpr f32 CONE_WEIGHT = 1.0f;
-
-        size_t max_meshlets = meshopt_buildMeshletsBound(info.simplified_group_indices.size(), MAX_VERTICES, MAX_TRIANGLES);
-        std::vector<Meshlet> group_meshlets(max_meshlets);
-        std::vector<u32> group_meshlet_indirect_vertices(max_meshlets * MAX_VERTICES);
-        std::vector<u8> group_meshlet_micro_indices(max_meshlets * MAX_TRIANGLES * 3);
-
-        size_t meshlet_count = meshopt_buildMeshlets(
-            r_cast<meshopt_Meshlet*>(group_meshlets.data()),
-            group_meshlet_indirect_vertices.data(),
-            group_meshlet_micro_indices.data(),
-            info.simplified_group_indices.data(),
-            info.simplified_group_indices.size(),
-            r_cast<const f32*>(info.positions.data()),
-            info.positions.size(),
-            sizeof(glm::vec3),
-            MAX_VERTICES,
-            MAX_TRIANGLES,
-            CONE_WEIGHT
-        );
-
-        const Meshlet& last = group_meshlets[meshlet_count - 1];
-        group_meshlet_indirect_vertices.resize(last.indirect_vertex_offset + last.vertex_count);
-        group_meshlet_micro_indices.resize(last.micro_indices_offset + ((last.triangle_count * 3u + 3u) & ~3u));
-        group_meshlets.resize(meshlet_count);
-
-        std::vector<BoundingSphere> bounding_spheres = {};
-        bounding_spheres.resize(meshlet_count);
-        u32 new_meshlets_start = s_cast<u32>(info.aabbs.size());
-        info.aabbs.resize(new_meshlets_start + meshlet_count);
-        for(size_t meshlet_index = 0; meshlet_index < meshlet_count; ++meshlet_index) {
-            const auto& meshlet = group_meshlets[meshlet_index];
-
-            meshopt_Bounds raw_bounds = meshopt_computeMeshletBounds(
-                &group_meshlet_indirect_vertices[meshlet.indirect_vertex_offset],
-                &group_meshlet_micro_indices[meshlet.micro_indices_offset],
-                meshlet.triangle_count,
-                r_cast<const f32*>(info.positions.data()),
-                info.positions.size(),
-                sizeof(glm::vec3));
-
-            bounding_spheres[meshlet_index] = BoundingSphere {
-                .center = { raw_bounds.center[0], raw_bounds.center[1], raw_bounds.center[2]},
-                .radius = raw_bounds.radius
-            };
-
-            glm::vec3 min_pos = info.positions[group_meshlet_indirect_vertices[meshlet.indirect_vertex_offset]];
-            glm::vec3 max_pos = info.positions[group_meshlet_indirect_vertices[meshlet.indirect_vertex_offset]];
-
-
-            for (u32 i = 0; i < meshlet.vertex_count; ++i) {
-                glm::vec3 pos = info.positions[group_meshlet_indirect_vertices[meshlet.indirect_vertex_offset + i]];
-                min_pos = glm::min(min_pos, pos);
-                max_pos = glm::max(max_pos, pos);
-            }
-
-            info.aabbs[new_meshlets_start + meshlet_index].center = (max_pos + min_pos) * 0.5f;
-            info.aabbs[new_meshlets_start + meshlet_index].extent =  (max_pos - min_pos) * 0.5f;
-        }
+        auto ret = AssetProcessor::generate_meshlets(GenerateMeshletsInfo {
+            .indices = info.simplified_group_indices,
+            .positions = info.positions
+        });
 
         u32 indirect_vertices_offset = s_cast<u32>(info.meshlet_indirect_vertices.size());
         u32 micro_indices_offset = s_cast<u32>(info.meshlet_micro_indices.size());
 
-        info.meshlet_indirect_vertices.insert(info.meshlet_indirect_vertices.end(), group_meshlet_indirect_vertices.begin(), group_meshlet_indirect_vertices.end());
-        info.meshlet_micro_indices.insert(info.meshlet_micro_indices.end(), group_meshlet_micro_indices.begin(), group_meshlet_micro_indices.end());
+        info.meshlet_indirect_vertices.insert(info.meshlet_indirect_vertices.end(), ret.indirect_vertices.begin(), ret.indirect_vertices.end());
+        info.meshlet_micro_indices.insert(info.meshlet_micro_indices.end(), ret.micro_indices.begin(), ret.micro_indices.end());
     
-        for(Meshlet& meshlet : group_meshlets) {
+        for(Meshlet& meshlet : ret.meshlets) {
             meshlet.indirect_vertex_offset += indirect_vertices_offset;
             meshlet.micro_indices_offset += micro_indices_offset;
         }
 
-        info.meshlets.insert(info.meshlets.end(), group_meshlets.begin(), group_meshlets.end());
+        info.meshlets.insert(info.meshlets.end(), ret.meshlets.begin(), ret.meshlets.end());
+        info.aabbs.insert(info.aabbs.end(), ret.aabbs.begin(), ret.aabbs.end());
 
-        return { s_cast<u32>(meshlet_count), bounding_spheres };
+        return { s_cast<u32>(ret.meshlets.size()), ret.bounding_spheres };
     }
+#pragma endregion
 
     template <typename ElemT, bool IS_INDEX_BUFFER>
     auto load_data(fastgltf::Asset& asset, fastgltf::Accessor& accessor) {
@@ -1150,7 +1105,7 @@ namespace foundation {
             if (accessor.componentType == fastgltf::ComponentType::UnsignedShort) {
                 std::vector<u16> u16_index_buffer(accessor.count);
                 fastgltf::copyFromAccessor<u16>(asset, accessor, u16_index_buffer.data());
-                for (size_t i = 0; i < u16_index_buffer.size(); ++i) {
+                for (usize i = 0; i < u16_index_buffer.size(); ++i) {
                     ret[i] = s_cast<u32>(u16_index_buffer[i]);
                 }
             }
@@ -1164,6 +1119,97 @@ namespace foundation {
         return ret;
     }
 
+#pragma region GENERATE MESHLETS    
+    auto AssetProcessor::generate_meshlets(const GenerateMeshletsInfo& info) -> ProcessedMeshletsInfo {
+        ProcessedMeshletsInfo ret = {};
+        
+        constexpr usize MAX_VERTICES = MAX_VERTICES_PER_MESHLET;
+        constexpr usize MAX_TRIANGLES = MAX_TRIANGLES_PER_MESHLET;
+        constexpr f32 CONE_WEIGHT = 1.0f;
+
+        usize max_meshlets = meshopt_buildMeshletsBound(info.indices.size(), MAX_VERTICES, MAX_TRIANGLES);
+        ret.meshlets.resize(max_meshlets);
+        ret.indirect_vertices.resize(max_meshlets * MAX_VERTICES);
+        ret.micro_indices.resize(max_meshlets * MAX_TRIANGLES * 3);
+
+        usize meshlet_count = meshopt_buildMeshlets(
+            r_cast<meshopt_Meshlet*>(ret.meshlets.data()),
+            ret.indirect_vertices.data(),
+            ret.micro_indices.data(),
+            info.indices.data(),
+            info.indices.size(),
+            r_cast<const f32*>(info.positions.data()),
+            info.positions.size(),
+            sizeof(f32vec3),
+            MAX_VERTICES,
+            MAX_TRIANGLES,
+            CONE_WEIGHT
+        );
+
+        const Meshlet& last = ret.meshlets[meshlet_count - 1];
+        ret.indirect_vertices.resize(last.indirect_vertex_offset + last.vertex_count);
+        ret.micro_indices.resize(last.micro_indices_offset + ((last.triangle_count * 3u + 3u) & ~3u));
+        ret.meshlets.resize(meshlet_count);
+
+        for(const Meshlet& meshlet : ret.meshlets) {
+            meshopt_optimizeMeshlet(
+                &ret.indirect_vertices[meshlet.indirect_vertex_offset], 
+                &ret.micro_indices[meshlet.micro_indices_offset], 
+                meshlet.triangle_count, 
+                meshlet.vertex_count
+            );
+        }
+
+        ret.bounding_spheres.resize(meshlet_count);
+        ret.aabbs.resize(meshlet_count);
+
+        f32vec3 mesh_aabb_max = glm::vec3{std::numeric_limits<f32>::lowest()};
+        f32vec3 mesh_aabb_min = glm::vec3{std::numeric_limits<f32>::max()};
+
+        for(usize meshlet_index = 0; meshlet_index < meshlet_count; ++meshlet_index) {
+            const auto& meshlet = ret.meshlets[meshlet_index];
+
+            meshopt_Bounds raw_bounds = meshopt_computeMeshletBounds(
+                &ret.indirect_vertices[meshlet.indirect_vertex_offset],
+                &ret.micro_indices[meshlet.micro_indices_offset],
+                meshlet.triangle_count,
+                r_cast<const f32*>(info.positions.data()),
+                info.positions.size(),
+                sizeof(glm::vec3)
+            );
+
+            ret.bounding_spheres[meshlet_index] = BoundingSphere {
+                .center = { raw_bounds.center[0], raw_bounds.center[1], raw_bounds.center[2]},
+                .radius = raw_bounds.radius
+            };
+
+            glm::vec3 min_pos = info.positions[ret.indirect_vertices[meshlet.indirect_vertex_offset]];
+            glm::vec3 max_pos = info.positions[ret.indirect_vertices[meshlet.indirect_vertex_offset]];
+
+            for (u32 i = 0; i < meshlet.vertex_count; ++i) {
+                glm::vec3 pos = info.positions[ret.indirect_vertices[meshlet.indirect_vertex_offset + i]];
+                min_pos = glm::min(min_pos, pos);
+                max_pos = glm::max(max_pos, pos);
+            }
+
+            mesh_aabb_min = glm::min(mesh_aabb_min, min_pos);
+            mesh_aabb_max = glm::max(mesh_aabb_max, max_pos);
+
+            ret.aabbs[meshlet_index].center = (max_pos + min_pos) * 0.5f;
+            ret.aabbs[meshlet_index].extent =  (max_pos - min_pos) * 0.5f;
+        }
+
+        ret.mesh_aabb = {
+            .center = (mesh_aabb_max + mesh_aabb_min) * 0.5f,
+            .extent =  (mesh_aabb_max - mesh_aabb_min) * 0.5f,
+        };
+
+        return ret;
+    }
+#pragma endregion
+
+
+#pragma region PROCESS MESH
     auto AssetProcessor::process_mesh(const ProcessMeshInfo &info) -> ProcessedMeshInfo {
         fastgltf::Asset& gltf_asset = *info.asset;
         fastgltf::Mesh& gltf_mesh = info.asset->meshes[info.gltf_mesh_index];
@@ -1203,8 +1249,8 @@ namespace foundation {
         }
 
         std::vector<u32> packed_uvs = {};
+        std::vector<glm::vec2> vert_uvs = {};
         {
-            std::vector<glm::vec2> vert_uvs = {};
             auto* uvs_attribute_iter = gltf_primitive.findAttribute("TEXCOORD_0");
             if(uvs_attribute_iter != gltf_primitive.attributes.end()) {
                 vert_uvs = load_data<glm::vec2, false>(gltf_asset, gltf_asset.accessors[uvs_attribute_iter->accessorIndex]);
@@ -1219,11 +1265,53 @@ namespace foundation {
         }
 
         std::vector<u32> indices = {};
-        indices = load_data<u32, true>(gltf_asset, gltf_asset.accessors[gltf_primitive.indicesAccessor.value()]);
+        if(gltf_primitive.indicesAccessor.has_value()) {
+            indices = load_data<u32, true>(gltf_asset, gltf_asset.accessors[gltf_primitive.indicesAccessor.value()]);
+        } else {
+            std::vector<meshopt_Stream> streams = {};
+            streams.push_back(meshopt_Stream { .data = vert_positions.data(), .size = vert_positions.size(), .stride = sizeof(f32vec3) });
+            streams.push_back(meshopt_Stream { .data = vert_normals.data(), .size = vert_normals.size(), .stride = sizeof(f32vec3) });
+            streams.push_back(meshopt_Stream { .data = vert_uvs.data(), .size = vert_uvs.size(), .stride = sizeof(f32vec2) });
+            
+            usize index_count = vert_positions.size();
+		    usize unindexed_vertex_count = vert_positions.size();
+            
+            std::vector<u32> remap_table(vert_positions.size());
+            usize unique_vertex_count = meshopt_generateVertexRemapMulti(remap_table.data(), nullptr, index_count, unindexed_vertex_count, streams.data(), streams.size());
+            std::vector<f32vec3> remapped_positions(unique_vertex_count);
+            std::vector<f32vec3> remapped_normals(unique_vertex_count);
+            std::vector<f32vec2> remapped_uvs(unique_vertex_count);
+            std::vector<u32> index_buffer(index_count);
 
-        constexpr usize MAX_VERTICES = MAX_VERTICES_PER_MESHLET;
-        constexpr usize MAX_TRIANGLES = MAX_TRIANGLES_PER_MESHLET;
-        constexpr f32 CONE_WEIGHT = 1.0f;
+            meshopt_remapIndexBuffer(index_buffer.data(), nullptr, index_count, remap_table.data());
+            meshopt_remapVertexBuffer(remapped_positions.data(), vert_positions.data(), unindexed_vertex_count, sizeof(f32vec3), remap_table.data());
+            meshopt_remapVertexBuffer(remapped_normals.data(), vert_normals.data(), unindexed_vertex_count, sizeof(f32vec3), remap_table.data());
+            meshopt_remapVertexBuffer(remapped_uvs.data(), vert_uvs.data(), unindexed_vertex_count, sizeof(f32vec2), remap_table.data());
+        
+            vert_positions = remapped_positions;
+            vert_normals = remapped_normals;
+            vert_uvs = remapped_uvs;
+            indices = index_buffer;
+        }
+        
+        {
+            std::vector<u32> remap_table(vert_positions.size());
+            usize unique_vertex_count = meshopt_optimizeVertexFetchRemap(remap_table.data(), indices.data(), indices.size(), vert_positions.size());
+            std::vector<f32vec3> remapped_positions(unique_vertex_count);
+            std::vector<f32vec3> remapped_normals(unique_vertex_count);
+            std::vector<f32vec2> remapped_uvs(unique_vertex_count);
+            std::vector<u32> index_buffer(indices.size());
+
+            meshopt_remapIndexBuffer(index_buffer.data(), indices.data(), indices.size(), remap_table.data());
+            meshopt_remapVertexBuffer(remapped_positions.data(), vert_positions.data(), vert_positions.size(), sizeof(f32vec3), remap_table.data());
+            meshopt_remapVertexBuffer(remapped_normals.data(), vert_normals.data(), vert_normals.size(), sizeof(f32vec3), remap_table.data());
+            meshopt_remapVertexBuffer(remapped_uvs.data(), vert_uvs.data(), vert_uvs.size(), sizeof(f32vec2), remap_table.data());
+        
+            vert_positions = remapped_positions;
+            vert_normals = remapped_normals;
+            vert_uvs = remapped_uvs;
+            indices = index_buffer;
+        }
 
         {
             std::vector<u32> optimized_indices(indices.size());
@@ -1231,83 +1319,38 @@ namespace foundation {
             indices = std::move(optimized_indices);
         }
 
-        usize max_meshlets = meshopt_buildMeshletsBound(indices.size(), MAX_VERTICES, MAX_TRIANGLES);
-        std::vector<Meshlet> meshlets(max_meshlets);
-        std::vector<u32> meshlet_indirect_vertices(max_meshlets * MAX_VERTICES);
-        std::vector<u8> meshlet_micro_indices(max_meshlets * MAX_TRIANGLES * 3);
+        std::vector<Meshlet> meshlets = {};
+        std::vector<u32> meshlet_indirect_vertices = {};
+        std::vector<u8> meshlet_micro_indices = {};
+        std::vector<MeshletBoundingSpheres> bounding_spheres = {};
+        std::vector<AABB> meshlet_aabbs = {};
+        AABB mesh_aabb = {};
 
-        usize meshlet_count = meshopt_buildMeshlets(
-            r_cast<meshopt_Meshlet*>(meshlets.data()),
-            meshlet_indirect_vertices.data(),
-            meshlet_micro_indices.data(),
-            indices.data(),
-            indices.size(),
-            r_cast<const f32*>(vert_positions.data()),
-            s_cast<usize>(vertex_count),
-            sizeof(glm::vec3),
-            MAX_VERTICES,
-            MAX_TRIANGLES,
-            CONE_WEIGHT
-        );
+        {
+            auto ret = generate_meshlets(GenerateMeshletsInfo {
+                .indices = indices,
+                .positions = vert_positions
+            });
 
-        for(const Meshlet& meshlet : meshlets) {
-            meshopt_optimizeMeshlet(&meshlet_indirect_vertices[meshlet.indirect_vertex_offset], &meshlet_micro_indices[meshlet.micro_indices_offset], meshlet.triangle_count, meshlet.vertex_count);
-        }
-        
-        std::vector<MeshletBoundingSpheres> bounding_spheres(meshlet_count);
-        std::vector<AABB> meshlet_aabbs(meshlet_count);
-        f32vec3 mesh_aabb_max = glm::vec3{std::numeric_limits<f32>::lowest()};
-        f32vec3 mesh_aabb_min = glm::vec3{std::numeric_limits<f32>::max()};
-        for(size_t meshlet_index = 0; meshlet_index < meshlet_count; ++meshlet_index) {
-            meshopt_Bounds raw_bounds = meshopt_computeMeshletBounds(
-                &meshlet_indirect_vertices[meshlets[meshlet_index].indirect_vertex_offset],
-                &meshlet_micro_indices[meshlets[meshlet_index].micro_indices_offset],
-                meshlets[meshlet_index].triangle_count,
-                r_cast<f32 *>(vert_positions.data()),
-                s_cast<usize>(vertex_count),
-                sizeof(glm::vec3));
-
-            BoundingSphere bounding_sphere {
-                .center = { raw_bounds.center[0], raw_bounds.center[1], raw_bounds.center[2]},
-                .radius = raw_bounds.radius
-            };
-
-            bounding_spheres[meshlet_index] = MeshletBoundingSpheres {
-                .culling_sphere = bounding_sphere,
-                .lod_group_sphere = bounding_sphere,
-                .lod_parent_group_sphere = {
-                    .center = glm::vec3{0.0f},
-                    .radius = 0.0f,
-                },
-            };
-
-            glm::vec3 min_pos = vert_positions[meshlet_indirect_vertices[meshlets[meshlet_index].indirect_vertex_offset]];
-            glm::vec3 max_pos = vert_positions[meshlet_indirect_vertices[meshlets[meshlet_index].indirect_vertex_offset]];
-
-
-            for (u32 i = 0; i < meshlets[meshlet_index].vertex_count; ++i) {
-                glm::vec3 pos = vert_positions[meshlet_indirect_vertices[meshlets[meshlet_index].indirect_vertex_offset + i]];
-                min_pos = glm::min(min_pos, pos);
-                max_pos = glm::max(max_pos, pos);
+            meshlets = ret.meshlets;
+            meshlet_indirect_vertices = ret.indirect_vertices;
+            meshlet_micro_indices = ret.micro_indices;
+            
+            for(const auto& bounding_sphere : ret.bounding_spheres) {
+                bounding_spheres.push_back(MeshletBoundingSpheres {
+                    .culling_sphere = bounding_sphere,
+                    .lod_group_sphere = bounding_sphere,
+                    .lod_parent_group_sphere = {
+                        .center = glm::vec3{0.0f},
+                        .radius = 0.0f,
+                    },
+                });
             }
 
-            mesh_aabb_min = glm::min(mesh_aabb_min, min_pos);
-            mesh_aabb_max = glm::max(mesh_aabb_max, max_pos);
-
-            meshlet_aabbs[meshlet_index].center = (max_pos + min_pos) * 0.5f;
-            meshlet_aabbs[meshlet_index].extent =  (max_pos - min_pos) * 0.5f;
+            meshlet_aabbs = ret.aabbs;
+            mesh_aabb = ret.mesh_aabb;
         }
-
-        AABB mesh_aabb = {
-            .center = (mesh_aabb_max + mesh_aabb_min) * 0.5f,
-            .extent =  (mesh_aabb_max - mesh_aabb_min) * 0.5f,
-        };
-
-        const Meshlet& last = meshlets[meshlet_count - 1];
-        meshlet_indirect_vertices.resize(last.indirect_vertex_offset + last.vertex_count);
-        meshlet_micro_indices.resize(last.micro_indices_offset + ((last.triangle_count * 3u + 3u) & ~3u));
-        meshlets.resize(meshlet_count);
-
+        
         std::vector<MeshletSimplificationError> simplification_errors = {};
         simplification_errors.resize(meshlets.size());
         std::fill(simplification_errors.begin(), simplification_errors.end(), MeshletSimplificationError {
@@ -1438,6 +1481,7 @@ namespace foundation {
             .primitive_indices = indices
         };
     }
+#pragma endregion
 
     void AssetProcessor::load_gltf_mesh(const LoadMeshInfo& info) {
         PROFILE_SCOPE;

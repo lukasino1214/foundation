@@ -115,6 +115,20 @@ namespace foundation {
         std::vector<TextureUploadInfo> uploaded_textures = {};
     };
 
+    struct GenerateMeshletsInfo {
+        std::vector<u32> indices = {};
+        std::vector<f32vec3> positions = {};
+    };
+
+    struct ProcessedMeshletsInfo {
+        std::vector<Meshlet> meshlets = {};
+        std::vector<u32> indirect_vertices = {};
+        std::vector<u8> micro_indices = {};
+        std::vector<BoundingSphere> bounding_spheres = {};
+        std::vector<AABB> aabbs = {};
+        AABB mesh_aabb = {};
+    };
+
     struct AssetProcessor {
         AssetProcessor(Context* _context);
         ~AssetProcessor();
@@ -126,6 +140,8 @@ namespace foundation {
 
         static auto process_mesh(const ProcessMeshInfo& info) -> ProcessedMeshInfo;
         static void convert_gltf_to_binary(const std::filesystem::path& input_path, const std::filesystem::path& output_path);
+
+        static auto generate_meshlets(const GenerateMeshletsInfo& info) -> ProcessedMeshletsInfo;
 
         Context* context;
 
