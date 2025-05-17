@@ -36,6 +36,13 @@
 #define d_cast dynamic_cast
 #define r_cast reinterpret_cast
 
+template<typename T>
+auto yeet_cast(auto&& value) {
+    return *r_cast<T*>(&value);
+}
+
+#define y_cast yeet_cast
+
 #include <tracy/Tracy.hpp>
 
 namespace foundation {

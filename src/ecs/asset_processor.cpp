@@ -1032,7 +1032,8 @@ namespace foundation {
     };
 
     static auto compute_lod_group_data(ComputeLODGroupDataInfo& info) -> BoundingSphere {
-        auto group_bounding_sphere = BoundingSphere {
+#if 0        
+        BoundingSphere group_bounding_sphere = BoundingSphere {
             .center = { 0.0f, 0.0f, 0.0f },
             .radius = 0.0f
         };
@@ -1045,11 +1046,27 @@ namespace foundation {
         }
         group_bounding_sphere.center /= weight;
 
+        
         for(const u32 meshlet_id : info.group_meshlets) {
             BoundingSphere meshlet_lod_bounding_sphere = info.bounding_spheres[meshlet_id].lod_group_sphere;
             f32 d = glm::distance(meshlet_lod_bounding_sphere.center, group_bounding_sphere.center);
             group_bounding_sphere.radius = glm::max(meshlet_lod_bounding_sphere.radius + d, group_bounding_sphere.radius);
         }
+#else
+        std::vector<BoundingSphere> group_bounding_spheres = {};
+        group_bounding_spheres.reserve(info.group_meshlets.size());
+        for(const u32 meshlet_id : info.group_meshlets) {
+            group_bounding_spheres.push_back(info.bounding_spheres[meshlet_id].lod_group_sphere);
+        }
+
+        BoundingSphere group_bounding_sphere = y_cast<BoundingSphere>(meshopt_computeSphereBounds(
+            &group_bounding_spheres[0].center[0], 
+            group_bounding_spheres.size(), 
+            sizeof(BoundingSphere), 
+            &group_bounding_spheres[0].radius, 
+            sizeof(BoundingSphere)
+        ));
+#endif
 
         for(const u32 meshlet_id : info.group_meshlets) {
             info.group_error = glm::max(info.simplification_errors[meshlet_id].group_error, info.group_error);
