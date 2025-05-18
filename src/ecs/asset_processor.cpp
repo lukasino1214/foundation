@@ -1225,6 +1225,61 @@ namespace foundation {
     }
 #pragma endregion
 
+#pragma region GENERATE INDEX BUFFER
+    auto AssetProcessor::generate_index_buffer(const GenerateIndexBufferInfo& info) -> ProcessedIndexBufferInfo {
+        std::vector<meshopt_Stream> streams = {};
+        streams.push_back(meshopt_Stream { .data = info.unindexed_positions.data(), .size = info.unindexed_positions.size(), .stride = sizeof(f32vec3) });
+        streams.push_back(meshopt_Stream { .data = info.unindexed_normals.data(), .size = info.unindexed_normals.size(), .stride = sizeof(f32vec3) });
+        streams.push_back(meshopt_Stream { .data = info.unindexed_uvs.data(), .size = info.unindexed_uvs.size(), .stride = sizeof(f32vec2) });
+        
+        usize index_count = info.unindexed_positions.size();
+        usize unindexed_vertex_count = info.unindexed_positions.size();
+        
+        std::vector<u32> remap_table(unindexed_vertex_count);
+        usize unique_vertex_count = meshopt_generateVertexRemapMulti(remap_table.data(), nullptr, index_count, unindexed_vertex_count, streams.data(), streams.size());
+        
+        ProcessedIndexBufferInfo ret = {};
+        ret.positions.resize(unique_vertex_count);
+        ret.normals.resize(unique_vertex_count);
+        ret.uvs.resize(unique_vertex_count);
+        ret.index_buffer.resize(index_count);
+
+        meshopt_remapVertexBuffer(ret.positions.data(), ret.positions.data(), unindexed_vertex_count, sizeof(f32vec3), remap_table.data());
+        meshopt_remapVertexBuffer(ret.normals.data(), ret.normals.data(), unindexed_vertex_count, sizeof(f32vec3), remap_table.data());
+        meshopt_remapVertexBuffer(ret.uvs.data(), ret.uvs.data(), unindexed_vertex_count, sizeof(f32vec2), remap_table.data());
+        meshopt_remapIndexBuffer(ret.index_buffer.data(), nullptr, index_count, remap_table.data());
+    
+        return ret;
+    }
+#pragma endregion
+
+#pragma region OPTIMIZE VERTEX CACHE
+    auto AssetProcessor::optimize_vertex_cache(const std::vector<u32>& index_buffer, u32 vertex_count) -> std::vector<u32> {
+        std::vector<u32> optimized_index_buffer(index_buffer.size());
+        meshopt_optimizeVertexCache(optimized_index_buffer.data(), index_buffer.data(), index_buffer.size(), vertex_count);
+        return optimized_index_buffer;
+    }
+#pragma endregion
+
+#pragma region OPTIMIZE VERTEX FETCH
+    auto AssetProcessor::optimize_vertex_fetch(const ProcessedIndexBufferInfo& info) -> ProcessedIndexBufferInfo {
+        std::vector<u32> remap_table(info.positions.size());
+        usize unique_vertex_count = meshopt_optimizeVertexFetchRemap(remap_table.data(), info.index_buffer.data(), info.index_buffer.size(), info.positions.size());
+        
+        ProcessedIndexBufferInfo ret = {};
+        ret.positions.resize(unique_vertex_count);
+        ret.normals.resize(unique_vertex_count);
+        ret.uvs.resize(unique_vertex_count);
+        ret.index_buffer.resize(info.index_buffer.size());
+
+        meshopt_remapVertexBuffer(ret.positions.data(), info.positions.data(), info.positions.size(), sizeof(f32vec3), remap_table.data());
+        meshopt_remapVertexBuffer(ret.normals.data(), info.normals.data(), info.normals.size(), sizeof(f32vec3), remap_table.data());
+        meshopt_remapVertexBuffer(ret.uvs.data(), info.uvs.data(), info.uvs.size(), sizeof(f32vec2), remap_table.data());
+        meshopt_remapIndexBuffer(ret.index_buffer.data(), info.index_buffer.data(), info.index_buffer.size(), remap_table.data());
+    
+        return ret;
+    }
+#pragma endregion
 
 #pragma region PROCESS MESH
     auto AssetProcessor::process_mesh(const ProcessMeshInfo &info) -> ProcessedMeshInfo {
@@ -1285,56 +1340,33 @@ namespace foundation {
         if(gltf_primitive.indicesAccessor.has_value()) {
             indices = load_data<u32, true>(gltf_asset, gltf_asset.accessors[gltf_primitive.indicesAccessor.value()]);
         } else {
-            std::vector<meshopt_Stream> streams = {};
-            streams.push_back(meshopt_Stream { .data = vert_positions.data(), .size = vert_positions.size(), .stride = sizeof(f32vec3) });
-            streams.push_back(meshopt_Stream { .data = vert_normals.data(), .size = vert_normals.size(), .stride = sizeof(f32vec3) });
-            streams.push_back(meshopt_Stream { .data = vert_uvs.data(), .size = vert_uvs.size(), .stride = sizeof(f32vec2) });
-            
-            usize index_count = vert_positions.size();
-		    usize unindexed_vertex_count = vert_positions.size();
-            
-            std::vector<u32> remap_table(vert_positions.size());
-            usize unique_vertex_count = meshopt_generateVertexRemapMulti(remap_table.data(), nullptr, index_count, unindexed_vertex_count, streams.data(), streams.size());
-            std::vector<f32vec3> remapped_positions(unique_vertex_count);
-            std::vector<f32vec3> remapped_normals(unique_vertex_count);
-            std::vector<f32vec2> remapped_uvs(unique_vertex_count);
-            std::vector<u32> index_buffer(index_count);
+            ProcessedIndexBufferInfo ret = generate_index_buffer(GenerateIndexBufferInfo {
+                .unindexed_positions = vert_positions,
+                .unindexed_normals = vert_normals,
+                .unindexed_uvs = vert_uvs
+            });
 
-            meshopt_remapIndexBuffer(index_buffer.data(), nullptr, index_count, remap_table.data());
-            meshopt_remapVertexBuffer(remapped_positions.data(), vert_positions.data(), unindexed_vertex_count, sizeof(f32vec3), remap_table.data());
-            meshopt_remapVertexBuffer(remapped_normals.data(), vert_normals.data(), unindexed_vertex_count, sizeof(f32vec3), remap_table.data());
-            meshopt_remapVertexBuffer(remapped_uvs.data(), vert_uvs.data(), unindexed_vertex_count, sizeof(f32vec2), remap_table.data());
-        
-            vert_positions = remapped_positions;
-            vert_normals = remapped_normals;
-            vert_uvs = remapped_uvs;
-            indices = index_buffer;
+            vert_positions = ret.positions;
+            vert_normals = ret.normals;
+            vert_uvs = ret.uvs;
+            indices = ret.index_buffer;
         }
         
         {
-            std::vector<u32> remap_table(vert_positions.size());
-            usize unique_vertex_count = meshopt_optimizeVertexFetchRemap(remap_table.data(), indices.data(), indices.size(), vert_positions.size());
-            std::vector<f32vec3> remapped_positions(unique_vertex_count);
-            std::vector<f32vec3> remapped_normals(unique_vertex_count);
-            std::vector<f32vec2> remapped_uvs(unique_vertex_count);
-            std::vector<u32> index_buffer(indices.size());
+            ProcessedIndexBufferInfo ret = optimize_vertex_fetch(ProcessedIndexBufferInfo {
+                .positions = vert_positions,
+                .normals = vert_normals,
+                .uvs = vert_uvs,
+                .index_buffer = indices
+            });
 
-            meshopt_remapIndexBuffer(index_buffer.data(), indices.data(), indices.size(), remap_table.data());
-            meshopt_remapVertexBuffer(remapped_positions.data(), vert_positions.data(), vert_positions.size(), sizeof(f32vec3), remap_table.data());
-            meshopt_remapVertexBuffer(remapped_normals.data(), vert_normals.data(), vert_normals.size(), sizeof(f32vec3), remap_table.data());
-            meshopt_remapVertexBuffer(remapped_uvs.data(), vert_uvs.data(), vert_uvs.size(), sizeof(f32vec2), remap_table.data());
-        
-            vert_positions = remapped_positions;
-            vert_normals = remapped_normals;
-            vert_uvs = remapped_uvs;
-            indices = index_buffer;
+            vert_positions = ret.positions;
+            vert_normals = ret.normals;
+            vert_uvs = ret.uvs;
+            indices = ret.index_buffer;
         }
 
-        {
-            std::vector<u32> optimized_indices(indices.size());
-            meshopt_optimizeVertexCache(optimized_indices.data(), indices.data(), indices.size(), vertex_count);
-            indices = std::move(optimized_indices);
-        }
+        indices = optimize_vertex_cache(indices, vertex_count);
 
         std::vector<Meshlet> meshlets = {};
         std::vector<u32> meshlet_indirect_vertices = {};
@@ -1344,7 +1376,7 @@ namespace foundation {
         AABB mesh_aabb = {};
 
         {
-            auto ret = generate_meshlets(GenerateMeshletsInfo {
+            ProcessedMeshletsInfo ret = generate_meshlets(GenerateMeshletsInfo {
                 .indices = indices,
                 .positions = vert_positions
             });
