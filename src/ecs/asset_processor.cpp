@@ -291,12 +291,6 @@ namespace foundation {
         }
 
         for (u32 i = 0; i < s_cast<u32>(asset->images.size()); ++i) {
-            std::vector<std::byte> raw_data = {};
-            i32 width = 0;
-            i32 height = 0;
-            i32 num_channels = 0;
-            std::string image_path = input_path.parent_path().string();
-
             const auto& binary_texture = binary_textures[i];
             std::vector<MaterialType> cached_material_types = {};
             MaterialType preferred_material_type = MaterialType::None;
@@ -333,60 +327,70 @@ namespace foundation {
                 create_alpha_mask |= material.alpha_mode != 0;
             }
 
-            auto get_data = [&](const fastgltf::Buffer& buffer, usize byteOffset, usize byteLength) {
-                return std::visit(fastgltf::visitor {
-                    [](auto&) -> std::span<const std::byte> {
-                        assert(false && "Tried accessing a buffer with no data, likely because no buffers were loaded. Perhaps you forgot to specify the LoadExternalBuffers option?");
-                        return {};
-                    },
-                    [](const fastgltf::sources::Fallback&) -> std::span<const std::byte> {
-                        assert(false && "Tried accessing data of a fallback buffer.");
-                        return {};
-                    },
-                    [&](const fastgltf::sources::Vector& vec) -> std::span<const std::byte> {
-                        return std::span(reinterpret_cast<const std::byte*>(vec.bytes.data()), vec.bytes.size());
-                    },
-                    [&](const fastgltf::sources::ByteView& bv) -> std::span<const std::byte> {
-                        return bv.bytes;
-                    },
-                    [&](const fastgltf::sources::Array& array) -> std::span<const std::byte> {
-                        return std::span(reinterpret_cast<const std::byte*>(array.bytes.data()), array.bytes.size());
-                    },
-                }, buffer.data).subspan(byteOffset, byteLength);
-            };
-
             const auto& image = asset->images[i];
 
+            auto get_data = [&](this auto&& self, const fastgltf::DataSource& data) -> std::vector<std::byte> {
+                return std::visit(fastgltf::visitor {
+                    [&](const std::monostate&) -> std::vector<std::byte>  {
+                        ASSERT(false, "std::monostate should never happen");
+                        return {};
+                    },
+                    [&](const fastgltf::sources::BufferView& source) -> std::vector<std::byte>  {
+                        fastgltf::BufferView& buffer_view = asset->bufferViews[source.bufferViewIndex];
+                        fastgltf::Buffer& buffer = asset->buffers[buffer_view.bufferIndex];
+                        std::vector<std::byte> buffer_data = self(buffer.data);
+
+                        std::vector<std::byte> ret = {};
+                        ret.resize(buffer_view.byteLength);
+                        std::memcpy(ret.data(), buffer_data.data() + buffer_view.byteOffset, buffer_view.byteLength);
+                        return ret;
+                    },
+                    [&](const fastgltf::sources::URI& source) -> std::vector<std::byte>  {
+                        std::filesystem::path path{source.uri.path().begin(), source.uri.path().end()};
+                        if(source.uri.isLocalPath()) { path = input_path.parent_path() / path; }
+                        return read_file_to_bytes(path);
+                    },
+                    [&](const fastgltf::sources::Array& source) -> std::vector<std::byte>  {
+                        std::vector<std::byte> ret = {};
+                        ret.resize(source.bytes.size_bytes());
+                        std::memcpy(ret.data(), source.bytes.data(), source.bytes.size_bytes());
+                        return ret;
+                    },
+                    [&](const fastgltf::sources::Vector& source) -> std::vector<std::byte>  {
+                        std::vector<std::byte> ret = {};
+                        ret.resize(source.bytes.size());
+                        std::memcpy(ret.data(), source.bytes.data(), source.bytes.size());
+                        return ret;
+                    },
+                    [&](const fastgltf::sources::CustomBuffer& /* source */) -> std::vector<std::byte>  {
+                        ASSERT(false, "fastgltf::sources::CustomBuffer isnt handled");
+                        return {};
+                    },
+                    [&](const fastgltf::sources::ByteView& source) -> std::vector<std::byte>  {
+                        std::vector<std::byte> ret = {};
+                        ret.resize(source.bytes.size());
+                        std::memcpy(ret.data(), source.bytes.data(), source.bytes.size());
+                        return ret;
+                    },
+                    [&](const fastgltf::sources::Fallback& /* source */) -> std::vector<std::byte>  {
+                        ASSERT(false, "fastgltf::sources::Fallback isnt handled");
+                        return {};
+                    },
+                }, data);
+            };
+
+            std::vector<std::byte> raw_data = {};
+            i32 width = 0;
+            i32 height = 0;
+            i32 num_channels = 0;
+
             {
-                if(const auto* _ = std::get_if<std::monostate>(&image.data)) {
-                    std::println("std::monostate");
-                }
-                if(const auto* data = std::get_if<fastgltf::sources::BufferView>(&image.data)) {
-                    auto& buffer_view = asset->bufferViews[data->bufferViewIndex];
-                    auto content = get_data(asset->buffers[buffer_view.bufferIndex], buffer_view.byteOffset, buffer_view.byteLength);
-                    u8* image_data = stbi_load_from_memory(r_cast<const u8*>(content.data()), s_cast<i32>(content.size_bytes()), &width, &height, &num_channels, 4);
-                    if(!image_data) { std::println("bozo"); }
-                    raw_data.resize(s_cast<u64>(width * height * 4));
-                    std::memcpy(raw_data.data(), image_data, s_cast<u64>(width * height * 4));
-                    stbi_image_free(image_data);
-                }
-                if(const auto* data = std::get_if<fastgltf::sources::URI>(&image.data)) {
-                    image_path = input_path.parent_path().string() + '/' + std::string(data->uri.path().begin(), data->uri.path().end());
-                    u8* image_data = stbi_load(image_path.c_str(), &width, &height, &num_channels, 4);
-                    if(!image_data) { std::println("bozo"); }
-                    raw_data.resize(s_cast<u64>(width * height * 4));
-                    std::memcpy(raw_data.data(), image_data, s_cast<u64>(width * height * 4));
-                    stbi_image_free(image_data);
-                }
-                if(const auto* _ = std::get_if<fastgltf::sources::Vector>(&image.data)) {
-                    std::println("fastgltf::sources::Vector");
-                }
-                if(const auto* _ = std::get_if<fastgltf::sources::CustomBuffer>(&image.data)) {
-                    std::println("fastgltf::sources::CustomBuffer");
-                }
-                if(const auto* _ = std::get_if<fastgltf::sources::ByteView>(&image.data)) {
-                    std::println("fastgltf::sources::ByteView");
-                }
+                auto gltf_data = get_data(image.data);
+                u8* image_data = stbi_load_from_memory(r_cast<const u8*>(gltf_data.data()), s_cast<i32>(gltf_data.size()), &width, &height, &num_channels, 4);
+                if(image_data == nullptr) { std::println("bozo"); }
+                raw_data.resize(s_cast<u64>(width * height * 4));
+                std::memcpy(raw_data.data(), image_data, s_cast<u64>(width * height * 4));
+                stbi_image_free(image_data);
             }
 
             auto create_nvtt_image = [](i32 width, i32 height, std::vector<std::byte>& data) -> nvtt::Surface {
@@ -744,7 +748,7 @@ namespace foundation {
                 binary_textures[i].file_path = create_file(texture);
             }
 
-            std::println("[{} / {}] - image with path: {} - done", i+1, asset->images.size(), image_path);
+            std::println("[{} / {}] - image - done", i+1, asset->images.size());
         }
 
         std::vector<std::byte> compressed_data = {};
