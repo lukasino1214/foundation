@@ -53,23 +53,19 @@ struct DrawMeshletsOnlyDepthTask : DrawMeshletsOnlyDepth::Task {
         std::memcpy(arr.value.data(), span.data(), span.size());
     }
 
-    static auto pipeline_config_info() -> daxa::RasterPipelineCompileInfo {
-        return daxa::RasterPipelineCompileInfo {
-            .mesh_shader_info = daxa::ShaderCompileInfo {
+    static auto pipeline_config_info() -> daxa::RasterPipelineCompileInfo2 {
+        return daxa::RasterPipelineCompileInfo2 {
+            .mesh_shader_info = daxa::ShaderCompileInfo2 {
                 .source = daxa::ShaderSource { daxa::ShaderFile { .path = "src/graphics/virtual_geometry/tasks/draw_meshlets_only_depth.slang" }, },
-                .compile_options = {
-                    .entry_point = "draw_meshlets_only_depth_mesh",
-                    .language = daxa::ShaderLanguage::SLANG,
-                    .defines = { { std::string{DrawMeshletsOnlyDepthTask::name()} + "_SHADER", "1" } },
-                }
+                .entry_point = "draw_meshlets_only_depth_mesh",
+                .language = daxa::ShaderLanguage::SLANG,
+                .defines = { { std::string{DrawMeshletsOnlyDepthTask::name()} + "_SHADER", "1" } },
             },
-            .task_shader_info = daxa::ShaderCompileInfo {
+            .task_shader_info = daxa::ShaderCompileInfo2 {
                 .source = daxa::ShaderSource { daxa::ShaderFile { .path = "src/graphics/virtual_geometry/tasks/draw_meshlets_only_depth.slang" }, },
-                .compile_options = {
-                    .entry_point = "draw_meshlets_only_depth_task",
-                    .language = daxa::ShaderLanguage::SLANG,
-                    .defines = { { std::string{DrawMeshletsOnlyDepthTask::name()} + "_SHADER", "1" } },
-                }
+                .entry_point = "draw_meshlets_only_depth_task",
+                .language = daxa::ShaderLanguage::SLANG,
+                .defines = { { std::string{DrawMeshletsOnlyDepthTask::name()} + "_SHADER", "1" } },
             },
             .depth_test = { daxa::DepthTestInfo {
                 .depth_attachment_format = daxa::Format::D32_SFLOAT,

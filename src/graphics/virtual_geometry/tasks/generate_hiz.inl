@@ -32,9 +32,9 @@ struct GenerateHizTask : GenerateHiz::Task {
     AttachmentViews views = {};
     foundation::Context* context = {};
 
-    static auto pipeline_config_info() -> daxa::ComputePipelineCompileInfo {
+    static auto pipeline_config_info() -> daxa::ComputePipelineCompileInfo2 {
         return {
-            .shader_info = daxa::ShaderCompileInfo{daxa::ShaderFile{"src/graphics/virtual_geometry/tasks/generate_hiz.glsl"}},
+            .source = daxa::ShaderFile{"src/graphics/virtual_geometry/tasks/generate_hiz.glsl"},
             .push_constant_size = s_cast<u32>(sizeof(GenerateHizPush)),
             .name = std::string{"GenerateHiz"},
         };

@@ -260,7 +260,7 @@ namespace foundation {
     }
 
     void Renderer::compile_pipelines() {
-        std::vector<std::tuple<std::string_view, daxa::RasterPipelineCompileInfo>> rasters = {
+        std::vector<std::tuple<std::string_view, daxa::RasterPipelineCompileInfo2>> rasters = {
             {DebugEntityOOBDrawTask::name(), DebugEntityOOBDrawTask::pipeline_config_info()},
             {DebugAABBDrawTask::name(), DebugAABBDrawTask::pipeline_config_info()},
             {DebugCircleDrawTask::name(), DebugCircleDrawTask::pipeline_config_info()},
@@ -270,7 +270,7 @@ namespace foundation {
         rasters.insert(rasters.end(), virtual_geometry_rasters.begin(), virtual_geometry_rasters.end());
 
         for (auto [name, info] : rasters) {
-            auto compilation_result = this->context->pipeline_manager.add_raster_pipeline(info);
+            auto compilation_result = this->context->pipeline_manager.add_raster_pipeline2(info);
             if(compilation_result.value()->is_valid()) {
                 LOG_INFO("SUCCESSFULLY compiled pipeline {}", name);
             } else {
@@ -280,14 +280,14 @@ namespace foundation {
             this->context->raster_pipelines[name] = compilation_result.value();
         }
 
-        std::vector<std::tuple<std::string_view, daxa::ComputePipelineCompileInfo>> computes = {
+        std::vector<std::tuple<std::string_view, daxa::ComputePipelineCompileInfo2>> computes = {
             {ClearImageTask::name(), ClearImageTask::pipeline_config_info()},
         };
         auto virtual_geometry_computes = VirtualGeometryTasks::get_compute_pipelines();
         computes.insert(computes.end(), virtual_geometry_computes.begin(), virtual_geometry_computes.end());
 
         for (auto [name, info] : computes) {
-            auto compilation_result = this->context->pipeline_manager.add_compute_pipeline(info);
+            auto compilation_result = this->context->pipeline_manager.add_compute_pipeline2(info);
             if(compilation_result.value()->is_valid()) {
                 LOG_INFO("SUCCESSFULLY compiled pipeline {}", name);
             } else {
@@ -412,41 +412,41 @@ namespace foundation {
         });
 
         render_task_graph.add_task(DebugEntityOOBDrawTask {
-            .views = std::array{
-                DebugEntityOOBDrawTask::AT.u_globals | context->shader_globals_buffer,
-                DebugEntityOOBDrawTask::AT.u_transforms | scene->gpu_transforms_pool.task_buffer,
-                DebugEntityOOBDrawTask::AT.u_image | render_image,
-                DebugEntityOOBDrawTask::AT.u_visibility_image | visibility_image,
+            .views = DebugEntityOOBDrawTask::Views {
+                .u_globals = context->shader_globals_buffer,
+                .u_transforms = scene->gpu_transforms_pool.task_buffer,
+                .u_image = render_image,
+                .u_visibility_image = visibility_image,
             },
             .context = context,
         });
 
         render_task_graph.add_task(DebugAABBDrawTask {
-            .views = std::array{
-                DebugAABBDrawTask::AT.u_globals | context->shader_globals_buffer,
-                DebugAABBDrawTask::AT.u_transforms | scene->gpu_transforms_pool.task_buffer,
-                DebugAABBDrawTask::AT.u_image | render_image,
-                DebugAABBDrawTask::AT.u_visibility_image | visibility_image,
+            .views = DebugAABBDrawTask::Views {
+                .u_globals = context->shader_globals_buffer,
+                .u_transforms = scene->gpu_transforms_pool.task_buffer,
+                .u_image = render_image,
+                .u_visibility_image = visibility_image,
             },
             .context = context,
         });
 
         render_task_graph.add_task(DebugCircleDrawTask {
-            .views = std::array{
-                DebugCircleDrawTask::AT.u_globals | context->shader_globals_buffer,
-                DebugCircleDrawTask::AT.u_transforms | scene->gpu_transforms_pool.task_buffer,
-                DebugCircleDrawTask::AT.u_image | render_image,
-                DebugCircleDrawTask::AT.u_visibility_image | visibility_image,
+            .views = DebugCircleDrawTask::Views {
+                .u_globals = context->shader_globals_buffer,
+                .u_transforms = scene->gpu_transforms_pool.task_buffer,
+                .u_image = render_image,
+                .u_visibility_image = visibility_image,
             },
             .context = context,
         });
 
         render_task_graph.add_task(DebugLineDrawTask {
-            .views = std::array{
-                DebugLineDrawTask::AT.u_globals | context->shader_globals_buffer,
-                DebugLineDrawTask::AT.u_transforms | scene->gpu_transforms_pool.task_buffer,
-                DebugLineDrawTask::AT.u_image | render_image,
-                DebugLineDrawTask::AT.u_visibility_image | visibility_image,
+            .views = DebugLineDrawTask::Views {
+                .u_globals = context->shader_globals_buffer,
+                .u_transforms = scene->gpu_transforms_pool.task_buffer,
+                .u_image = render_image,
+                .u_visibility_image = visibility_image,
             },
             .context = context,
         });

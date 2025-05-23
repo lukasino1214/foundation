@@ -37,8 +37,8 @@ namespace foundation {
 
         static void register_gpu_metrics(Context* context);
         static auto register_performance_metrics() -> std::vector<PerfomanceCategory>;
-        static auto get_raster_pipelines() -> std::vector<std::pair<std::string_view, daxa::RasterPipelineCompileInfo>>;
-        static auto get_compute_pipelines() -> std::vector<std::pair<std::string_view, daxa::ComputePipelineCompileInfo>>;
+        static auto get_raster_pipelines() -> std::vector<std::pair<std::string_view, daxa::RasterPipelineCompileInfo2>>;
+        static auto get_compute_pipelines() -> std::vector<std::pair<std::string_view, daxa::ComputePipelineCompileInfo2>>;
         static void build_task_graph(const Info& info);
     };
 }

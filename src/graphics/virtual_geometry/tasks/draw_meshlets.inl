@@ -9,8 +9,8 @@
 #include "../../../shader_library/shared.inl"
 
 DAXA_DECL_TASK_HEAD_BEGIN(DrawMeshletsWriteCommand)
-DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_WRITE, daxa_BufferPtr(DispatchIndirectStruct), u_command)
 DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ, daxa_BufferPtr(MeshletsDataMerged), u_meshlets_data_merged)
+DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_WRITE, daxa_BufferPtr(DispatchIndirectStruct), u_command)
 DAXA_DECL_TASK_HEAD_END
 
 struct DrawMeshletsWriteCommandPush {
@@ -32,9 +32,9 @@ DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ, daxa_BufferPtr(Mesh), u_meshes)
 DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ, daxa_BufferPtr(TransformInfo), u_transforms)
 DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ, daxa_BufferPtr(Material), u_materials)
 DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ, daxa_BufferPtr(ShaderGlobals), u_globals)
-DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ, daxa_BufferPtr(DispatchIndirectStruct), u_command)
 DAXA_TH_IMAGE_ID(FRAGMENT_SHADER_STORAGE_READ_WRITE_CONCURRENT, REGULAR_2D, u_visibility_image)
 DAXA_TH_IMAGE_TYPED(FRAGMENT_SHADER_STORAGE_READ_WRITE_CONCURRENT, daxa::RWTexture2DId<u32>, u_overdraw_image)
+DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ, daxa_BufferPtr(DispatchIndirectStruct), u_command)
 DAXA_DECL_TASK_HEAD_END
 
 struct DrawMeshletsPush {
@@ -57,31 +57,25 @@ struct DrawMeshletsTask : DrawMeshlets::Task {
         std::memcpy(arr.value.data(), span.data(), span.size());
     }
 
-    static auto pipeline_config_info() -> daxa::RasterPipelineCompileInfo {
-        return daxa::RasterPipelineCompileInfo {
-            .mesh_shader_info = daxa::ShaderCompileInfo {
+    static auto pipeline_config_info() -> daxa::RasterPipelineCompileInfo2 {
+        return daxa::RasterPipelineCompileInfo2 {
+            .mesh_shader_info = daxa::ShaderCompileInfo2 {
                 .source = daxa::ShaderSource { daxa::ShaderFile { .path = "src/graphics/virtual_geometry/tasks/draw_meshlets.slang" }, },
-                .compile_options = {
-                    .entry_point = "draw_meshlets_mesh",
-                    .language = daxa::ShaderLanguage::SLANG,
-                    .defines = { { std::string{DrawMeshletsTask::name()} + "_SHADER", "1" } },
-                }
+                .entry_point = "draw_meshlets_mesh",
+                .language = daxa::ShaderLanguage::SLANG,
+                .defines = { { std::string{DrawMeshletsTask::name()} + "_SHADER", "1" } },
             },
-            .fragment_shader_info = daxa::ShaderCompileInfo {
+            .fragment_shader_info = daxa::ShaderCompileInfo2 {
                 .source = daxa::ShaderSource { daxa::ShaderFile { .path = "src/graphics/virtual_geometry/tasks/draw_meshlets.slang" }, },
-                .compile_options = { 
-                    .entry_point = "draw_meshlets_frag",
-                    .language = daxa::ShaderLanguage::SLANG,
-                    .defines = { { std::string{DrawMeshletsTask::name()} + "_SHADER", "1" } } 
-                }
+                .entry_point = "draw_meshlets_frag",
+                .language = daxa::ShaderLanguage::SLANG,
+                .defines = { { std::string{DrawMeshletsTask::name()} + "_SHADER", "1" } } 
             },
-            .task_shader_info = daxa::ShaderCompileInfo {
+            .task_shader_info = daxa::ShaderCompileInfo2 {
                 .source = daxa::ShaderSource { daxa::ShaderFile { .path = "src/graphics/virtual_geometry/tasks/draw_meshlets.slang" }, },
-                .compile_options = {
-                    .entry_point = "draw_meshlets_task",
-                    .language = daxa::ShaderLanguage::SLANG,
-                    .defines = { { std::string{DrawMeshletsTask::name()} + "_SHADER", "1" } },
-                }
+                .entry_point = "draw_meshlets_task",
+                .language = daxa::ShaderLanguage::SLANG,
+                .defines = { { std::string{DrawMeshletsTask::name()} + "_SHADER", "1" } },
             },
             .raster = {
                 .face_culling = daxa::FaceCullFlagBits::FRONT_BIT

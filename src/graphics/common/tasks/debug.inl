@@ -68,23 +68,19 @@ struct DebugEntityOOBDrawTask : DebugEntityOOBDraw::Task {
         std::memcpy(arr.value.data(), span.data(), span.size());
     }
 
-    static auto pipeline_config_info() -> daxa::RasterPipelineCompileInfo {
-        return daxa::RasterPipelineCompileInfo {
-            .vertex_shader_info = daxa::ShaderCompileInfo {
+    static auto pipeline_config_info() -> daxa::RasterPipelineCompileInfo2 {
+        return daxa::RasterPipelineCompileInfo2 {
+            .vertex_shader_info = daxa::ShaderCompileInfo2 {
                 .source = daxa::ShaderSource { daxa::ShaderFile { .path = "src/graphics/common/tasks/debug.slang" }, },
-                .compile_options = {
-                    .entry_point = "entity_obb_main",
-                    .language = daxa::ShaderLanguage::SLANG,
-                    .defines = { { std::string{DebugEntityOOBDrawTask::name()} + "_SHADER", "1" } },
-                }
+                .entry_point = "entity_obb_main",
+                .language = daxa::ShaderLanguage::SLANG,
+                .defines = { { std::string{DebugEntityOOBDrawTask::name()} + "_SHADER", "1" } },
             },
-            .fragment_shader_info = daxa::ShaderCompileInfo {
+            .fragment_shader_info = daxa::ShaderCompileInfo2 {
                 .source = daxa::ShaderSource { daxa::ShaderFile { .path = "src/graphics/common/tasks/debug.slang" }, },
-                .compile_options = { 
-                    .entry_point = "fragment_main",
-                    .language = daxa::ShaderLanguage::SLANG,
-                    .defines = { { std::string{DebugEntityOOBDrawTask::name()} + "_SHADER", "1" } } 
-                }
+                .entry_point = "fragment_main",
+                .language = daxa::ShaderLanguage::SLANG,
+                .defines = { { std::string{DebugEntityOOBDrawTask::name()} + "_SHADER", "1" } } 
             },
             .color_attachments = {
                 { .format = daxa::Format::R8G8B8A8_UNORM }
@@ -153,23 +149,19 @@ struct DebugAABBDrawTask : DebugAABBDraw::Task {
         std::memcpy(arr.value.data(), span.data(), span.size());
     }
 
-    static auto pipeline_config_info() -> daxa::RasterPipelineCompileInfo {
-        return daxa::RasterPipelineCompileInfo {
-            .vertex_shader_info = daxa::ShaderCompileInfo {
+    static auto pipeline_config_info() -> daxa::RasterPipelineCompileInfo2 {
+        return daxa::RasterPipelineCompileInfo2 {
+            .vertex_shader_info = daxa::ShaderCompileInfo2 {
                 .source = daxa::ShaderSource { daxa::ShaderFile { .path = "src/graphics/common/tasks/debug.slang" }, },
-                .compile_options = {
-                    .entry_point = "aabb_main",
-                    .language = daxa::ShaderLanguage::SLANG,
-                    .defines = { { std::string{DebugAABBDrawTask::name()} + "_SHADER", "1" } },
-                }
+                .entry_point = "aabb_main",
+                .language = daxa::ShaderLanguage::SLANG,
+                .defines = { { std::string{DebugAABBDrawTask::name()} + "_SHADER", "1" } },
             },
-            .fragment_shader_info = daxa::ShaderCompileInfo {
+            .fragment_shader_info = daxa::ShaderCompileInfo2 {
                 .source = daxa::ShaderSource { daxa::ShaderFile { .path = "src/graphics/common/tasks/debug.slang" }, },
-                .compile_options = { 
-                    .entry_point = "fragment_main",
-                    .language = daxa::ShaderLanguage::SLANG,
-                    .defines = { { std::string{DebugAABBDrawTask::name()} + "_SHADER", "1" } } 
-                }
+                .entry_point = "fragment_main",
+                .language = daxa::ShaderLanguage::SLANG,
+                .defines = { { std::string{DebugAABBDrawTask::name()} + "_SHADER", "1" } } 
             },
             .color_attachments = {
                 { .format = daxa::Format::R8G8B8A8_UNORM }
@@ -238,23 +230,19 @@ struct DebugCircleDrawTask : DebugCircleDraw::Task {
         std::memcpy(arr.value.data(), span.data(), span.size());
     }
 
-    static auto pipeline_config_info() -> daxa::RasterPipelineCompileInfo {
-        return daxa::RasterPipelineCompileInfo {
-            .vertex_shader_info = daxa::ShaderCompileInfo {
+    static auto pipeline_config_info() -> daxa::RasterPipelineCompileInfo2 {
+        return daxa::RasterPipelineCompileInfo2 {
+            .vertex_shader_info = daxa::ShaderCompileInfo2 {
                 .source = daxa::ShaderSource { daxa::ShaderFile { .path = "src/graphics/common/tasks/debug.slang" }, },
-                .compile_options = {
-                    .entry_point = "circle_main",
-                    .language = daxa::ShaderLanguage::SLANG,
-                    .defines = { { std::string{DebugCircleDrawTask::name()} + "_SHADER", "1" } },
-                }
+                .entry_point = "circle_main",
+                .language = daxa::ShaderLanguage::SLANG,
+                .defines = { { std::string{DebugCircleDrawTask::name()} + "_SHADER", "1" } },
             },
-            .fragment_shader_info = daxa::ShaderCompileInfo {
+            .fragment_shader_info = daxa::ShaderCompileInfo2 {
                 .source = daxa::ShaderSource { daxa::ShaderFile { .path = "src/graphics/common/tasks/debug.slang" }, },
-                .compile_options = { 
-                    .entry_point = "fragment_main",
-                    .language = daxa::ShaderLanguage::SLANG,
-                    .defines = { { std::string{DebugCircleDrawTask::name()} + "_SHADER", "1" } } 
-                }
+                .entry_point = "fragment_main",
+                .language = daxa::ShaderLanguage::SLANG,
+                .defines = { { std::string{DebugCircleDrawTask::name()} + "_SHADER", "1" } } 
             },
             .color_attachments = {
                 { .format = daxa::Format::R8G8B8A8_UNORM }
@@ -323,23 +311,19 @@ struct DebugLineDrawTask : DebugLineDraw::Task {
         std::memcpy(arr.value.data(), span.data(), span.size());
     }
 
-    static auto pipeline_config_info() -> daxa::RasterPipelineCompileInfo {
-        return daxa::RasterPipelineCompileInfo {
-            .vertex_shader_info = daxa::ShaderCompileInfo {
+    static auto pipeline_config_info() -> daxa::RasterPipelineCompileInfo2 {
+        return daxa::RasterPipelineCompileInfo2 {
+            .vertex_shader_info = daxa::ShaderCompileInfo2 {
                 .source = daxa::ShaderSource { daxa::ShaderFile { .path = "src/graphics/common/tasks/debug.slang" }, },
-                .compile_options = {
-                    .entry_point = "line_main",
-                    .language = daxa::ShaderLanguage::SLANG,
-                    .defines = { { std::string{DebugLineDrawTask::name()} + "_SHADER", "1" } },
-                }
+                .entry_point = "line_main",
+                .language = daxa::ShaderLanguage::SLANG,
+                .defines = { { std::string{DebugLineDrawTask::name()} + "_SHADER", "1" } },
             },
-            .fragment_shader_info = daxa::ShaderCompileInfo {
+            .fragment_shader_info = daxa::ShaderCompileInfo2 {
                 .source = daxa::ShaderSource { daxa::ShaderFile { .path = "src/graphics/common/tasks/debug.slang" }, },
-                .compile_options = { 
-                    .entry_point = "fragment_main",
-                    .language = daxa::ShaderLanguage::SLANG,
-                    .defines = { { std::string{DebugLineDrawTask::name()} + "_SHADER", "1" } } 
-                }
+                .entry_point = "fragment_main",
+                .language = daxa::ShaderLanguage::SLANG,
+                .defines = { { std::string{DebugLineDrawTask::name()} + "_SHADER", "1" } } 
             },
             .color_attachments = {
                 { .format = daxa::Format::R8G8B8A8_UNORM }

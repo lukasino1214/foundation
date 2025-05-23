@@ -86,6 +86,7 @@ find_package(meshoptimizer CONFIG REQUIRED)
 find_package(simdjson CONFIG REQUIRED)
 find_package(quill CONFIG REQUIRED)
 find_package(libassert CONFIG REQUIRED)
+find_package(fmt CONFIG REQUIRED)
 
 add_executable(${PROJECT_NAME} 
     "src/main.cpp"
@@ -119,10 +120,6 @@ target_precompile_headers(${PROJECT_NAME} PRIVATE "src/pch.hpp")
 
 set_project_warnings(${PROJECT_NAME})
 
-add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:slang::glslang> $<TARGET_FILE_DIR:${PROJECT_NAME}>
-)
-
 target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_23)
 target_include_directories(${PROJECT_NAME} PRIVATE "src")
 if(WIN32)
@@ -147,6 +144,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     simdjson::simdjson
     quill::quill
     libassert::assert
+    fmt::fmt
 )
 
 target_include_directories(${PROJECT_NAME} PRIVATE ${Stb_INCLUDE_DIR} ${LUA_INCLUDE_DIR})

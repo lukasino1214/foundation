@@ -49,7 +49,7 @@ namespace foundation {
     }
 
     auto Entity::has_parent() -> bool {
-        return handle.parent().has<EntityTag>();
+        return handle.parent() != flecs::entity::null();
     }
 
     void Entity::set_local_position(const glm::vec3& value) {

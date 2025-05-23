@@ -79,38 +79,37 @@ namespace foundation {
 
     Context::Context(const NativeWIndow &window)
         : instance{daxa::create_instance({})},
-            device{instance.create_device(daxa::DeviceInfo{
-                // .enable_buffer_device_address_capture_replay = true,
-                .selector = [](daxa::DeviceProperties const & properties) -> i32 {
-                    i32 score = 0;
-                    switch (properties.device_type)
-                    {
-                    case daxa::DeviceType::DISCRETE_GPU: score += 10000; break;
-                    // case daxa::DeviceType::VIRTUAL_GPU: score += 1000; break;
-                    // case daxa::DeviceType::INTEGRATED_GPU: score += 100; break;
-                    default: break;
-                    }
-                    return score;
-                },
-                .flags = daxa::DeviceFlagBits::BUFFER_DEVICE_ADDRESS_CAPTURE_REPLAY_BIT | daxa::DeviceFlagBits::SHADER_ATOMIC64 | daxa::DeviceFlagBits::IMAGE_ATOMIC64 | daxa::DeviceFlagBits::MESH_SHADER,
-                .max_allowed_buffers = 100000,
-                .name = "my device",
-            })},
+            device{[&](){
+                daxa::ImplicitFeatureFlags required_implicit = 
+                    daxa::ImplicitFeatureFlagBits::MESH_SHADER |
+                    daxa::ImplicitFeatureFlagBits::BASIC_RAY_TRACING |
+                    daxa::ImplicitFeatureFlagBits::RAY_TRACING_PIPELINE |
+                    daxa::ImplicitFeatureFlagBits::RAY_TRACING_INVOCATION_REORDER |
+                    daxa::ImplicitFeatureFlagBits::SHADER_ATOMIC_INT64 |
+                    daxa::ImplicitFeatureFlagBits::IMAGE_ATOMIC64 |
+                    daxa::ImplicitFeatureFlagBits::SWAPCHAIN;
+
+                daxa::DeviceInfo2 device_info = {
+                    .explicit_features = daxa::ExplicitFeatureFlagBits::BUFFER_DEVICE_ADDRESS_CAPTURE_REPLAY,
+                    .max_allowed_images = 100000,
+                    .max_allowed_buffers = 100000,
+                };
+
+                device_info = this->instance.choose_device(required_implicit, device_info);
+                return this->instance.create_device_2(device_info); 
+            }()},
             swapchain{window.create_swapchain(this->device)},
-            pipeline_manager{daxa::PipelineManagerInfo{
+            pipeline_manager{daxa::PipelineManagerInfo2{
                 .device = device,
-                .shader_compile_options = {
-                    .root_paths = {
+                .root_paths = {
                         DAXA_SHADER_INCLUDE_DIR,
                         "./",
                         ""
                     },
-                    .write_out_preprocessed_code = "assets/cache/preproc",
-                    .write_out_shader_binary = "assets/cache/spv_raw",
-                    .spirv_cache_folder = "assets/cache/spv",
-                    .language = daxa::ShaderLanguage::GLSL,
-                    .enable_debug_info = true,
-                },
+                .write_out_preprocessed_code = "assets/cache/preproc",
+                .write_out_spirv = "assets/cache/spv_raw",
+                .spirv_cache_folder = "assets/cache/spv",
+                .default_enable_debug_info = true,
                 .name = "pipeline_manager",
             }},
             transient_mem{daxa::TransferMemoryPoolInfo{

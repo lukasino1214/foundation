@@ -14,19 +14,15 @@ namespace foundation {
         Context* context = {};
         T_PUSH push = {};
 
-        static auto pipeline_config_info() -> daxa::ComputePipelineCompileInfo {
+        static auto pipeline_config_info() -> daxa::ComputePipelineCompileInfo2 {
             auto const shader_path_sv = std::string_view(T_FILE_PATH.value, T_FILE_PATH.SIZE);
             auto const entry_point_sv = std::string_view(T_ENTRY_POINT.value, T_ENTRY_POINT.SIZE);
             daxa::ShaderLanguage lang = shader_path_sv.ends_with(".glsl") ? daxa::ShaderLanguage::GLSL : daxa::ShaderLanguage::SLANG;
-            return daxa::ComputePipelineCompileInfo {
-                .shader_info = daxa::ShaderCompileInfo {
-                    .source = daxa::ShaderFile { std::filesystem::path(shader_path_sv) },
-                    .compile_options = {
-                        .entry_point = std::string(entry_point_sv),
-                        .language = lang,
-                        .defines = {{ std::string(T_USES_BASE::name()) + "_SHADER", "1"} },
-                    },
-                },
+            return daxa::ComputePipelineCompileInfo2 {
+                .source = daxa::ShaderFile { std::filesystem::path(shader_path_sv) },
+                .entry_point = std::string(entry_point_sv),
+                .language = lang,
+                .defines = {{ std::string(T_USES_BASE::name()) + "_SHADER", "1"} },
                 .push_constant_size = s_cast<u32>(sizeof(T_PUSH)),
                 .name = std::string(T_USES_BASE::name()),
             };
@@ -48,19 +44,15 @@ namespace foundation {
         Context* context = {};
         T_PUSH push = {};
 
-        static auto pipeline_config_info() -> daxa::ComputePipelineCompileInfo {
+        static auto pipeline_config_info() -> daxa::ComputePipelineCompileInfo2 {
             auto const shader_path_sv = std::string_view(T_FILE_PATH.value, T_FILE_PATH.SIZE);
             auto const entry_point_sv = std::string_view(T_ENTRY_POINT.value, T_ENTRY_POINT.SIZE);
             daxa::ShaderLanguage lang = shader_path_sv.ends_with(".glsl") ? daxa::ShaderLanguage::GLSL : daxa::ShaderLanguage::SLANG;
-            return daxa::ComputePipelineCompileInfo {
-                .shader_info = daxa::ShaderCompileInfo {
-                    .source = daxa::ShaderFile { std::filesystem::path(shader_path_sv) },
-                    .compile_options = {
-                        .entry_point = std::string(entry_point_sv),
-                        .language = lang,
-                        .defines = {{ std::string(T_USES_BASE::name()) + "_SHADER", "1"} },
-                    },
-                },
+            return daxa::ComputePipelineCompileInfo2 {
+                .source = daxa::ShaderFile { std::filesystem::path(shader_path_sv) },
+                .entry_point = std::string(entry_point_sv),
+                .language = lang,
+                .defines = {{ std::string(T_USES_BASE::name()) + "_SHADER", "1"} },
                 .push_constant_size = s_cast<u32>(sizeof(T_PUSH)),
                 .name = std::string(T_USES_BASE::name()),
             };
@@ -85,19 +77,15 @@ namespace foundation {
         T_PUSH push = {};
         std::function<daxa::DispatchInfo(void)> dispatch_callback = {};
 
-        static auto pipeline_config_info() -> daxa::ComputePipelineCompileInfo {
+        static auto pipeline_config_info() -> daxa::ComputePipelineCompileInfo2 {
             auto const shader_path_sv = std::string_view(T_FILE_PATH.value, T_FILE_PATH.SIZE);
             auto const entry_point_sv = std::string_view(T_ENTRY_POINT.value, T_ENTRY_POINT.SIZE);
             daxa::ShaderLanguage lang = shader_path_sv.ends_with(".glsl") ? daxa::ShaderLanguage::GLSL : daxa::ShaderLanguage::SLANG;
-            return daxa::ComputePipelineCompileInfo {
-                .shader_info = daxa::ShaderCompileInfo {
-                    .source = daxa::ShaderFile { std::filesystem::path(shader_path_sv) },
-                    .compile_options = {
-                        .entry_point = std::string(entry_point_sv),
-                        .language = lang,
-                        .defines = {{ std::string(T_USES_BASE::name()) + "_SHADER", "1"} },
-                    },
-                },
+            return daxa::ComputePipelineCompileInfo2 {
+                .source = daxa::ShaderFile { std::filesystem::path(shader_path_sv) },
+                .entry_point = std::string(entry_point_sv),
+                .language = lang,
+                .defines = {{ std::string(T_USES_BASE::name()) + "_SHADER", "1"} },
                 .push_constant_size = s_cast<u32>(sizeof(T_PUSH)),
                 .name = std::string(T_USES_BASE::name()),
             };

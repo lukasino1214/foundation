@@ -1,4 +1,4 @@
 [submodule "deps/Daxa"]
 	path = deps/Daxa
 	url = https://github.com/lukasino1214/Daxa.git
-	branch = pipeline_creation
+	branch = master

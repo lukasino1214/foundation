@@ -38,14 +38,14 @@
       "lua",
       "simdjson",
       "quill",
-      "libassert"
+      "libassert",
+      "fmt"
     ],
   "vcpkg-configuration": {
     "overlay-ports": [
       "deps/Daxa",
       "deps/Daxa/cmake/vcpkg-overlay-ports/glfw3",
       "deps/Daxa/cmake/vcpkg-overlay-ports/fsr2",
-      "deps/daxa/cmake/vcpkg-overlay-ports/shader-slang",
       "cmake/vcpkg-overlay-ports/meshoptimizer",
       "cmake/vcpkg-overlay-ports/sol2",
       "cmake/vcpkg-overlay-ports/fastgltf",
