@@ -37,6 +37,8 @@ namespace foundation {
         main_camera.camera.resize(s_cast<i32>(window.get_width()), s_cast<i32>(window.get_height()));
         observer_camera.camera.resize(s_cast<i32>(window.get_width()), s_cast<i32>(window.get_height()));
 
+        ui_windows.push_back(std::make_unique<FileBrowser>(std::filesystem::current_path()));
+
 #define COOK_ASSETS 0
 
         {
@@ -231,6 +233,10 @@ namespace foundation {
             viewport_panel.draw(main_camera, delta_time, renderer->render_image);
         }
 
-        file_browser.draw();
+        for(auto& ui_window : ui_windows) {
+            ui_window->draw();
+        }
+
+        ui_windows.erase(std::remove_if(ui_windows.begin(), ui_windows.end(), [](std::unique_ptr<UIWindow>& ui_window){ return ui_window->should_close(); }), ui_windows.end());
     }
 }

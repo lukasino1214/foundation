@@ -6,11 +6,8 @@
 namespace foundation {
     struct SceneHierarchyPanel {
         explicit SceneHierarchyPanel(Scene* _scene);
-        ~SceneHierarchyPanel() = default;
 
         void draw();
-
-        void set_context(Scene* _scene);
 
         void tree(Entity& entity, const u32 iteration);
 

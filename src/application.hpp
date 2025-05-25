@@ -41,6 +41,7 @@ namespace foundation {
 
         ViewportPanel viewport_panel;
         SceneHierarchyPanel scene_hierarchy_panel;
-        FileBrowser file_browser;
+        
+        std::vector<std::unique_ptr<UIWindow>> ui_windows = {};
     };
 }

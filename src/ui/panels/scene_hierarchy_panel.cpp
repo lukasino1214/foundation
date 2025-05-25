@@ -223,8 +223,4 @@ namespace foundation {
 
         ImGui::End();
     }
-
-    void SceneHierarchyPanel::set_context(Scene* _scene) {
-        scene = _scene;
-    }
 }

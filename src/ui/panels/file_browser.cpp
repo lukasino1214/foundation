@@ -6,8 +6,7 @@ namespace foundation {
     static constexpr u32 thumbnail_size = 96;
     static constexpr u32 padding = 12;
 
-    FileBrowser::FileBrowser() {
-        root_path = std::filesystem::current_path();
+    FileBrowser::FileBrowser(const std::filesystem::path& folder) : root_path{folder} {
         update(root_path);
     }
 
@@ -64,7 +63,7 @@ namespace foundation {
     void FileBrowser::draw() {
         update(current_path);
 
-        ImGui::Begin("File Browser");
+        ImGui::Begin("File Browser", &b_open);
         ImGui::Text("%ls", current_path.c_str());
         ImGui::SameLine();
         if(ImGui::Button("go back")) {
@@ -169,5 +168,9 @@ namespace foundation {
         if(folder_clicked) {
             update(clicked_path);
         }
+    }
+
+    auto FileBrowser::should_close() -> bool {
+        return !b_open;
     }
 }
