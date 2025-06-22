@@ -95,8 +95,10 @@ void cull_meshlets(u32vec3 thread_index : SV_DispatchThreadID) {
     
     const MeshletBoundingSpheres bounding_spheres = mesh.bounding_spheres[meshlet_index];
     const MeshletSimplificationError simplification_errors = mesh.simplification_errors[meshlet_index];
+
     let lod_is_ok = lod_error_is_imperceptible(bounding_spheres.lod_group_sphere, simplification_errors.group_error, transform_matrix, projection_matrix);
     let parent_lod_is_ok = lod_error_is_imperceptible(bounding_spheres.lod_parent_group_sphere, simplification_errors.parent_group_error, transform_matrix, projection_matrix);
+    
     if (!lod_is_ok || parent_lod_is_ok) { 
         return; 
     }

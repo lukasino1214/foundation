@@ -19,6 +19,7 @@
 #include <utility>
 #include <thread>
 #include <mutex>
+#include <numbers>
 
 #include <daxa/daxa.hpp>
 #include <daxa/utils/task_graph.hpp>
@@ -100,6 +101,11 @@ inline constexpr auto find_next_lower_po2(daxa::u32 v) -> daxa::u32 {
 #endif
 
 // #define LOG_ON
-#include <utils/logger.hpp>
+// #include <utils/logger.hpp>
+
+#define LOG_ERROR(fmt, ...)
+#define LOG_WARN(fmt, ...)
+#define LOG_INFO(fmt, ...)
+#define LOG_DEBUG(fmt, ...)
 
 #include <libassert/assert.hpp>
