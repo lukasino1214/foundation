@@ -255,6 +255,47 @@ struct PrefixSumWorkExpansion {
 };
 DAXA_DECL_BUFFER_PTR(PrefixSumWorkExpansion)
 
+struct SunLight {
+    f32vec3 direction;
+    f32vec3 color;
+    f32 intensity;
+};
+DAXA_DECL_BUFFER_PTR(SunLight)
+
+struct PointLight {
+    f32vec3 position;
+    f32vec3 color;
+    f32 intensity;
+    f32 range;
+};
+DAXA_DECL_BUFFER_PTR(PointLight)
+
+struct SpotLight {
+    f32vec3 position;
+    f32vec3 direction;
+    f32vec3 color;
+    f32 intensity;
+    f32 range;
+    f32 inner_cone_angle;
+    f32 outer_cone_angle;
+};
+DAXA_DECL_BUFFER_PTR(SpotLight)
+
+struct PointLightsData {
+    u32 count;
+    daxa_BufferPtr(PointLight) point_lights;
+};
+DAXA_DECL_BUFFER_PTR(PointLightsData)
+
+struct SpotLightsData {
+    u32 count;
+    daxa_BufferPtr(SpotLight) spot_lights;
+};
+DAXA_DECL_BUFFER_PTR(SpotLightsData)
+
+#define MAX_POINT_LIGHTS 256
+#define MAX_SPOT_LIGHTS 256
+
 #if defined(__cplusplus)
 #define SHARED_FUNCTION inline
 #define SHARED_FUNCTION_INOUT(X) X &

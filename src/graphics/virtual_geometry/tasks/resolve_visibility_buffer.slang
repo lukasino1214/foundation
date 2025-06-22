@@ -108,6 +108,41 @@ f32vec3 turbo_color_map(f32 x) {
     );
 }
 
+f32vec3 pixel_index_to_world_space(CameraInfo camera, f32vec2 pixel_index, f32 depth) {
+    const f32vec2 ndc_xy = (pixel_index + 0.5f) * push.uses.u_globals.render_target_size_inv;
+    const f32vec4 clip_space_position = f32vec4(ndc_xy * 2.0 - 1.0, depth, 1.0);
+    const f32vec4 view_space_position = mul(camera.inverse_projection_matrix, clip_space_position);
+    const f32vec4 world_space_position = mul(camera.inverse_view_matrix, view_space_position / view_space_position.w);
+    return world_space_position.xyz;
+}
+
+f32 calculate_point_light_attenuation(f32 to_light_dist, f32 cutoff) {
+    f32 win = (to_light_dist / cutoff);
+    win = win * win * win * win;
+    win = max(0.0, 1.0 - win);
+    win = win * win;
+    const f32 attenuation = win / (to_light_dist * to_light_dist + 0.1);
+    return attenuation;
+}
+
+f32 calculate_spot_light_attenuation(float3 to_light_dir, f32 to_light_dist, SpotLight light) {
+    f32 win = (to_light_dist / light.range);
+    win = win * win * win * win;
+    win = max(0.0, 1.0 - win);
+    win = win * win;
+    const f32 distance_attenuation = win / (to_light_dist * to_light_dist + 0.1);
+
+    const f32 cos_outer = cos(light.outer_cone_angle);
+    const f32 spot_scale = 1.0 / max(cos(light.inner_cone_angle) - cos_outer, 1e-4);
+    const f32 spot_offset = -cos_outer * spot_scale;
+    const f32 cd = dot(-to_light_dir, light.direction);
+
+    f32 angle_attenuation = clamp(cd * spot_scale + spot_offset, 0.0, 1.0);
+    angle_attenuation = angle_attenuation * angle_attenuation;
+    const f32 attenuation = distance_attenuation * angle_attenuation;
+    return attenuation;
+}
+
 [[vk::push_constant]] ResolveVisibilityBufferPush push;
 [shader("compute")]
 [numthreads(16, 16, 1)]
@@ -283,8 +318,40 @@ void resolve_visibility_buffer(u32vec3 pixel : SV_DispatchThreadID) {
     // color = f32vec4(normal * 0.5 + 0.5, 1.0f);
 
 #if OVERDRAW_DEBUG
-    color.rgb = turbo_color_map(float(push.uses.u_overdraw_image.get()[pixel.xy]) / 24.0);
+    color.rgb = turbo_color_map(f32(push.uses.u_overdraw_image.get()[pixel.xy]) / 24.0);
 #endif
+
+    const f32 ambient = 0.1f;
+    const f32vec3 world_position = pixel_index_to_world_space(push.uses.u_globals.main_camera, f32vec2(pixel.xy), asfloat(depth));
+
+    {
+        const SunLight* light = push.uses.u_sun;
+        const f32 diffuse = max(dot(normal, -light.direction), ambient);
+
+        color.rgb *= diffuse * light.color * light.intensity;
+    }
+
+    for(u32 i = 0; i < push.uses.u_point_lights.count; i++) {
+        const PointLight light = push.uses.u_point_lights.point_lights[i];
+        const f32vec3 position_to_light = normalize(light.position - world_position);
+        const f32 diffuse = max(dot(normal, position_to_light), 0.0f);
+
+        const f32 to_light_dist = length(light.position - world_position);
+        const f32 attenuation = calculate_point_light_attenuation(to_light_dist, light.range);
+
+        color.rgb += diffuse * light.color * light.intensity * attenuation;
+    }
+
+    for(u32 i = 0; i < push.uses.u_spot_lights.count; i++) {
+        const SpotLight light = push.uses.u_spot_lights.spot_lights[i];
+        const f32vec3 position_to_light = normalize(light.position - world_position);
+        const f32 diffuse = max(dot(normal, position_to_light), 0.0f);
+
+        const f32 to_light_dist = length(light.position - world_position);
+        const f32 attenuation = calculate_spot_light_attenuation(position_to_light, to_light_dist, light);
+
+        color.rgb += diffuse * light.color * light.intensity * attenuation;
+    }
 
     push.uses.u_image.get()[pixel.xy] = color;
 }

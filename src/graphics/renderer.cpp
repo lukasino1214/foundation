@@ -101,9 +101,142 @@ namespace foundation {
             .name = "mouse selection readback"
         });
 
+        sun_light_buffer = make_task_buffer(context, daxa::BufferInfo {
+            .size = sizeof(SunLight),
+            .allocate_info = daxa::MemoryFlagBits::DEDICATED_MEMORY,
+            .name = "sun light buffer"
+        });
+
+        point_light_buffer = make_task_buffer(context, daxa::BufferInfo {
+            .size = sizeof(PointLightsData) + sizeof(PointLight) * MAX_POINT_LIGHTS,
+            .allocate_info = daxa::MemoryFlagBits::DEDICATED_MEMORY,
+            .name = "point light buffer"
+        });
+
+        spot_light_buffer = make_task_buffer(context, daxa::BufferInfo {
+            .size = sizeof(SpotLightsData) + sizeof(SpotLight) * MAX_SPOT_LIGHTS,
+            .allocate_info = daxa::MemoryFlagBits::DEDICATED_MEMORY,
+            .name = "spot light buffer"
+        });
+
         buffers = {
-            mouse_selection_readback
+            mouse_selection_readback,
+            sun_light_buffer,
+            point_light_buffer,
+            spot_light_buffer,
         };
+
+        // TODO: remove this
+        auto cmd_recorder = context->device.create_command_recorder({});
+
+        {
+            daxa::BufferId stagging_buffer = context->create_buffer(daxa::BufferInfo {
+                .size = sizeof(SunLight),
+                .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
+                .name = "sun stagging_buffer"
+            });
+            context->destroy_buffer_deferred(cmd_recorder, stagging_buffer);
+
+            SunLight light = {
+                .direction = { -1.0f, -1.0f, -1.0f },
+                .color = { 1.0f, 1.0f, 1.0f },
+                .intensity = 1.0f
+            };
+
+            std::memcpy(context->device.buffer_host_address(stagging_buffer).value(), &light, sizeof(SunLight));
+
+            cmd_recorder.copy_buffer_to_buffer(daxa::BufferCopyInfo {
+                .src_buffer = stagging_buffer,
+                .dst_buffer = sun_light_buffer.get_state().buffers[0],
+                .size = sizeof(SunLight)
+            });
+        }
+
+        {
+            daxa::BufferId stagging_buffer = context->create_buffer(daxa::BufferInfo {
+                .size = sizeof(PointLightsData) + sizeof(PointLight) * MAX_POINT_LIGHTS,
+                .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
+                .name = "point stagging_buffer"
+            });
+            context->destroy_buffer_deferred(cmd_recorder, stagging_buffer);
+
+            PointLightsData light = {
+                .count = MAX_POINT_LIGHTS,
+                .point_lights = context->device.buffer_device_address(point_light_buffer.get_state().buffers[0]).value() + sizeof(PointLightsData) 
+            };
+
+            std::memcpy(context->device.buffer_host_address(stagging_buffer).value(), &light, sizeof(PointLightsData));
+
+            std::vector<PointLight> point_lights = {};
+            point_lights.reserve(MAX_POINT_LIGHTS);
+
+            for(u32 x = 0; x < 16; x++) {
+                for(u32 y = 0; y < 16; y++) {
+                    point_lights.push_back(PointLight {
+                        .position = { x, 1, y },
+                        .color = { 1.0f, 1.0f, 1.0f },
+                        .intensity = 1.0f,
+                        .range = 1.0f,
+                    });
+                }
+            }
+
+            std::memcpy(context->device.buffer_host_address(stagging_buffer).value() + sizeof(PointLightsData), point_lights.data(), sizeof(PointLight) * MAX_POINT_LIGHTS);
+            
+            cmd_recorder.copy_buffer_to_buffer(daxa::BufferCopyInfo {
+                .src_buffer = stagging_buffer,
+                .dst_buffer = point_light_buffer.get_state().buffers[0],
+                .size = sizeof(PointLightsData) + sizeof(PointLight) * MAX_POINT_LIGHTS
+            });
+        }
+
+        {
+            daxa::BufferId stagging_buffer = context->create_buffer(daxa::BufferInfo {
+                .size = sizeof(SpotLightsData) + sizeof(SpotLight) * MAX_POINT_LIGHTS,
+                .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
+                .name = "spot stagging_buffer"
+            });
+            context->destroy_buffer_deferred(cmd_recorder, stagging_buffer);
+
+            SpotLightsData light = {
+                .count = MAX_POINT_LIGHTS,
+                .spot_lights = context->device.buffer_device_address(spot_light_buffer.get_state().buffers[0]).value() + sizeof(SpotLightsData) 
+            };
+
+            std::memcpy(context->device.buffer_host_address(stagging_buffer).value(), &light, sizeof(SpotLightsData));
+
+            std::vector<SpotLight> spot_lights = {};
+            spot_lights.reserve(MAX_POINT_LIGHTS);
+
+            for(u32 x = 0; x < 16; x++) {
+                for(u32 y = 0; y < 16; y++) {
+                    spot_lights.push_back(SpotLight {
+                        .position = { x, 1, y },
+                        .direction = { 0, -1, 0 },
+                        .color = { 1.0f, 0.0f, 0.0f },
+                        .intensity = 1.0f,
+                        .range = 1.0f,
+                        .inner_cone_angle = 0.0f,
+                        .outer_cone_angle = std::numbers::pi_v<f32> / 4.0f
+                    });
+                }
+            }
+
+            std::memcpy(context->device.buffer_host_address(stagging_buffer).value() + sizeof(SpotLightsData), spot_lights.data(), sizeof(SpotLight) * MAX_POINT_LIGHTS);
+            
+            cmd_recorder.copy_buffer_to_buffer(daxa::BufferCopyInfo {
+                .src_buffer = stagging_buffer,
+                .dst_buffer = spot_light_buffer.get_state().buffers[0],
+                .size = sizeof(SpotLightsData) + sizeof(SpotLight) * MAX_POINT_LIGHTS
+            });
+        }
+
+        context->device.submit_commands(daxa::CommandSubmitInfo {
+            .command_lists = std::to_array({ cmd_recorder.complete_current_commands() })
+        });
+
+        context->device.wait_idle();
+        context->device.wait_idle();
 
         context->gpu_metrics[ClearImageTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
         context->gpu_metrics[DebugEntityOOBDrawTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
@@ -332,6 +465,10 @@ namespace foundation {
         render_task_graph.use_persistent_buffer(asset_manager->gpu_readback_mesh_cpu);
         render_task_graph.use_persistent_buffer(asset_manager->gpu_prefix_sum_work_expansion_mesh);
 
+        render_task_graph.use_persistent_buffer(sun_light_buffer);
+        render_task_graph.use_persistent_buffer(point_light_buffer);
+        render_task_graph.use_persistent_buffer(spot_light_buffer);
+
         render_task_graph.use_persistent_buffer(mouse_selection_readback);
 
         render_task_graph.add_task({
@@ -403,6 +540,9 @@ namespace foundation {
             .gpu_readback_mesh = asset_manager->gpu_readback_mesh_gpu,
             .gpu_prefix_sum_work_expansion_mesh = asset_manager->gpu_prefix_sum_work_expansion_mesh,
             .gpu_mouse_selection_readback = mouse_selection_readback,
+            .gpu_sun_light_buffer = sun_light_buffer,
+            .gpu_point_light_buffer = point_light_buffer,
+            .gpu_spot_light_buffer = spot_light_buffer,
             .color_image = render_image,
             .depth_image_d32 = depth_image_d32,
             .depth_image_u32 = depth_image_u32,

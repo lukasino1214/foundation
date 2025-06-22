@@ -27,6 +27,9 @@ namespace foundation {
             daxa::TaskBufferView gpu_readback_mesh = {};
             daxa::TaskBufferView gpu_prefix_sum_work_expansion_mesh = {};
             daxa::TaskBufferView gpu_mouse_selection_readback = {};
+            daxa::TaskBufferView gpu_sun_light_buffer = {};
+            daxa::TaskBufferView gpu_point_light_buffer = {};
+            daxa::TaskBufferView gpu_spot_light_buffer = {};
             daxa::TaskImageView color_image = {};
             daxa::TaskImageView depth_image_d32 = {};
             daxa::TaskImageView depth_image_u32 = {};
