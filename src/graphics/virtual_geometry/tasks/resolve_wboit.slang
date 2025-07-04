@@ -22,5 +22,5 @@ f32vec4 resolve_wboit_frag(f32vec2 uv: f32vec2, f32vec4 pixel_position: SV_Posit
     f32vec4 accumulation = push.uses.u_wboit_accumulation_image.get()[pixel_position.xy];
     f32 reveal = push.uses.u_wboit_reveal_image.get()[pixel_position.xy];
 
-    return f32vec4(accumulation.rgb / clamp(accumulation.a, 1e-4, 5e4), reveal);
+    return f32vec4(accumulation.rgb / clamp(accumulation.a, 1e-4, 5e4), 1.0 - reveal);
 }

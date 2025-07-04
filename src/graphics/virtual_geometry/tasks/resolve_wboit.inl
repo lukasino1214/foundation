@@ -53,8 +53,8 @@ struct ResolveWBOITTask : ResolveWBOIT::Task {
                 daxa::RenderAttachment {
                     .format = daxa::Format::R8G8B8A8_UNORM,
                     .blend = { daxa::BlendInfo {
-                        .src_color_blend_factor = daxa::BlendFactor::ONE,
-                        .dst_color_blend_factor = daxa::BlendFactor::ONE,
+                        .src_color_blend_factor = daxa::BlendFactor::SRC_ALPHA,
+                        .dst_color_blend_factor = daxa::BlendFactor::ONE_MINUS_SRC_ALPHA,
                         .color_blend_op = daxa::BlendOp::ADD,
                         .src_alpha_blend_factor = daxa::BlendFactor::ONE,
                         .dst_alpha_blend_factor = daxa::BlendFactor::ONE,
