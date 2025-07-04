@@ -3,8 +3,8 @@
 #include "../../../shader_library/cull_util.slang"
 #include "../../../shader_library/work_expansion.slang"
 
-[[vk::push_constant]] CullMeshletsWriteCommandPush write_push;
-[[vk::push_constant]] CullMeshletsPush push;
+[[vk::push_constant]] CullMeshletsOpaqueWriteCommandPush write_push;
+[[vk::push_constant]] CullMeshletsOpaquePush push;
 
 [shader("compute")]
 [numthreads(1, 1, 1)]
@@ -14,6 +14,7 @@ void cull_meshlets_write_command() {
     command.y = 1;
     command.z = 1;
     *write_push.uses.u_command = command;
+    
     write_push.uses.u_meshlets_data_merged->hw_count = 0;
     write_push.uses.u_meshlets_data_merged->sw_count = 0;
 }
@@ -119,7 +120,7 @@ void cull_meshlets(u32vec3 thread_index : SV_DispatchThreadID) {
     meshlet_instance_data.meshlet_index = meshlet_index;
     meshlet_instance_data.transform_index = mesh_data.transform_index;
 
-    if(is_sw_candidate && push.uses.u_globals->render_as_observer == 0) {
+    if(is_sw_candidate && push.uses.u_globals->render_as_observer == 0 && !push.force_hw_rasterization) {
         u32 i = 0;
         InterlockedAdd(push.uses.u_meshlets_data_merged->sw_count, 1, i);
         push.uses.u_meshlets_data_merged.sw_meshlet_data[i] = meshlet_instance_data;

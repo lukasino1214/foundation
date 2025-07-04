@@ -75,16 +75,19 @@ namespace foundation {
 
     struct BinaryMesh {
         std::optional<u32> material_index = {};
+        u32 meshlet_count = {};
         std::string file_path = {};
 
         static void serialize(ByteWriter& writer, const BinaryMesh& value) {
             writer.write(value.material_index);
+            writer.write(value.meshlet_count);
             writer.write(value.file_path);
         }
 
         static auto deserialize(ByteReader& reader) -> BinaryMesh { 
             BinaryMesh value = {};
             reader.read(value.material_index);
+            reader.read(value.meshlet_count);
             reader.read(value.file_path);
             return value;    
         }
@@ -196,6 +199,7 @@ namespace foundation {
         std::optional<BinaryTextureInfo> roughness_info = {};
         std::optional<BinaryTextureInfo> metalness_info = {};
         std::optional<BinaryTextureInfo> emissive_info = {};
+        f32vec4 albedo_factor = { 1.0f, 1.0f, 1.0f, 1.0f };
         f32 metallic_factor;
         f32 roughness_factor;
         glm::vec3 emissive_factor;
@@ -211,6 +215,7 @@ namespace foundation {
             writer.write(value.roughness_info);
             writer.write(value.metalness_info);
             writer.write(value.emissive_info);
+            writer.write(value.albedo_factor);
             writer.write(value.metallic_factor);
             writer.write(value.roughness_factor);
             writer.write(value.emissive_factor);
@@ -228,6 +233,7 @@ namespace foundation {
             reader.read(value.roughness_info);
             reader.read(value.metalness_info);
             reader.read(value.emissive_info);
+            reader.read(value.albedo_factor);
             reader.read(value.metallic_factor);
             reader.read(value.roughness_factor);
             reader.read(value.emissive_factor);

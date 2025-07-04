@@ -75,6 +75,7 @@ namespace foundation {
         std::optional<TextureInfo> roughness_info = {};
         std::optional<TextureInfo> metalness_info = {};
         std::optional<TextureInfo> emissive_info = {};
+        f32vec4 albedo_factor;
         f32 metallic_factor;
         f32 roughness_factor;
         glm::vec3 emissive_factor;
@@ -123,16 +124,29 @@ namespace foundation {
         daxa::TaskBuffer gpu_materials = {};
         daxa::TaskBuffer gpu_mesh_groups = {};
         daxa::TaskBuffer gpu_mesh_indices = {};
-        daxa::TaskBuffer gpu_meshlets_data_merged = {};
+        daxa::TaskBuffer gpu_meshlets_instance_data = {};
+        daxa::TaskBuffer gpu_meshlets_data_merged_opaque = {};
+        daxa::TaskBuffer gpu_meshlets_data_merged_masked = {};
+        daxa::TaskBuffer gpu_meshlets_data_merged_transparent = {};
         daxa::TaskBuffer gpu_culled_meshes_data = {};
         daxa::TaskBuffer gpu_readback_material_gpu = {};
         daxa::TaskBuffer gpu_readback_material_cpu = {};
         daxa::TaskBuffer gpu_readback_mesh_gpu = {};
         daxa::TaskBuffer gpu_readback_mesh_cpu = {};
-        daxa::TaskBuffer gpu_prefix_sum_work_expansion_mesh = {};
+        daxa::TaskBuffer gpu_opaque_prefix_sum_work_expansion_mesh = {};
+        daxa::TaskBuffer gpu_masked_prefix_sum_work_expansion_mesh = {};
+        daxa::TaskBuffer gpu_transparent_prefix_sum_work_expansion_mesh = {};
 
         usize total_mesh_count = {};
+        usize total_opaque_mesh_count = {};
+        usize total_masked_mesh_count = {};
+        usize total_transparent_mesh_count = {};
+
         usize total_meshlet_count = {};
+        usize total_opaque_meshlet_count = {};
+        usize total_masked_meshlet_count = {};
+        usize total_transparent_meshlet_count = {};
+        
         usize total_triangle_count = {};
         usize total_vertex_count = {};
         usize total_unique_mesh_count = {};

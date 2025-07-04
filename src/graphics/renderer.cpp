@@ -35,6 +35,8 @@ namespace foundation {
         depth_image_u32 = daxa::TaskImage{{ .name = "depth image u32" }};
         depth_image_f32 = daxa::TaskImage{{ .name = "depth image f32" }};
         overdraw_image = daxa::TaskImage{{ .name = "overdraw image" }};
+        wboit_accumulation_image = daxa::TaskImage{{ .name = "wboit accumulation image" }};
+        wboit_reveal_image = daxa::TaskImage{{ .name = "wboit reveal image" }};
 
         images = {
             render_image,
@@ -42,7 +44,9 @@ namespace foundation {
             depth_image_u32,
             depth_image_f32,
             visibility_image,
-            overdraw_image
+            overdraw_image,
+            wboit_accumulation_image,
+            wboit_reveal_image,
         };
         frame_buffer_images = {
             {
@@ -92,6 +96,22 @@ namespace foundation {
                     .name = overdraw_image.info().name,
                 },
                 overdraw_image,
+            },
+            {
+                {
+                    .format = daxa::Format::R16G16B16A16_SFLOAT,
+                    .usage = daxa::ImageUsageFlagBits::COLOR_ATTACHMENT | daxa::ImageUsageFlagBits::SHADER_STORAGE,
+                    .name = wboit_accumulation_image.info().name,
+                },
+                wboit_accumulation_image,
+            },
+            {
+                {
+                    .format = daxa::Format::R32_SFLOAT,
+                    .usage = daxa::ImageUsageFlagBits::COLOR_ATTACHMENT | daxa::ImageUsageFlagBits::SHADER_STORAGE,
+                    .name = wboit_reveal_image.info().name,
+                },
+                wboit_reveal_image,
             },
         };
 
@@ -404,10 +424,10 @@ namespace foundation {
 
         for (auto [name, info] : rasters) {
             auto compilation_result = this->context->pipeline_manager.add_raster_pipeline2(info);
-            if(compilation_result.value()->is_valid()) {
-                LOG_INFO("SUCCESSFULLY compiled pipeline {}", name);
+            if(compilation_result.is_ok()) {
+                std::println("SUCCESSFULLY compiled pipeline {}", name);
             } else {
-                LOG_ERROR("FAILED to compile pipeline {} with message \n {}", name, compilation_result.message());
+                std::println("FAILED to compile pipeline {} with message \n {}", name, compilation_result.message());
             }
 
             this->context->raster_pipelines[name] = compilation_result.value();
@@ -421,10 +441,10 @@ namespace foundation {
 
         for (auto [name, info] : computes) {
             auto compilation_result = this->context->pipeline_manager.add_compute_pipeline2(info);
-            if(compilation_result.value()->is_valid()) {
-                LOG_INFO("SUCCESSFULLY compiled pipeline {}", name);
+            if(compilation_result.is_ok()) {
+                std::println("SUCCESSFULLY compiled pipeline {}", name);
             } else {
-                LOG_ERROR("FAILED to compile pipeline {} with message \n {}", name, compilation_result.message());
+                std::println("FAILED to compile pipeline {} with message \n {}", name, compilation_result.message());
             }
             
             this->context->compute_pipelines[name] = compilation_result.value();
@@ -448,6 +468,8 @@ namespace foundation {
         render_task_graph.use_persistent_image(depth_image_f32);
         render_task_graph.use_persistent_image(visibility_image);
         render_task_graph.use_persistent_image(overdraw_image);
+        render_task_graph.use_persistent_image(wboit_accumulation_image);
+        render_task_graph.use_persistent_image(wboit_reveal_image);
 
         render_task_graph.use_persistent_buffer(shader_globals_buffer);
         render_task_graph.use_persistent_buffer(scene->gpu_transforms_pool.task_buffer);
@@ -457,13 +479,18 @@ namespace foundation {
         render_task_graph.use_persistent_buffer(asset_manager->gpu_mesh_groups);
         render_task_graph.use_persistent_buffer(asset_manager->gpu_mesh_indices);
         render_task_graph.use_persistent_buffer(asset_manager->gpu_meshes);
-        render_task_graph.use_persistent_buffer(asset_manager->gpu_meshlets_data_merged);
+        render_task_graph.use_persistent_buffer(asset_manager->gpu_meshlets_instance_data);
+        render_task_graph.use_persistent_buffer(asset_manager->gpu_meshlets_data_merged_opaque);
+        render_task_graph.use_persistent_buffer(asset_manager->gpu_meshlets_data_merged_masked);
+        render_task_graph.use_persistent_buffer(asset_manager->gpu_meshlets_data_merged_transparent);
         render_task_graph.use_persistent_buffer(asset_manager->gpu_culled_meshes_data);
         render_task_graph.use_persistent_buffer(asset_manager->gpu_readback_material_gpu);
         render_task_graph.use_persistent_buffer(asset_manager->gpu_readback_material_cpu);
         render_task_graph.use_persistent_buffer(asset_manager->gpu_readback_mesh_gpu);
         render_task_graph.use_persistent_buffer(asset_manager->gpu_readback_mesh_cpu);
-        render_task_graph.use_persistent_buffer(asset_manager->gpu_prefix_sum_work_expansion_mesh);
+        render_task_graph.use_persistent_buffer(asset_manager->gpu_opaque_prefix_sum_work_expansion_mesh);
+        render_task_graph.use_persistent_buffer(asset_manager->gpu_masked_prefix_sum_work_expansion_mesh);
+        render_task_graph.use_persistent_buffer(asset_manager->gpu_transparent_prefix_sum_work_expansion_mesh);
 
         render_task_graph.use_persistent_buffer(sun_light_buffer);
         render_task_graph.use_persistent_buffer(point_light_buffer);
@@ -534,11 +561,16 @@ namespace foundation {
             .gpu_transforms = scene->gpu_transforms_pool.task_buffer,
             .gpu_mesh_groups = asset_manager->gpu_mesh_groups,
             .gpu_mesh_indices = asset_manager->gpu_mesh_indices,
-            .gpu_meshlets_data_merged = asset_manager->gpu_meshlets_data_merged,
+            .gpu_meshlets_instance_data = asset_manager->gpu_meshlets_instance_data,
+            .gpu_meshlets_data_merged_opaque = asset_manager->gpu_meshlets_data_merged_opaque,
+            .gpu_meshlets_data_merged_masked = asset_manager->gpu_meshlets_data_merged_masked,
+            .gpu_meshlets_data_merged_transparent = asset_manager->gpu_meshlets_data_merged_transparent,
             .gpu_culled_meshes_data = asset_manager->gpu_culled_meshes_data,
             .gpu_readback_material = asset_manager->gpu_readback_material_gpu,
             .gpu_readback_mesh = asset_manager->gpu_readback_mesh_gpu,
-            .gpu_prefix_sum_work_expansion_mesh = asset_manager->gpu_prefix_sum_work_expansion_mesh,
+            .gpu_opaque_prefix_sum_work_expansion_mesh = asset_manager->gpu_opaque_prefix_sum_work_expansion_mesh,
+            .gpu_masked_prefix_sum_work_expansion_mesh = asset_manager->gpu_masked_prefix_sum_work_expansion_mesh,
+            .gpu_transparent_prefix_sum_work_expansion_mesh = asset_manager->gpu_transparent_prefix_sum_work_expansion_mesh,
             .gpu_mouse_selection_readback = mouse_selection_readback,
             .gpu_sun_light_buffer = sun_light_buffer,
             .gpu_point_light_buffer = point_light_buffer,
@@ -549,6 +581,8 @@ namespace foundation {
             .depth_image_f32 = depth_image_f32,
             .visibility_image = visibility_image,
             .overdraw_image = overdraw_image,
+            .wboit_accumulation_image = wboit_accumulation_image,
+            .wboit_reveal_image = wboit_reveal_image,
         });
 
         render_task_graph.add_task(DebugEntityOOBDrawTask {

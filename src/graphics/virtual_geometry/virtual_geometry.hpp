@@ -21,11 +21,16 @@ namespace foundation {
             daxa::TaskBufferView gpu_transforms = {};
             daxa::TaskBufferView gpu_mesh_groups = {};
             daxa::TaskBufferView gpu_mesh_indices = {};
-            daxa::TaskBufferView gpu_meshlets_data_merged = {};
+            daxa::TaskBufferView gpu_meshlets_instance_data = {};
+            daxa::TaskBufferView gpu_meshlets_data_merged_opaque = {};
+            daxa::TaskBufferView gpu_meshlets_data_merged_masked = {};
+            daxa::TaskBufferView gpu_meshlets_data_merged_transparent = {};
             daxa::TaskBufferView gpu_culled_meshes_data = {};
             daxa::TaskBufferView gpu_readback_material = {};
             daxa::TaskBufferView gpu_readback_mesh = {};
-            daxa::TaskBufferView gpu_prefix_sum_work_expansion_mesh = {};
+            daxa::TaskBufferView gpu_opaque_prefix_sum_work_expansion_mesh = {};
+            daxa::TaskBufferView gpu_masked_prefix_sum_work_expansion_mesh = {};
+            daxa::TaskBufferView gpu_transparent_prefix_sum_work_expansion_mesh = {};
             daxa::TaskBufferView gpu_mouse_selection_readback = {};
             daxa::TaskBufferView gpu_sun_light_buffer = {};
             daxa::TaskBufferView gpu_point_light_buffer = {};
@@ -36,6 +41,8 @@ namespace foundation {
             daxa::TaskImageView depth_image_f32 = {};
             daxa::TaskImageView visibility_image = {};
             daxa::TaskImageView overdraw_image = {};
+            daxa::TaskImageView wboit_accumulation_image = {};
+            daxa::TaskImageView wboit_reveal_image = {};
         };
 
         static void register_gpu_metrics(Context* context);

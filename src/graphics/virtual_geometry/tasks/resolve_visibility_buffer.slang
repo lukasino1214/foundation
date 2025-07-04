@@ -162,7 +162,7 @@ void resolve_visibility_buffer(u32vec3 pixel : SV_DispatchThreadID) {
     u32 triangle_index = 0;
     decode_triangle_id(vis_index, meshlet_data_index, triangle_index);
 
-    const MeshletInstanceData meshlet_instance_data = push.uses.u_meshlets_data_merged.meshlet_instance_data[meshlet_data_index];
+    const MeshletInstanceData meshlet_instance_data = push.uses.u_meshlets_instance_data[meshlet_data_index];
     const Mesh mesh = push.uses.u_meshes[meshlet_instance_data.mesh_index];
     const Meshlet meshlet = mesh.meshlets[meshlet_instance_data.meshlet_index];
 
@@ -281,14 +281,8 @@ void resolve_visibility_buffer(u32vec3 pixel : SV_DispatchThreadID) {
         if(albedo_image_id.value != 0) {
             const f32vec4 albedo = Texture2D<f32vec4>::get(albedo_image_id).SampleGrad(SamplerState::get(push.uses.u_materials[mesh.material_index].albedo_sampler_id), uv_grad.uv, uv_grad.ddx, uv_grad.ddy);
             color = f32vec4(albedo.rgb, 1.0);
-        }
-
-        daxa_ImageViewId alpha_mask_image_id = push.uses.u_materials[mesh.material_index].alpha_mask_image_id;
-        if(alpha_mask_image_id.value != 0) {
-            const f32 alpha = Texture2D<f32vec4>::get(alpha_mask_image_id).SampleGrad(SamplerState::get(push.uses.u_materials[mesh.material_index].alpha_mask_sampler_id), uv_grad.uv, uv_grad.ddx, uv_grad.ddy).x;
-            if(push.uses.u_materials[mesh.material_index].alpha_mode == 1) {
-                if(alpha < push.uses.u_materials[mesh.material_index].alpha_cutoff) { color = f32vec4(0.0, 0.05, 0.0, 1.0); }
-            }
+        } else {
+            color = push.uses.u_materials[mesh.material_index].albedo_factor;
         }
         
         daxa_ImageViewId emissive_image_id = push.uses.u_materials[mesh.material_index].emissive_image_id;

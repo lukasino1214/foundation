@@ -41,17 +41,34 @@ namespace foundation {
 
 #define COOK_ASSETS 0
 
+//         {
+//             auto entity = scene->create_entity("sponza");
+//             entity.get_handle().add<RootEntityTag>();
+//             entity.add_component<TransformComponent>();
+
+//             LoadManifestInfo manifesto {
+//                 .parent = entity,
+//                 .path = "assets/binary/Sponza/Sponza.bmodel",
+//             };
+// #if COOK_ASSETS
+//             AssetProcessor::convert_gltf_to_binary("assets/models/Sponza/glTF/Sponza.gltf", "assets/binary/Sponza/Sponza.bmodel");
+// #else
+//             asset_manager->load_model(manifesto);
+// #endif
+//         }
+
         {
-            auto entity = scene->create_entity("sponza");
+            auto entity = scene->create_entity("cubes");
             entity.get_handle().add<RootEntityTag>();
             entity.add_component<TransformComponent>();
+            entity.set_local_position({-10, 10, 0});
 
             LoadManifestInfo manifesto {
                 .parent = entity,
-                .path = "assets/binary/Sponza/Sponza.bmodel",
+                .path = "assets/binary/Cubes/Cubes.bmodel",
             };
 #if COOK_ASSETS
-            AssetProcessor::convert_gltf_to_binary("assets/models/Sponza/glTF/Sponza.gltf", "assets/binary/Sponza/Sponza.bmodel");
+            AssetProcessor::convert_gltf_to_binary("assets/models/Cubes/Cubes.gltf", "assets/binary/Cubes/Cubes.bmodel");
 #else
             asset_manager->load_model(manifesto);
 #endif
@@ -213,8 +230,14 @@ namespace foundation {
 
         ImGui::Begin("Asset Manager Statistics");
         ImGui::Text("Unique Mesh Count: %u", s_cast<u32>(asset_manager->total_unique_mesh_count));
+        ImGui::Text("Opaque Mesh Count: %u", s_cast<u32>(asset_manager->total_opaque_mesh_count));
+        ImGui::Text("Masked Mesh Count: %u", s_cast<u32>(asset_manager->total_masked_mesh_count));
+        ImGui::Text("Transparent Mesh Count: %zu", asset_manager->total_transparent_mesh_count);
         ImGui::Text("Mesh Count: %u", s_cast<u32>(asset_manager->total_mesh_count));
         ImGui::Text("Meshlet Count: %zu", asset_manager->total_meshlet_count);
+        ImGui::Text("Opaque Meshlet Count: %zu", asset_manager->total_opaque_meshlet_count);
+        ImGui::Text("Masked Meshlet Count: %zu", asset_manager->total_masked_meshlet_count);
+        ImGui::Text("Transparent Meshlet Count: %zu", asset_manager->total_transparent_meshlet_count);
         ImGui::Text("Triangle Count: %zu", asset_manager->total_triangle_count);
         ImGui::Text("Vertex Count: %zu", asset_manager->total_vertex_count);
         ImGui::End();

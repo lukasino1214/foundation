@@ -129,6 +129,7 @@ struct Material {
     daxa_SamplerId metalness_sampler_id;
     daxa_ImageViewId emissive_image_id;
     daxa_SamplerId emissive_sampler_id;
+    f32vec4 albedo_factor;
     f32 metallic_factor;
     f32 roughness_factor;
     f32vec3 emissive_factor;
@@ -239,7 +240,6 @@ struct MeshletsDataMerged {
     u32 sw_count;
     u32 hw_offset;
     u32 sw_offset;
-    daxa_BufferPtr(MeshletInstanceData) meshlet_instance_data;
     daxa_BufferPtr(MeshletInstanceData) hw_meshlet_data;
     daxa_BufferPtr(MeshletInstanceData) sw_meshlet_data;
 };

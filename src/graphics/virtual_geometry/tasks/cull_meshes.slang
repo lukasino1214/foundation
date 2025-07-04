@@ -17,8 +17,15 @@ void cull_meshes_write_command() {
     command.z = 1;
     *write_push.uses.u_command = command;
     write_push.uses.u_culled_meshes_data->count = 0;
-    write_push.uses.u_prefix_sum_work_expansion_mesh->merged_expansion_count_thread_count = 0;
-    write_push.uses.u_prefix_sum_work_expansion_mesh->workgroup_count = 0;
+
+    write_push.uses.u_opaque_prefix_sum_work_expansion_mesh->merged_expansion_count_thread_count = 0;
+    write_push.uses.u_opaque_prefix_sum_work_expansion_mesh->workgroup_count = 0;
+
+    write_push.uses.u_masked_prefix_sum_work_expansion_mesh->merged_expansion_count_thread_count = 0;
+    write_push.uses.u_masked_prefix_sum_work_expansion_mesh->workgroup_count = 0;
+
+    write_push.uses.u_transparent_prefix_sum_work_expansion_mesh->merged_expansion_count_thread_count = 0;
+    write_push.uses.u_transparent_prefix_sum_work_expansion_mesh->workgroup_count = 0;
 }
 
 [shader("compute")]
@@ -32,7 +39,7 @@ void cull_meshes(u32vec3 thread_index : SV_DispatchThreadID) {
         EntityData entity_data = push.uses.u_entities_data[current_thread_index];
         MeshGroup mesh_group = push.uses.u_mesh_groups[entity_data.mesh_group_index];
 
-         for(u32 local_mesh_index = 0; local_mesh_index < mesh_group.count; local_mesh_index++) {
+        for(u32 local_mesh_index = 0; local_mesh_index < mesh_group.count; local_mesh_index++) {
             const u32 global_mesh_index = mesh_group.mesh_indices[local_mesh_index];
             const Mesh mesh = push.uses.u_meshes[global_mesh_index];
 
@@ -60,8 +67,12 @@ void cull_meshes(u32vec3 thread_index : SV_DispatchThreadID) {
             u32 offset = 0;
             InterlockedAdd(push.uses.u_culled_meshes_data->count, 1, offset);
             push.uses.u_culled_meshes_data->meshes[offset] = mesh_data;
-            
-            prefix_sum_expansion_add_workitems(push.uses.u_prefix_sum_work_expansion_mesh, offset, mesh.meshlet_count, 16);
+
+            PrefixSumWorkExpansion* prefix_sum_work_expansion = nullptr;
+            if(push.uses.u_materials[mesh.material_index].alpha_mode == 0) { prefix_sum_work_expansion = push.uses.u_opaque_prefix_sum_work_expansion_mesh; }
+            else if(push.uses.u_materials[mesh.material_index].alpha_mode == 1) { prefix_sum_work_expansion = push.uses.u_masked_prefix_sum_work_expansion_mesh; }
+            else if(push.uses.u_materials[mesh.material_index].alpha_mode == 2) { prefix_sum_work_expansion = push.uses.u_transparent_prefix_sum_work_expansion_mesh; }
+            prefix_sum_expansion_add_workitems(prefix_sum_work_expansion, offset, mesh.meshlet_count, 16);
         }
     }
 }

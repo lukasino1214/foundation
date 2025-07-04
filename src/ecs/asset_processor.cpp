@@ -111,6 +111,7 @@ namespace foundation {
             for(u32 primitive_index = 0; primitive_index < gltf_mesh.primitives.size(); primitive_index++) {
                 std::vector<std::byte> compressed_data = {};
 
+                u32 mesh_meshlet_count = {};
                 {
                     ProcessedMeshInfo processed_mesh_info = AssetProcessor::process_mesh({
                         .asset = asset.get(),
@@ -124,6 +125,8 @@ namespace foundation {
 
                     meshlet_count += s_cast<u32>(processed_mesh_info.meshlets.size());
                     vertex_count += s_cast<u32>(processed_mesh_info.positions.size());
+                    mesh_meshlet_count = s_cast<u32>(processed_mesh_info.meshlets.size());
+
                     for(const auto& meshlet : processed_mesh_info.meshlets) {
                         triangle_count += meshlet.triangle_count;
                     }
@@ -146,8 +149,14 @@ namespace foundation {
 
                 write_bytes_to_file(compressed_data, binary_mesh_path);
 
+                std::optional<u32> material_index = std::nullopt;
+                if(gltf_mesh.primitives[primitive_index].materialIndex.has_value()) {
+                    material_index = std::make_optional(s_cast<u32>(gltf_mesh.primitives[primitive_index].materialIndex.value()));
+                }
+
                 binary_meshes.push_back(BinaryMesh {
-                    .material_index = gltf_mesh.primitives[primitive_index].materialIndex.has_value() ? std::make_optional(s_cast<u32>(gltf_mesh.primitives[primitive_index].materialIndex.value())) : std::nullopt,
+                    .material_index = material_index,
+                    .meshlet_count = mesh_meshlet_count,
                     .file_path = file_name
                 });
 
@@ -275,11 +284,13 @@ namespace foundation {
                     });
                 }
             }
+            
             binary_materials.push_back(BinaryMaterial{
                 .albedo_info = albedo_texture_info,
                 .normal_info = normal_texture_info,
                 .roughness_metalness_info = roughnes_metalness_info,
                 .emissive_info = emissive_info,
+                .albedo_factor = { material.pbrData.baseColorFactor[0], material.pbrData.baseColorFactor[1], material.pbrData.baseColorFactor[2], material.pbrData.baseColorFactor[3] },
                 .metallic_factor = material.pbrData.metallicFactor,
                 .roughness_factor = material.pbrData.roughnessFactor,
                 .emissive_factor = { material.emissiveFactor[0], material.emissiveFactor[1], material.emissiveFactor[2] },

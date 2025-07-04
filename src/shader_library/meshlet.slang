@@ -50,6 +50,20 @@ struct Vertex : VertexT {
     IMPL_GET_SET(float4, position)
 }
 
+struct VertexMasked : VertexT {
+    f32vec4 position: SV_Position;
+    [[vk::location(0)]] f32vec2 uv;
+    IMPL_GET_SET(float4, position)
+}
+
+struct VertexTransparent : VertexT {
+    f32vec4 position: SV_Position;
+    [[vk::location(0)]] f32vec3 world_position;
+    [[vk::location(1)]] f32vec3 normal;
+    [[vk::location(2)]] f32vec2 uv;
+    IMPL_GET_SET(float4, position)
+}
+
 struct Primtive : PrimtiveT {
     bool cull_primitive: SV_CullPrimitive;
     IMPL_GET_SET(bool, cull_primitive)
@@ -59,6 +73,20 @@ struct VisibilityPrimitive : PrimtiveT {
     bool cull_primitive: SV_CullPrimitive;
     IMPL_GET_SET(bool, cull_primitive)
     nointerpolation [[vk::location(0)]] u32 vis_index;
+}
+
+struct VisibilityPrimitiveMasked : PrimtiveT {
+    bool cull_primitive: SV_CullPrimitive;
+    IMPL_GET_SET(bool, cull_primitive)
+    nointerpolation [[vk::location(0)]] u32 vis_index;
+    nointerpolation [[vk::location(1)]] u32 material_index;
+}
+
+struct VisibilityPrimitiveTransparent : PrimtiveT {
+    bool cull_primitive: SV_CullPrimitive;
+    IMPL_GET_SET(bool, cull_primitive)
+    nointerpolation [[vk::location(0)]] u32 vis_index;
+    nointerpolation [[vk::location(1)]] u32 material_index;
 }
 
 void generic_mesh<V: VertexT, P: PrimtiveT>(

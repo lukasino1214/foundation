@@ -16,7 +16,7 @@ namespace foundation {
         }};
     }
 
-    void reallocate_buffer(Context* context, daxa::CommandRecorder& cmd_recorder, daxa::TaskBuffer& task_buffer, usize new_size) {
+    auto reallocate_buffer(Context* context, daxa::CommandRecorder& cmd_recorder, daxa::TaskBuffer& task_buffer, usize new_size) -> bool {
         daxa::BufferId buffer = task_buffer.get_state().buffers[0];
         auto info = context->device.buffer_info(buffer).value();
         if(info.size < new_size) {
@@ -34,6 +34,8 @@ namespace foundation {
             });
 
             task_buffer.set_buffers({ .buffers=std::array{new_buffer} });
+            return true;
         }
+        return false;
     }
 }
