@@ -37,6 +37,27 @@ namespace foundation {
     AssetProcessor::AssetProcessor(Context* _context) : context{_context}, mesh_upload_mutex{std::make_unique<std::mutex>()} { PROFILE_SCOPE; }
     AssetProcessor::~AssetProcessor() = default;
 
+    template <typename ElemT, bool IS_INDEX_BUFFER>
+    auto load_data(fastgltf::Asset& asset, fastgltf::Accessor& accessor) {
+        std::vector<ElemT> ret(accessor.count);
+        if constexpr(IS_INDEX_BUFFER) {
+            if (accessor.componentType == fastgltf::ComponentType::UnsignedShort) {
+                std::vector<u16> u16_index_buffer(accessor.count);
+                fastgltf::copyFromAccessor<u16>(asset, accessor, u16_index_buffer.data());
+                for (usize i = 0; i < u16_index_buffer.size(); ++i) {
+                    ret[i] = s_cast<u32>(u16_index_buffer[i]);
+                }
+            }
+            else {
+                fastgltf::copyFromAccessor<u32>(asset, accessor, ret.data());
+            }
+        } else {
+            fastgltf::copyFromAccessor<ElemT>(asset, accessor, ret.data());
+        }
+
+        return ret;
+    }
+
     void AssetProcessor::convert_gltf_to_binary(const std::filesystem::path& input_path, const std::filesystem::path& output_path) {
         if(!std::filesystem::exists(input_path)) {
             throw std::runtime_error("couldnt not find model: " + input_path.string());
@@ -294,7 +315,7 @@ namespace foundation {
                 .metallic_factor = material.pbrData.metallicFactor,
                 .roughness_factor = material.pbrData.roughnessFactor,
                 .emissive_factor = { material.emissiveFactor[0], material.emissiveFactor[1], material.emissiveFactor[2] },
-                .alpha_mode = s_cast<u32>(material.alphaMode),
+                .alpha_mode = s_cast<BinaryAlphaMode>(material.alphaMode),
                 .alpha_cutoff = material.alphaCutoff,
                 .double_sided = material.doubleSided,
                 .name = std::string{material.name.c_str()},
@@ -335,7 +356,7 @@ namespace foundation {
             bool create_alpha_mask = false;
             for(const auto& material_index : binary_texture.material_indices) {
                 const auto& material = binary_materials[material_index.material_index];
-                create_alpha_mask |= material.alpha_mode != 0;
+                create_alpha_mask |= material.alpha_mode != BinaryAlphaMode::Opaque;
             }
 
             const auto& image = asset->images[i];
@@ -501,7 +522,7 @@ namespace foundation {
                         u32 alpha_count = 0;
                         for(const auto& material_index : binary_textures[i].material_indices) {
                             const BinaryMaterial& binary_material = binary_materials[material_index.material_index];
-                            if(binary_material.alpha_mode == 1) {
+                            if(binary_material.alpha_mode == BinaryAlphaMode::Masked) {
                                 alpha_sum += binary_material.alpha_cutoff;
                                 alpha_count += 1;
                             }
@@ -558,7 +579,7 @@ namespace foundation {
                     for(const auto& material_index : albedo_texture.material_indices) {
                         auto& material = binary_materials[material_index.material_index];
                         
-                        if(material.alpha_mode != 0) {
+                        if(material.alpha_mode != BinaryAlphaMode::Opaque) {
                             material.alpha_mask_info = BinaryMaterial::BinaryTextureInfo {
                                 .texture_index = alpha_mask_texture_index,
                                 .sampler_index = 0
@@ -777,11 +798,13 @@ namespace foundation {
                 }
             });
 
-            byte_writer.write(binary_textures);
-            byte_writer.write(binary_materials);
-            byte_writer.write(binary_nodes);
-            byte_writer.write(binary_mesh_groups);
-            byte_writer.write(binary_meshes);
+            byte_writer.write(BinaryAssetInfo {
+                .nodes = binary_nodes,
+                .mesh_groups = binary_mesh_groups,
+                .meshes = binary_meshes,
+                .materials = binary_materials,
+                .textures = binary_textures,
+            });
 
             std::println("writer {}", byte_writer.data.size());
             compressed_data = zstd_compress(byte_writer.data, 14);
@@ -1129,27 +1152,6 @@ namespace foundation {
         return { s_cast<u32>(ret.meshlets.size()), ret.bounding_spheres };
     }
 #pragma endregion
-
-    template <typename ElemT, bool IS_INDEX_BUFFER>
-    auto load_data(fastgltf::Asset& asset, fastgltf::Accessor& accessor) {
-        std::vector<ElemT> ret(accessor.count);
-        if constexpr(IS_INDEX_BUFFER) {
-            if (accessor.componentType == fastgltf::ComponentType::UnsignedShort) {
-                std::vector<u16> u16_index_buffer(accessor.count);
-                fastgltf::copyFromAccessor<u16>(asset, accessor, u16_index_buffer.data());
-                for (usize i = 0; i < u16_index_buffer.size(); ++i) {
-                    ret[i] = s_cast<u32>(u16_index_buffer[i]);
-                }
-            }
-            else {
-                fastgltf::copyFromAccessor<u32>(asset, accessor, ret.data());
-            }
-        } else {
-            fastgltf::copyFromAccessor<ElemT>(asset, accessor, ret.data());
-        }
-
-        return ret;
-    }
 
 #pragma region GENERATE MESHLETS    
     auto AssetProcessor::generate_meshlets(const GenerateMeshletsInfo& info) -> ProcessedMeshletsInfo {

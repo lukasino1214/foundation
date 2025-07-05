@@ -215,11 +215,8 @@ namespace foundation {
                 total_vertex_count += header.vertex_count;
 
                 BinaryAssetInfo binary_asset = {};
-                byte_reader.read(binary_asset.textures);
-                byte_reader.read(binary_asset.materials);
-                byte_reader.read(binary_asset.nodes);
-                byte_reader.read(binary_asset.mesh_groups);
-                byte_reader.read(binary_asset.meshes);
+                byte_reader.read(binary_asset);
+                
                 total_unique_mesh_count += s_cast<u32>(binary_asset.meshes.size());
 
                 asset_manifest_entries.push_back(AssetManifestEntry {
@@ -333,16 +330,16 @@ namespace foundation {
                     const BinaryMaterial& binary_material = asset->materials[binary_mesh.material_index.value()];
         
                     switch (binary_material.alpha_mode) {
-                        case 0: { 
+                        case BinaryAlphaMode::Opaque: { 
                             total_opaque_mesh_count++; 
                             total_opaque_meshlet_count += binary_mesh.meshlet_count;
                             break; 
                         }
-                        case 1: { 
+                        case BinaryAlphaMode::Masked: { 
                             total_masked_mesh_count++; 
                             total_masked_meshlet_count += binary_mesh.meshlet_count;
                             break; }
-                        case 2: { 
+                        case BinaryAlphaMode::Transparent: { 
                             total_transparent_mesh_count++; 
                             total_transparent_meshlet_count += binary_mesh.meshlet_count;
                             break; 
@@ -865,7 +862,7 @@ namespace foundation {
                 gpu_material.metallic_factor = material.metallic_factor;
                 gpu_material.roughness_factor = material.roughness_factor;
                 gpu_material.emissive_factor = material.emissive_factor;
-                gpu_material.alpha_mode = material.alpha_mode;
+                gpu_material.alpha_mode = s_cast<u32>(material.alpha_mode);
                 gpu_material.alpha_cutoff = material.alpha_cutoff;
                 gpu_material.double_sided = s_cast<b32>(material.double_sided);
 

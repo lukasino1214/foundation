@@ -79,7 +79,7 @@ namespace foundation {
         f32 metallic_factor;
         f32 roughness_factor;
         glm::vec3 emissive_factor;
-        u32 alpha_mode;
+        BinaryAlphaMode alpha_mode;
         f32 alpha_cutoff;
         bool double_sided;
         u32 asset_manifest_index = {};

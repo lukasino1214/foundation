@@ -175,6 +175,12 @@ namespace foundation {
         }
     };
 
+    enum struct BinaryAlphaMode : u32 {
+        Opaque,
+        Masked,
+        Transparent,
+    };
+
     struct BinaryMaterial {
         struct BinaryTextureInfo {
             u32 texture_index;
@@ -203,7 +209,7 @@ namespace foundation {
         f32 metallic_factor;
         f32 roughness_factor;
         glm::vec3 emissive_factor;
-        u32 alpha_mode;
+        BinaryAlphaMode alpha_mode;
         f32 alpha_cutoff;
         bool double_sided;
         std::string name = {};
@@ -251,5 +257,23 @@ namespace foundation {
         std::vector<BinaryMesh> meshes = {};
         std::vector<BinaryMaterial> materials = {};
         std::vector<BinaryTexture> textures = {};
+
+        static void serialize(ByteWriter& writer, const BinaryAssetInfo& value) {
+            writer.write(value.nodes);
+            writer.write(value.mesh_groups);
+            writer.write(value.meshes);
+            writer.write(value.materials);
+            writer.write(value.textures);
+        }
+
+        static auto deserialize(ByteReader& reader) -> BinaryAssetInfo { 
+            BinaryAssetInfo value = {};
+            reader.read(value.nodes);
+            reader.read(value.mesh_groups);
+            reader.read(value.meshes);
+            reader.read(value.materials);
+            reader.read(value.textures);
+            return value;    
+        }
     };
 }
