@@ -58,6 +58,40 @@ namespace foundation {
 //         }
 
         {
+            auto entity = scene->create_entity("box animated");
+            entity.get_handle().add<RootEntityTag>();
+            entity.add_component<TransformComponent>();
+            entity.set_local_position({-10, 20, 10});
+
+            LoadManifestInfo manifesto {
+                .parent = entity,
+                .path = "assets/binary/BoxAnimated/BoxAnimated.bmodel",
+            };
+#if COOK_ASSETS
+            AssetProcessor::convert_gltf_to_binary("assets/models/BoxAnimated/glTF/BoxAnimated.gltf", "assets/binary/BoxAnimated/BoxAnimated.bmodel");
+#else
+            asset_manager->load_model(manifesto);
+#endif
+        }
+
+        {
+            auto entity = scene->create_entity("animated cube");
+            entity.get_handle().add<RootEntityTag>();
+            entity.add_component<TransformComponent>();
+            entity.set_local_position({-10, 20, 0});
+
+            LoadManifestInfo manifesto {
+                .parent = entity,
+                .path = "assets/binary/AnimatedCube/AnimatedCube.bmodel",
+            };
+#if COOK_ASSETS
+            AssetProcessor::convert_gltf_to_binary("assets/models/AnimatedCube/glTF/AnimatedCube.gltf", "assets/binary/AnimatedCube/AnimatedCube.bmodel");
+#else
+            asset_manager->load_model(manifesto);
+#endif
+        }
+
+        {
             auto entity = scene->create_entity("cubes");
             entity.get_handle().add<RootEntityTag>();
             entity.add_component<TransformComponent>();
@@ -77,7 +111,7 @@ namespace foundation {
 #if COOK_ASSETS
         u32 bistro_count = 1;
 #else
-        u32 bistro_count = 5;
+        u32 bistro_count = 1;
 #endif
         for(u32 x = 0; x < bistro_count; x++) {
             for(u32 y = 0; y < bistro_count; y++) {
@@ -172,6 +206,8 @@ namespace foundation {
                     .command_lists = cmd_lists
                 });
             }
+
+            asset_manager->update_animations(delta_time);
 
             update();
             renderer->render();

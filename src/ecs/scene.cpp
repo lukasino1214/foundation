@@ -99,6 +99,7 @@ namespace foundation {
             }
         }
 
+        world->get_world().defer_begin();
         std::vector<flecs::entity> queue = {};
         query_transforms.each([&](flecs::entity entity, GlobalPosition& global_position, GlobalRotation& global_rotation, GlobalScale& global_scale, GlobalMatrix& global_matrix, LocalPosition& local_position, LocalRotation& local_rotation, LocalScale& local_scale, LocalMatrix& local_matrix, GlobalMatrix* parent_global_matrix, TransformDirty, GPUTransformIndex& gpu_transform) {
             entity.children([&](flecs::entity c){
@@ -120,6 +121,7 @@ namespace foundation {
                 LOG_INFO("hehe");
             }
         });
+        world->get_world().defer_end();
 
         for(auto& entity : queue) {
             entity.remove<TransformDirty>();

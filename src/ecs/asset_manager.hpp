@@ -9,6 +9,12 @@
 #include "ecs/scene.hpp"
 
 namespace foundation {
+    struct AnimationState {
+        f32 current_timestamp = {};
+        f32 min_timestamp = {};
+        f32 max_timestamp = {};
+    };
+
     struct LoadManifestInfo {
         Entity parent;
         std::filesystem::path path;
@@ -22,6 +28,8 @@ namespace foundation {
         u32 mesh_group_manifest_offset = {};
         Entity parent;
         std::unique_ptr<BinaryAssetInfo> asset = {};
+        std::vector<Entity> node_index_to_entity = {};
+        std::vector<AnimationState> animation_states = {};
         BinaryModelHeader header = {};
     };
 
@@ -101,6 +109,7 @@ namespace foundation {
 
         void update_textures();
         void update_meshes();
+        void update_animations(f32 delta_time);
         auto record_manifest_update(const RecordManifestUpdateInfo& info) -> daxa::ExecutableCommandList;
 
         Context* context;

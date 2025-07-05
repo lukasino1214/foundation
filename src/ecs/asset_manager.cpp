@@ -8,6 +8,7 @@
 #include <utils/zstd.hpp>
 #include <math/decompose.hpp>
 #include <utils/file_io.hpp>
+#include <glm/gtc/quaternion.hpp>
 
 namespace foundation {
     static constexpr usize MAXIMUM_MESHLET_COUNT = ~u32(0u) >> (find_msb(MAX_TRIANGLES_PER_MESHLET));
@@ -181,10 +182,10 @@ namespace foundation {
         mc->path = info.path;
 
         bool asset_isnt_in_memory = true;
-        const AssetManifestEntry* asset_manifest = {};
-        const BinaryAssetInfo* asset = {};
+        AssetManifestEntry* asset_manifest = {};
+        BinaryAssetInfo* asset = {};
 
-        for(const auto& asset_manifest_ : asset_manifest_entries) {
+        for(auto& asset_manifest_ : asset_manifest_entries) {
             if(info.path == asset_manifest_.path) {
                 asset_isnt_in_memory = false;
                 asset_manifest = std::addressof(asset_manifest_);
@@ -233,6 +234,24 @@ namespace foundation {
 
             asset_manifest = &asset_manifest_entries.back();
             asset = asset_manifest->asset.get();
+
+            asset_manifest->animation_states.reserve(asset->animations.size());
+
+            for(const BinaryAnimation& animation : asset->animations) {
+                f32 min_timestamp = std::numeric_limits<f32>::max();
+                f32 max_timestamp = std::numeric_limits<f32>::lowest();
+
+                for(const auto& sampler : animation.samplers) {
+                    min_timestamp = glm::min(min_timestamp, sampler.timestamps.front());
+                    max_timestamp = glm::max(max_timestamp, sampler.timestamps.back());
+                }
+
+                asset_manifest->animation_states.push_back({
+                    .current_timestamp = 0.0f,
+                    .min_timestamp = min_timestamp,
+                    .max_timestamp = max_timestamp,
+                });
+            }
 
             for (u32 i = 0; i < s_cast<u32>(asset->textures.size()); ++i) {
                 std::vector<TextureManifestEntry::MaterialManifestIndex> indices = {};
@@ -345,8 +364,7 @@ namespace foundation {
                             break; 
                         }
                         default: { 
-                            std::println("something went wrong. so boom!"); 
-                            std::exit(-1); 
+                            throw std::runtime_error("something went wrong");
                             break; 
                         }
                     }
@@ -357,9 +375,9 @@ namespace foundation {
             }
         }
 
-        std::vector<Entity> node_index_to_entity = {};
+        auto& node_index_to_entity = asset_manifest->node_index_to_entity;
         for(u32 node_index = 0; node_index < s_cast<u32>(asset->nodes.size()); node_index++) {
-            node_index_to_entity.push_back(scene->create_entity(std::format("asset {} {} {}", asset_manifest_entries.size(), asset->nodes[node_index].name, info.parent.get_name().data())));
+            node_index_to_entity.push_back(scene->create_entity(std::format("asset {} {} {} {}", asset_manifest_entries.size(), asset->nodes[node_index].name, info.parent.get_name().data(), node_index)));
         }
 
         for(u32 node_index = 0; node_index < s_cast<u32>(asset->nodes.size()); node_index++) {
@@ -381,7 +399,7 @@ namespace foundation {
             parent_entity.set_local_rotation(rotation);
             parent_entity.set_local_scale(scale);
 
-            for(u32 children_index = 0; children_index < node.children.size(); children_index++) {
+            for(u32 children_index : node.children) {
                 Entity& child_entity = node_index_to_entity[children_index];
                 parent_entity.set_child(child_entity);
             }
@@ -514,6 +532,109 @@ namespace foundation {
                 },
                 .asset_processor = asset_processor,
             }), TaskPriority::LOW);
+        }
+    }
+
+    void AssetManager::update_animations(f32 delta_time) {
+        for(auto& asset_manifest : asset_manifest_entries) {
+            const auto& asset = asset_manifest.asset;
+            if(asset->animations.empty()) { continue; }
+
+            for(u32 animation_index = 0; animation_index < asset->animations.size(); animation_index++) {
+                const BinaryAnimation& animation = asset->animations[animation_index];
+                AnimationState& animation_state = asset_manifest.animation_states[animation_index]; 
+
+                animation_state.current_timestamp += delta_time;
+                f32& current_timestamp = animation_state.current_timestamp;
+
+                if(current_timestamp <= animation_state.min_timestamp) {
+                    current_timestamp = animation_state.min_timestamp;
+                }
+
+                if(current_timestamp >= animation_state.max_timestamp) {
+                    current_timestamp = animation_state.min_timestamp;
+                }
+
+                for(const auto& channel : animation.channels) {
+                    const auto& sampler = animation.samplers[channel.sampler];
+
+                    Entity entity = asset_manifest.node_index_to_entity[channel.node];
+                    const f32vec3* f32vec3_values = r_cast<const f32vec3*>(sampler.values.data());
+                    const f32vec4* f32vec4_values = r_cast<const f32vec4*>(sampler.values.data());
+
+                    for(u32 i = 0; i < sampler.timestamps.size() - 1; i++) {
+                        if ((current_timestamp >= sampler.timestamps[i]) && (current_timestamp <= sampler.timestamps[i + 1])) {
+                            switch (sampler.interpolation) {
+                                case BinaryAnimation::InterpolationType::Linear: {
+                                    f32 alpha = (current_timestamp - sampler.timestamps[i]) / (sampler.timestamps[i + 1] - sampler.timestamps[i]);
+                                    
+                                    switch (channel.path) {
+                                        case BinaryAnimation::PathType::Position: {
+                                            f32vec3 position = glm::mix(f32vec3_values[i], f32vec3_values[i + 1], alpha);
+                                            entity.set_local_position(position);
+                                            break;
+                                        }
+                                        case BinaryAnimation::PathType::Rotation: {
+                                            f32vec4 value_1 = f32vec4_values[i];
+                                            f32vec4 value_2 = f32vec4_values[i + 1];
+
+                                            glm::quat quat = glm::normalize(glm::slerp(
+                                                glm::quat(value_1.w, value_1.x, value_1.y, value_1.z), 
+                                                glm::quat(value_2.w, value_2.x, value_2.y, value_2.z), 
+                                                alpha
+                                            ));
+                                            
+                                            entity.set_local_rotation(glm::degrees(glm::eulerAngles(quat)));
+                                            break;
+                                        }
+                                        case BinaryAnimation::PathType::Scale: {
+                                            f32vec3 scale = glm::mix(f32vec3_values[i], f32vec3_values[i + 1], alpha);
+                                            entity.set_local_scale(scale);
+                                            break;
+                                        }
+                                        case BinaryAnimation::PathType::Weights: {
+                                            throw std::runtime_error("something went wrong");
+                                            break;
+                                        }
+                                    }
+
+                                    break;
+                                }
+                                case BinaryAnimation::InterpolationType::Step: {
+                                    switch (channel.path) {
+                                        case BinaryAnimation::PathType::Position: {
+                                            entity.set_local_position(f32vec3_values[i]);
+                                            break;
+                                        }
+                                        case BinaryAnimation::PathType::Rotation: {
+                                            f32vec4 value_1 = f32vec4_values[i];
+                                            glm::quat quat = glm::quat(value_1.w, value_1.x, value_1.y, value_1.z);
+                                            entity.set_local_rotation(glm::degrees(glm::eulerAngles(quat)));
+                                            break;
+                                        }
+                                        case BinaryAnimation::PathType::Scale: {
+                                            entity.set_local_scale(f32vec3_values[i]);
+                                            break;
+                                        }
+                                        case BinaryAnimation::PathType::Weights: {
+                                            throw std::runtime_error("something went wrong");
+                                            break;
+                                        }
+                                    }
+
+                                    break;
+                                }
+                                case BinaryAnimation::InterpolationType::CubicSpline: {
+                                    throw std::runtime_error("something went wrong");
+                                    break;
+                                }
+                            }
+
+                            break;
+                        }
+                    }
+                }
+            }
         }
     }
 
