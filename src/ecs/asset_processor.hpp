@@ -18,6 +18,9 @@ namespace foundation {
         std::vector<u8> micro_indices = {};
         std::vector<u32> indirect_vertices = {};
         std::vector<u32> primitive_indices = {};
+        std::vector<f32vec3> morph_target_positions = {};
+        std::vector<u32> morph_target_normals = {};
+        std::vector<u32> morph_target_uvs = {};
 
         static void serialize(ByteWriter& writer, const ProcessedMeshInfo& value) {
             writer.write(value.mesh_aabb);
@@ -31,6 +34,9 @@ namespace foundation {
             writer.write(value.micro_indices);
             writer.write(value.indirect_vertices);
             writer.write(value.primitive_indices);
+            writer.write(value.morph_target_positions);
+            writer.write(value.morph_target_normals);
+            writer.write(value.morph_target_uvs);
         }
 
         static auto deserialize(ByteReader& reader) -> ProcessedMeshInfo { 
@@ -46,6 +52,9 @@ namespace foundation {
             reader.read(value.micro_indices);
             reader.read(value.indirect_vertices);
             reader.read(value.primitive_indices);
+            reader.read(value.morph_target_positions);
+            reader.read(value.morph_target_normals);
+            reader.read(value.morph_target_uvs);
             return value;    
         }
     };
@@ -133,6 +142,9 @@ namespace foundation {
         std::vector<f32vec3> unindexed_positions = {};
         std::vector<f32vec3> unindexed_normals = {};
         std::vector<f32vec2> unindexed_uvs = {};
+        std::vector<std::vector<f32vec3>> unindexed_morph_target_positions = {};
+        std::vector<std::vector<f32vec3>> unindexed_morph_target_normals = {};
+        std::vector<std::vector<f32vec2>> unindexed_morph_target_uvs = {};
     };
 
     struct ProcessedIndexBufferInfo {
@@ -140,6 +152,9 @@ namespace foundation {
         std::vector<f32vec3> normals = {};
         std::vector<f32vec2> uvs = {};
         std::vector<u32> index_buffer = {};
+        std::vector<std::vector<f32vec3>> morph_target_positions = {};
+        std::vector<std::vector<f32vec3>> morph_target_normals = {};
+        std::vector<std::vector<f32vec2>> morph_target_uvs = {};
     };
 
     struct AssetProcessor {

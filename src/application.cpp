@@ -58,6 +58,23 @@ namespace foundation {
 //         }
 
         {
+            auto entity = scene->create_entity("animated morph cube");
+            entity.get_handle().add<RootEntityTag>();
+            entity.add_component<TransformComponent>();
+            entity.set_local_position({-10, 20, -10});
+
+            LoadManifestInfo manifesto {
+                .parent = entity,
+                .path = "assets/binary/AnimatedMorphCube/AnimatedMorphCube.bmodel",
+            };
+#if COOK_ASSETS
+            AssetProcessor::convert_gltf_to_binary("assets/models/AnimatedMorphCube/glTF/AnimatedMorphCube.gltf", "assets/binary/AnimatedMorphCube/AnimatedMorphCube.bmodel", true);
+#else
+            asset_manager->load_model(manifesto);
+#endif
+        }
+
+        {
             auto entity = scene->create_entity("box animated");
             entity.get_handle().add<RootEntityTag>();
             entity.add_component<TransformComponent>();

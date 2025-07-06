@@ -96,11 +96,15 @@ namespace foundation {
     struct BinaryMeshGroup {
         u32 mesh_offset = {};
         u32 mesh_count = {};
+        bool has_morph_targets = {};
+        std::vector<f32> weights = {};
         std::string name = {};
 
         static void serialize(ByteWriter& writer, const BinaryMeshGroup& value) {
             writer.write(value.mesh_offset);
             writer.write(value.mesh_count);
+            writer.write(value.has_morph_targets);
+            writer.write(value.weights);
             writer.write(value.name);
         }
 
@@ -108,6 +112,8 @@ namespace foundation {
             BinaryMeshGroup value = {};
             reader.read(value.mesh_offset);
             reader.read(value.mesh_count);
+            reader.read(value.has_morph_targets);
+            reader.read(value.weights);
             reader.read(value.name);
             return value;    
         }

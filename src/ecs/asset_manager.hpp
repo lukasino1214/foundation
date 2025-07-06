@@ -52,6 +52,8 @@ namespace foundation {
         u32 mesh_count = {};
         u32 asset_manifest_index = {};
         u32 asset_local_index = {};
+        bool has_morph_targets = {};
+        std::vector<f32> weights = {};
         std::string name = {};
     };
 

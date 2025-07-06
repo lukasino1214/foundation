@@ -129,6 +129,8 @@ namespace foundation {
             u32 mesh_offset = s_cast<u32>(binary_meshes.size());
             binary_meshes.reserve(binary_meshes.size() + gltf_mesh.primitives.size());
             
+            bool has_morph_targets = false;
+
             for(u32 primitive_index = 0; primitive_index < gltf_mesh.primitives.size(); primitive_index++) {
                 std::vector<std::byte> compressed_data = {};
 
@@ -170,9 +172,10 @@ namespace foundation {
 
                 write_bytes_to_file(compressed_data, binary_mesh_path);
 
+                const auto& gltf_primitive = gltf_mesh.primitives[primitive_index];
                 std::optional<u32> material_index = std::nullopt;
-                if(gltf_mesh.primitives[primitive_index].materialIndex.has_value()) {
-                    material_index = std::make_optional(s_cast<u32>(gltf_mesh.primitives[primitive_index].materialIndex.value()));
+                if(gltf_primitive.materialIndex.has_value()) {
+                    material_index = std::make_optional(s_cast<u32>(gltf_primitive.materialIndex.value()));
                 }
 
                 binary_meshes.push_back(BinaryMesh {
@@ -180,13 +183,21 @@ namespace foundation {
                     .meshlet_count = mesh_meshlet_count,
                     .file_path = file_name
                 });
-
+                
                 std::println("mesh group: [{} / {}] - mesh: [{} / {}] - done", mesh_index+1, asset->meshes.size(), primitive_index+1, gltf_mesh.primitives.size());
             }
 
+            std::vector<f32> weights = {};
+            weights.reserve(gltf_mesh.weights.size());
+            for(f32 v : gltf_mesh.weights) {
+                weights.push_back(v);
+            }
+            
             binary_mesh_groups.push_back({
                 .mesh_offset = mesh_offset,
                 .mesh_count = s_cast<u32>(gltf_mesh.primitives.size()),
+                .has_morph_targets = has_morph_targets,
+                .weights = weights,
                 .name = gltf_mesh.name.c_str()
             });
         }
@@ -817,6 +828,12 @@ namespace foundation {
                         std::memcpy(binary_sampler.values.data(), data.data(), 4 * data.size() * sizeof(f32));
                         break;
                     }
+                    case fastgltf::AccessorType::Scalar: {
+                        std::vector<f32> data = load_data<f32, false>(*asset, value_accessor);
+                        binary_sampler.values.resize(data.size());
+                        std::memcpy(binary_sampler.values.data(), data.data(), data.size() * sizeof(f32));
+                        break;
+                    }
                     default: {
                         throw std::runtime_error("something went wrong"); 
                     }
@@ -1307,11 +1324,32 @@ namespace foundation {
         ret.uvs.resize(unique_vertex_count);
         ret.index_buffer.resize(index_count);
 
-        meshopt_remapVertexBuffer(ret.positions.data(), ret.positions.data(), unindexed_vertex_count, sizeof(f32vec3), remap_table.data());
-        meshopt_remapVertexBuffer(ret.normals.data(), ret.normals.data(), unindexed_vertex_count, sizeof(f32vec3), remap_table.data());
-        meshopt_remapVertexBuffer(ret.uvs.data(), ret.uvs.data(), unindexed_vertex_count, sizeof(f32vec2), remap_table.data());
+        meshopt_remapVertexBuffer(ret.positions.data(), info.unindexed_positions.data(), unindexed_vertex_count, sizeof(f32vec3), remap_table.data());
+        meshopt_remapVertexBuffer(ret.normals.data(), info.unindexed_normals.data(), unindexed_vertex_count, sizeof(f32vec3), remap_table.data());
+        meshopt_remapVertexBuffer(ret.uvs.data(), info.unindexed_uvs.data(), unindexed_vertex_count, sizeof(f32vec2), remap_table.data());
         meshopt_remapIndexBuffer(ret.index_buffer.data(), nullptr, index_count, remap_table.data());
     
+        for(const std::vector<f32vec3>& positions : info.unindexed_morph_target_positions) {
+            std::vector<f32vec3> remapped_positions = {};
+            remapped_positions.resize(positions.size());
+            meshopt_remapVertexBuffer(remapped_positions.data(), positions.data(), unindexed_vertex_count, sizeof(f32vec3), remap_table.data());
+            ret.morph_target_positions.push_back(remapped_positions);
+        }
+
+        for(const std::vector<f32vec3>& normals : info.unindexed_morph_target_normals) {
+            std::vector<f32vec3> remapped_normals = {};
+            remapped_normals.resize(normals.size());
+            meshopt_remapVertexBuffer(remapped_normals.data(), normals.data(), unindexed_vertex_count, sizeof(f32vec3), remap_table.data());
+            ret.morph_target_normals.push_back(remapped_normals);
+        }
+
+        for(const std::vector<f32vec2>& uvs : info.unindexed_morph_target_uvs) {
+            std::vector<f32vec2> remapped_uvs = {};
+            remapped_uvs.resize(uvs.size());
+            meshopt_remapVertexBuffer(remapped_uvs.data(), uvs.data(), unindexed_vertex_count, sizeof(f32vec2), remap_table.data());
+            ret.morph_target_uvs.push_back(remapped_uvs);
+        }
+
         return ret;
     }
 #pragma endregion
@@ -1340,6 +1378,27 @@ namespace foundation {
         meshopt_remapVertexBuffer(ret.uvs.data(), info.uvs.data(), info.uvs.size(), sizeof(f32vec2), remap_table.data());
         meshopt_remapIndexBuffer(ret.index_buffer.data(), info.index_buffer.data(), info.index_buffer.size(), remap_table.data());
     
+        for(const std::vector<f32vec3>& positions : info.morph_target_positions) {
+            std::vector<f32vec3> remapped_positions = {};
+            remapped_positions.resize(positions.size());
+            meshopt_remapVertexBuffer(remapped_positions.data(), positions.data(), positions.size(), sizeof(f32vec3), remap_table.data());
+            ret.morph_target_positions.push_back(remapped_positions);
+        }
+
+        for(const std::vector<f32vec3>& normals : info.morph_target_normals) {
+            std::vector<f32vec3> remapped_normals = {};
+            remapped_normals.resize(normals.size());
+            meshopt_remapVertexBuffer(remapped_normals.data(), normals.data(), normals.size(), sizeof(f32vec3), remap_table.data());
+            ret.morph_target_normals.push_back(remapped_normals);
+        }
+
+        for(const std::vector<f32vec2>& uvs : info.morph_target_uvs) {
+            std::vector<f32vec2> remapped_uvs = {};
+            remapped_uvs.resize(uvs.size());
+            meshopt_remapVertexBuffer(remapped_uvs.data(), uvs.data(), uvs.size(), sizeof(f32vec2), remap_table.data());
+            ret.morph_target_uvs.push_back(remapped_uvs);
+        }
+
         return ret;
     }
 #pragma endregion
@@ -1351,9 +1410,11 @@ namespace foundation {
         fastgltf::Primitive& gltf_primitive = gltf_mesh.primitives[info.gltf_primitive_index];
 
         std::vector<glm::vec3> vert_positions = {};
-        auto* position_attribute_iter = gltf_primitive.findAttribute("POSITION");
-        if(position_attribute_iter != gltf_primitive.attributes.end()) {
-            vert_positions = load_data<glm::vec3, false>(gltf_asset, gltf_asset.accessors[position_attribute_iter->accessorIndex]);
+        {
+            auto* position_attribute_iter = gltf_primitive.findAttribute("POSITION");
+            if(position_attribute_iter != gltf_primitive.attributes.end()) {
+                vert_positions = load_data<glm::vec3, false>(gltf_asset, gltf_asset.accessors[position_attribute_iter->accessorIndex]);
+            }
         }
 
         auto fill = [](auto& vec, u32 required_size = 0) {
@@ -1367,7 +1428,6 @@ namespace foundation {
 
         u32 vertex_count = s_cast<u32>(vert_positions.size());
 
-        std::vector<u32> packed_normals = {};
         std::vector<glm::vec3> vert_normals = {};
         {
             auto* normal_attribute_iter = gltf_primitive.findAttribute("NORMAL");
@@ -1376,14 +1436,8 @@ namespace foundation {
             } else {
                 fill(vert_normals, vertex_count);
             }
-
-            packed_normals.reserve(packed_normals.size());
-            for(const f32vec3& normal : vert_normals) {
-                packed_normals.push_back(encode_normal(normal));
-            }
         }
 
-        std::vector<u32> packed_uvs = {};
         std::vector<glm::vec2> vert_uvs = {};
         {
             auto* uvs_attribute_iter = gltf_primitive.findAttribute("TEXCOORD_0");
@@ -1392,10 +1446,28 @@ namespace foundation {
             } else {
                 fill(vert_uvs, vertex_count);
             }
+        }
 
-            packed_uvs.reserve(vert_uvs.size());
-            for(const f32vec2& uv : vert_uvs) {
-                packed_uvs.push_back(encode_uv(uv));
+        std::vector<std::vector<f32vec3>> morph_target_positions = {};
+        std::vector<std::vector<f32vec3>> morph_target_normals = {};
+        std::vector<std::vector<f32vec2>> morph_target_uvs = {};
+
+        for(u32 morph_target_index = 0; morph_target_index < gltf_primitive.targets.size(); morph_target_index++) {
+            const auto& morph_target = gltf_primitive.targets[morph_target_index];
+
+            auto* position_attribute_iter = gltf_primitive.findTargetAttribute(morph_target_index, "POSITION");
+            if(position_attribute_iter != morph_target.end()) {
+                morph_target_positions.push_back(load_data<f32vec3, false>(gltf_asset, gltf_asset.accessors[position_attribute_iter->accessorIndex]));
+            }
+
+            auto* normal_attribute_iter = gltf_primitive.findTargetAttribute(morph_target_index, "NORMAL");
+            if(normal_attribute_iter != morph_target.end()) {
+                morph_target_normals.push_back(load_data<f32vec3, false>(gltf_asset, gltf_asset.accessors[normal_attribute_iter->accessorIndex]));
+            }
+
+            auto* uvs_attribute_iter = gltf_primitive.findTargetAttribute(morph_target_index, "TEXCOORD_0");
+            if(uvs_attribute_iter != morph_target.end()) {
+                morph_target_uvs.push_back(load_data<f32vec2, false>(gltf_asset, gltf_asset.accessors[uvs_attribute_iter->accessorIndex]));
             }
         }
 
@@ -1406,13 +1478,19 @@ namespace foundation {
             ProcessedIndexBufferInfo ret = generate_index_buffer(GenerateIndexBufferInfo {
                 .unindexed_positions = vert_positions,
                 .unindexed_normals = vert_normals,
-                .unindexed_uvs = vert_uvs
+                .unindexed_uvs = vert_uvs,
+                .unindexed_morph_target_positions = morph_target_positions,
+                .unindexed_morph_target_normals = morph_target_normals,
+                .unindexed_morph_target_uvs = morph_target_uvs,
             });
 
             vert_positions = ret.positions;
             vert_normals = ret.normals;
             vert_uvs = ret.uvs;
             indices = ret.index_buffer;
+            morph_target_positions = ret.morph_target_positions;
+            morph_target_normals = ret.morph_target_normals;
+            morph_target_uvs = ret.morph_target_uvs;
         }
         
         {
@@ -1420,16 +1498,59 @@ namespace foundation {
                 .positions = vert_positions,
                 .normals = vert_normals,
                 .uvs = vert_uvs,
-                .index_buffer = indices
+                .index_buffer = indices,
+                .morph_target_positions = morph_target_positions,
+                .morph_target_normals = morph_target_normals,
+                .morph_target_uvs = morph_target_uvs,
             });
 
             vert_positions = ret.positions;
             vert_normals = ret.normals;
             vert_uvs = ret.uvs;
             indices = ret.index_buffer;
+            morph_target_positions = ret.morph_target_positions;
+            morph_target_normals = ret.morph_target_normals;
+            morph_target_uvs = ret.morph_target_uvs;
         }
 
         indices = optimize_vertex_cache(indices, vertex_count);
+
+
+        std::vector<u32> packed_normals = {};
+        packed_normals.reserve(packed_normals.size());
+        for(const f32vec3& normal : vert_normals) {
+            packed_normals.push_back(encode_normal(normal));
+        }
+
+        std::vector<u32> packed_uvs = {};
+        packed_uvs.reserve(vert_uvs.size());
+        for(const f32vec2& uv : vert_uvs) {
+            packed_uvs.push_back(encode_uv(uv));
+        }
+
+        std::vector<f32vec3> packed_morph_target_positions = {};
+        for(const std::vector<f32vec3>& positions : morph_target_positions) {
+            packed_morph_target_positions.reserve(packed_morph_target_positions.size() + positions.size());
+            for(const f32vec3& position : positions) {
+                packed_morph_target_positions.push_back(position);
+            }
+        }
+
+        std::vector<u32> packed_morph_target_normals = {};
+        for(const std::vector<f32vec3>& normals : morph_target_normals) {
+            packed_morph_target_normals.reserve(packed_morph_target_normals.size() + normals.size());
+            for(const f32vec3& normal : normals) {
+                packed_morph_target_normals.push_back(encode_normal(normal));
+            }
+        }
+
+        std::vector<u32> packed_morph_target_uvs = {};
+        for(const std::vector<f32vec2>& uvs : morph_target_uvs) {
+            packed_morph_target_uvs.reserve(packed_morph_target_uvs.size() + uvs.size());
+            for(const f32vec2& uv : uvs) {
+                packed_morph_target_uvs.push_back(encode_uv(uv));
+            }
+        }
 
         std::vector<Meshlet> meshlets = {};
         std::vector<u32> meshlet_indirect_vertices = {};
@@ -1477,7 +1598,10 @@ namespace foundation {
                 .aabbs = meshlet_aabbs,
                 .micro_indices = meshlet_micro_indices,
                 .indirect_vertices = meshlet_indirect_vertices,
-                .primitive_indices = indices
+                .primitive_indices = indices,
+                .morph_target_positions = packed_morph_target_positions,
+                .morph_target_normals = packed_morph_target_normals,
+                .morph_target_uvs = packed_morph_target_uvs,
             };
         }
 
@@ -1607,7 +1731,10 @@ namespace foundation {
             .aabbs = meshlet_aabbs,
             .micro_indices = meshlet_micro_indices,
             .indirect_vertices = meshlet_indirect_vertices,
-            .primitive_indices = indices
+            .primitive_indices = indices,
+            .morph_target_positions = packed_morph_target_positions,
+            .morph_target_normals = packed_morph_target_normals,
+            .morph_target_uvs = packed_morph_target_uvs,
         };
     }
 #pragma endregion

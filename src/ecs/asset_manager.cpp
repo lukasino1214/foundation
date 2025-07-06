@@ -329,6 +329,8 @@ namespace foundation {
                     .mesh_count = mesh_group.mesh_count,
                     .asset_manifest_index = asset_manifest_index,
                     .asset_local_index = mesh_group_index,
+                    .has_morph_targets = mesh_group.has_morph_targets,
+                    .weights = mesh_group.weights,
                     .name = {},
                 });
             }
@@ -542,11 +544,11 @@ namespace foundation {
 
             for(u32 animation_index = 0; animation_index < asset->animations.size(); animation_index++) {
                 const BinaryAnimation& animation = asset->animations[animation_index];
-                AnimationState& animation_state = asset_manifest.animation_states[animation_index]; 
-
+                AnimationState& animation_state = asset_manifest.animation_states[animation_index];
+                
                 animation_state.current_timestamp += delta_time;
                 f32& current_timestamp = animation_state.current_timestamp;
-
+                
                 if(current_timestamp <= animation_state.min_timestamp) {
                     current_timestamp = animation_state.min_timestamp;
                 }
@@ -554,11 +556,20 @@ namespace foundation {
                 if(current_timestamp >= animation_state.max_timestamp) {
                     current_timestamp = animation_state.min_timestamp;
                 }
-
+                
                 for(const auto& channel : animation.channels) {
                     const auto& sampler = animation.samplers[channel.sampler];
-
+                    
                     Entity entity = asset_manifest.node_index_to_entity[channel.node];
+                    MeshGroupManifestEntry* mesh_group = {};
+                    if(entity.has_component<MeshComponent>()) {
+                        auto* c = entity.get_component<MeshComponent>();
+                        if(c->mesh_group_index.has_value()) {
+                            mesh_group = &mesh_group_manifest_entries[c->mesh_group_index.value()];
+                        }
+                    }
+
+                    const f32* f32_values = r_cast<const f32*>(sampler.values.data());
                     const f32vec3* f32vec3_values = r_cast<const f32vec3*>(sampler.values.data());
                     const f32vec4* f32vec4_values = r_cast<const f32vec4*>(sampler.values.data());
 
@@ -593,7 +604,16 @@ namespace foundation {
                                             break;
                                         }
                                         case BinaryAnimation::PathType::Weights: {
-                                            throw std::runtime_error("something went wrong");
+                                            const u32 morph_target_offset = s_cast<u32>(mesh_group->weights.size());
+
+                                            for(u32 morph_target = 0; morph_target < mesh_group->weights.size(); morph_target++) {
+                                                f32 weight = glm::mix(
+                                                    f32_values[morph_target_offset * i + morph_target], 
+                                                    f32_values[morph_target_offset * (i + 1) + morph_target], 
+                                                    alpha
+                                                );
+                                            }
+
                                             break;
                                         }
                                     }
