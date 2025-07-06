@@ -58,7 +58,7 @@ namespace foundation {
         return ret;
     }
 
-    void AssetProcessor::convert_gltf_to_binary(const std::filesystem::path& input_path, const std::filesystem::path& output_path) {
+    void AssetProcessor::convert_gltf_to_binary(const std::filesystem::path& input_path, const std::filesystem::path& output_path, bool disable_nanite_lods) {
         if(!std::filesystem::exists(input_path)) {
             throw std::runtime_error("couldnt not find model: " + input_path.string());
         }
@@ -138,7 +138,7 @@ namespace foundation {
                         .asset = asset.get(),
                         .gltf_mesh_index = mesh_index,
                         .gltf_primitive_index = primitive_index,
-                    });
+                    }, disable_nanite_lods);
 
                     const auto& mesh_aabb = processed_mesh_info.mesh_aabb;
                     model_aabb_max = glm::max(model_aabb_max, mesh_aabb.center + mesh_aabb.extent);
@@ -1345,7 +1345,7 @@ namespace foundation {
 #pragma endregion
 
 #pragma region PROCESS MESH
-    auto AssetProcessor::process_mesh(const ProcessMeshInfo &info) -> ProcessedMeshInfo {
+    auto AssetProcessor::process_mesh(const ProcessMeshInfo &info, bool disable_nanite_lods) -> ProcessedMeshInfo {
         fastgltf::Asset& gltf_asset = *info.asset;
         fastgltf::Mesh& gltf_mesh = info.asset->meshes[info.gltf_mesh_index];
         fastgltf::Primitive& gltf_primitive = gltf_mesh.primitives[info.gltf_primitive_index];
@@ -1464,6 +1464,23 @@ namespace foundation {
         }
         
         std::vector<MeshletSimplificationError> simplification_errors = {};
+
+        if(disable_nanite_lods) {
+            return {
+                .mesh_aabb = mesh_aabb,
+                .positions = vert_positions,
+                .normals = packed_normals,
+                .uvs = packed_uvs,
+                .meshlets = meshlets,
+                .bounding_spheres = bounding_spheres,
+                .simplification_errors = simplification_errors,
+                .aabbs = meshlet_aabbs,
+                .micro_indices = meshlet_micro_indices,
+                .indirect_vertices = meshlet_indirect_vertices,
+                .primitive_indices = indices
+            };
+        }
+
         simplification_errors.resize(meshlets.size());
         std::fill(simplification_errors.begin(), simplification_errors.end(), MeshletSimplificationError {
             .group_error = 0.0f,
@@ -1668,7 +1685,13 @@ namespace foundation {
 
                 memcpy_data(mesh.meshlets, processed_info.meshlets);
                 memcpy_data(mesh.bounding_spheres, processed_info.bounding_spheres);
-                memcpy_data(mesh.simplification_errors, processed_info.simplification_errors);
+
+                if(processed_info.simplification_errors.empty()) {
+                    mesh.simplification_errors = 0;
+                } else {
+                    memcpy_data(mesh.simplification_errors, processed_info.simplification_errors);
+                }
+                
                 memcpy_data(mesh.meshlet_aabbs, processed_info.aabbs);
                 memcpy_data(mesh.micro_indices, processed_info.micro_indices);
                 memcpy_data(mesh.indirect_vertices, processed_info.indirect_vertices);

@@ -51,7 +51,7 @@ namespace foundation {
 //                 .path = "assets/binary/Sponza/Sponza.bmodel",
 //             };
 // #if COOK_ASSETS
-//             AssetProcessor::convert_gltf_to_binary("assets/models/Sponza/glTF/Sponza.gltf", "assets/binary/Sponza/Sponza.bmodel");
+//             AssetProcessor::convert_gltf_to_binary("assets/models/Sponza/glTF/Sponza.gltf", "assets/binary/Sponza/Sponza.bmodel", true);
 // #else
 //             asset_manager->load_model(manifesto);
 // #endif
@@ -68,7 +68,7 @@ namespace foundation {
                 .path = "assets/binary/BoxAnimated/BoxAnimated.bmodel",
             };
 #if COOK_ASSETS
-            AssetProcessor::convert_gltf_to_binary("assets/models/BoxAnimated/glTF/BoxAnimated.gltf", "assets/binary/BoxAnimated/BoxAnimated.bmodel");
+            AssetProcessor::convert_gltf_to_binary("assets/models/BoxAnimated/glTF/BoxAnimated.gltf", "assets/binary/BoxAnimated/BoxAnimated.bmodel", true);
 #else
             asset_manager->load_model(manifesto);
 #endif
@@ -85,7 +85,7 @@ namespace foundation {
                 .path = "assets/binary/AnimatedCube/AnimatedCube.bmodel",
             };
 #if COOK_ASSETS
-            AssetProcessor::convert_gltf_to_binary("assets/models/AnimatedCube/glTF/AnimatedCube.gltf", "assets/binary/AnimatedCube/AnimatedCube.bmodel");
+            AssetProcessor::convert_gltf_to_binary("assets/models/AnimatedCube/glTF/AnimatedCube.gltf", "assets/binary/AnimatedCube/AnimatedCube.bmodel", true);
 #else
             asset_manager->load_model(manifesto);
 #endif
@@ -102,7 +102,7 @@ namespace foundation {
                 .path = "assets/binary/Cubes/Cubes.bmodel",
             };
 #if COOK_ASSETS
-            AssetProcessor::convert_gltf_to_binary("assets/models/Cubes/Cubes.gltf", "assets/binary/Cubes/Cubes.bmodel");
+            AssetProcessor::convert_gltf_to_binary("assets/models/Cubes/Cubes.gltf", "assets/binary/Cubes/Cubes.bmodel", true);
 #else
             asset_manager->load_model(manifesto);
 #endif
@@ -126,7 +126,7 @@ namespace foundation {
                         .path = "assets/binary/Bistro/Bistro.bmodel",
                     };
 #if COOK_ASSETS
-                    AssetProcessor::convert_gltf_to_binary("assets/models/Bistro/Bistro.glb", "assets/binary/Bistro/Bistro.bmodel");
+                    AssetProcessor::convert_gltf_to_binary("assets/models/Bistro/Bistro.glb", "assets/binary/Bistro/Bistro.bmodel", true);
 #else           
                     asset_manager->load_model(manifesto);
 #endif                
