@@ -637,7 +637,12 @@ namespace foundation {
                                             break;
                                         }
                                         case BinaryAnimation::PathType::Weights: {
-                                            throw std::runtime_error("something went wrong");
+                                            const u32 morph_target_offset = s_cast<u32>(mesh_group->weights.size());
+
+                                            for(u32 morph_target = 0; morph_target < mesh_group->weights.size(); morph_target++) {
+                                                f32 weight = f32_values[morph_target_offset * i + morph_target];
+                                            }
+                                            
                                             break;
                                         }
                                     }
