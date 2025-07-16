@@ -160,8 +160,8 @@ namespace foundation {
         context->destroy_buffer(gpu_transparent_prefix_sum_work_expansion_mesh.get_state().buffers[0]);
 
         for(auto& mesh_manifest : mesh_manifest_entries) {
-            if(context->device.is_buffer_id_valid(mesh_manifest.virtual_geometry_render_info->mesh.mesh_buffer)) {
-                context->destroy_buffer(mesh_manifest.virtual_geometry_render_info->mesh.mesh_buffer);
+            if(context->device.is_buffer_id_valid(mesh_manifest.geometry_info->mesh.mesh_buffer)) {
+                context->destroy_buffer(mesh_manifest.geometry_info->mesh.mesh_buffer);
             }
         }
 
@@ -235,24 +235,6 @@ namespace foundation {
             asset_manifest = &asset_manifest_entries.back();
             asset = asset_manifest->asset.get();
 
-            asset_manifest->animation_states.reserve(asset->animations.size());
-
-            for(const BinaryAnimation& animation : asset->animations) {
-                f32 min_timestamp = std::numeric_limits<f32>::max();
-                f32 max_timestamp = std::numeric_limits<f32>::lowest();
-
-                for(const auto& sampler : animation.samplers) {
-                    min_timestamp = glm::min(min_timestamp, sampler.timestamps.front());
-                    max_timestamp = glm::max(max_timestamp, sampler.timestamps.back());
-                }
-
-                asset_manifest->animation_states.push_back({
-                    .current_timestamp = 0.0f,
-                    .min_timestamp = min_timestamp,
-                    .max_timestamp = max_timestamp,
-                });
-            }
-
             for (u32 i = 0; i < s_cast<u32>(asset->textures.size()); ++i) {
                 std::vector<TextureManifestEntry::MaterialManifestIndex> indices = {};
                 const BinaryTexture& texture = asset->textures[i];
@@ -319,7 +301,7 @@ namespace foundation {
                         .asset_manifest_index = asset_manifest_index,
                         .asset_local_mesh_index = mesh_group_index,
                         .asset_local_primitive_index = mesh_index,
-                        .virtual_geometry_render_info = std::nullopt
+                        .geometry_info = std::nullopt
                     });
                 }
 
@@ -377,7 +359,7 @@ namespace foundation {
             }
         }
 
-        auto& node_index_to_entity = asset_manifest->node_index_to_entity;
+        std::vector<Entity> node_index_to_entity = {};
         for(u32 node_index = 0; node_index < s_cast<u32>(asset->nodes.size()); node_index++) {
             node_index_to_entity.push_back(scene->create_entity(std::format("asset {} {} {} {}", asset_manifest_entries.size(), asset->nodes[node_index].name, info.parent.get_name().data(), node_index)));
         }
@@ -415,6 +397,31 @@ namespace foundation {
             }
         }
 
+        std::vector<AnimationState> animation_states = {};
+        animation_states.reserve(asset->animations.size());
+
+        for(const BinaryAnimation& animation : asset->animations) {
+            f32 min_timestamp = std::numeric_limits<f32>::max();
+            f32 max_timestamp = std::numeric_limits<f32>::lowest();
+
+            for(const auto& sampler : animation.samplers) {
+                min_timestamp = glm::min(min_timestamp, sampler.timestamps.front());
+                max_timestamp = glm::max(max_timestamp, sampler.timestamps.back());
+            }
+
+            animation_states.push_back({
+                .current_timestamp = 0.0f,
+                .min_timestamp = min_timestamp,
+                .max_timestamp = max_timestamp,
+            });
+        }
+
+        asset_manifest->entity_asset_datas.push_back({
+            .entity = info.parent,
+            .node_index_to_entity = node_index_to_entity,
+            .animation_states = animation_states,
+        });
+
         if(asset_isnt_in_memory) {
             for(u32 mesh_group_index = 0; mesh_group_index < asset->mesh_groups.size(); mesh_group_index++) {
                 const auto& mesh_group = asset->mesh_groups.at(mesh_group_index);
@@ -428,7 +435,7 @@ namespace foundation {
                             .mesh_index = mesh_index,
                             .material_manifest_offset = asset_manifest->material_manifest_offset,
                             .manifest_index = mesh_group_manifest.mesh_manifest_indices_offset + mesh_index,
-                            .old_mesh = {},
+                            // .old_mesh = {},
                             .file_path = asset_manifest->path.parent_path() / asset->meshes[mesh_group.mesh_offset + mesh_index].file_path
                         },
                         .asset_processor = asset_processor,
@@ -497,44 +504,44 @@ namespace foundation {
     }
 
     void AssetManager::update_meshes() {
-        if(readback_mesh.empty()) { return; }
+        // if(readback_mesh.empty()) { return; }
 
-        for(u32 global_mesh_index = 0; global_mesh_index < mesh_manifest_entries.size(); global_mesh_index++) {
-            MeshManifestEntry& mesh_manifest_entry = mesh_manifest_entries[global_mesh_index];
-            const bool keep_mesh_in_memory = (readback_mesh[global_mesh_index / 32u] & (1u << (global_mesh_index % 32u))) != 0;
+        // for(u32 global_mesh_index = 0; global_mesh_index < mesh_manifest_entries.size(); global_mesh_index++) {
+        //     MeshManifestEntry& mesh_manifest_entry = mesh_manifest_entries[global_mesh_index];
+        //     const bool keep_mesh_in_memory = (readback_mesh[global_mesh_index / 32u] & (1u << (global_mesh_index % 32u))) != 0;
 
-            const AssetManifestEntry& asset_manifest = asset_manifest_entries[mesh_manifest_entry.asset_manifest_index];
-            const u32 mesh_group_index = asset_manifest.mesh_group_manifest_offset + mesh_manifest_entry.asset_local_mesh_index;
-            const MeshGroupManifestEntry mesh_group_manifest_entry = mesh_group_manifest_entries[mesh_group_index];
-            const auto& mesh_group = asset_manifest.asset->mesh_groups.at(mesh_manifest_entry.asset_local_mesh_index);
+        //     const AssetManifestEntry& asset_manifest = asset_manifest_entries[mesh_manifest_entry.asset_manifest_index];
+        //     const u32 mesh_group_index = asset_manifest.mesh_group_manifest_offset + mesh_manifest_entry.asset_local_mesh_index;
+        //     const MeshGroupManifestEntry mesh_group_manifest_entry = mesh_group_manifest_entries[mesh_group_index];
+        //     const auto& mesh_group = asset_manifest.asset->mesh_groups.at(mesh_manifest_entry.asset_local_mesh_index);
 
-            if(!mesh_manifest_entry.virtual_geometry_render_info.has_value()) { continue; }
-            const daxa::BufferId mesh_buffer = mesh_manifest_entry.virtual_geometry_render_info->mesh.mesh_buffer;
-            bool is_in_memory = !mesh_buffer.is_empty() && context->device.is_buffer_id_valid(mesh_buffer);
+        //     if(!mesh_manifest_entry.virtual_geometry_render_info.has_value()) { continue; }
+        //     const daxa::BufferId mesh_buffer = mesh_manifest_entry.virtual_geometry_render_info->mesh.mesh_buffer;
+        //     bool is_in_memory = !mesh_buffer.is_empty() && context->device.is_buffer_id_valid(mesh_buffer);
             
-            mesh_manifest_entry.unload_delay++;
+        //     mesh_manifest_entry.unload_delay++;
             
-            if(mesh_manifest_entry.unload_delay < 254) { continue; }
-            if(mesh_manifest_entry.loading) { continue; }
-            if(keep_mesh_in_memory == is_in_memory) { continue; }
+        //     if(mesh_manifest_entry.unload_delay < 254) { continue; }
+        //     if(mesh_manifest_entry.loading) { continue; }
+        //     if(keep_mesh_in_memory == is_in_memory) { continue; }
 
-            mesh_manifest_entry.loading = true;
-            mesh_manifest_entry.unload_delay = 0;
+        //     mesh_manifest_entry.loading = true;
+        //     mesh_manifest_entry.unload_delay = 0;
 
-            thread_pool->async_dispatch(std::make_shared<LoadMeshTask>(LoadMeshTask::TaskInfo{
-                .load_info = {
-                    .asset_path = asset_manifest.path,
-                    .asset = asset_manifest.asset.get(),
-                    .mesh_group_index = mesh_manifest_entry.asset_local_mesh_index,
-                    .mesh_index = mesh_manifest_entry.asset_local_primitive_index,
-                    .material_manifest_offset = asset_manifest.material_manifest_offset,
-                    .manifest_index = mesh_group_manifest_entry.mesh_manifest_indices_offset + mesh_manifest_entry.asset_local_primitive_index,
-                    .old_mesh = mesh_manifest_entry.virtual_geometry_render_info->mesh,
-                    .file_path = asset_manifest.path.parent_path() / asset_manifest.asset->meshes[mesh_group.mesh_offset + mesh_manifest_entry.asset_local_primitive_index].file_path
-                },
-                .asset_processor = asset_processor,
-            }), TaskPriority::LOW);
-        }
+        //     thread_pool->async_dispatch(std::make_shared<LoadMeshTask>(LoadMeshTask::TaskInfo{
+        //         .load_info = {
+        //             .asset_path = asset_manifest.path,
+        //             .asset = asset_manifest.asset.get(),
+        //             .mesh_group_index = mesh_manifest_entry.asset_local_mesh_index,
+        //             .mesh_index = mesh_manifest_entry.asset_local_primitive_index,
+        //             .material_manifest_offset = asset_manifest.material_manifest_offset,
+        //             .manifest_index = mesh_group_manifest_entry.mesh_manifest_indices_offset + mesh_manifest_entry.asset_local_primitive_index,
+        //             .old_mesh = mesh_manifest_entry.virtual_geometry_render_info->mesh,
+        //             .file_path = asset_manifest.path.parent_path() / asset_manifest.asset->meshes[mesh_group.mesh_offset + mesh_manifest_entry.asset_local_primitive_index].file_path
+        //         },
+        //         .asset_processor = asset_processor,
+        //     }), TaskPriority::LOW);
+        // }
     }
 
     void AssetManager::update_animations(f32 delta_time) {
@@ -542,120 +549,124 @@ namespace foundation {
             const auto& asset = asset_manifest.asset;
             if(asset->animations.empty()) { continue; }
 
-            for(u32 animation_index = 0; animation_index < asset->animations.size(); animation_index++) {
-                const BinaryAnimation& animation = asset->animations[animation_index];
-                AnimationState& animation_state = asset_manifest.animation_states[animation_index];
-                
-                animation_state.current_timestamp += delta_time;
-                f32& current_timestamp = animation_state.current_timestamp;
-                
-                if(current_timestamp <= animation_state.min_timestamp) {
-                    current_timestamp = animation_state.min_timestamp;
-                }
+            for(auto& entity_data : asset_manifest.entity_asset_datas) {
+                auto& animation_states = entity_data.animation_states;
 
-                if(current_timestamp >= animation_state.max_timestamp) {
-                    current_timestamp = animation_state.min_timestamp;
-                }
-                
-                for(const auto& channel : animation.channels) {
-                    const auto& sampler = animation.samplers[channel.sampler];
+                for(u32 animation_index = 0; animation_index < asset->animations.size(); animation_index++) {
+                    const BinaryAnimation& animation = asset->animations[animation_index];
+                    AnimationState& animation_state = animation_states[animation_index];
                     
-                    Entity entity = asset_manifest.node_index_to_entity[channel.node];
-                    MeshGroupManifestEntry* mesh_group = {};
-                    if(entity.has_component<MeshComponent>()) {
-                        auto* c = entity.get_component<MeshComponent>();
-                        if(c->mesh_group_index.has_value()) {
-                            mesh_group = &mesh_group_manifest_entries[c->mesh_group_index.value()];
-                        }
+                    animation_state.current_timestamp += delta_time;
+                    f32& current_timestamp = animation_state.current_timestamp;
+                    
+                    if(current_timestamp <= animation_state.min_timestamp) {
+                        current_timestamp = animation_state.min_timestamp;
                     }
-
-                    const f32* f32_values = r_cast<const f32*>(sampler.values.data());
-                    const f32vec3* f32vec3_values = r_cast<const f32vec3*>(sampler.values.data());
-                    const f32vec4* f32vec4_values = r_cast<const f32vec4*>(sampler.values.data());
-
-                    for(u32 i = 0; i < sampler.timestamps.size() - 1; i++) {
-                        if ((current_timestamp >= sampler.timestamps[i]) && (current_timestamp <= sampler.timestamps[i + 1])) {
-                            switch (sampler.interpolation) {
-                                case BinaryAnimation::InterpolationType::Linear: {
-                                    f32 alpha = (current_timestamp - sampler.timestamps[i]) / (sampler.timestamps[i + 1] - sampler.timestamps[i]);
-                                    
-                                    switch (channel.path) {
-                                        case BinaryAnimation::PathType::Position: {
-                                            f32vec3 position = glm::mix(f32vec3_values[i], f32vec3_values[i + 1], alpha);
-                                            entity.set_local_position(position);
-                                            break;
-                                        }
-                                        case BinaryAnimation::PathType::Rotation: {
-                                            f32vec4 value_1 = f32vec4_values[i];
-                                            f32vec4 value_2 = f32vec4_values[i + 1];
-
-                                            glm::quat quat = glm::normalize(glm::slerp(
-                                                glm::quat(value_1.w, value_1.x, value_1.y, value_1.z), 
-                                                glm::quat(value_2.w, value_2.x, value_2.y, value_2.z), 
-                                                alpha
-                                            ));
-                                            
-                                            entity.set_local_rotation(glm::degrees(glm::eulerAngles(quat)));
-                                            break;
-                                        }
-                                        case BinaryAnimation::PathType::Scale: {
-                                            f32vec3 scale = glm::mix(f32vec3_values[i], f32vec3_values[i + 1], alpha);
-                                            entity.set_local_scale(scale);
-                                            break;
-                                        }
-                                        case BinaryAnimation::PathType::Weights: {
-                                            const u32 morph_target_offset = s_cast<u32>(mesh_group->weights.size());
-
-                                            for(u32 morph_target = 0; morph_target < mesh_group->weights.size(); morph_target++) {
-                                                f32 weight = glm::mix(
-                                                    f32_values[morph_target_offset * i + morph_target], 
-                                                    f32_values[morph_target_offset * (i + 1) + morph_target], 
-                                                    alpha
-                                                );
-                                            }
-
-                                            break;
-                                        }
-                                    }
-
-                                    break;
-                                }
-                                case BinaryAnimation::InterpolationType::Step: {
-                                    switch (channel.path) {
-                                        case BinaryAnimation::PathType::Position: {
-                                            entity.set_local_position(f32vec3_values[i]);
-                                            break;
-                                        }
-                                        case BinaryAnimation::PathType::Rotation: {
-                                            f32vec4 value_1 = f32vec4_values[i];
-                                            glm::quat quat = glm::quat(value_1.w, value_1.x, value_1.y, value_1.z);
-                                            entity.set_local_rotation(glm::degrees(glm::eulerAngles(quat)));
-                                            break;
-                                        }
-                                        case BinaryAnimation::PathType::Scale: {
-                                            entity.set_local_scale(f32vec3_values[i]);
-                                            break;
-                                        }
-                                        case BinaryAnimation::PathType::Weights: {
-                                            const u32 morph_target_offset = s_cast<u32>(mesh_group->weights.size());
-
-                                            for(u32 morph_target = 0; morph_target < mesh_group->weights.size(); morph_target++) {
-                                                f32 weight = f32_values[morph_target_offset * i + morph_target];
-                                            }
-                                            
-                                            break;
-                                        }
-                                    }
-
-                                    break;
-                                }
-                                case BinaryAnimation::InterpolationType::CubicSpline: {
-                                    throw std::runtime_error("something went wrong");
-                                    break;
-                                }
+    
+                    if(current_timestamp >= animation_state.max_timestamp) {
+                        current_timestamp = animation_state.min_timestamp;
+                    }
+                    
+                    for(const auto& channel : animation.channels) {
+                        const auto& sampler = animation.samplers[channel.sampler];
+                        
+                        Entity entity = entity_data.node_index_to_entity[channel.node];
+                        MeshGroupManifestEntry* mesh_group = {};
+                        if(entity.has_component<MeshComponent>()) {
+                            auto* c = entity.get_component<MeshComponent>();
+                            if(c->mesh_group_index.has_value()) {
+                                mesh_group = &mesh_group_manifest_entries[c->mesh_group_index.value()];
                             }
-
-                            break;
+                        }
+    
+                        const f32* f32_values = r_cast<const f32*>(sampler.values.data());
+                        const f32vec3* f32vec3_values = r_cast<const f32vec3*>(sampler.values.data());
+                        const f32vec4* f32vec4_values = r_cast<const f32vec4*>(sampler.values.data());
+    
+                        for(u32 i = 0; i < sampler.timestamps.size() - 1; i++) {
+                            if ((current_timestamp >= sampler.timestamps[i]) && (current_timestamp <= sampler.timestamps[i + 1])) {
+                                switch (sampler.interpolation) {
+                                    case BinaryAnimation::InterpolationType::Linear: {
+                                        f32 alpha = (current_timestamp - sampler.timestamps[i]) / (sampler.timestamps[i + 1] - sampler.timestamps[i]);
+                                        
+                                        switch (channel.path) {
+                                            case BinaryAnimation::PathType::Position: {
+                                                f32vec3 position = glm::mix(f32vec3_values[i], f32vec3_values[i + 1], alpha);
+                                                entity.set_local_position(position);
+                                                break;
+                                            }
+                                            case BinaryAnimation::PathType::Rotation: {
+                                                f32vec4 value_1 = f32vec4_values[i];
+                                                f32vec4 value_2 = f32vec4_values[i + 1];
+    
+                                                glm::quat quat = glm::normalize(glm::slerp(
+                                                    glm::quat(value_1.w, value_1.x, value_1.y, value_1.z), 
+                                                    glm::quat(value_2.w, value_2.x, value_2.y, value_2.z), 
+                                                    alpha
+                                                ));
+                                                
+                                                entity.set_local_rotation(glm::degrees(glm::eulerAngles(quat)));
+                                                break;
+                                            }
+                                            case BinaryAnimation::PathType::Scale: {
+                                                f32vec3 scale = glm::mix(f32vec3_values[i], f32vec3_values[i + 1], alpha);
+                                                entity.set_local_scale(scale);
+                                                break;
+                                            }
+                                            case BinaryAnimation::PathType::Weights: {
+                                                const u32 morph_target_offset = s_cast<u32>(mesh_group->weights.size());
+    
+                                                for(u32 morph_target = 0; morph_target < mesh_group->weights.size(); morph_target++) {
+                                                    f32 weight = glm::mix(
+                                                        f32_values[morph_target_offset * i + morph_target], 
+                                                        f32_values[morph_target_offset * (i + 1) + morph_target], 
+                                                        alpha
+                                                    );
+                                                }
+    
+                                                break;
+                                            }
+                                        }
+    
+                                        break;
+                                    }
+                                    case BinaryAnimation::InterpolationType::Step: {
+                                        switch (channel.path) {
+                                            case BinaryAnimation::PathType::Position: {
+                                                entity.set_local_position(f32vec3_values[i]);
+                                                break;
+                                            }
+                                            case BinaryAnimation::PathType::Rotation: {
+                                                f32vec4 value_1 = f32vec4_values[i];
+                                                glm::quat quat = glm::quat(value_1.w, value_1.x, value_1.y, value_1.z);
+                                                entity.set_local_rotation(glm::degrees(glm::eulerAngles(quat)));
+                                                break;
+                                            }
+                                            case BinaryAnimation::PathType::Scale: {
+                                                entity.set_local_scale(f32vec3_values[i]);
+                                                break;
+                                            }
+                                            case BinaryAnimation::PathType::Weights: {
+                                                const u32 morph_target_offset = s_cast<u32>(mesh_group->weights.size());
+    
+                                                for(u32 morph_target = 0; morph_target < mesh_group->weights.size(); morph_target++) {
+                                                    f32 weight = f32_values[morph_target_offset * i + morph_target];
+                                                }
+                                                
+                                                break;
+                                            }
+                                        }
+    
+                                        break;
+                                    }
+                                    case BinaryAnimation::InterpolationType::CubicSpline: {
+                                        throw std::runtime_error("something went wrong");
+                                        break;
+                                    }
+                                }
+    
+                                break;
+                            }
                         }
                     }
                 }
@@ -914,8 +925,8 @@ namespace foundation {
                 auto& asset_manifest = asset_manifest_entries[mesh_manifest.asset_manifest_index];
                 const BinaryMesh& binary_mesh = asset_manifest.asset->meshes[asset_manifest.asset->mesh_groups[mesh_manifest.asset_local_mesh_index].mesh_offset + mesh_manifest.asset_local_primitive_index];
 
-                mesh_manifest.virtual_geometry_render_info = MeshManifestEntry::VirtualGeometryRenderInfo { .mesh = mesh_upload_info.mesh, };
-                if(!mesh_manifest.virtual_geometry_render_info.has_value() && binary_mesh.material_index.has_value()) {
+                mesh_manifest.geometry_info = MeshManifestEntry::VirtualGeometryRenderInfo { .mesh = mesh_upload_info.mesh, };
+                if(!mesh_manifest.geometry_info.has_value() && binary_mesh.material_index.has_value()) {
                     u32 material_index = mesh_upload_info.material_manifest_offset + binary_mesh.material_index.value();
                     auto& material_manifest = material_manifest_entries.at(material_index);
 
@@ -926,7 +937,7 @@ namespace foundation {
                         .dst_offset = material_manifest.material_manifest_index * sizeof(Material),
                         .size = sizeof(Material),
                     });
-                    mesh_manifest.virtual_geometry_render_info->material_manifest_index = material_manifest.material_manifest_index;
+                    mesh_manifest.geometry_info->material_manifest_index = material_manifest.material_manifest_index;
                 }
             }
 

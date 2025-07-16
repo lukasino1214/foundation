@@ -20,6 +20,12 @@ namespace foundation {
         std::filesystem::path path;
     };
 
+    struct EntityAssetData {
+        Entity entity = {};
+        std::vector<Entity> node_index_to_entity = {};
+        std::vector<AnimationState> animation_states = {};
+    };
+
     struct AssetManifestEntry {
         std::filesystem::path path = {};
         u32 texture_manifest_offset = {};
@@ -28,8 +34,7 @@ namespace foundation {
         u32 mesh_group_manifest_offset = {};
         Entity parent;
         std::unique_ptr<BinaryAssetInfo> asset = {};
-        std::vector<Entity> node_index_to_entity = {};
-        std::vector<AnimationState> animation_states = {};
+        std::vector<EntityAssetData> entity_asset_datas = {};
         BinaryModelHeader header = {};
     };
 
@@ -44,7 +49,7 @@ namespace foundation {
         u32 asset_local_primitive_index = {};
         u8 unload_delay = {};
         bool loading = true;
-        std::optional<VirtualGeometryRenderInfo> virtual_geometry_render_info = {};
+        std::optional<VirtualGeometryRenderInfo> geometry_info = {};
     };
 
     struct MeshGroupManifestEntry {

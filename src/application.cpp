@@ -92,10 +92,44 @@ namespace foundation {
         }
 
         {
+            auto entity = scene->create_entity("box animated 2");
+            entity.get_handle().add<RootEntityTag>();
+            entity.add_component<TransformComponent>();
+            entity.set_local_position({-20, 20, 10});
+
+            LoadManifestInfo manifesto {
+                .parent = entity,
+                .path = "assets/binary/BoxAnimated/BoxAnimated.bmodel",
+            };
+#if COOK_ASSETS
+            AssetProcessor::convert_gltf_to_binary("assets/models/BoxAnimated/glTF/BoxAnimated.gltf", "assets/binary/BoxAnimated/BoxAnimated.bmodel", true);
+#else
+            asset_manager->load_model(manifesto);
+#endif
+        }
+
+        {
             auto entity = scene->create_entity("animated cube");
             entity.get_handle().add<RootEntityTag>();
             entity.add_component<TransformComponent>();
             entity.set_local_position({-10, 20, 0});
+
+            LoadManifestInfo manifesto {
+                .parent = entity,
+                .path = "assets/binary/AnimatedCube/AnimatedCube.bmodel",
+            };
+#if COOK_ASSETS
+            AssetProcessor::convert_gltf_to_binary("assets/models/AnimatedCube/glTF/AnimatedCube.gltf", "assets/binary/AnimatedCube/AnimatedCube.bmodel", true);
+#else
+            asset_manager->load_model(manifesto);
+#endif
+        }
+
+        {
+            auto entity = scene->create_entity("animated cube 2 ");
+            entity.get_handle().add<RootEntityTag>();
+            entity.add_component<TransformComponent>();
+            entity.set_local_position({-20, 20, 0});
 
             LoadManifestInfo manifesto {
                 .parent = entity,
@@ -128,7 +162,7 @@ namespace foundation {
 #if COOK_ASSETS
         u32 bistro_count = 1;
 #else
-        u32 bistro_count = 1;
+        u32 bistro_count = 3;
 #endif
         for(u32 x = 0; x < bistro_count; x++) {
             for(u32 y = 0; y < bistro_count; y++) {

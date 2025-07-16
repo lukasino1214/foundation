@@ -1742,12 +1742,14 @@ namespace foundation {
     void AssetProcessor::load_gltf_mesh(const LoadMeshInfo& info) {
         PROFILE_SCOPE;
 
-        Mesh mesh = info.old_mesh;
-        mesh.mesh_buffer = {};
+        Mesh mesh = {};
+
+        // Mesh mesh = info.old_mesh;
+        // mesh.mesh_buffer = {};
         daxa::BufferId mesh_buffer = {};
         daxa::BufferId staging_mesh_buffer = {};
 
-        if(!context->device.is_buffer_id_valid(std::bit_cast<daxa::BufferId>(info.old_mesh.mesh_buffer))) {
+        // if(!context->device.is_buffer_id_valid(std::bit_cast<daxa::BufferId>(info.old_mesh.mesh_buffer))) {
 
             std::vector<std::byte> uncompressed_data = {};
             {
@@ -1839,7 +1841,7 @@ namespace foundation {
                 mesh.meshlet_count = s_cast<u32>(processed_info.meshlets.size());
                 mesh.vertex_count = s_cast<u32>(processed_info.positions.size());
             }
-        }
+        // }
 
         {
             PROFILE_ZONE_NAMED(adding_to_queue);
@@ -1847,7 +1849,7 @@ namespace foundation {
             mesh_upload_queue.push_back(MeshUploadInfo {
                 .staging_mesh_buffer = staging_mesh_buffer,
                 .mesh_buffer = mesh_buffer,
-                .old_buffer = std::bit_cast<daxa::BufferId>(info.old_mesh.mesh_buffer),
+                // .old_buffer = std::bit_cast<daxa::BufferId>(info.old_mesh.mesh_buffer),
                 .mesh = mesh,
                 .manifest_index = info.manifest_index,
                 .material_manifest_offset = info.material_manifest_offset,
@@ -1984,7 +1986,7 @@ namespace foundation {
         {
             PROFILE_SCOPE_NAMED(mesh_upload_info_);
             for(MeshUploadInfo& mesh_upload_info : ret.uploaded_meshes) {
-                if(context->device.is_buffer_id_valid(std::bit_cast<daxa::BufferId>(mesh_upload_info.mesh.mesh_buffer))) {
+                // if(context->device.is_buffer_id_valid(std::bit_cast<daxa::BufferId>(mesh_upload_info.mesh.mesh_buffer))) {
                     context->destroy_buffer_deferred(cmd_recorder, mesh_upload_info.staging_mesh_buffer);
 
                     cmd_recorder.copy_buffer_to_buffer(daxa::BufferCopyInfo {
@@ -1994,9 +1996,9 @@ namespace foundation {
                         .dst_offset = 0,
                         .size = context->device.buffer_info(mesh_upload_info.mesh_buffer).value().size
                     });
-                } else {
-                    context->destroy_buffer_deferred(cmd_recorder, mesh_upload_info.old_buffer);
-                }
+                // } else {
+                //     context->destroy_buffer_deferred(cmd_recorder, mesh_upload_info.old_buffer);
+                // }
             }
         }
 
