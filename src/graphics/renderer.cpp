@@ -479,6 +479,9 @@ namespace foundation {
         render_task_graph.use_persistent_buffer(asset_manager->gpu_mesh_groups);
         render_task_graph.use_persistent_buffer(asset_manager->gpu_mesh_indices);
         render_task_graph.use_persistent_buffer(asset_manager->gpu_meshes);
+        render_task_graph.use_persistent_buffer(asset_manager->gpu_animated_meshes);
+        render_task_graph.use_persistent_buffer(asset_manager->gpu_animated_mesh_vertices_prefix_sum_work_expansion);
+        render_task_graph.use_persistent_buffer(asset_manager->gpu_animated_mesh_meshlets_prefix_sum_work_expansion);
         render_task_graph.use_persistent_buffer(asset_manager->gpu_meshlets_instance_data);
         render_task_graph.use_persistent_buffer(asset_manager->gpu_meshlets_data_merged_opaque);
         render_task_graph.use_persistent_buffer(asset_manager->gpu_meshlets_data_merged_masked);
@@ -557,6 +560,9 @@ namespace foundation {
             .gpu_scene_data = scene->gpu_scene_data,
             .gpu_entities_data = scene->gpu_entities_data_pool.task_buffer,
             .gpu_meshes = asset_manager->gpu_meshes,
+            .gpu_animated_meshes = asset_manager->gpu_animated_meshes,
+            .gpu_animated_mesh_vertices_prefix_sum_work_expansion = asset_manager->gpu_animated_mesh_vertices_prefix_sum_work_expansion,
+            .gpu_animated_mesh_meshlets_prefix_sum_work_expansion = asset_manager->gpu_animated_mesh_meshlets_prefix_sum_work_expansion,
             .gpu_materials = asset_manager->gpu_materials,
             .gpu_transforms = scene->gpu_transforms_pool.task_buffer,
             .gpu_mesh_groups = asset_manager->gpu_mesh_groups,

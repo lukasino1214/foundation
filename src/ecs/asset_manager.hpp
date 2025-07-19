@@ -38,9 +38,14 @@ namespace foundation {
         BinaryModelHeader header = {};
     };
 
+    struct AnimatedMeshInfo {
+        u32 animated_mesh_index = {};
+        daxa::BufferId animated_mesh_buffer = {};
+    };
+
     struct MeshManifestEntry {
         struct VirtualGeometryRenderInfo {
-            Mesh mesh = {};
+            MeshGeometryData mesh_geometry_data = {};
             u32 material_manifest_index = {};
         };
 
@@ -50,6 +55,8 @@ namespace foundation {
         u8 unload_delay = {};
         bool loading = true;
         std::optional<VirtualGeometryRenderInfo> geometry_info = {};
+        std::vector<u32> mesh_indices = {};
+        std::vector<AnimatedMeshInfo> animated_mesh_indices = {};
     };
 
     struct MeshGroupManifestEntry {
@@ -60,6 +67,8 @@ namespace foundation {
         bool has_morph_targets = {};
         std::vector<f32> weights = {};
         std::string name = {};
+
+        u32 weights_offset = {};
     };
 
     struct TextureManifestEntry {
@@ -103,6 +112,12 @@ namespace foundation {
         std::string name = {};
     };
 
+    struct MeshGroupToMeshesMapping {
+        u32 mesh_group_manifest_index = {};
+        u32 mesh_group_index = {};
+        u32 mesh_offset = {};
+    };
+
     struct AssetManager {
         AssetManager(Context* _context, Scene* _scene, ThreadPool* _thread_pool, AssetProcessor* _asset_processor);
         ~AssetManager();
@@ -129,14 +144,22 @@ namespace foundation {
         std::vector<MaterialManifestEntry> material_manifest_entries = {};
         std::vector<MeshManifestEntry> mesh_manifest_entries = {};
         std::vector<MeshGroupManifestEntry> mesh_group_manifest_entries = {};
+        
+        std::vector<MeshGroupToMeshesMapping> dirty_mesh_groups = {};
         std::vector<u32> dirty_meshes = {};
-        std::vector<u32> dirty_mesh_groups = {};
+        std::vector<u32> dirty_animated_meshes = {};
 
         std::vector<u32> readback_material = {};
         std::vector<u32> texture_sizes = {};
         std::vector<u32> readback_mesh = {};
 
+        std::vector<f32> calculated_weights = {};
+
         daxa::TaskBuffer gpu_meshes = {};
+        daxa::TaskBuffer gpu_animated_meshes = {};
+        daxa::TaskBuffer gpu_animated_mesh_vertices_prefix_sum_work_expansion = {};
+        daxa::TaskBuffer gpu_animated_mesh_meshlets_prefix_sum_work_expansion = {};
+        daxa::TaskBuffer gpu_calculated_weights = {};
         daxa::TaskBuffer gpu_materials = {};
         daxa::TaskBuffer gpu_mesh_groups = {};
         daxa::TaskBuffer gpu_mesh_indices = {};
@@ -153,10 +176,13 @@ namespace foundation {
         daxa::TaskBuffer gpu_masked_prefix_sum_work_expansion_mesh = {};
         daxa::TaskBuffer gpu_transparent_prefix_sum_work_expansion_mesh = {};
 
+        usize total_mesh_group_count = {};
+
         usize total_mesh_count = {};
         usize total_opaque_mesh_count = {};
         usize total_masked_mesh_count = {};
         usize total_transparent_mesh_count = {};
+        usize total_animated_mesh_count = {};
 
         usize total_meshlet_count = {};
         usize total_opaque_meshlet_count = {};

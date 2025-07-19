@@ -17,6 +17,9 @@ namespace foundation {
             daxa::TaskBufferView gpu_scene_data = {};
             daxa::TaskBufferView gpu_entities_data = {};
             daxa::TaskBufferView gpu_meshes = {};
+            daxa::TaskBufferView gpu_animated_meshes = {};
+            daxa::TaskBufferView gpu_animated_mesh_vertices_prefix_sum_work_expansion = {};
+            daxa::TaskBufferView gpu_animated_mesh_meshlets_prefix_sum_work_expansion = {};
             daxa::TaskBufferView gpu_materials = {};
             daxa::TaskBufferView gpu_transforms = {};
             daxa::TaskBufferView gpu_mesh_groups = {};

@@ -15,11 +15,20 @@
 #include <graphics/virtual_geometry/tasks/combine_depth.inl>
 #include <graphics/virtual_geometry/tasks/extract_depth.inl>
 #include <graphics/virtual_geometry/tasks/resolve_wboit.inl>
+#include <graphics/virtual_geometry/tasks/skin_animated_meshes.inl>
 
 namespace foundation {
     void VirtualGeometryTasks::register_gpu_metrics(Context* context) {
         context->gpu_metrics[Tasks::CLEAR_DEPTH_IMAGE_U32] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
         context->gpu_metrics[Tasks::CLEAR_VISIBILITY_IMAGE] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
+
+        // animated meshes
+        context->gpu_metrics[AddAnimatedMeshesToPrefixSumWriteCommandTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
+        context->gpu_metrics[AddAnimatedMeshesToPrefixSumTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
+        context->gpu_metrics[SkinAnimatedMeshesWriteCommandTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
+        context->gpu_metrics[SkinAnimatedMeshesTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
+        context->gpu_metrics[CalculateBoundsAnimatedMeshesWriteCommandTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
+        context->gpu_metrics[CalculateBoundsAnimatedMeshesTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
         
         // early pass
         context->gpu_metrics[DrawMeshletsOnlyDepthWriteCommandTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
@@ -59,6 +68,17 @@ namespace foundation {
 
     auto VirtualGeometryTasks::register_performance_metrics() -> std::vector<PerfomanceCategory> {
         std::vector<PerfomanceCategory> performance_categories = {
+            PerfomanceCategory {
+                .name = "skin animated meshes",
+                .counters = {
+                    {AddAnimatedMeshesToPrefixSumWriteCommandTask::name(), "add animated meshes to prefix sum write"},
+                    {AddAnimatedMeshesToPrefixSumTask::name(), "add animated meshes to prefix sum"},
+                    {SkinAnimatedMeshesWriteCommandTask::name(), "skin animated meshes write"},
+                    {SkinAnimatedMeshesTask::name(), "skin animated meshes"},
+                    {CalculateBoundsAnimatedMeshesWriteCommandTask::name(), "calculate bounds animated meshes write"},
+                    {CalculateBoundsAnimatedMeshesTask::name(), "calculate bounds animated meshes"},
+                }
+            },
             PerfomanceCategory {
                 .name = "early pass",
                 .counters = {
@@ -127,6 +147,12 @@ namespace foundation {
 
     auto VirtualGeometryTasks::get_compute_pipelines() -> std::vector<std::pair<std::string_view, daxa::ComputePipelineCompileInfo2>> {
         return {
+            {AddAnimatedMeshesToPrefixSumWriteCommandTask::name(), AddAnimatedMeshesToPrefixSumWriteCommandTask::pipeline_config_info()},
+            {AddAnimatedMeshesToPrefixSumTask::name(), AddAnimatedMeshesToPrefixSumTask::pipeline_config_info()},
+            {SkinAnimatedMeshesWriteCommandTask::name(), SkinAnimatedMeshesWriteCommandTask::pipeline_config_info()},
+            {SkinAnimatedMeshesTask::name(), SkinAnimatedMeshesTask::pipeline_config_info()},
+            {CalculateBoundsAnimatedMeshesWriteCommandTask::name(), CalculateBoundsAnimatedMeshesWriteCommandTask::pipeline_config_info()},
+            {CalculateBoundsAnimatedMeshesTask::name(), CalculateBoundsAnimatedMeshesTask::pipeline_config_info()},
             {CullMeshletsOpaqueWriteCommandTask::name(), CullMeshletsOpaqueWriteCommandTask::pipeline_config_info()},
             {CullMeshletsOpaqueTask::name(), CullMeshletsOpaqueTask::pipeline_config_info()},
             {CullMeshletsMaskedWriteCommandTask::name(), CullMeshletsMaskedWriteCommandTask::pipeline_config_info()},
@@ -154,6 +180,58 @@ namespace foundation {
         auto u_command = info.task_graph.create_transient_buffer(daxa::TaskTransientBufferInfo {
             .size = s_cast<u32>(glm::max(sizeof(DispatchIndirectStruct), sizeof(DrawIndirectStruct))),
             .name = "command",
+        });
+
+        info.task_graph.add_task(AddAnimatedMeshesToPrefixSumWriteCommandTask {
+            .views = AddAnimatedMeshesToPrefixSumWriteCommandTask::Views {
+                .u_animated_meshes = info.gpu_animated_meshes,
+                .u_command = u_command
+            },
+            .context = info.context,
+        });
+
+        info.task_graph.add_task(AddAnimatedMeshesToPrefixSumTask {
+            .views = AddAnimatedMeshesToPrefixSumTask::Views {
+                .u_animated_meshes = info.gpu_animated_meshes,
+                .u_animated_mesh_vertices_prefix_sum_work_expansion = info.gpu_animated_mesh_vertices_prefix_sum_work_expansion,
+                .u_animated_mesh_meshlets_prefix_sum_work_expansion = info.gpu_animated_mesh_meshlets_prefix_sum_work_expansion,
+                .u_command = u_command
+            },
+            .context = info.context,
+        });
+
+        info.task_graph.add_task(SkinAnimatedMeshesWriteCommandTask {
+            .views = SkinAnimatedMeshesWriteCommandTask::Views {
+                .u_animated_mesh_vertices_prefix_sum_work_expansion = info.gpu_animated_mesh_vertices_prefix_sum_work_expansion,
+                .u_command = u_command
+            },
+            .context = info.context,
+        });
+
+        info.task_graph.add_task(SkinAnimatedMeshesTask {
+            .views = SkinAnimatedMeshesTask::Views {
+                .u_animated_meshes = info.gpu_animated_meshes,
+                .u_animated_mesh_vertices_prefix_sum_work_expansion = info.gpu_animated_mesh_vertices_prefix_sum_work_expansion,
+                .u_command = u_command
+            },
+            .context = info.context,
+        });
+
+        info.task_graph.add_task(CalculateBoundsAnimatedMeshesWriteCommandTask {
+            .views = CalculateBoundsAnimatedMeshesWriteCommandTask::Views {
+                .u_animated_mesh_meshlets_prefix_sum_work_expansion = info.gpu_animated_mesh_meshlets_prefix_sum_work_expansion,
+                .u_command = u_command
+            },
+            .context = info.context,
+        });
+
+        info.task_graph.add_task(CalculateBoundsAnimatedMeshesTask {
+            .views = CalculateBoundsAnimatedMeshesTask::Views {
+                .u_animated_meshes = info.gpu_animated_meshes,
+                .u_animated_mesh_meshlets_prefix_sum_work_expansion = info.gpu_animated_mesh_meshlets_prefix_sum_work_expansion,
+                .u_command = u_command,
+            },
+            .context = info.context,
         });
 
         info.task_graph.add_task({

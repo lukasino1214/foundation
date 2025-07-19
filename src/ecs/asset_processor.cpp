@@ -130,6 +130,7 @@ namespace foundation {
             binary_meshes.reserve(binary_meshes.size() + gltf_mesh.primitives.size());
             
             bool has_morph_targets = false;
+            u32 max_morph_target_count = {};
 
             for(u32 primitive_index = 0; primitive_index < gltf_mesh.primitives.size(); primitive_index++) {
                 std::vector<std::byte> compressed_data = {};
@@ -153,6 +154,14 @@ namespace foundation {
                     for(const auto& meshlet : processed_mesh_info.meshlets) {
                         triangle_count += meshlet.triangle_count;
                     }
+
+                    has_morph_targets |= !processed_mesh_info.morph_target_positions.empty();
+                    has_morph_targets |= !processed_mesh_info.morph_target_normals.empty();
+                    has_morph_targets |= !processed_mesh_info.morph_target_uvs.empty();
+
+                    max_morph_target_count = std::max(max_morph_target_count, s_cast<u32>(processed_mesh_info.morph_target_positions.size() / processed_mesh_info.positions.size()));
+                    max_morph_target_count = std::max(max_morph_target_count, s_cast<u32>(processed_mesh_info.morph_target_normals.size() / processed_mesh_info.normals.size()));
+                    max_morph_target_count = std::max(max_morph_target_count, s_cast<u32>(processed_mesh_info.morph_target_uvs.size() / processed_mesh_info.uvs.size()));
 
                     ByteWriter mesh_writer = {};
                     mesh_writer.write(processed_mesh_info);
@@ -189,9 +198,17 @@ namespace foundation {
 
             std::vector<f32> weights = {};
             weights.reserve(gltf_mesh.weights.size());
-            for(f32 v : gltf_mesh.weights) {
-                weights.push_back(v);
+
+            if(gltf_mesh.weights.empty()) {
+                for(f32 v : gltf_mesh.weights) {
+                    weights.push_back(v);
+                }
+            } else {
+                for(u32 i = 0; i < max_morph_target_count; i++) {
+                    weights.push_back(0.0f);
+                }
             }
+
             
             binary_mesh_groups.push_back({
                 .mesh_offset = mesh_offset,
@@ -1742,7 +1759,7 @@ namespace foundation {
     void AssetProcessor::load_gltf_mesh(const LoadMeshInfo& info) {
         PROFILE_SCOPE;
 
-        Mesh mesh = {};
+        MeshGeometryData mesh_geometry_data = {};
 
         // Mesh mesh = info.old_mesh;
         // mesh.mesh_buffer = {};
@@ -1773,19 +1790,26 @@ namespace foundation {
 
             {
                 PROFILE_ZONE_NAMED(creating_buffer);
-                const u64 total_mesh_buffer_size =
-                    sizeof(Meshlet) * processed_info.meshlets.size() +
-                    sizeof(MeshletBoundingSpheres) * processed_info.bounding_spheres.size() +
-                    sizeof(MeshletSimplificationError) * processed_info.simplification_errors.size() +
-                    sizeof(AABB) * processed_info.aabbs.size() +
-                    sizeof(u8) * processed_info.micro_indices.size() +
-                    sizeof(u32) * processed_info.indirect_vertices.size() +
-                    sizeof(u32) * processed_info.primitive_indices.size() +
-                    sizeof(f32vec3) * processed_info.positions.size() +
-                    sizeof(u32) * processed_info.normals.size() +
-                    sizeof(u32) * processed_info.uvs.size();
 
-                mesh.aabb = processed_info.mesh_aabb; 
+                u64 total_mesh_buffer_size = {};
+                total_mesh_buffer_size += processed_info.meshlets.size() * sizeof(Meshlet);
+                total_mesh_buffer_size += processed_info.simplification_errors.size() * sizeof(MeshletSimplificationError);
+                total_mesh_buffer_size += processed_info.micro_indices.size() * sizeof(u8);
+                total_mesh_buffer_size += processed_info.indirect_vertices.size() * sizeof(u32);
+                total_mesh_buffer_size += processed_info.primitive_indices.size() * sizeof(u32);
+                total_mesh_buffer_size += processed_info.positions.size() * sizeof(f32vec3);
+                total_mesh_buffer_size += processed_info.normals.size() * sizeof(u32);
+                total_mesh_buffer_size += processed_info.uvs.size() * sizeof(u32);
+                total_mesh_buffer_size += processed_info.morph_target_positions.size() * sizeof(f32vec3);
+                total_mesh_buffer_size += processed_info.morph_target_normals.size() * sizeof(u32);
+                total_mesh_buffer_size += processed_info.morph_target_uvs.size() * sizeof(u32);
+                
+                if(!info.is_animated) {
+                    total_mesh_buffer_size += processed_info.bounding_spheres.size() * sizeof(MeshletBoundingSpheres);
+                    total_mesh_buffer_size += processed_info.aabbs.size() * sizeof(AABB);
+                }
+
+                mesh_geometry_data.aabb = processed_info.mesh_aabb; 
 
                 staging_mesh_buffer = context->create_buffer(daxa::BufferInfo {
                     .size = s_cast<daxa::usize>(total_mesh_buffer_size),
@@ -1795,6 +1819,7 @@ namespace foundation {
                 
                 mesh_buffer = context->create_buffer(daxa::BufferInfo {
                     .size = s_cast<daxa::usize>(total_mesh_buffer_size),
+                    .allocate_info = daxa::MemoryFlagBits::DEDICATED_MEMORY,
                     .name = "mesh buffer: " + info.asset_path.filename().string() + " mesh " + std::to_string(info.mesh_group_index) + " primitive " + std::to_string(info.mesh_index)
                 });
             }
@@ -1812,34 +1837,47 @@ namespace foundation {
                     accumulated_offset += vec.size() * sizeof(vec[0]);
                 };
 
-                memcpy_data(mesh.meshlets, processed_info.meshlets);
-                memcpy_data(mesh.bounding_spheres, processed_info.bounding_spheres);
+                memcpy_data(mesh_geometry_data.meshlets, processed_info.meshlets);
 
                 if(processed_info.simplification_errors.empty()) {
-                    mesh.simplification_errors = 0;
+                    mesh_geometry_data.simplification_errors = 0;
                 } else {
-                    memcpy_data(mesh.simplification_errors, processed_info.simplification_errors);
+                    memcpy_data(mesh_geometry_data.simplification_errors, processed_info.simplification_errors);
                 }
                 
-                memcpy_data(mesh.meshlet_aabbs, processed_info.aabbs);
-                memcpy_data(mesh.micro_indices, processed_info.micro_indices);
-                memcpy_data(mesh.indirect_vertices, processed_info.indirect_vertices);
-                memcpy_data(mesh.primitive_indices, processed_info.primitive_indices);
-                memcpy_data(mesh.vertex_positions, processed_info.positions);
-                memcpy_data(mesh.vertex_normals, processed_info.normals);
-                memcpy_data(mesh.vertex_uvs, processed_info.uvs);
+                memcpy_data(mesh_geometry_data.micro_indices, processed_info.micro_indices);
+                memcpy_data(mesh_geometry_data.indirect_vertices, processed_info.indirect_vertices);
+                memcpy_data(mesh_geometry_data.primitive_indices, processed_info.primitive_indices);
+                memcpy_data(mesh_geometry_data.vertex_positions, processed_info.positions);
+                memcpy_data(mesh_geometry_data.vertex_normals, processed_info.normals);
+                memcpy_data(mesh_geometry_data.vertex_uvs, processed_info.uvs);
+                memcpy_data(mesh_geometry_data.morph_target_positions, processed_info.morph_target_positions);
+                memcpy_data(mesh_geometry_data.morph_target_normals, processed_info.morph_target_normals);
+                memcpy_data(mesh_geometry_data.morph_target_uvs, processed_info.morph_target_uvs);
+
+                if(!info.is_animated) {
+                    memcpy_data(mesh_geometry_data.bounding_spheres, processed_info.bounding_spheres);
+                    memcpy_data(mesh_geometry_data.meshlet_aabbs, processed_info.aabbs);
+                } else {    
+                    mesh_geometry_data.bounding_spheres = {};
+                    mesh_geometry_data.meshlet_aabbs = {};
+                }
                 
-                mesh.mesh_buffer = mesh_buffer;
+                mesh_geometry_data.mesh_buffer = mesh_buffer;
 
                 const BinaryMesh& binary_mesh = info.asset->meshes[info.asset->mesh_groups[info.mesh_group_index].mesh_offset + info.mesh_index];
                 if(binary_mesh.material_index.has_value()) {
-                    mesh.material_index = info.material_manifest_offset + binary_mesh.material_index.value();
+                    mesh_geometry_data.material_index = info.material_manifest_offset + binary_mesh.material_index.value();
                 } else {
-                    mesh.material_index = INVALID_ID;
+                    mesh_geometry_data.material_index = INVALID_ID;
                 }
 
-                mesh.meshlet_count = s_cast<u32>(processed_info.meshlets.size());
-                mesh.vertex_count = s_cast<u32>(processed_info.positions.size());
+                
+                mesh_geometry_data.meshlet_count = s_cast<u32>(processed_info.meshlets.size());
+                mesh_geometry_data.vertex_count = s_cast<u32>(processed_info.positions.size());
+                mesh_geometry_data.morph_target_position_count = s_cast<u32>(processed_info.morph_target_positions.size() / processed_info.positions.size());
+                mesh_geometry_data.morph_target_normal_count = s_cast<u32>(processed_info.morph_target_normals.size() / processed_info.normals.size());
+                mesh_geometry_data.morph_target_uv_count = s_cast<u32>(processed_info.morph_target_uvs.size() / processed_info.uvs.size());
             }
         // }
 
@@ -1850,7 +1888,7 @@ namespace foundation {
                 .staging_mesh_buffer = staging_mesh_buffer,
                 .mesh_buffer = mesh_buffer,
                 // .old_buffer = std::bit_cast<daxa::BufferId>(info.old_mesh.mesh_buffer),
-                .mesh = mesh,
+                .mesh_geometry_data = mesh_geometry_data,
                 .manifest_index = info.manifest_index,
                 .material_manifest_offset = info.material_manifest_offset,
             });
