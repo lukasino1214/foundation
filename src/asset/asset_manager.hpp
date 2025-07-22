@@ -1,6 +1,7 @@
 #pragma once
 
 #include "common/thread_pool.hpp"
+#include "gpu_asset_manager_data.hpp"
 #include "pch.hpp"
 #include "graphics/context.hpp"
 #include "asset_processor.hpp"
@@ -138,6 +139,7 @@ namespace foundation {
         Scene* scene;
         ThreadPool* thread_pool;
         AssetProcessor* asset_processor;
+        std::unique_ptr<GPUAssetManagerData> gpu_asset_manager_data = {};
 
         std::vector<AssetManifestEntry> asset_manifest_entries = {};
         std::vector<TextureManifestEntry> texture_manifest_entries = {};
@@ -148,33 +150,13 @@ namespace foundation {
         std::vector<MeshGroupToMeshesMapping> dirty_mesh_groups = {};
         std::vector<u32> dirty_meshes = {};
         std::vector<u32> dirty_animated_meshes = {};
+        std::vector<u32> dirty_materials = {};
 
         std::vector<u32> readback_material = {};
         std::vector<u32> texture_sizes = {};
         std::vector<u32> readback_mesh = {};
 
         std::vector<f32> calculated_weights = {};
-
-        daxa::TaskBuffer gpu_meshes = {};
-        daxa::TaskBuffer gpu_animated_meshes = {};
-        daxa::TaskBuffer gpu_animated_mesh_vertices_prefix_sum_work_expansion = {};
-        daxa::TaskBuffer gpu_animated_mesh_meshlets_prefix_sum_work_expansion = {};
-        daxa::TaskBuffer gpu_calculated_weights = {};
-        daxa::TaskBuffer gpu_materials = {};
-        daxa::TaskBuffer gpu_mesh_groups = {};
-        daxa::TaskBuffer gpu_mesh_indices = {};
-        daxa::TaskBuffer gpu_meshlets_instance_data = {};
-        daxa::TaskBuffer gpu_meshlets_data_merged_opaque = {};
-        daxa::TaskBuffer gpu_meshlets_data_merged_masked = {};
-        daxa::TaskBuffer gpu_meshlets_data_merged_transparent = {};
-        daxa::TaskBuffer gpu_culled_meshes_data = {};
-        daxa::TaskBuffer gpu_readback_material_gpu = {};
-        daxa::TaskBuffer gpu_readback_material_cpu = {};
-        daxa::TaskBuffer gpu_readback_mesh_gpu = {};
-        daxa::TaskBuffer gpu_readback_mesh_cpu = {};
-        daxa::TaskBuffer gpu_opaque_prefix_sum_work_expansion_mesh = {};
-        daxa::TaskBuffer gpu_masked_prefix_sum_work_expansion_mesh = {};
-        daxa::TaskBuffer gpu_transparent_prefix_sum_work_expansion_mesh = {};
 
         usize total_mesh_group_count = {};
 

@@ -22,9 +22,6 @@ struct ResolveWBOITPush {
 
 #if __cplusplus
 #include "graphics/context.hpp"
-#include "ecs/entity.hpp"
-#include "ecs/components.hpp"
-#include "ecs/asset_manager.hpp"
 
 struct ResolveWBOITTask : ResolveWBOIT::Task {
     ResolveWBOIT::Task::AttachmentViews views = {};

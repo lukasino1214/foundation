@@ -44,9 +44,6 @@ struct DrawMeshletsMaskedPush {
 
 #if __cplusplus
 #include "graphics/context.hpp"
-#include "ecs/entity.hpp"
-#include "ecs/components.hpp"
-#include "ecs/asset_manager.hpp"
 
 struct DrawMeshletsMaskedTask : DrawMeshletsMasked::Task {
     DrawMeshletsMasked::Task::AttachmentViews views = {};

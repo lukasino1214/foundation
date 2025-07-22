@@ -12,7 +12,7 @@
 #include <stb_image.h>
 
 namespace foundation {
-    NativeWIndow::NativeWIndow(i32 width, i32 height, std::string_view _name)
+    NativeWindow::NativeWindow(i32 width, i32 height, std::string_view _name)
         : window_state{std::make_unique<WindowState>()},
         name{_name},
         glfw_handle{[&]() {
@@ -103,12 +103,12 @@ namespace foundation {
     #endif //_WIN32
     }
 
-    NativeWIndow::~NativeWIndow() {
+    NativeWindow::~NativeWindow() {
         glfwDestroyWindow(this->glfw_handle);
         glfwTerminate();
     }
 
-    auto NativeWIndow::create_swapchain(daxa::Device& device) const -> daxa::Swapchain {
+    auto NativeWindow::create_swapchain(daxa::Device& device) const -> daxa::Swapchain {
         auto get_native_platform = []() -> daxa::NativeWindowPlatform {
             switch (glfwGetPlatform()) {
                 case GLFW_PLATFORM_WIN32:
@@ -154,61 +154,61 @@ namespace foundation {
         });
     }
 
-    auto NativeWIndow::get_name() const -> const std::string & {
+    auto NativeWindow::get_name() const -> const std::string & {
         return this->name;
     }
 
-    auto NativeWIndow::is_focused() const -> bool {
+    auto NativeWindow::is_focused() const -> bool {
         return this->window_state->focused;
     }
 
-    auto NativeWIndow::key_pressed(Key key) const -> bool {
+    auto NativeWindow::key_pressed(Key key) const -> bool {
         return window_state->key_down[s_cast<u32>(key)];
     }
 
-    auto NativeWIndow::key_just_pressed(Key key) const -> bool {
+    auto NativeWindow::key_just_pressed(Key key) const -> bool {
         return !this->window_state->key_down_old[s_cast<u32>(key)] && this->window_state->key_down[s_cast<u32>(key)];
     }
 
-    auto NativeWIndow::key_just_released(Key key) const -> bool {
+    auto NativeWindow::key_just_released(Key key) const -> bool {
         return this->window_state->key_down_old[s_cast<u32>(key)] && !this->window_state->key_down[s_cast<u32>(key)];
     }
 
-    auto NativeWIndow::button_pressed(Button button) const -> bool {
+    auto NativeWindow::button_pressed(Button button) const -> bool {
         return this->window_state->mouse_button_down[s_cast<u32>(button)];
     }
 
-    auto NativeWIndow::button_just_pressed(Button button) const -> bool {
+    auto NativeWindow::button_just_pressed(Button button) const -> bool {
         return !this->window_state->mouse_button_down_old[s_cast<u32>(button)] && this->window_state->mouse_button_down[s_cast<u32>(button)];
     }
 
-    auto NativeWIndow::button_just_released(Button button) const -> bool {
+    auto NativeWindow::button_just_released(Button button) const -> bool {
         return this->window_state->mouse_button_down_old[s_cast<u32>(button)] && !this->window_state->mouse_button_down[s_cast<u32>(button)];
     }
 
-    auto NativeWIndow::get_cursor_x() const -> i32 {
+    auto NativeWindow::get_cursor_x() const -> i32 {
         f64 x = {};
         f64 y = {};
         glfwGetCursorPos(this->glfw_handle, &x, &y);
         return s_cast<i32>(std::floor(x));
     }
 
-    auto NativeWIndow::get_cursor_y() const -> i32 {
+    auto NativeWindow::get_cursor_y() const -> i32 {
         f64 x = {};
         f64 y = {};
         glfwGetCursorPos(this->glfw_handle, &x, &y);
         return s_cast<i32>(std::floor(y));
     }
 
-    auto NativeWIndow::get_cursor_change_x() const -> i32 {
+    auto NativeWindow::get_cursor_change_x() const -> i32 {
         return this->window_state->cursor_change_x;
     }
 
-    auto NativeWIndow::get_cursor_change_y() const -> i32 {
+    auto NativeWindow::get_cursor_change_y() const -> i32 {
         return this->window_state->cursor_change_y;
     }
 
-    auto NativeWIndow::is_cursor_over_window() const -> bool {
+    auto NativeWindow::is_cursor_over_window() const -> bool {
         f64 x = {};
         f64 y = {};
         glfwGetCursorPos(this->glfw_handle, &x, &y);
@@ -218,19 +218,19 @@ namespace foundation {
         return x >= 0 && x <= width && y >= 0 && y <= height;
     }
 
-    void NativeWIndow::capture_cursor() const {
+    void NativeWindow::capture_cursor() const {
         glfwSetInputMode(this->glfw_handle, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
     }
 
-    void NativeWIndow::release_cursor() const {
+    void NativeWindow::release_cursor() const {
         glfwSetInputMode(this->glfw_handle, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
     }
 
-    auto NativeWIndow::is_cursor_captured() const -> bool {
+    auto NativeWindow::is_cursor_captured() const -> bool {
         return glfwGetInputMode(this->glfw_handle, GLFW_CURSOR) == GLFW_CURSOR_DISABLED;
     }
 
-    auto NativeWIndow::update() const -> bool {
+    auto NativeWindow::update() const -> bool {
         this->window_state->key_down_old = this->window_state->key_down;
         this->window_state->mouse_button_down_old = this->window_state->mouse_button_down;
         this->window_state->old_cursor_pos_x = this->get_cursor_x();
@@ -245,28 +245,28 @@ namespace foundation {
         return this->window_state->close_requested;
     }
 
-    void NativeWIndow::set_width(u32 width) const {
+    void NativeWindow::set_width(u32 width) const {
         i32 old_width = {};
         i32 old_height = {};
         glfwGetWindowSize(this->glfw_handle, &old_width, &old_height);
         glfwSetWindowSize(this->glfw_handle, s_cast<i32>(width), old_height);
     }
 
-    void NativeWIndow::set_height(u32 height) const {
+    void NativeWindow::set_height(u32 height) const {
         i32 old_width = {};
         i32 old_height = {};
         glfwGetWindowSize(this->glfw_handle, &old_width, &old_height);
         glfwSetWindowSize(this->glfw_handle, old_width, s_cast<i32>(height));
     }
 
-    auto NativeWIndow::get_width() const -> u32 {
+    auto NativeWindow::get_width() const -> u32 {
         i32 width = {};
         i32 height = {};
         glfwGetWindowSize(this->glfw_handle, &width, &height);
         return s_cast<u32>(width);
     }
 
-    auto NativeWIndow::get_height() const -> u32 {
+    auto NativeWindow::get_height() const -> u32 {
         i32 width = {};
         i32 height = {};
         glfwGetWindowSize(this->glfw_handle, &width, &height);

@@ -5,7 +5,7 @@
 #include <sol/sol.hpp>
 
 struct Entity;
-struct NativeWIndow;
+struct NativeWindow;
 struct Physics;
 
 namespace foundation {

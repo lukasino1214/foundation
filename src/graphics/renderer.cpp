@@ -16,7 +16,7 @@ namespace foundation {
         static inline constexpr std::string_view IMGUI_DRAW = "imgui draw";
     };
 
-    Renderer::Renderer(NativeWIndow* _window, Context* _context, Scene* _scene, AssetManager* _asset_manager) 
+    Renderer::Renderer(NativeWindow* _window, Context* _context, Scene* _scene, AssetManager* _asset_manager) 
         : window{_window}, context{_context}, scene{_scene}, asset_manager{_asset_manager} {
         ImGui::CreateContext();
         ImGui_ImplGlfw_InitForVulkan(window->glfw_handle, true);
@@ -115,12 +115,6 @@ namespace foundation {
             },
         };
 
-        mouse_selection_readback = make_task_buffer(context, daxa::BufferInfo {
-            .size = sizeof(MouseSelectionReadback),
-            .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
-            .name = "mouse selection readback"
-        });
-
         sun_light_buffer = make_task_buffer(context, daxa::BufferInfo {
             .size = sizeof(SunLight),
             .allocate_info = daxa::MemoryFlagBits::DEDICATED_MEMORY,
@@ -140,7 +134,6 @@ namespace foundation {
         });
 
         buffers = {
-            mouse_selection_readback,
             sun_light_buffer,
             point_light_buffer,
             spot_light_buffer,
@@ -473,33 +466,31 @@ namespace foundation {
 
         render_task_graph.use_persistent_buffer(shader_globals_buffer);
         render_task_graph.use_persistent_buffer(scene->gpu_transforms_pool.task_buffer);
-        render_task_graph.use_persistent_buffer(asset_manager->gpu_materials);
         render_task_graph.use_persistent_buffer(scene->gpu_scene_data);
         render_task_graph.use_persistent_buffer(scene->gpu_entities_data_pool.task_buffer);
-        render_task_graph.use_persistent_buffer(asset_manager->gpu_mesh_groups);
-        render_task_graph.use_persistent_buffer(asset_manager->gpu_mesh_indices);
-        render_task_graph.use_persistent_buffer(asset_manager->gpu_meshes);
-        render_task_graph.use_persistent_buffer(asset_manager->gpu_animated_meshes);
-        render_task_graph.use_persistent_buffer(asset_manager->gpu_animated_mesh_vertices_prefix_sum_work_expansion);
-        render_task_graph.use_persistent_buffer(asset_manager->gpu_animated_mesh_meshlets_prefix_sum_work_expansion);
-        render_task_graph.use_persistent_buffer(asset_manager->gpu_meshlets_instance_data);
-        render_task_graph.use_persistent_buffer(asset_manager->gpu_meshlets_data_merged_opaque);
-        render_task_graph.use_persistent_buffer(asset_manager->gpu_meshlets_data_merged_masked);
-        render_task_graph.use_persistent_buffer(asset_manager->gpu_meshlets_data_merged_transparent);
-        render_task_graph.use_persistent_buffer(asset_manager->gpu_culled_meshes_data);
-        render_task_graph.use_persistent_buffer(asset_manager->gpu_readback_material_gpu);
-        render_task_graph.use_persistent_buffer(asset_manager->gpu_readback_material_cpu);
-        render_task_graph.use_persistent_buffer(asset_manager->gpu_readback_mesh_gpu);
-        render_task_graph.use_persistent_buffer(asset_manager->gpu_readback_mesh_cpu);
-        render_task_graph.use_persistent_buffer(asset_manager->gpu_opaque_prefix_sum_work_expansion_mesh);
-        render_task_graph.use_persistent_buffer(asset_manager->gpu_masked_prefix_sum_work_expansion_mesh);
-        render_task_graph.use_persistent_buffer(asset_manager->gpu_transparent_prefix_sum_work_expansion_mesh);
+        render_task_graph.use_persistent_buffer(asset_manager->gpu_asset_manager_data->gpu_materials);
+        render_task_graph.use_persistent_buffer(asset_manager->gpu_asset_manager_data->gpu_mesh_groups);
+        render_task_graph.use_persistent_buffer(asset_manager->gpu_asset_manager_data->gpu_mesh_indices);
+        render_task_graph.use_persistent_buffer(asset_manager->gpu_asset_manager_data->gpu_meshes);
+        render_task_graph.use_persistent_buffer(asset_manager->gpu_asset_manager_data->gpu_animated_meshes);
+        render_task_graph.use_persistent_buffer(asset_manager->gpu_asset_manager_data->gpu_animated_mesh_vertices_prefix_sum_work_expansion);
+        render_task_graph.use_persistent_buffer(asset_manager->gpu_asset_manager_data->gpu_animated_mesh_meshlets_prefix_sum_work_expansion);
+        render_task_graph.use_persistent_buffer(asset_manager->gpu_asset_manager_data->gpu_meshlets_instance_data);
+        render_task_graph.use_persistent_buffer(asset_manager->gpu_asset_manager_data->gpu_meshlets_data_merged_opaque);
+        render_task_graph.use_persistent_buffer(asset_manager->gpu_asset_manager_data->gpu_meshlets_data_merged_masked);
+        render_task_graph.use_persistent_buffer(asset_manager->gpu_asset_manager_data->gpu_meshlets_data_merged_transparent);
+        render_task_graph.use_persistent_buffer(asset_manager->gpu_asset_manager_data->gpu_culled_meshes_data);
+        render_task_graph.use_persistent_buffer(asset_manager->gpu_asset_manager_data->gpu_readback_material_gpu);
+        render_task_graph.use_persistent_buffer(asset_manager->gpu_asset_manager_data->gpu_readback_material_cpu);
+        render_task_graph.use_persistent_buffer(asset_manager->gpu_asset_manager_data->gpu_readback_mesh_gpu);
+        render_task_graph.use_persistent_buffer(asset_manager->gpu_asset_manager_data->gpu_readback_mesh_cpu);
+        render_task_graph.use_persistent_buffer(asset_manager->gpu_asset_manager_data->gpu_opaque_prefix_sum_work_expansion_mesh);
+        render_task_graph.use_persistent_buffer(asset_manager->gpu_asset_manager_data->gpu_masked_prefix_sum_work_expansion_mesh);
+        render_task_graph.use_persistent_buffer(asset_manager->gpu_asset_manager_data->gpu_transparent_prefix_sum_work_expansion_mesh);
 
         render_task_graph.use_persistent_buffer(sun_light_buffer);
         render_task_graph.use_persistent_buffer(point_light_buffer);
         render_task_graph.use_persistent_buffer(spot_light_buffer);
-
-        render_task_graph.use_persistent_buffer(mouse_selection_readback);
 
         render_task_graph.add_task({
             .attachments = {
@@ -526,16 +517,16 @@ namespace foundation {
 
         render_task_graph.add_task({
             .attachments = {
-                daxa::inl_attachment(daxa::TaskBufferAccess::TRANSFER_READ, asset_manager->gpu_readback_material_cpu),
-                daxa::inl_attachment(daxa::TaskBufferAccess::TRANSFER_READ, asset_manager->gpu_readback_mesh_cpu),
+                daxa::inl_attachment(daxa::TaskBufferAccess::TRANSFER_READ, asset_manager->gpu_asset_manager_data->gpu_readback_material_cpu),
+                daxa::inl_attachment(daxa::TaskBufferAccess::TRANSFER_READ, asset_manager->gpu_asset_manager_data->gpu_readback_mesh_cpu),
             },
             .task = [&](daxa::TaskInterface const &ti) {
                 context->gpu_metrics[MiscellaneousTasks::READBACK_RAM]->start(ti.recorder);
 
-                std::memcpy(asset_manager->readback_material.data(), context->device.buffer_host_address(ti.get(asset_manager->gpu_readback_material_cpu).ids[0]).value(), asset_manager->readback_material.size() * sizeof(u32));
+                std::memcpy(asset_manager->readback_material.data(), context->device.buffer_host_address(ti.get(asset_manager->gpu_asset_manager_data->gpu_readback_material_cpu).ids[0]).value(), asset_manager->readback_material.size() * sizeof(u32));
                 for(u32 i = 0; i < asset_manager->readback_material.size(); i++) { asset_manager->readback_material[i] = (1 << find_msb(asset_manager->readback_material[i])) >> 1; }
 
-                std::memcpy(asset_manager->readback_mesh.data(), context->device.buffer_host_address(ti.get(asset_manager->gpu_readback_mesh_cpu).ids[0]).value(), asset_manager->readback_mesh.size() * sizeof(u32));
+                std::memcpy(asset_manager->readback_mesh.data(), context->device.buffer_host_address(ti.get(asset_manager->gpu_asset_manager_data->gpu_readback_mesh_cpu).ids[0]).value(), asset_manager->readback_mesh.size() * sizeof(u32));
                 
                 context->gpu_metrics[MiscellaneousTasks::READBACK_RAM]->end(ti.recorder);
             },
@@ -559,25 +550,24 @@ namespace foundation {
             .task_graph = render_task_graph,
             .gpu_scene_data = scene->gpu_scene_data,
             .gpu_entities_data = scene->gpu_entities_data_pool.task_buffer,
-            .gpu_meshes = asset_manager->gpu_meshes,
-            .gpu_animated_meshes = asset_manager->gpu_animated_meshes,
-            .gpu_animated_mesh_vertices_prefix_sum_work_expansion = asset_manager->gpu_animated_mesh_vertices_prefix_sum_work_expansion,
-            .gpu_animated_mesh_meshlets_prefix_sum_work_expansion = asset_manager->gpu_animated_mesh_meshlets_prefix_sum_work_expansion,
-            .gpu_materials = asset_manager->gpu_materials,
+            .gpu_meshes = asset_manager->gpu_asset_manager_data->gpu_meshes,
+            .gpu_animated_meshes = asset_manager->gpu_asset_manager_data->gpu_animated_meshes,
+            .gpu_animated_mesh_vertices_prefix_sum_work_expansion = asset_manager->gpu_asset_manager_data->gpu_animated_mesh_vertices_prefix_sum_work_expansion,
+            .gpu_animated_mesh_meshlets_prefix_sum_work_expansion = asset_manager->gpu_asset_manager_data->gpu_animated_mesh_meshlets_prefix_sum_work_expansion,
+            .gpu_materials = asset_manager->gpu_asset_manager_data->gpu_materials,
             .gpu_transforms = scene->gpu_transforms_pool.task_buffer,
-            .gpu_mesh_groups = asset_manager->gpu_mesh_groups,
-            .gpu_mesh_indices = asset_manager->gpu_mesh_indices,
-            .gpu_meshlets_instance_data = asset_manager->gpu_meshlets_instance_data,
-            .gpu_meshlets_data_merged_opaque = asset_manager->gpu_meshlets_data_merged_opaque,
-            .gpu_meshlets_data_merged_masked = asset_manager->gpu_meshlets_data_merged_masked,
-            .gpu_meshlets_data_merged_transparent = asset_manager->gpu_meshlets_data_merged_transparent,
-            .gpu_culled_meshes_data = asset_manager->gpu_culled_meshes_data,
-            .gpu_readback_material = asset_manager->gpu_readback_material_gpu,
-            .gpu_readback_mesh = asset_manager->gpu_readback_mesh_gpu,
-            .gpu_opaque_prefix_sum_work_expansion_mesh = asset_manager->gpu_opaque_prefix_sum_work_expansion_mesh,
-            .gpu_masked_prefix_sum_work_expansion_mesh = asset_manager->gpu_masked_prefix_sum_work_expansion_mesh,
-            .gpu_transparent_prefix_sum_work_expansion_mesh = asset_manager->gpu_transparent_prefix_sum_work_expansion_mesh,
-            .gpu_mouse_selection_readback = mouse_selection_readback,
+            .gpu_mesh_groups = asset_manager->gpu_asset_manager_data->gpu_mesh_groups,
+            .gpu_mesh_indices = asset_manager->gpu_asset_manager_data->gpu_mesh_indices,
+            .gpu_meshlets_instance_data = asset_manager->gpu_asset_manager_data->gpu_meshlets_instance_data,
+            .gpu_meshlets_data_merged_opaque = asset_manager->gpu_asset_manager_data->gpu_meshlets_data_merged_opaque,
+            .gpu_meshlets_data_merged_masked = asset_manager->gpu_asset_manager_data->gpu_meshlets_data_merged_masked,
+            .gpu_meshlets_data_merged_transparent = asset_manager->gpu_asset_manager_data->gpu_meshlets_data_merged_transparent,
+            .gpu_culled_meshes_data = asset_manager->gpu_asset_manager_data->gpu_culled_meshes_data,
+            .gpu_readback_material = asset_manager->gpu_asset_manager_data->gpu_readback_material_gpu,
+            .gpu_readback_mesh = asset_manager->gpu_asset_manager_data->gpu_readback_mesh_gpu,
+            .gpu_opaque_prefix_sum_work_expansion_mesh = asset_manager->gpu_asset_manager_data->gpu_opaque_prefix_sum_work_expansion_mesh,
+            .gpu_masked_prefix_sum_work_expansion_mesh = asset_manager->gpu_asset_manager_data->gpu_masked_prefix_sum_work_expansion_mesh,
+            .gpu_transparent_prefix_sum_work_expansion_mesh = asset_manager->gpu_asset_manager_data->gpu_transparent_prefix_sum_work_expansion_mesh,
             .gpu_sun_light_buffer = sun_light_buffer,
             .gpu_point_light_buffer = point_light_buffer,
             .gpu_spot_light_buffer = spot_light_buffer,
@@ -644,56 +634,43 @@ namespace foundation {
 
         render_task_graph.add_task({
             .attachments = {
-                daxa::inl_attachment(daxa::TaskBufferAccess::TRANSFER_WRITE, asset_manager->gpu_readback_material_cpu),
-                daxa::inl_attachment(daxa::TaskBufferAccess::TRANSFER_READ, asset_manager->gpu_readback_material_gpu),
-                daxa::inl_attachment(daxa::TaskBufferAccess::TRANSFER_WRITE, asset_manager->gpu_readback_mesh_cpu),
-                daxa::inl_attachment(daxa::TaskBufferAccess::TRANSFER_READ, asset_manager->gpu_readback_mesh_gpu),
+                daxa::inl_attachment(daxa::TaskBufferAccess::TRANSFER_WRITE, asset_manager->gpu_asset_manager_data->gpu_readback_material_cpu),
+                daxa::inl_attachment(daxa::TaskBufferAccess::TRANSFER_READ, asset_manager->gpu_asset_manager_data->gpu_readback_material_gpu),
+                daxa::inl_attachment(daxa::TaskBufferAccess::TRANSFER_WRITE, asset_manager->gpu_asset_manager_data->gpu_readback_mesh_cpu),
+                daxa::inl_attachment(daxa::TaskBufferAccess::TRANSFER_READ, asset_manager->gpu_asset_manager_data->gpu_readback_mesh_gpu),
             },
             .task = [&](daxa::TaskInterface const &ti) {
                 context->gpu_metrics[MiscellaneousTasks::READBACK_COPY]->start(ti.recorder);
                 ti.recorder.copy_buffer_to_buffer(daxa::BufferCopyInfo {
-                    .src_buffer = ti.get(asset_manager->gpu_readback_material_gpu).ids[0],
-                    .dst_buffer = ti.get(asset_manager->gpu_readback_material_cpu).ids[0],
+                    .src_buffer = ti.get(asset_manager->gpu_asset_manager_data->gpu_readback_material_gpu).ids[0],
+                    .dst_buffer = ti.get(asset_manager->gpu_asset_manager_data->gpu_readback_material_cpu).ids[0],
                     .src_offset = {},
                     .dst_offset = {},
-                    .size = context->device.buffer_info(ti.get(asset_manager->gpu_readback_material_gpu).ids[0]).value().size,
+                    .size = context->device.buffer_info(ti.get(asset_manager->gpu_asset_manager_data->gpu_readback_material_gpu).ids[0]).value().size,
                 });
                 ti.recorder.clear_buffer(daxa::BufferClearInfo {
-                    .buffer = ti.get(asset_manager->gpu_readback_material_gpu).ids[0],
+                    .buffer = ti.get(asset_manager->gpu_asset_manager_data->gpu_readback_material_gpu).ids[0],
                     .offset = {},
-                    .size = context->device.buffer_info(ti.get(asset_manager->gpu_readback_material_gpu).ids[0]).value().size,
+                    .size = context->device.buffer_info(ti.get(asset_manager->gpu_asset_manager_data->gpu_readback_material_gpu).ids[0]).value().size,
                     .clear_value = 0
                 });
 
                 ti.recorder.copy_buffer_to_buffer(daxa::BufferCopyInfo {
-                    .src_buffer = ti.get(asset_manager->gpu_readback_mesh_gpu).ids[0],
-                    .dst_buffer = ti.get(asset_manager->gpu_readback_mesh_cpu).ids[0],
+                    .src_buffer = ti.get(asset_manager->gpu_asset_manager_data->gpu_readback_mesh_gpu).ids[0],
+                    .dst_buffer = ti.get(asset_manager->gpu_asset_manager_data->gpu_readback_mesh_cpu).ids[0],
                     .src_offset = {},
                     .dst_offset = {},
-                    .size = context->device.buffer_info(ti.get(asset_manager->gpu_readback_mesh_gpu).ids[0]).value().size,
+                    .size = context->device.buffer_info(ti.get(asset_manager->gpu_asset_manager_data->gpu_readback_mesh_gpu).ids[0]).value().size,
                 });
                 ti.recorder.clear_buffer(daxa::BufferClearInfo {
-                    .buffer = ti.get(asset_manager->gpu_readback_mesh_gpu).ids[0],
+                    .buffer = ti.get(asset_manager->gpu_asset_manager_data->gpu_readback_mesh_gpu).ids[0],
                     .offset = {},
-                    .size = context->device.buffer_info(ti.get(asset_manager->gpu_readback_mesh_gpu).ids[0]).value().size,
+                    .size = context->device.buffer_info(ti.get(asset_manager->gpu_asset_manager_data->gpu_readback_mesh_gpu).ids[0]).value().size,
                     .clear_value = 0
                 });
                 context->gpu_metrics[MiscellaneousTasks::READBACK_COPY]->end(ti.recorder);
             },
             .name = std::string{MiscellaneousTasks::READBACK_COPY},
-        });
-
-        render_task_graph.add_task({
-            .attachments = {
-                daxa::inl_attachment(daxa::TaskBufferAccess::TRANSFER_WRITE, mouse_selection_readback),
-            },
-            .task = [&](daxa::TaskInterface const &ti) {
-                auto readback = *context->device.buffer_host_address_as<MouseSelectionReadback>(ti.get(mouse_selection_readback).ids[0]).value();
-                if(context->shader_globals.mouse_selection_readback.state == 1) {
-                    context->shader_globals.mouse_selection_readback.id = readback.id;
-                }
-            },
-            .name = "mouse selection readback",
         });
 
         render_task_graph.submit({});

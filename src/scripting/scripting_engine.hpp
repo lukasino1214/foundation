@@ -3,10 +3,10 @@
 namespace foundation {
     struct ScriptComponent;
     struct Entity;
-    struct NativeWIndow;
+    struct NativeWindow;
     
     struct ScriptingEngine {
-        NativeWIndow* window = {};
+        NativeWindow* window = {};
         void init_script(ScriptComponent* script, Entity entity, const std::filesystem::path& path);
     };
 }

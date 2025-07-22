@@ -21,9 +21,6 @@ struct ExtractDepthPush {
 
 #if __cplusplus
 #include "graphics/context.hpp"
-#include "ecs/entity.hpp"
-#include "ecs/components.hpp"
-#include "ecs/asset_manager.hpp"
 
 struct ExtractDepthTask : ExtractDepth::Task {
     ExtractDepth::Task::AttachmentViews views = {};

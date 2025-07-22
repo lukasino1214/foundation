@@ -77,7 +77,7 @@ namespace foundation {
         upload_draws(head.line_draw_indirect_info, line_draws, head.line_draws);
     }
 
-    Context::Context(const NativeWIndow &window)
+    Context::Context(const NativeWindow &window)
         : instance{daxa::create_instance({})},
             device{[&](){
                 daxa::ImplicitFeatureFlags required_implicit = 

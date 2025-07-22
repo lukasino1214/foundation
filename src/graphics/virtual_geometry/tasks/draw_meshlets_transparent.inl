@@ -49,9 +49,6 @@ struct DrawMeshletsTransparentPush {
 
 #if __cplusplus
 #include "graphics/context.hpp"
-#include "ecs/entity.hpp"
-#include "ecs/components.hpp"
-#include "ecs/asset_manager.hpp"
 
 struct DrawMeshletsTransparentTask : DrawMeshletsTransparent::Task {
     DrawMeshletsTransparent::Task::AttachmentViews views = {};

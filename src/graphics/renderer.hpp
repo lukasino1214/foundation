@@ -1,6 +1,6 @@
 #pragma once
 
-#include "ecs/asset_manager.hpp"
+#include <asset/asset_manager.hpp>
 #include "ecs/scene.hpp"
 #include <graphics/window.hpp>
 #include <graphics/context.hpp>
@@ -9,7 +9,7 @@
 
 namespace foundation {
     struct Renderer {
-        Renderer(NativeWIndow* _window, Context* _context, Scene* _scene, AssetManager* _asset_manager);
+        Renderer(NativeWindow* _window, Context* _context, Scene* _scene, AssetManager* _asset_manager);
         ~Renderer();
 
         void render();
@@ -24,7 +24,7 @@ namespace foundation {
         void compile_pipelines();
         void rebuild_task_graph();
 
-        NativeWIndow* window = {};
+        NativeWindow* window = {};
         Context* context = {};
         Scene* scene = {};
         AssetManager* asset_manager = {};
@@ -42,7 +42,6 @@ namespace foundation {
         std::vector<daxa::TaskImage> images = {};
         std::vector<std::pair<daxa::ImageInfo, daxa::TaskImage>> frame_buffer_images = {};
 
-        daxa::TaskBuffer mouse_selection_readback = {};
         daxa::TaskBuffer sun_light_buffer = {};
         daxa::TaskBuffer point_light_buffer = {};
         daxa::TaskBuffer spot_light_buffer = {};

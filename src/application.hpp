@@ -1,8 +1,8 @@
 #pragma once
 
 #include <ui/ui.hpp>
-#include "ecs/asset_manager.hpp"
-#include "ecs/asset_processor.hpp"
+#include <asset/asset_manager.hpp>
+#include <asset/asset_processor.hpp>
 #include "ecs/scene.hpp"
 #include "ui/panels/file_browser.hpp"
 #include "ui/panels/viewport_panel.hpp"
@@ -24,7 +24,7 @@ namespace foundation {
         void update();
         void ui_update();
 
-        NativeWIndow window;
+        NativeWindow window;
         Context context;
         FileWatcher file_watcher = {};
         ScriptingEngine scripting_engine = {};

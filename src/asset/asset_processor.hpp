@@ -3,7 +3,7 @@
 #include <mutex>
 #include "graphics/context.hpp"
 #include <fastgltf/types.hpp>
-#include <ecs/binary_assets.hpp>
+#include <asset/binary_assets.hpp>
 
 namespace foundation {
     struct ProcessedMeshInfo {

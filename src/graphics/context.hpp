@@ -80,7 +80,7 @@ namespace foundation {
     };
 
     struct Context {
-        Context(const NativeWIndow& window);
+        Context(const NativeWindow& window);
         ~Context();
         
         daxa::Instance instance = {};
