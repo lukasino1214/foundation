@@ -9,10 +9,10 @@
 #include "../../../shader_library/shared.inl"
 
 DAXA_DECL_TASK_HEAD_BEGIN(ResolveWBOIT)
-DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ, daxa_BufferPtr(ShaderGlobals), u_globals)
+DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(ShaderGlobals), u_globals)
 DAXA_TH_IMAGE_ID(COLOR_ATTACHMENT, REGULAR_2D, u_color_image)
-DAXA_TH_IMAGE_TYPED(FRAGMENT_SHADER_STORAGE_READ_ONLY, daxa::RWTexture2DId<f32vec4>, u_wboit_accumulation_image)
-DAXA_TH_IMAGE_TYPED(FRAGMENT_SHADER_STORAGE_READ_ONLY, daxa::RWTexture2DId<f32>, u_wboit_reveal_image)
+DAXA_TH_IMAGE_TYPED(READ, daxa::RWTexture2DId<daxa_f32vec4>, u_wboit_accumulation_image)
+DAXA_TH_IMAGE_TYPED(READ, daxa::RWTexture2DId<daxa_f32>, u_wboit_reveal_image)
 DAXA_DECL_TASK_HEAD_END
 
 struct ResolveWBOITPush {
@@ -33,6 +33,10 @@ struct ResolveWBOITTask : ResolveWBOIT::Task {
 
     void assign_blob(auto & arr, auto const & span) {
         std::memcpy(arr.value.data(), span.data(), span.size());
+    }
+
+    static auto name() -> std::string_view {
+        return "ResolveWBOIT";
     }
 
     static auto pipeline_config_info() -> daxa::RasterPipelineCompileInfo2 {

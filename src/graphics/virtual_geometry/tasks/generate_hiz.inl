@@ -15,9 +15,9 @@
 #define GEN_HIZ_WINDOW_Y 64
 
 DAXA_DECL_TASK_HEAD_BEGIN(GenerateHiz)
-DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ_WRITE_CONCURRENT, daxa_BufferPtr(ShaderGlobals), u_globals)
-DAXA_TH_IMAGE_ID(COMPUTE_SHADER_SAMPLED, REGULAR_2D, u_src)
-DAXA_TH_IMAGE_ID_MIP_ARRAY(COMPUTE_SHADER_STORAGE_READ_WRITE, REGULAR_2D, u_mips, GEN_HIZ_LEVELS_PER_DISPATCH)
+DAXA_TH_BUFFER_PTR(READ_WRITE_CONCURRENT, daxa_BufferPtr(ShaderGlobals), u_globals)
+DAXA_TH_IMAGE_ID(SAMPLED, REGULAR_2D, u_src)
+DAXA_TH_IMAGE_ID_MIP_ARRAY(READ_WRITE, REGULAR_2D, u_mips, GEN_HIZ_LEVELS_PER_DISPATCH)
 DAXA_DECL_TASK_HEAD_END
 
 struct GenerateHizPush {
@@ -32,17 +32,21 @@ struct GenerateHizTask : GenerateHiz::Task {
     AttachmentViews views = {};
     foundation::Context* context = {};
 
+    static auto name() -> std::string_view {
+        return "GenerateHiz";
+    }
+
     static auto pipeline_config_info() -> daxa::ComputePipelineCompileInfo2 {
         return {
             .source = daxa::ShaderFile{"src/graphics/virtual_geometry/tasks/generate_hiz.glsl"},
             .push_constant_size = s_cast<u32>(sizeof(GenerateHizPush)),
-            .name = std::string{"GenerateHiz"},
+            .name = std::string{name()},
         };
     }
 
     void callback(daxa::TaskInterface ti) {
-        context->gpu_metrics[this->name()]->start(ti.recorder);
-        ti.recorder.set_pipeline(*context->compute_pipelines.at(GenerateHiz::Task::name()));
+        context->gpu_metrics[name()]->start(ti.recorder);
+        ti.recorder.set_pipeline(*context->compute_pipelines.at(name()));
         daxa_u32vec2 next_higher_po2_render_target_size = {
             context->shader_globals.next_lower_po2_render_target_size.x,
             context->shader_globals.next_lower_po2_render_target_size.y,
@@ -58,7 +62,7 @@ struct GenerateHizTask : GenerateHiz::Task {
         std::memcpy(push.uses.value.data(), ti.attachment_shader_blob.data(), ti.attachment_shader_blob.size());
         ti.recorder.push_constant(push);
         ti.recorder.dispatch({.x = dispatch_x, .y = dispatch_y, .z = 1});
-        context->gpu_metrics[this->name()]->end(ti.recorder);
+        context->gpu_metrics[name()]->end(ti.recorder);
     }
 };
 #endif

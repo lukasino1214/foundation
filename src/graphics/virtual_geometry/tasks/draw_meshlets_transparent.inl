@@ -9,8 +9,8 @@
 #include "../../../shader_library/shared.inl"
 
 DAXA_DECL_TASK_HEAD_BEGIN(DrawMeshletsTransparentWriteCommand)
-DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ, daxa_BufferPtr(MeshletsDataMerged), u_meshlets_data_merged)
-DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_WRITE, daxa_BufferPtr(DispatchIndirectStruct), u_command)
+DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(MeshletsDataMerged), u_meshlets_data_merged)
+DAXA_TH_BUFFER_PTR(WRITE, daxa_BufferPtr(DispatchIndirectStruct), u_command)
 DAXA_DECL_TASK_HEAD_END
 
 struct DrawMeshletsTransparentWriteCommandPush {
@@ -20,6 +20,7 @@ struct DrawMeshletsTransparentWriteCommandPush {
 
 #if __cplusplus
 using DrawMeshletsTransparentWriteCommandTask = foundation::WriteIndirectComputeDispatchTask<
+                                            "DrawMeshletsTransparentWriteCommand",
                                             DrawMeshletsTransparentWriteCommand::Task, 
                                             DrawMeshletsTransparentWriteCommandPush, 
                                             "src/graphics/virtual_geometry/tasks/draw_meshlets_transparent.slang", 
@@ -27,19 +28,19 @@ using DrawMeshletsTransparentWriteCommandTask = foundation::WriteIndirectCompute
 #endif
 
 DAXA_DECL_TASK_HEAD_BEGIN(DrawMeshletsTransparent)
-DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ, daxa_BufferPtr(MeshletsDataMerged), u_meshlets_data_merged)
-DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ, daxa_BufferPtr(Mesh), u_meshes)
-DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ, daxa_BufferPtr(TransformInfo), u_transforms)
-DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ, daxa_BufferPtr(Material), u_materials)
-DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ, daxa_BufferPtr(ShaderGlobals), u_globals)
-DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ, daxa_BufferPtr(SunLight), u_sun)
-DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ, daxa_BufferPtr(PointLightsData), u_point_lights)
-DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ, daxa_BufferPtr(SpotLightsData), u_spot_lights)
+DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(MeshletsDataMerged), u_meshlets_data_merged)
+DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(Mesh), u_meshes)
+DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(TransformInfo), u_transforms)
+DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(Material), u_materials)
+DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(ShaderGlobals), u_globals)
+DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(SunLight), u_sun)
+DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(PointLightsData), u_point_lights)
+DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(SpotLightsData), u_spot_lights)
 DAXA_TH_IMAGE_ID(COLOR_ATTACHMENT, REGULAR_2D, u_wboit_accumulation_image)
 DAXA_TH_IMAGE_ID(COLOR_ATTACHMENT, REGULAR_2D, u_wboit_reveal_image)
 DAXA_TH_IMAGE_ID(DEPTH_ATTACHMENT, REGULAR_2D, u_depth_image)
-DAXA_TH_IMAGE_TYPED(FRAGMENT_SHADER_STORAGE_READ_WRITE_CONCURRENT, daxa::RWTexture2DId<u32>, u_overdraw_image)
-DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ, daxa_BufferPtr(DispatchIndirectStruct), u_command)
+DAXA_TH_IMAGE_TYPED(READ_WRITE_CONCURRENT, daxa::RWTexture2DId<u32>, u_overdraw_image)
+DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(DispatchIndirectStruct), u_command)
 DAXA_DECL_TASK_HEAD_END
 
 struct DrawMeshletsTransparentPush {
@@ -60,6 +61,10 @@ struct DrawMeshletsTransparentTask : DrawMeshletsTransparent::Task {
 
     void assign_blob(auto & arr, auto const & span) {
         std::memcpy(arr.value.data(), span.data(), span.size());
+    }
+
+    static auto name() -> std::string_view {
+        return "DrawMeshletsTransparent";
     }
 
     static auto pipeline_config_info() -> daxa::RasterPipelineCompileInfo2 {

@@ -9,8 +9,8 @@
 #include "../../../shader_library/shared.inl"
 
 DAXA_DECL_TASK_HEAD_BEGIN(DrawMeshletsOnlyDepthWriteCommand)
-DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ, daxa_BufferPtr(MeshletsDataMerged), u_meshlets_data_merged)
-DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_WRITE, daxa_BufferPtr(DispatchIndirectStruct), u_command)
+DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(MeshletsDataMerged), u_meshlets_data_merged)
+DAXA_TH_BUFFER_PTR(WRITE, daxa_BufferPtr(DispatchIndirectStruct), u_command)
 DAXA_DECL_TASK_HEAD_END
 
 struct DrawMeshletsOnlyDepthWriteCommandPush {
@@ -20,6 +20,7 @@ struct DrawMeshletsOnlyDepthWriteCommandPush {
 
 #if __cplusplus
 using DrawMeshletsOnlyDepthWriteCommandTask = foundation::WriteIndirectComputeDispatchTask<
+                                            "DrawMeshletsOnlyDepthWriteCommand",
                                             DrawMeshletsOnlyDepthWriteCommand::Task, 
                                             DrawMeshletsOnlyDepthWriteCommandPush, 
                                             "src/graphics/virtual_geometry/tasks/draw_meshlets_only_depth.slang", 
@@ -27,12 +28,12 @@ using DrawMeshletsOnlyDepthWriteCommandTask = foundation::WriteIndirectComputeDi
 #endif
 
 DAXA_DECL_TASK_HEAD_BEGIN(DrawMeshletsOnlyDepth)
-DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ, daxa_BufferPtr(MeshletsDataMerged), u_meshlets_data_merged)
-DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ, daxa_BufferPtr(Mesh), u_meshes)
-DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ, daxa_BufferPtr(TransformInfo), u_transforms)
-DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ, daxa_BufferPtr(Material), u_materials)
-DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ, daxa_BufferPtr(ShaderGlobals), u_globals)
-DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ, daxa_BufferPtr(DispatchIndirectStruct), u_command)
+DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(MeshletsDataMerged), u_meshlets_data_merged)
+DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(Mesh), u_meshes)
+DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(TransformInfo), u_transforms)
+DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(Material), u_materials)
+DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(ShaderGlobals), u_globals)
+DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(DispatchIndirectStruct), u_command)
 DAXA_TH_IMAGE_ID(DEPTH_ATTACHMENT, REGULAR_2D, u_depth_image)
 DAXA_DECL_TASK_HEAD_END
 
@@ -51,6 +52,10 @@ struct DrawMeshletsOnlyDepthTask : DrawMeshletsOnlyDepth::Task {
 
     void assign_blob(auto & arr, auto const & span) {
         std::memcpy(arr.value.data(), span.data(), span.size());
+    }
+
+    static auto name() -> std::string_view {
+        return "DrawMeshletsOnlyDepth";
     }
 
     static auto pipeline_config_info() -> daxa::RasterPipelineCompileInfo2 {
@@ -94,7 +99,7 @@ struct DrawMeshletsOnlyDepthTask : DrawMeshletsOnlyDepth::Task {
             .render_area = {.x = 0, .y = 0, .width = size_x, .height = size_y},
         });
 
-        render_cmd.set_pipeline(*context->raster_pipelines.at(DrawMeshletsOnlyDepth::Task::name()));
+        render_cmd.set_pipeline(*context->raster_pipelines.at(DrawMeshletsOnlyDepthTask::name()));
 
         assign_blob(push.uses, ti.attachment_shader_blob);
         render_cmd.push_constant(push);

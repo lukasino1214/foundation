@@ -9,8 +9,8 @@
 #include "../../../shader_library/shared.inl"
 
 DAXA_DECL_TASK_HEAD_BEGIN(ClearImage)
-DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ, daxa_BufferPtr(ShaderGlobals), u_globals)
-DAXA_TH_IMAGE_ID(FRAGMENT_SHADER_STORAGE_READ_WRITE_CONCURRENT, REGULAR_2D, u_image)
+DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(ShaderGlobals), u_globals)
+DAXA_TH_IMAGE_ID(READ_WRITE_CONCURRENT, REGULAR_2D, u_image)
 DAXA_DECL_TASK_HEAD_END
 
 struct ClearImagePush {
@@ -19,5 +19,5 @@ struct ClearImagePush {
 };
 
 #if __cplusplus
-using ClearImageTask = foundation::ComputeDispatchTask<ClearImage::Task, ClearImagePush, "src/graphics/common/tasks/clear_image.slang", "clear_image">;
+using ClearImageTask = foundation::ComputeDispatchTask<"ClearImage", ClearImage::Task, ClearImagePush, "src/graphics/common/tasks/clear_image.slang", "clear_image">;
 #endif

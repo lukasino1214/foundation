@@ -498,11 +498,10 @@ namespace foundation {
 
         render_task_graph.use_persistent_buffer(mouse_selection_readback);
 
-        render_task_graph.add_task({
-            .attachments = {
-                daxa::inl_attachment(daxa::TaskBufferAccess::TRANSFER_WRITE, shader_globals_buffer),
-            },
-            .task = [&](daxa::TaskInterface const &ti) {
+        render_task_graph.add_task(
+            daxa::InlineTask::Transfer(MiscellaneousTasks::UPDATE_GLOBALS)
+            .writes(shader_globals_buffer)
+            .executes([&](daxa::TaskInterface const &ti) {
                 context->gpu_metrics[MiscellaneousTasks::UPDATE_GLOBALS]->start(ti.recorder);
                 auto alloc = ti.allocator->allocate_fill(context->shader_globals);
                 if(alloc.has_value()) {
@@ -516,17 +515,13 @@ namespace foundation {
 
                     context->shader_debug_draw_context.update_debug_buffer(context->device, ti.recorder, *ti.allocator);
                 }
-                context->gpu_metrics[MiscellaneousTasks::UPDATE_GLOBALS]->end(ti.recorder);
-            },
-            .name = std::string{MiscellaneousTasks::UPDATE_GLOBALS},
-        });
+        }));
 
-        render_task_graph.add_task({
-            .attachments = {
-                daxa::inl_attachment(daxa::TaskBufferAccess::TRANSFER_READ, asset_manager->gpu_readback_material_cpu),
-                daxa::inl_attachment(daxa::TaskBufferAccess::TRANSFER_READ, asset_manager->gpu_readback_mesh_cpu),
-            },
-            .task = [&](daxa::TaskInterface const &ti) {
+        render_task_graph.add_task(
+            daxa::InlineTask::Transfer(MiscellaneousTasks::READBACK_RAM)
+            .reads(asset_manager->gpu_readback_material_cpu)
+            .reads(asset_manager->gpu_readback_mesh_cpu)
+            .executes([&](daxa::TaskInterface const &ti) {
                 context->gpu_metrics[MiscellaneousTasks::READBACK_RAM]->start(ti.recorder);
 
                 std::memcpy(asset_manager->readback_material.data(), context->device.buffer_host_address(ti.get(asset_manager->gpu_readback_material_cpu).ids[0]).value(), asset_manager->readback_material.size() * sizeof(u32));
@@ -535,21 +530,16 @@ namespace foundation {
                 std::memcpy(asset_manager->readback_mesh.data(), context->device.buffer_host_address(ti.get(asset_manager->gpu_readback_mesh_cpu).ids[0]).value(), asset_manager->readback_mesh.size() * sizeof(u32));
                 
                 context->gpu_metrics[MiscellaneousTasks::READBACK_RAM]->end(ti.recorder);
-            },
-            .name = std::string{MiscellaneousTasks::READBACK_RAM},
-        });
+        }));
 
-        render_task_graph.add_task({
-            .attachments = {
-                daxa::inl_attachment(daxa::TaskBufferAccess::TRANSFER_WRITE, scene->gpu_transforms_pool.task_buffer),
-            },
-            .task = [&](daxa::TaskInterface const &ti) {
+        render_task_graph.add_task(
+            daxa::InlineTask::Transfer(MiscellaneousTasks::UPDATE_SCENE)
+            .writes(shader_globals_buffer)
+            .executes([&](daxa::TaskInterface const &ti) {
                 context->gpu_metrics[MiscellaneousTasks::UPDATE_SCENE]->start(ti.recorder);
                 scene->update_gpu(ti);
                 context->gpu_metrics[MiscellaneousTasks::UPDATE_SCENE]->end(ti.recorder);
-            },
-            .name = std::string{MiscellaneousTasks::UPDATE_SCENE},
-        });
+        }));
 
         VirtualGeometryTasks::build_task_graph(VirtualGeometryTasks::Info {
             .context = context,
@@ -587,63 +577,61 @@ namespace foundation {
 
         render_task_graph.add_task(DebugEntityOOBDrawTask {
             .views = DebugEntityOOBDrawTask::Views {
-                .u_globals = context->shader_globals_buffer,
-                .u_transforms = scene->gpu_transforms_pool.task_buffer,
-                .u_image = render_image,
-                .u_visibility_image = visibility_image,
+                .u_globals = context->shader_globals_buffer.view(),
+                .u_transforms = scene->gpu_transforms_pool.task_buffer.view(),
+                .u_image = render_image.view(),
+                .u_visibility_image = visibility_image.view(),
             },
             .context = context,
         });
 
         render_task_graph.add_task(DebugAABBDrawTask {
             .views = DebugAABBDrawTask::Views {
-                .u_globals = context->shader_globals_buffer,
-                .u_transforms = scene->gpu_transforms_pool.task_buffer,
-                .u_image = render_image,
-                .u_visibility_image = visibility_image,
+                .u_globals = context->shader_globals_buffer.view(),
+                .u_transforms = scene->gpu_transforms_pool.task_buffer.view(),
+                .u_image = render_image.view(),
+                .u_visibility_image = visibility_image.view(),
             },
             .context = context,
         });
 
         render_task_graph.add_task(DebugCircleDrawTask {
             .views = DebugCircleDrawTask::Views {
-                .u_globals = context->shader_globals_buffer,
-                .u_transforms = scene->gpu_transforms_pool.task_buffer,
-                .u_image = render_image,
-                .u_visibility_image = visibility_image,
+                .u_globals = context->shader_globals_buffer.view(),
+                .u_transforms = scene->gpu_transforms_pool.task_buffer.view(),
+                .u_image = render_image.view(),
+                .u_visibility_image = visibility_image.view(),
             },
             .context = context,
         });
 
         render_task_graph.add_task(DebugLineDrawTask {
             .views = DebugLineDrawTask::Views {
-                .u_globals = context->shader_globals_buffer,
-                .u_transforms = scene->gpu_transforms_pool.task_buffer,
-                .u_image = render_image,
-                .u_visibility_image = visibility_image,
+                .u_globals = context->shader_globals_buffer.view(),
+                .u_transforms = scene->gpu_transforms_pool.task_buffer.view(),
+                .u_image = render_image.view(),
+                .u_visibility_image = visibility_image.view(),
             },
             .context = context,
         });
 
-        render_task_graph.add_task({
-            .attachments = {daxa::inl_attachment(daxa::TaskImageAccess::COLOR_ATTACHMENT, swapchain_image)},
-            .task = [&](daxa::TaskInterface ti) {
+        render_task_graph.add_task(
+            daxa::InlineTask{MiscellaneousTasks::IMGUI_DRAW}
+            .color_attachment.reads_writes(swapchain_image)
+            .executes([&](daxa::TaskInterface const &ti) {
                 context->gpu_metrics[MiscellaneousTasks::IMGUI_DRAW]->start(ti.recorder);
                 auto size = ti.device.image_info(ti.get(daxa::TaskImageAttachmentIndex(0)).ids[0]).value().size;
                 imgui_renderer.record_commands(ImGui::GetDrawData(), ti.recorder, ti.get(daxa::TaskImageAttachmentIndex(0)).ids[0], size.x, size.y);
                 context->gpu_metrics[MiscellaneousTasks::IMGUI_DRAW]->end(ti.recorder);
-            },
-            .name = std::string{MiscellaneousTasks::IMGUI_DRAW},
-        });
+        }));
 
-        render_task_graph.add_task({
-            .attachments = {
-                daxa::inl_attachment(daxa::TaskBufferAccess::TRANSFER_WRITE, asset_manager->gpu_readback_material_cpu),
-                daxa::inl_attachment(daxa::TaskBufferAccess::TRANSFER_READ, asset_manager->gpu_readback_material_gpu),
-                daxa::inl_attachment(daxa::TaskBufferAccess::TRANSFER_WRITE, asset_manager->gpu_readback_mesh_cpu),
-                daxa::inl_attachment(daxa::TaskBufferAccess::TRANSFER_READ, asset_manager->gpu_readback_mesh_gpu),
-            },
-            .task = [&](daxa::TaskInterface const &ti) {
+        render_task_graph.add_task(
+            daxa::InlineTask::Transfer(MiscellaneousTasks::READBACK_COPY)
+            .writes(asset_manager->gpu_readback_material_cpu)
+            .reads(asset_manager->gpu_readback_material_gpu)
+            .writes(asset_manager->gpu_readback_mesh_cpu)
+            .reads(asset_manager->gpu_readback_mesh_gpu)
+            .executes([&](daxa::TaskInterface const &ti) {
                 context->gpu_metrics[MiscellaneousTasks::READBACK_COPY]->start(ti.recorder);
                 ti.recorder.copy_buffer_to_buffer(daxa::BufferCopyInfo {
                     .src_buffer = ti.get(asset_manager->gpu_readback_material_gpu).ids[0],
@@ -673,22 +661,17 @@ namespace foundation {
                     .clear_value = 0
                 });
                 context->gpu_metrics[MiscellaneousTasks::READBACK_COPY]->end(ti.recorder);
-            },
-            .name = std::string{MiscellaneousTasks::READBACK_COPY},
-        });
+        }));
 
-        render_task_graph.add_task({
-            .attachments = {
-                daxa::inl_attachment(daxa::TaskBufferAccess::TRANSFER_WRITE, mouse_selection_readback),
-            },
-            .task = [&](daxa::TaskInterface const &ti) {
+        render_task_graph.add_task(
+            daxa::InlineTask::Transfer("mouse selection readback")
+            .writes(mouse_selection_readback)
+            .executes([&](daxa::TaskInterface const &ti) {
                 auto readback = *context->device.buffer_host_address_as<MouseSelectionReadback>(ti.get(mouse_selection_readback).ids[0]).value();
                 if(context->shader_globals.mouse_selection_readback.state == 1) {
                     context->shader_globals.mouse_selection_readback.id = readback.id;
                 }
-            },
-            .name = "mouse selection readback",
-        });
+        }));
 
         render_task_graph.submit({});
         render_task_graph.present({});

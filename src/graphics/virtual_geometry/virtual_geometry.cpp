@@ -156,16 +156,15 @@ namespace foundation {
             .name = "command",
         });
 
-        info.task_graph.add_task({
-            .attachments = {daxa::inl_attachment(daxa::TaskImageAccess::TRANSFER_WRITE, info.overdraw_image)},
-            .task = [&](daxa::TaskInterface ti) {
+        info.task_graph.add_task(
+            daxa::InlineTask::Transfer("clear overdraw image")
+            .writes(info.overdraw_image)
+            .executes([&](daxa::TaskInterface const &ti) {
                 ti.recorder.clear_image({
                     .clear_value = std::array<i32, 4>{0, 0, 0, 0},
                     .dst_image = ti.get(daxa::TaskImageAttachmentIndex(0)).ids[0],
                 });
-            },
-            .name = "clear overdraw image",
-        });
+        }));
 
         info.task_graph.add_task(DrawMeshletsOnlyDepthWriteCommandTask {
             .views = DrawMeshletsOnlyDepthWriteCommandTask::Views {
@@ -181,7 +180,7 @@ namespace foundation {
                 .u_meshes = info.gpu_meshes,
                 .u_transforms = info.gpu_transforms,
                 .u_materials = info.gpu_materials,
-                .u_globals = info.context->shader_globals_buffer,
+                .u_globals = info.context->shader_globals_buffer.view(),
                 .u_command = u_command,
                 .u_depth_image = info.depth_image_d32,
             },
@@ -202,7 +201,7 @@ namespace foundation {
                 .u_meshes = info.gpu_meshes,
                 .u_transforms = info.gpu_transforms,
                 .u_materials = info.gpu_materials,
-                .u_globals = info.context->shader_globals_buffer,
+                .u_globals = info.context->shader_globals_buffer.view(),
                 .u_command = u_command,
                 .u_depth_image = info.depth_image_d32,
             },
@@ -210,18 +209,17 @@ namespace foundation {
         });
 
         auto* context = info.context;
-        info.task_graph.add_task({
-            .attachments = {daxa::inl_attachment(daxa::TaskImageAccess::TRANSFER_WRITE, info.depth_image_u32)},
-            .task = [context](daxa::TaskInterface ti) {
+        info.task_graph.add_task(
+            daxa::InlineTask::Transfer(VirtualGeometryTasks::Tasks::CLEAR_DEPTH_IMAGE_U32)
+            .writes(info.depth_image_u32)
+            .executes([=](daxa::TaskInterface const &ti) {
                 context->gpu_metrics[VirtualGeometryTasks::Tasks::CLEAR_DEPTH_IMAGE_U32]->start(ti.recorder);
                 ti.recorder.clear_image({
                     .clear_value = std::array<u32, 4>{0, 0, 0, 0},
                     .dst_image = ti.get(daxa::TaskImageAttachmentIndex(0)).ids[0],
                 });
                 context->gpu_metrics[VirtualGeometryTasks::Tasks::CLEAR_DEPTH_IMAGE_U32]->end(ti.recorder);
-            },
-            .name = std::string{VirtualGeometryTasks::Tasks::CLEAR_DEPTH_IMAGE_U32},
-        });
+        }));
 
         info.task_graph.add_task(SoftwareRasterizationOnlyDepthWriteCommandTask {
             .views = SoftwareRasterizationOnlyDepthWriteCommandTask::Views {
@@ -237,7 +235,7 @@ namespace foundation {
                 .u_meshes = info.gpu_meshes,
                 .u_transforms = info.gpu_transforms,
                 .u_materials = info.gpu_materials,
-                .u_globals = info.context->shader_globals_buffer,
+                .u_globals = info.context->shader_globals_buffer.view(),
                 .u_depth_image = info.depth_image_u32,
                 .u_command = u_command,
             },
@@ -246,7 +244,7 @@ namespace foundation {
 
         info.task_graph.add_task(CombineDepthTask {
             .views = CombineDepthTask::Views {
-                .u_globals = info.context->shader_globals_buffer,
+                .u_globals = info.context->shader_globals_buffer.view(),
                 .u_depth_image_d32 = info.depth_image_d32,
                 .u_depth_image_u32 = info.depth_image_u32,
                 .u_depth_image_f32 = info.depth_image_f32,
@@ -276,7 +274,7 @@ namespace foundation {
 
         info.task_graph.add_task(GenerateHizTask{
             .views = GenerateHizTask::Views {
-                .u_globals = info.context->shader_globals_buffer,
+                .u_globals = info.context->shader_globals_buffer.view(),
                 .u_src = info.depth_image_f32,
                 .u_mips = hiz,
             },
@@ -298,7 +296,7 @@ namespace foundation {
         info.task_graph.add_task(CullMeshesTask {
             .views = CullMeshesTask::Views {
                 .u_scene_data = info.gpu_scene_data,
-                .u_globals = info.context->shader_globals_buffer,
+                .u_globals = info.context->shader_globals_buffer.view(),
                 .u_entities_data = info.gpu_entities_data,
                 .u_mesh_groups = info.gpu_mesh_groups,
                 .u_mesh_indices = info.gpu_mesh_indices,
@@ -327,7 +325,7 @@ namespace foundation {
 
         info.task_graph.add_task(CullMeshletsOpaqueTask {
             .views = CullMeshletsOpaqueTask::Views {
-                .u_globals = info.context->shader_globals_buffer,
+                .u_globals = info.context->shader_globals_buffer.view(),
                 .u_meshes = info.gpu_meshes,
                 .u_transforms = info.gpu_transforms,
                 .u_prefix_sum_work_expansion_mesh = info.gpu_opaque_prefix_sum_work_expansion_mesh,
@@ -354,7 +352,7 @@ namespace foundation {
 
         info.task_graph.add_task(CullMeshletsMaskedTask {
             .views = CullMeshletsMaskedTask::Views {
-                .u_globals = info.context->shader_globals_buffer,
+                .u_globals = info.context->shader_globals_buffer.view(),
                 .u_meshes = info.gpu_meshes,
                 .u_transforms = info.gpu_transforms,
                 .u_prefix_sum_work_expansion_mesh = info.gpu_masked_prefix_sum_work_expansion_mesh,
@@ -381,7 +379,7 @@ namespace foundation {
 
         info.task_graph.add_task(CullMeshletsTransparentTask {
             .views = CullMeshletsTransparentTask::Views {
-                .u_globals = info.context->shader_globals_buffer,
+                .u_globals = info.context->shader_globals_buffer.view(),
                 .u_meshes = info.gpu_meshes,
                 .u_transforms = info.gpu_transforms,
                 .u_prefix_sum_work_expansion_mesh = info.gpu_transparent_prefix_sum_work_expansion_mesh,
@@ -397,18 +395,17 @@ namespace foundation {
             },
         });
 
-        info.task_graph.add_task({
-            .attachments = {daxa::inl_attachment(daxa::TaskImageAccess::TRANSFER_WRITE, info.visibility_image)},
-            .task = [context](daxa::TaskInterface ti) {
-                context->gpu_metrics[VirtualGeometryTasks::Tasks::CLEAR_VISIBILITY_IMAGE]->start(ti.recorder);
+        info.task_graph.add_task(
+            daxa::InlineTask::Transfer(VirtualGeometryTasks::Tasks::CLEAR_VISIBILITY_IMAGE)
+            .writes(info.visibility_image)
+            .executes([=](daxa::TaskInterface const &ti) {
+               context->gpu_metrics[VirtualGeometryTasks::Tasks::CLEAR_VISIBILITY_IMAGE]->start(ti.recorder);
                 ti.recorder.clear_image({
                     .clear_value = std::array<u32, 4>{INVALID_ID, 0, 0, 0},
                     .dst_image = ti.get(daxa::TaskImageAttachmentIndex(0)).ids[0],
                 });
                 context->gpu_metrics[VirtualGeometryTasks::Tasks::CLEAR_VISIBILITY_IMAGE]->end(ti.recorder);
-            },
-            .name = std::string{VirtualGeometryTasks::Tasks::CLEAR_VISIBILITY_IMAGE},
-        });
+        }));
 
         info.task_graph.add_task(DrawMeshletsWriteCommandTask {
             .views = DrawMeshletsWriteCommandTask::Views {
@@ -424,7 +421,7 @@ namespace foundation {
                 .u_meshes = info.gpu_meshes,
                 .u_transforms = info.gpu_transforms,
                 .u_materials = info.gpu_materials,
-                .u_globals = info.context->shader_globals_buffer,
+                .u_globals = info.context->shader_globals_buffer.view(),
                 .u_visibility_image = info.visibility_image,
                 .u_overdraw_image = info.overdraw_image,
                 .u_command = u_command,
@@ -446,7 +443,7 @@ namespace foundation {
                 .u_meshes = info.gpu_meshes,
                 .u_transforms = info.gpu_transforms,
                 .u_materials = info.gpu_materials,
-                .u_globals = info.context->shader_globals_buffer,
+                .u_globals = info.context->shader_globals_buffer.view(),
                 .u_visibility_image = info.visibility_image,
                 .u_overdraw_image = info.overdraw_image,
                 .u_command = u_command,
@@ -468,7 +465,7 @@ namespace foundation {
                 .u_meshes = info.gpu_meshes,
                 .u_transforms = info.gpu_transforms,
                 .u_materials = info.gpu_materials,
-                .u_globals = info.context->shader_globals_buffer,
+                .u_globals = info.context->shader_globals_buffer.view(),
                 .u_visibility_image = info.visibility_image,
                 .u_overdraw_image = info.overdraw_image,
                 .u_command = u_command,
@@ -478,7 +475,7 @@ namespace foundation {
 
         info.task_graph.add_task(ExtractDepthTask {
             .views = ExtractDepthTask::Views {
-                .u_globals = info.context->shader_globals_buffer,
+                .u_globals = info.context->shader_globals_buffer.view(),
                 .u_visibility_image = info.visibility_image,
                 .u_depth_image = info.depth_image_d32,
             },
@@ -499,7 +496,7 @@ namespace foundation {
                 .u_meshes = info.gpu_meshes,
                 .u_transforms = info.gpu_transforms,
                 .u_materials = info.gpu_materials,
-                .u_globals = info.context->shader_globals_buffer,
+                .u_globals = info.context->shader_globals_buffer.view(),
                 .u_sun = info.gpu_sun_light_buffer,
                 .u_point_lights = info.gpu_point_light_buffer,
                 .u_spot_lights = info.gpu_spot_light_buffer,
@@ -514,7 +511,7 @@ namespace foundation {
 
         info.task_graph.add_task(ResolveVisibilityBufferTask {
             .views = ResolveVisibilityBufferTask::Views {
-                .u_globals = info.context->shader_globals_buffer,
+                .u_globals = info.context->shader_globals_buffer.view(),
                 .u_meshlets_instance_data = info.gpu_meshlets_instance_data,
                 .u_meshes = info.gpu_meshes,
                 .u_transforms = info.gpu_transforms,
@@ -540,7 +537,7 @@ namespace foundation {
 
         info.task_graph.add_task(ResolveWBOITTask {
             .views = ResolveWBOITTask::Views {
-                .u_globals = info.context->shader_globals_buffer,
+                .u_globals = info.context->shader_globals_buffer.view(),
                 .u_color_image = info.color_image,
                 .u_wboit_accumulation_image = info.wboit_accumulation_image,
                 .u_wboit_reveal_image = info.wboit_reveal_image,

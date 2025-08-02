@@ -9,10 +9,10 @@
 #include "../../../shader_library/shared.inl"
 
 DAXA_DECL_TASK_HEAD_BEGIN(DebugEntityOOBDraw)
-DAXA_TH_BUFFER_PTR(VERTEX_SHADER_READ, daxa_BufferPtr(ShaderGlobals), u_globals)
-DAXA_TH_BUFFER_PTR(VERTEX_SHADER_READ, daxa_BufferPtr(TransformInfo), u_transforms)
+DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(ShaderGlobals), u_globals)
+DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(TransformInfo), u_transforms)
 DAXA_TH_IMAGE_TYPED(COLOR_ATTACHMENT, daxa::RWTexture2DId<f32vec4>, u_image)
-DAXA_TH_IMAGE_ID(FRAGMENT_SHADER_STORAGE_READ_ONLY, REGULAR_2D, u_visibility_image)
+DAXA_TH_IMAGE_ID(READ, REGULAR_2D, u_visibility_image)
 DAXA_DECL_TASK_HEAD_END
 
 struct DebugEntityOOBDrawPush {
@@ -21,10 +21,10 @@ struct DebugEntityOOBDrawPush {
 };
 
 DAXA_DECL_TASK_HEAD_BEGIN(DebugAABBDraw)
-DAXA_TH_BUFFER_PTR(VERTEX_SHADER_READ, daxa_BufferPtr(ShaderGlobals), u_globals)
-DAXA_TH_BUFFER_PTR(VERTEX_SHADER_READ, daxa_BufferPtr(TransformInfo), u_transforms)
+DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(ShaderGlobals), u_globals)
+DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(TransformInfo), u_transforms)
 DAXA_TH_IMAGE_TYPED(COLOR_ATTACHMENT, daxa::RWTexture2DId<f32vec4>, u_image)
-DAXA_TH_IMAGE_ID(FRAGMENT_SHADER_STORAGE_READ_ONLY, REGULAR_2D, u_visibility_image)
+DAXA_TH_IMAGE_ID(READ, REGULAR_2D, u_visibility_image)
 DAXA_DECL_TASK_HEAD_END
 
 struct DebugAABBDrawPush {
@@ -33,10 +33,10 @@ struct DebugAABBDrawPush {
 };
 
 DAXA_DECL_TASK_HEAD_BEGIN(DebugCircleDraw)
-DAXA_TH_BUFFER_PTR(VERTEX_SHADER_READ, daxa_BufferPtr(ShaderGlobals), u_globals)
-DAXA_TH_BUFFER_PTR(VERTEX_SHADER_READ, daxa_BufferPtr(TransformInfo), u_transforms)
+DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(ShaderGlobals), u_globals)
+DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(TransformInfo), u_transforms)
 DAXA_TH_IMAGE_TYPED(COLOR_ATTACHMENT, daxa::RWTexture2DId<f32vec4>, u_image)
-DAXA_TH_IMAGE_ID(FRAGMENT_SHADER_STORAGE_READ_ONLY, REGULAR_2D, u_visibility_image)
+DAXA_TH_IMAGE_ID(READ, REGULAR_2D, u_visibility_image)
 DAXA_DECL_TASK_HEAD_END
 
 struct DebugCircleDrawPush {
@@ -45,10 +45,10 @@ struct DebugCircleDrawPush {
 };
 
 DAXA_DECL_TASK_HEAD_BEGIN(DebugLineDraw)
-DAXA_TH_BUFFER_PTR(VERTEX_SHADER_READ, daxa_BufferPtr(ShaderGlobals), u_globals)
-DAXA_TH_BUFFER_PTR(VERTEX_SHADER_READ, daxa_BufferPtr(TransformInfo), u_transforms)
+DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(ShaderGlobals), u_globals)
+DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(TransformInfo), u_transforms)
 DAXA_TH_IMAGE_TYPED(COLOR_ATTACHMENT, daxa::RWTexture2DId<f32vec4>, u_image)
-DAXA_TH_IMAGE_ID(FRAGMENT_SHADER_STORAGE_READ_ONLY, REGULAR_2D, u_visibility_image)
+DAXA_TH_IMAGE_ID(READ, REGULAR_2D, u_visibility_image)
 DAXA_DECL_TASK_HEAD_END
 
 struct DebugLineDrawPush {
@@ -66,6 +66,10 @@ struct DebugEntityOOBDrawTask : DebugEntityOOBDraw::Task {
 
     void assign_blob(auto & arr, auto const & span) {
         std::memcpy(arr.value.data(), span.data(), span.size());
+    }
+
+    static auto name() -> std::string_view {
+        return "DebugEntityOOBDraw";
     }
 
     static auto pipeline_config_info() -> daxa::RasterPipelineCompileInfo2 {
@@ -149,6 +153,10 @@ struct DebugAABBDrawTask : DebugAABBDraw::Task {
         std::memcpy(arr.value.data(), span.data(), span.size());
     }
 
+    static auto name() -> std::string_view {
+        return "DebugAABBDraw";
+    }
+
     static auto pipeline_config_info() -> daxa::RasterPipelineCompileInfo2 {
         return daxa::RasterPipelineCompileInfo2 {
             .vertex_shader_info = daxa::ShaderCompileInfo2 {
@@ -230,6 +238,10 @@ struct DebugCircleDrawTask : DebugCircleDraw::Task {
         std::memcpy(arr.value.data(), span.data(), span.size());
     }
 
+    static auto name() -> std::string_view {
+        return "DebugCircleDraw";
+    }
+
     static auto pipeline_config_info() -> daxa::RasterPipelineCompileInfo2 {
         return daxa::RasterPipelineCompileInfo2 {
             .vertex_shader_info = daxa::ShaderCompileInfo2 {
@@ -309,6 +321,10 @@ struct DebugLineDrawTask : DebugLineDraw::Task {
 
     void assign_blob(auto & arr, auto const & span) {
         std::memcpy(arr.value.data(), span.data(), span.size());
+    }
+
+    static auto name() -> std::string_view {
+        return "DebugLineDraw";
     }
 
     static auto pipeline_config_info() -> daxa::RasterPipelineCompileInfo2 {

@@ -9,8 +9,8 @@
 #include "../../../shader_library/shared.inl"
 
 DAXA_DECL_TASK_HEAD_BEGIN(SoftwareRasterizationOnlyDepthWriteCommand)
-DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ, daxa_BufferPtr(MeshletsDataMerged), u_meshlets_data_merged)
-DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_WRITE, daxa_BufferPtr(DispatchIndirectStruct), u_command)
+DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(MeshletsDataMerged), u_meshlets_data_merged)
+DAXA_TH_BUFFER_PTR(WRITE, daxa_BufferPtr(DispatchIndirectStruct), u_command)
 DAXA_DECL_TASK_HEAD_END
 
 struct SoftwareRasterizationOnlyDepthWriteCommandPush {
@@ -20,6 +20,7 @@ struct SoftwareRasterizationOnlyDepthWriteCommandPush {
 
 #if __cplusplus
 using SoftwareRasterizationOnlyDepthWriteCommandTask = foundation::WriteIndirectComputeDispatchTask<
+                                            "SoftwareRasterizationOnlyDepthWriteCommand",
                                             SoftwareRasterizationOnlyDepthWriteCommand::Task, 
                                             SoftwareRasterizationOnlyDepthWriteCommandPush, 
                                             "src/graphics/virtual_geometry/tasks/software_rasterization_only_depth.slang", 
@@ -27,13 +28,13 @@ using SoftwareRasterizationOnlyDepthWriteCommandTask = foundation::WriteIndirect
 #endif
 
 DAXA_DECL_TASK_HEAD_BEGIN(SoftwareRasterizationOnlyDepth)
-DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ, daxa_BufferPtr(MeshletsDataMerged), u_meshlets_data_merged)
-DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ, daxa_BufferPtr(Mesh), u_meshes)
-DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ, daxa_BufferPtr(TransformInfo), u_transforms)
-DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ, daxa_BufferPtr(Material), u_materials)
-DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ, daxa_BufferPtr(ShaderGlobals), u_globals)
-DAXA_TH_IMAGE_TYPED(FRAGMENT_SHADER_STORAGE_READ_WRITE_CONCURRENT, daxa::RWTexture2DId<u32>, u_depth_image)
-DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ, daxa_BufferPtr(DispatchIndirectStruct), u_command)
+DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(MeshletsDataMerged), u_meshlets_data_merged)
+DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(Mesh), u_meshes)
+DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(TransformInfo), u_transforms)
+DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(Material), u_materials)
+DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(ShaderGlobals), u_globals)
+DAXA_TH_IMAGE_TYPED(READ_WRITE_CONCURRENT, daxa::RWTexture2DId<u32>, u_depth_image)
+DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(DispatchIndirectStruct), u_command)
 DAXA_DECL_TASK_HEAD_END
 
 struct SoftwareRasterizationOnlyDepthPush {
@@ -43,6 +44,7 @@ struct SoftwareRasterizationOnlyDepthPush {
 
 #if __cplusplus
 using SoftwareRasterizationOnlyDepthTask = foundation::IndirectComputeDispatchTask<
+                                            "SoftwareRasterizationOnlyDepth",
                                             SoftwareRasterizationOnlyDepth::Task, 
                                             SoftwareRasterizationOnlyDepthPush, 
                                             "src/graphics/virtual_geometry/tasks/software_rasterization_only_depth.slang", 

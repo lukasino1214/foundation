@@ -9,9 +9,9 @@
 #include "../../../shader_library/shared.inl"
 
 DAXA_DECL_TASK_HEAD_BEGIN(CullMeshletsOpaqueWriteCommand)
-DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_WRITE, daxa_BufferPtr(MeshletsDataMerged), u_meshlets_data_merged)
-DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ, daxa_BufferPtr(PrefixSumWorkExpansion), u_prefix_sum_work_expansion_mesh)
-DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_WRITE, daxa_BufferPtr(DispatchIndirectStruct), u_command)
+DAXA_TH_BUFFER_PTR(WRITE, daxa_BufferPtr(MeshletsDataMerged), u_meshlets_data_merged)
+DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(PrefixSumWorkExpansion), u_prefix_sum_work_expansion_mesh)
+DAXA_TH_BUFFER_PTR(WRITE, daxa_BufferPtr(DispatchIndirectStruct), u_command)
 DAXA_DECL_TASK_HEAD_END
 
 struct CullMeshletsOpaqueWriteCommandPush {
@@ -21,6 +21,7 @@ struct CullMeshletsOpaqueWriteCommandPush {
 
 #if __cplusplus
 using CullMeshletsOpaqueWriteCommandTask = foundation::WriteIndirectComputeDispatchTask<
+                                            "CullMeshletsOpaqueWriteCommand",
                                             CullMeshletsOpaqueWriteCommand::Task, 
                                             CullMeshletsOpaqueWriteCommandPush, 
                                             "src/graphics/virtual_geometry/tasks/cull_meshlets.slang", 
@@ -28,14 +29,14 @@ using CullMeshletsOpaqueWriteCommandTask = foundation::WriteIndirectComputeDispa
 #endif
 
 DAXA_DECL_TASK_HEAD_BEGIN(CullMeshletsOpaque)
-DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ, daxa_BufferPtr(ShaderGlobals), u_globals)
-DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ, daxa_BufferPtr(Mesh), u_meshes)
-DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ, daxa_BufferPtr(TransformInfo), u_transforms)
-DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ, daxa_BufferPtr(PrefixSumWorkExpansion), u_prefix_sum_work_expansion_mesh)
-DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ, daxa_BufferPtr(MeshesData), u_culled_meshes_data)
-DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_WRITE, daxa_BufferPtr(MeshletsDataMerged), u_meshlets_data_merged)
-DAXA_TH_IMAGE_ID(COMPUTE_SHADER_SAMPLED, REGULAR_2D, u_hiz)
-DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ, daxa_BufferPtr(DispatchIndirectStruct), u_command)
+DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(ShaderGlobals), u_globals)
+DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(Mesh), u_meshes)
+DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(TransformInfo), u_transforms)
+DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(PrefixSumWorkExpansion), u_prefix_sum_work_expansion_mesh)
+DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(MeshesData), u_culled_meshes_data)
+DAXA_TH_BUFFER_PTR(WRITE, daxa_BufferPtr(MeshletsDataMerged), u_meshlets_data_merged)
+DAXA_TH_IMAGE_ID(SAMPLED, REGULAR_2D, u_hiz)
+DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(DispatchIndirectStruct), u_command)
 DAXA_DECL_TASK_HEAD_END
 
 struct CullMeshletsOpaquePush {
@@ -45,6 +46,7 @@ struct CullMeshletsOpaquePush {
 
 #if __cplusplus
 using CullMeshletsOpaqueTask = foundation::IndirectComputeDispatchTask<
+                                            "CullMeshletsOpaque",
                                             CullMeshletsOpaque::Task, 
                                             CullMeshletsOpaquePush, 
                                             "src/graphics/virtual_geometry/tasks/cull_meshlets.slang", 
@@ -52,9 +54,9 @@ using CullMeshletsOpaqueTask = foundation::IndirectComputeDispatchTask<
 #endif
 
 DAXA_DECL_TASK_HEAD_BEGIN(CullMeshletsMaskedWriteCommand)
-DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_WRITE, daxa_BufferPtr(MeshletsDataMerged), u_meshlets_data_merged)
-DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ, daxa_BufferPtr(PrefixSumWorkExpansion), u_prefix_sum_work_expansion_mesh)
-DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_WRITE, daxa_BufferPtr(DispatchIndirectStruct), u_command)
+DAXA_TH_BUFFER_PTR(WRITE, daxa_BufferPtr(MeshletsDataMerged), u_meshlets_data_merged)
+DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(PrefixSumWorkExpansion), u_prefix_sum_work_expansion_mesh)
+DAXA_TH_BUFFER_PTR(WRITE, daxa_BufferPtr(DispatchIndirectStruct), u_command)
 DAXA_DECL_TASK_HEAD_END
 
 struct CullMeshletsMaskedWriteCommandPush {
@@ -64,6 +66,7 @@ struct CullMeshletsMaskedWriteCommandPush {
 
 #if __cplusplus
 using CullMeshletsMaskedWriteCommandTask = foundation::WriteIndirectComputeDispatchTask<
+                                            "CullMeshletsMaskedWriteCommand",
                                             CullMeshletsMaskedWriteCommand::Task, 
                                             CullMeshletsMaskedWriteCommandPush, 
                                             "src/graphics/virtual_geometry/tasks/cull_meshlets.slang", 
@@ -71,14 +74,14 @@ using CullMeshletsMaskedWriteCommandTask = foundation::WriteIndirectComputeDispa
 #endif
 
 DAXA_DECL_TASK_HEAD_BEGIN(CullMeshletsMasked)
-DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ, daxa_BufferPtr(ShaderGlobals), u_globals)
-DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ, daxa_BufferPtr(Mesh), u_meshes)
-DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ, daxa_BufferPtr(TransformInfo), u_transforms)
-DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ, daxa_BufferPtr(PrefixSumWorkExpansion), u_prefix_sum_work_expansion_mesh)
-DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ, daxa_BufferPtr(MeshesData), u_culled_meshes_data)
-DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_WRITE, daxa_BufferPtr(MeshletsDataMerged), u_meshlets_data_merged)
-DAXA_TH_IMAGE_ID(COMPUTE_SHADER_SAMPLED, REGULAR_2D, u_hiz)
-DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ, daxa_BufferPtr(DispatchIndirectStruct), u_command)
+DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(ShaderGlobals), u_globals)
+DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(Mesh), u_meshes)
+DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(TransformInfo), u_transforms)
+DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(PrefixSumWorkExpansion), u_prefix_sum_work_expansion_mesh)
+DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(MeshesData), u_culled_meshes_data)
+DAXA_TH_BUFFER_PTR(WRITE, daxa_BufferPtr(MeshletsDataMerged), u_meshlets_data_merged)
+DAXA_TH_IMAGE_ID(SAMPLED, REGULAR_2D, u_hiz)
+DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(DispatchIndirectStruct), u_command)
 DAXA_DECL_TASK_HEAD_END
 
 struct CullMeshletsMaskedPush {
@@ -88,6 +91,7 @@ struct CullMeshletsMaskedPush {
 
 #if __cplusplus
 using CullMeshletsMaskedTask = foundation::IndirectComputeDispatchTask<
+                                            "CullMeshletsMasked",
                                             CullMeshletsMasked::Task, 
                                             CullMeshletsMaskedPush, 
                                             "src/graphics/virtual_geometry/tasks/cull_meshlets.slang", 
@@ -95,9 +99,9 @@ using CullMeshletsMaskedTask = foundation::IndirectComputeDispatchTask<
 #endif
 
 DAXA_DECL_TASK_HEAD_BEGIN(CullMeshletsTransparentWriteCommand)
-DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_WRITE, daxa_BufferPtr(MeshletsDataMerged), u_meshlets_data_merged)
-DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ, daxa_BufferPtr(PrefixSumWorkExpansion), u_prefix_sum_work_expansion_mesh)
-DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_WRITE, daxa_BufferPtr(DispatchIndirectStruct), u_command)
+DAXA_TH_BUFFER_PTR(WRITE, daxa_BufferPtr(MeshletsDataMerged), u_meshlets_data_merged)
+DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(PrefixSumWorkExpansion), u_prefix_sum_work_expansion_mesh)
+DAXA_TH_BUFFER_PTR(WRITE, daxa_BufferPtr(DispatchIndirectStruct), u_command)
 DAXA_DECL_TASK_HEAD_END
 
 struct CullMeshletsTransparentWriteCommandPush {
@@ -107,6 +111,7 @@ struct CullMeshletsTransparentWriteCommandPush {
 
 #if __cplusplus
 using CullMeshletsTransparentWriteCommandTask = foundation::WriteIndirectComputeDispatchTask<
+                                            "CullMeshletsTransparentWriteCommand",
                                             CullMeshletsTransparentWriteCommand::Task, 
                                             CullMeshletsTransparentWriteCommandPush, 
                                             "src/graphics/virtual_geometry/tasks/cull_meshlets.slang", 
@@ -114,14 +119,14 @@ using CullMeshletsTransparentWriteCommandTask = foundation::WriteIndirectCompute
 #endif
 
 DAXA_DECL_TASK_HEAD_BEGIN(CullMeshletsTransparent)
-DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ, daxa_BufferPtr(ShaderGlobals), u_globals)
-DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ, daxa_BufferPtr(Mesh), u_meshes)
-DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ, daxa_BufferPtr(TransformInfo), u_transforms)
-DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ, daxa_BufferPtr(PrefixSumWorkExpansion), u_prefix_sum_work_expansion_mesh)
-DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ, daxa_BufferPtr(MeshesData), u_culled_meshes_data)
-DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_WRITE, daxa_BufferPtr(MeshletsDataMerged), u_meshlets_data_merged)
-DAXA_TH_IMAGE_ID(COMPUTE_SHADER_SAMPLED, REGULAR_2D, u_hiz)
-DAXA_TH_BUFFER_PTR(COMPUTE_SHADER_READ, daxa_BufferPtr(DispatchIndirectStruct), u_command)
+DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(ShaderGlobals), u_globals)
+DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(Mesh), u_meshes)
+DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(TransformInfo), u_transforms)
+DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(PrefixSumWorkExpansion), u_prefix_sum_work_expansion_mesh)
+DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(MeshesData), u_culled_meshes_data)
+DAXA_TH_BUFFER_PTR(WRITE, daxa_BufferPtr(MeshletsDataMerged), u_meshlets_data_merged)
+DAXA_TH_IMAGE_ID(SAMPLED, REGULAR_2D, u_hiz)
+DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(DispatchIndirectStruct), u_command)
 DAXA_DECL_TASK_HEAD_END
 
 struct CullMeshletsTransparentPush {
@@ -131,6 +136,7 @@ struct CullMeshletsTransparentPush {
 
 #if __cplusplus
 using CullMeshletsTransparentTask = foundation::IndirectComputeDispatchTask<
+                                            "CullMeshletsTransparent",
                                             CullMeshletsTransparent::Task, 
                                             CullMeshletsTransparentPush, 
                                             "src/graphics/virtual_geometry/tasks/cull_meshlets.slang", 
