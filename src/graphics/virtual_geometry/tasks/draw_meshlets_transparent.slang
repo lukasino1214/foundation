@@ -3,6 +3,7 @@
 #include "../../../shader_library/vertex_compression.inl"
 #include "../../../shader_library/visibility_buffer.slang"
 #include "../../../shader_library/meshlet.slang"
+#include "../../../shader_library/shading.slang"
 
 [[vk::push_constant]] DrawMeshletsTransparentWriteCommandPush write_push;
 
@@ -88,41 +89,6 @@ void draw_meshlets_transparent_mesh(
     }
 }
 
-f32vec3 pixel_index_to_world_space(CameraInfo camera, f32vec2 pixel_index, f32 depth) {
-    const f32vec2 ndc_xy = (pixel_index + 0.5f) * push.uses.u_globals.render_target_size_inv;
-    const f32vec4 clip_space_position = f32vec4(ndc_xy * 2.0 - 1.0, depth, 1.0);
-    const f32vec4 view_space_position = mul(camera.inverse_projection_matrix, clip_space_position);
-    const f32vec4 world_space_position = mul(camera.inverse_view_matrix, view_space_position / view_space_position.w);
-    return world_space_position.xyz;
-}
-
-f32 calculate_point_light_attenuation(f32 to_light_dist, f32 cutoff) {
-    f32 win = (to_light_dist / cutoff);
-    win = win * win * win * win;
-    win = max(0.0, 1.0 - win);
-    win = win * win;
-    const f32 attenuation = win / (to_light_dist * to_light_dist + 0.1);
-    return attenuation;
-}
-
-f32 calculate_spot_light_attenuation(float3 to_light_dir, f32 to_light_dist, SpotLight light) {
-    f32 win = (to_light_dist / light.range);
-    win = win * win * win * win;
-    win = max(0.0, 1.0 - win);
-    win = win * win;
-    const f32 distance_attenuation = win / (to_light_dist * to_light_dist + 0.1);
-
-    const f32 cos_outer = cos(light.outer_cone_angle);
-    const f32 spot_scale = 1.0 / max(cos(light.inner_cone_angle) - cos_outer, 1e-4);
-    const f32 spot_offset = -cos_outer * spot_scale;
-    const f32 cd = dot(-to_light_dir, light.direction);
-
-    f32 angle_attenuation = clamp(cd * spot_scale + spot_offset, 0.0, 1.0);
-    angle_attenuation = angle_attenuation * angle_attenuation;
-    const f32 attenuation = distance_attenuation * angle_attenuation;
-    return attenuation;
-}
-
 static f32 zMultiplier = 10.0f;
 static f32 rcpWeightMultiplierZ = 1.0f / 200.0f;
 static f32 alphaWeightMultiplier = 40.0f;
@@ -177,37 +143,8 @@ PixelOutput draw_meshlets_transparent_frag(in VertexTransparent vertex, in Visib
         }
     }
 
-    const f32 ambient = 0.1f;
-    const f32vec3 world_position = pixel_index_to_world_space(push.uses.u_globals.main_camera, f32vec2(pixel_position.xy), pixel_position.z);
-
-    {
-        const SunLight* light = push.uses.u_sun;
-        const f32 diffuse = max(dot(normal, -light.direction), ambient);
-
-        color.rgb *= diffuse * light.color * light.intensity;
-    }
-
-    for(u32 i = 0; i < push.uses.u_point_lights.count; i++) {
-        const PointLight light = push.uses.u_point_lights.point_lights[i];
-        const f32vec3 position_to_light = normalize(light.position - world_position);
-        const f32 diffuse = max(dot(normal, position_to_light), 0.0f);
-
-        const f32 to_light_dist = length(light.position - world_position);
-        const f32 attenuation = calculate_point_light_attenuation(to_light_dist, light.range);
-
-        color.rgb += diffuse * light.color * light.intensity * attenuation;
-    }
-
-    for(u32 i = 0; i < push.uses.u_spot_lights.count; i++) {
-        const SpotLight light = push.uses.u_spot_lights.spot_lights[i];
-        const f32vec3 position_to_light = normalize(light.position - world_position);
-        const f32 diffuse = max(dot(normal, position_to_light), 0.0f);
-
-        const f32 to_light_dist = length(light.position - world_position);
-        const f32 attenuation = calculate_spot_light_attenuation(position_to_light, to_light_dist, light);
-
-        color.rgb += diffuse * light.color * light.intensity * attenuation;
-    }
+    const f32vec3 world_position = pixel_index_to_world_space(push.uses.u_globals.main_camera, push.uses.u_globals.render_target_size_inv, f32vec2(pixel_position.xy), pixel_position.z);
+    color.rgb = shade(color.rgb, world_position, normal, push.uses.u_sun, push.uses.u_point_lights, push.uses.u_spot_lights);
 
     color.rgb *= color.a;
 
