@@ -1261,11 +1261,11 @@ namespace foundation {
         ret.uvs.resize(unique_vertex_count);
         ret.index_buffer.resize(index_count);
 
-        meshopt_remapVertexBuffer(ret.positions.data(), ret.positions.data(), unindexed_vertex_count, sizeof(f32vec3), remap_table.data());
-        meshopt_remapVertexBuffer(ret.normals.data(), ret.normals.data(), unindexed_vertex_count, sizeof(f32vec3), remap_table.data());
-        meshopt_remapVertexBuffer(ret.uvs.data(), ret.uvs.data(), unindexed_vertex_count, sizeof(f32vec2), remap_table.data());
+        meshopt_remapVertexBuffer(ret.positions.data(), info.unindexed_positions.data(), unindexed_vertex_count, sizeof(f32vec3), remap_table.data());
+        meshopt_remapVertexBuffer(ret.normals.data(), info.unindexed_normals.data(), unindexed_vertex_count, sizeof(f32vec3), remap_table.data());
+        meshopt_remapVertexBuffer(ret.uvs.data(), info.unindexed_uvs.data(), unindexed_vertex_count, sizeof(f32vec2), remap_table.data());
         meshopt_remapIndexBuffer(ret.index_buffer.data(), nullptr, index_count, remap_table.data());
-    
+
         return ret;
     }
 #pragma endregion
@@ -1293,7 +1293,7 @@ namespace foundation {
         meshopt_remapVertexBuffer(ret.normals.data(), info.normals.data(), info.normals.size(), sizeof(f32vec3), remap_table.data());
         meshopt_remapVertexBuffer(ret.uvs.data(), info.uvs.data(), info.uvs.size(), sizeof(f32vec2), remap_table.data());
         meshopt_remapIndexBuffer(ret.index_buffer.data(), info.index_buffer.data(), info.index_buffer.size(), remap_table.data());
-    
+
         return ret;
     }
 #pragma endregion
@@ -1305,9 +1305,11 @@ namespace foundation {
         fastgltf::Primitive& gltf_primitive = gltf_mesh.primitives[info.gltf_primitive_index];
 
         std::vector<glm::vec3> vert_positions = {};
-        auto* position_attribute_iter = gltf_primitive.findAttribute("POSITION");
-        if(position_attribute_iter != gltf_primitive.attributes.end()) {
-            vert_positions = load_data<glm::vec3, false>(gltf_asset, gltf_asset.accessors[position_attribute_iter->accessorIndex]);
+        {
+            auto* position_attribute_iter = gltf_primitive.findAttribute("POSITION");
+            if(position_attribute_iter != gltf_primitive.attributes.end()) {
+                vert_positions = load_data<glm::vec3, false>(gltf_asset, gltf_asset.accessors[position_attribute_iter->accessorIndex]);
+            }
         }
 
         auto fill = [](auto& vec, u32 required_size = 0) {
@@ -1321,7 +1323,6 @@ namespace foundation {
 
         u32 vertex_count = s_cast<u32>(vert_positions.size());
 
-        std::vector<u32> packed_normals = {};
         std::vector<glm::vec3> vert_normals = {};
         {
             auto* normal_attribute_iter = gltf_primitive.findAttribute("NORMAL");
@@ -1330,14 +1331,8 @@ namespace foundation {
             } else {
                 fill(vert_normals, vertex_count);
             }
-
-            packed_normals.reserve(packed_normals.size());
-            for(const f32vec3& normal : vert_normals) {
-                packed_normals.push_back(encode_normal(normal));
-            }
         }
 
-        std::vector<u32> packed_uvs = {};
         std::vector<glm::vec2> vert_uvs = {};
         {
             auto* uvs_attribute_iter = gltf_primitive.findAttribute("TEXCOORD_0");
@@ -1345,11 +1340,6 @@ namespace foundation {
                 vert_uvs = load_data<glm::vec2, false>(gltf_asset, gltf_asset.accessors[uvs_attribute_iter->accessorIndex]);
             } else {
                 fill(vert_uvs, vertex_count);
-            }
-
-            packed_uvs.reserve(vert_uvs.size());
-            for(const f32vec2& uv : vert_uvs) {
-                packed_uvs.push_back(encode_uv(uv));
             }
         }
 
@@ -1384,6 +1374,18 @@ namespace foundation {
         }
 
         indices = optimize_vertex_cache(indices, vertex_count);
+
+        std::vector<u32> packed_normals = {};
+        packed_normals.reserve(packed_normals.size());
+        for(const f32vec3& normal : vert_normals) {
+            packed_normals.push_back(encode_normal(normal));
+        }
+
+        std::vector<u32> packed_uvs = {};
+        packed_uvs.reserve(vert_uvs.size());
+        for(const f32vec2& uv : vert_uvs) {
+            packed_uvs.push_back(encode_uv(uv));
+        }
 
         std::vector<Meshlet> meshlets = {};
         std::vector<u32> meshlet_indirect_vertices = {};
