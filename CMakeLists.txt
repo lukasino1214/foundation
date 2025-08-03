@@ -103,7 +103,6 @@ add_executable(${PROJECT_NAME}
     "src/graphics/renderer.cpp"
     "src/graphics/helper.cpp"
     "src/graphics/camera.cpp"
-    "src/graphics/virtual_geometry/virtual_geometry.cpp"
     "src/math/decompose.cpp"
     "src/scripting/scripting_engine.cpp"
     "src/ui/panels/viewport_panel.cpp"
