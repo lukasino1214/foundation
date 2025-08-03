@@ -115,12 +115,6 @@ namespace foundation {
             },
         };
 
-        mouse_selection_readback = make_task_buffer(context, daxa::BufferInfo {
-            .size = sizeof(MouseSelectionReadback),
-            .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
-            .name = "mouse selection readback"
-        });
-
         sun_light_buffer = make_task_buffer(context, daxa::BufferInfo {
             .size = sizeof(SunLight),
             .allocate_info = daxa::MemoryFlagBits::DEDICATED_MEMORY,
@@ -128,19 +122,18 @@ namespace foundation {
         });
 
         point_light_buffer = make_task_buffer(context, daxa::BufferInfo {
-            .size = sizeof(PointLightsData) + sizeof(PointLight) * MAX_POINT_LIGHTS,
+            .size = sizeof(PointLightsData) + (sizeof(PointLight) * MAX_POINT_LIGHTS),
             .allocate_info = daxa::MemoryFlagBits::DEDICATED_MEMORY,
             .name = "point light buffer"
         });
 
         spot_light_buffer = make_task_buffer(context, daxa::BufferInfo {
-            .size = sizeof(SpotLightsData) + sizeof(SpotLight) * MAX_SPOT_LIGHTS,
+            .size = sizeof(SpotLightsData) + (sizeof(SpotLight) * MAX_SPOT_LIGHTS),
             .allocate_info = daxa::MemoryFlagBits::DEDICATED_MEMORY,
             .name = "spot light buffer"
         });
 
         buffers = {
-            mouse_selection_readback,
             sun_light_buffer,
             point_light_buffer,
             spot_light_buffer,
@@ -174,7 +167,7 @@ namespace foundation {
 
         {
             daxa::BufferId stagging_buffer = context->create_buffer(daxa::BufferInfo {
-                .size = sizeof(PointLightsData) + sizeof(PointLight) * MAX_POINT_LIGHTS,
+                .size = sizeof(PointLightsData) + (sizeof(PointLight) * MAX_POINT_LIGHTS),
                 .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
                 .name = "point stagging_buffer"
             });
@@ -206,13 +199,13 @@ namespace foundation {
             cmd_recorder.copy_buffer_to_buffer(daxa::BufferCopyInfo {
                 .src_buffer = stagging_buffer,
                 .dst_buffer = point_light_buffer.get_state().buffers[0],
-                .size = sizeof(PointLightsData) + sizeof(PointLight) * MAX_POINT_LIGHTS
+                .size = sizeof(PointLightsData) + (sizeof(PointLight) * MAX_POINT_LIGHTS)
             });
         }
 
         {
             daxa::BufferId stagging_buffer = context->create_buffer(daxa::BufferInfo {
-                .size = sizeof(SpotLightsData) + sizeof(SpotLight) * MAX_POINT_LIGHTS,
+                .size = sizeof(SpotLightsData) + (sizeof(SpotLight) * MAX_POINT_LIGHTS),
                 .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
                 .name = "spot stagging_buffer"
             });
@@ -247,7 +240,7 @@ namespace foundation {
             cmd_recorder.copy_buffer_to_buffer(daxa::BufferCopyInfo {
                 .src_buffer = stagging_buffer,
                 .dst_buffer = spot_light_buffer.get_state().buffers[0],
-                .size = sizeof(SpotLightsData) + sizeof(SpotLight) * MAX_POINT_LIGHTS
+                .size = sizeof(SpotLightsData) + (sizeof(SpotLight) * MAX_POINT_LIGHTS)
             });
         }
 
@@ -496,8 +489,6 @@ namespace foundation {
         render_task_graph.use_persistent_buffer(point_light_buffer);
         render_task_graph.use_persistent_buffer(spot_light_buffer);
 
-        render_task_graph.use_persistent_buffer(mouse_selection_readback);
-
         render_task_graph.add_task(
             daxa::InlineTask::Transfer(MiscellaneousTasks::UPDATE_GLOBALS)
             .writes(shader_globals_buffer)
@@ -561,7 +552,6 @@ namespace foundation {
             .gpu_opaque_prefix_sum_work_expansion_mesh = asset_manager->gpu_opaque_prefix_sum_work_expansion_mesh,
             .gpu_masked_prefix_sum_work_expansion_mesh = asset_manager->gpu_masked_prefix_sum_work_expansion_mesh,
             .gpu_transparent_prefix_sum_work_expansion_mesh = asset_manager->gpu_transparent_prefix_sum_work_expansion_mesh,
-            .gpu_mouse_selection_readback = mouse_selection_readback,
             .gpu_sun_light_buffer = sun_light_buffer,
             .gpu_point_light_buffer = point_light_buffer,
             .gpu_spot_light_buffer = spot_light_buffer,
@@ -661,16 +651,6 @@ namespace foundation {
                     .clear_value = 0
                 });
                 context->gpu_metrics[MiscellaneousTasks::READBACK_COPY]->end(ti.recorder);
-        }));
-
-        render_task_graph.add_task(
-            daxa::InlineTask::Transfer("mouse selection readback")
-            .writes(mouse_selection_readback)
-            .executes([&](daxa::TaskInterface const &ti) {
-                auto readback = *context->device.buffer_host_address_as<MouseSelectionReadback>(ti.get(mouse_selection_readback).ids[0]).value();
-                if(context->shader_globals.mouse_selection_readback.state == 1) {
-                    context->shader_globals.mouse_selection_readback.id = readback.id;
-                }
         }));
 
         render_task_graph.submit({});

@@ -132,14 +132,6 @@ void resolve_visibility_buffer(u32vec3 pixel : SV_DispatchThreadID) {
     const Mesh mesh = push.uses.u_meshes[meshlet_instance_data.mesh_index];
     const Meshlet meshlet = mesh.meshlets[meshlet_instance_data.meshlet_index];
 
-    if(push.uses.u_globals->mouse_selection_readback.state == 1 && 
-        push.uses.u_globals->mouse_selection_readback.id == INVALID_ID && 
-        pixel.x == push.uses.u_globals->mouse_selection_readback.mouse_position.x && 
-        pixel.y == push.uses.u_globals->mouse_selection_readback.mouse_position.y) {
-        push.uses.u_globals->mouse_selection_readback.id = meshlet_instance_data.transform_index;
-        push.uses.u_mouse_selection_readback->id = meshlet_instance_data.transform_index;
-    }
-
     const u32[3] indices = u32[3](
         get_vertex_index(mesh, meshlet, triangle_index, 0),
         get_vertex_index(mesh, meshlet, triangle_index, 1),

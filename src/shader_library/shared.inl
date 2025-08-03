@@ -105,7 +105,6 @@ struct ShaderGlobals {
     u32vec2 next_lower_po2_render_target_size;
     f32vec2 next_lower_po2_render_target_size_inv;
     Samplers samplers;
-    MouseSelectionReadback mouse_selection_readback;
     daxa_BufferPtr(ShaderDebugBufferHead) debug;
 };
 DAXA_DECL_BUFFER_PTR(ShaderGlobals)

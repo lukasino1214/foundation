@@ -31,7 +31,6 @@ namespace foundation {
             daxa::TaskBufferView gpu_opaque_prefix_sum_work_expansion_mesh = {};
             daxa::TaskBufferView gpu_masked_prefix_sum_work_expansion_mesh = {};
             daxa::TaskBufferView gpu_transparent_prefix_sum_work_expansion_mesh = {};
-            daxa::TaskBufferView gpu_mouse_selection_readback = {};
             daxa::TaskBufferView gpu_sun_light_buffer = {};
             daxa::TaskBufferView gpu_point_light_buffer = {};
             daxa::TaskBufferView gpu_spot_light_buffer = {};

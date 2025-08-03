@@ -33,26 +33,6 @@ namespace foundation {
         pos.x += ImGui::GetWindowPos().x;
         pos.y += ImGui::GetWindowPos().y;
 
-        if(ImGui::IsWindowHovered() && window->button_just_pressed(Button::Button_1)  && !ImGuizmo::IsUsingAny()) {
-            auto mouse_pos = ImGui::GetMousePos();
-            // LOG_INFO("pos: {} {}", mouse_pos.x, mouse_pos.y);
-            auto window_pos = ImGui::GetWindowPos();
-            glm::vec2 relative_pos = { mouse_pos.x - window_pos.x, mouse_pos.y - window_pos.y - ImGui::GetWindowContentRegionMin().y};
-
-            context->shader_globals.mouse_selection_readback = {
-                .mouse_position = relative_pos,
-                .state = 1,
-                .id = INVALID_ID
-            };
-        }
-        else {
-            context->shader_globals.mouse_selection_readback = {
-                .mouse_position = {INVALID_ID, INVALID_ID},
-                .state = 0,
-                .id = INVALID_ID
-            };
-        }
-
         glm::vec2 origin = *r_cast<glm::vec2*>(&pos) + glm::vec2{size.x - length - 8.0f,  length + 8.0f};
 
         auto project_axis = [&](const glm::vec3& axis) -> ImVec2 {

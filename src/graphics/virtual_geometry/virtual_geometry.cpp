@@ -520,7 +520,6 @@ namespace foundation {
                 .u_point_lights = info.gpu_point_light_buffer,
                 .u_spot_lights = info.gpu_spot_light_buffer,
                 .u_readback_material = info.gpu_readback_material,
-                .u_mouse_selection_readback = info.gpu_mouse_selection_readback,
                 .u_visibility_image = info.visibility_image,
                 .u_overdraw_image = info.overdraw_image,
                 .u_image = info.color_image,

@@ -242,11 +242,6 @@ namespace foundation {
         ImGui::Text("Vertex Count: %zu", asset_manager->total_vertex_count);
         ImGui::End();
 
-        if(context.shader_globals.mouse_selection_readback.state == 1) {
-            // LOG_INFO("{}", context.shader_globals.mouse_selection_readback.id);
-            scene_hierarchy_panel.selected_entity = Entity { scene->transform_handle_to_entity[context.shader_globals.mouse_selection_readback.id], scene.get() };
-        }
-
         scene_hierarchy_panel.draw();
         renderer->ui_update();
         viewport_panel.selected_entity = scene_hierarchy_panel.selected_entity;
