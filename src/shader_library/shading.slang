@@ -2,9 +2,16 @@
 #include "glue.inl"
 #include "shared.inl"
 
+f32vec3 pixel_index_to_view_space(CameraInfo camera, f32vec2 render_target_size_inv, f32vec2 pixel_index, f32 depth) {
+    const f32vec2 uv_xy = (pixel_index + 0.5f) * render_target_size_inv;
+    const f32vec4 clip_space_position = f32vec4(uv_xy * 2.0 - 1.0, depth, 1.0);
+    const f32vec4 view_space_position = mul(camera.inverse_projection_matrix, clip_space_position);
+    return view_space_position.xyz / view_space_position.w;
+}
+
 f32vec3 pixel_index_to_world_space(CameraInfo camera, f32vec2 render_target_size_inv, f32vec2 pixel_index, f32 depth) {
-    const f32vec2 ndc_xy = (pixel_index + 0.5f) * render_target_size_inv;
-    const f32vec4 clip_space_position = f32vec4(ndc_xy * 2.0 - 1.0, depth, 1.0);
+    const f32vec2 uv_xy = (pixel_index + 0.5f) * render_target_size_inv;
+    const f32vec4 clip_space_position = f32vec4(uv_xy * 2.0 - 1.0, depth, 1.0);
     const f32vec4 view_space_position = mul(camera.inverse_projection_matrix, clip_space_position);
     const f32vec4 world_space_position = mul(camera.inverse_view_matrix, view_space_position / view_space_position.w);
     return world_space_position.xyz;

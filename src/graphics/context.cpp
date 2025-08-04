@@ -197,6 +197,13 @@ namespace foundation {
             1.0f / s_cast<f32>(shader_globals.render_target_size.x),
             1.0f / s_cast<f32>(shader_globals.render_target_size.y),
         };
+
+        shader_globals.render_target_half_size = { round_up_div(size.x, 2), round_up_div(size.y, 2) };
+        shader_globals.render_target_half_size_inv = {
+            1.0f / s_cast<f32>(shader_globals.render_target_half_size.x),
+            1.0f / s_cast<f32>(shader_globals.render_target_half_size.y),
+        };
+
         shader_globals.next_lower_po2_render_target_size.x = find_next_lower_po2(shader_globals.render_target_size.x);
         shader_globals.next_lower_po2_render_target_size.y = find_next_lower_po2(shader_globals.render_target_size.y);
         shader_globals.next_lower_po2_render_target_size_inv = {

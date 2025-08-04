@@ -102,6 +102,8 @@ struct ShaderGlobals {
     b32 render_as_observer;
     u32vec2 render_target_size;
     f32vec2 render_target_size_inv;
+    u32vec2 render_target_half_size;
+    f32vec2 render_target_half_size_inv;
     u32vec2 next_lower_po2_render_target_size;
     f32vec2 next_lower_po2_render_target_size_inv;
     Samplers samplers;

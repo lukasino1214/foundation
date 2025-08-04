@@ -4,6 +4,7 @@
 #include <graphics/helper.hpp>
 #include "common/tasks/clear_image.inl"
 #include "common/tasks/debug.inl"
+#include "common/tasks/debug_image.inl"
 #include <graphics/virtual_geometry/tasks/cull_meshlets.inl>
 #include <graphics/virtual_geometry/tasks/generate_hiz.inl>
 #include <graphics/virtual_geometry/tasks/resolve_visibility_buffer.inl>
@@ -18,6 +19,8 @@
 #include <graphics/virtual_geometry/tasks/combine_depth.inl>
 #include <graphics/virtual_geometry/tasks/extract_depth.inl>
 #include <graphics/virtual_geometry/tasks/resolve_wboit.inl>
+#include <graphics/post_processing/tasks/generate_gbuffer.inl>
+#include <graphics/post_processing/tasks/generate_ssao.inl>
 #include <ImGuizmo.h>
 
 namespace foundation {
@@ -32,6 +35,10 @@ namespace foundation {
     struct VirtualGeometryTasks {
         static inline constexpr std::string_view CLEAR_DEPTH_IMAGE_U32 = "clear depth image u32";
         static inline constexpr std::string_view CLEAR_VISIBILITY_IMAGE = "clear visibility image";
+    };
+
+    struct PostProcessingTasks {
+        static inline constexpr std::string_view CLEAR_GENERATE_GBUFFER_IMAGES = "clear generate gbuffer images";
     };
 
     Renderer::Renderer(NativeWIndow* _window, Context* _context, Scene* _scene, AssetManager* _asset_manager) 
@@ -52,9 +59,21 @@ namespace foundation {
         depth_image_d32 = daxa::TaskImage{{ .name = "depth image d32" }};
         depth_image_u32 = daxa::TaskImage{{ .name = "depth image u32" }};
         depth_image_f32 = daxa::TaskImage{{ .name = "depth image f32" }};
+        
         overdraw_image = daxa::TaskImage{{ .name = "overdraw image" }};
+
         wboit_accumulation_image = daxa::TaskImage{{ .name = "wboit accumulation image" }};
         wboit_reveal_image = daxa::TaskImage{{ .name = "wboit reveal image" }};
+
+        ssao_image = daxa::TaskImage{{ .name = "ssao image" }};
+        // ssao_blur_image = daxa::TaskImage{{ .name = "ssao blur image" }};
+        // ssao_upsample_image = daxa::TaskImage{{ .name = "ssao upsample image" }};
+
+        normal_image = daxa::TaskImage{{ .name = "normal image" }};
+        normal_half_res_image = daxa::TaskImage{{ .name = "normal half res image" }};
+        normal_detail_image = daxa::TaskImage{{ .name = "normal detail image" }};
+        normal_detail_half_res_image = daxa::TaskImage{{ .name = "normal detail half res image" }};
+        depth_half_res_image = daxa::TaskImage{{ .name = "depth half res image" }};
 
         images = {
             render_image,
@@ -65,6 +84,14 @@ namespace foundation {
             overdraw_image,
             wboit_accumulation_image,
             wboit_reveal_image,
+            ssao_image,
+            // ssao_blur_image,
+            // ssao_upsample_image,
+            normal_image,
+            normal_half_res_image,
+            normal_detail_image,
+            normal_detail_half_res_image,
+            depth_half_res_image,
         };
         frame_buffer_images = {
             {
@@ -130,6 +157,70 @@ namespace foundation {
                     .name = wboit_reveal_image.info().name,
                 },
                 wboit_reveal_image,
+            },
+            {
+                {
+                    .format = daxa::Format::R8_UNORM,
+                    .usage = daxa::ImageUsageFlagBits::SHADER_STORAGE,
+                    .name = ssao_image.info().name,
+                },
+                ssao_image,
+            },
+            // {
+            //     {
+            //         .format = daxa::Format::R8_UNORM,
+            //         .usage = daxa::ImageUsageFlagBits::SHADER_STORAGE,
+            //         .name = ssao_blur_image.info().name,
+            //     },
+            //     ssao_blur_image,
+            // },
+            // {
+            //     {
+            //         .format = daxa::Format::R8_UNORM,
+            //         .usage = daxa::ImageUsageFlagBits::SHADER_STORAGE,
+            //         .name = ssao_upsample_image.info().name,
+            //     },
+            //     ssao_upsample_image,
+            // },
+            {
+                {
+                    .format = daxa::Format::R32_UINT,
+                    .usage = daxa::ImageUsageFlagBits::SHADER_STORAGE,
+                    .name = normal_image.info().name,
+                },
+                normal_image,
+            },
+            {
+                {
+                    .format = daxa::Format::R32_UINT,
+                    .usage = daxa::ImageUsageFlagBits::SHADER_STORAGE,
+                    .name = normal_half_res_image.info().name,
+                },
+                normal_half_res_image,
+            },
+            {
+                {
+                    .format = daxa::Format::R32_UINT,
+                    .usage = daxa::ImageUsageFlagBits::SHADER_STORAGE,
+                    .name = normal_detail_image.info().name,
+                },
+                normal_detail_image,
+            },
+            {
+                {
+                    .format = daxa::Format::R32_UINT,
+                    .usage = daxa::ImageUsageFlagBits::SHADER_STORAGE,
+                    .name = normal_detail_half_res_image.info().name,
+                },
+                normal_detail_half_res_image,
+            },
+            {
+                {
+                    .format = daxa::Format::R32_SFLOAT,
+                    .usage = daxa::ImageUsageFlagBits::SHADER_STORAGE,
+                    .name = depth_half_res_image.info().name,
+                },
+                depth_half_res_image,
             },
         };
 
@@ -265,15 +356,18 @@ namespace foundation {
         context->device.submit_commands(daxa::CommandSubmitInfo {
             .command_lists = std::to_array({ cmd_recorder.complete_current_commands() })
         });
-
+        
         context->device.wait_idle();
         context->device.wait_idle();
 
         context->gpu_metrics[ClearImageTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
+        context->gpu_metrics[DebugImageTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
+
         context->gpu_metrics[DebugEntityOOBDrawTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
         context->gpu_metrics[DebugAABBDrawTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
         context->gpu_metrics[DebugCircleDrawTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
         context->gpu_metrics[DebugLineDrawTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
+
         context->gpu_metrics[MiscellaneousTasks::UPDATE_SCENE] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
         context->gpu_metrics[MiscellaneousTasks::UPDATE_GLOBALS] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
         context->gpu_metrics[MiscellaneousTasks::READBACK_COPY] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
@@ -317,6 +411,10 @@ namespace foundation {
         // resolve
         context->gpu_metrics[ResolveVisibilityBufferTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
         context->gpu_metrics[ResolveWBOITTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
+
+        context->gpu_metrics[PostProcessingTasks::CLEAR_GENERATE_GBUFFER_IMAGES] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
+        context->gpu_metrics[GenerateGBufferTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
+        context->gpu_metrics[GenerateSSAOTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
 
         rebuild_task_graph();
 
@@ -417,6 +515,14 @@ namespace foundation {
                     {ResolveWBOITTask::name(), "resolve wboit"}
                 }
             },
+            PerfomanceCategory {
+                .name = "post processing",
+                .counters = {
+                    {PostProcessingTasks::CLEAR_GENERATE_GBUFFER_IMAGES, "clear gbuffer images"},
+                    {GenerateGBufferTask::name(), "generate gbuffer"},
+                    {GenerateSSAOTask::name(), "generate ssao"},
+                }
+            },
         };
 
         performace_metrics.insert(performace_metrics.end(), virtual_geometry_performance_metrics.begin(), virtual_geometry_performance_metrics.end());
@@ -493,6 +599,26 @@ namespace foundation {
 
             info.size = { std::max(size.x, 1u), std::max(size.y, 1u), 1 };
 
+            if(std::string{info.name.c_str().data()} == "ssao image") {
+                info.size = { round_up_div(size.x, 2), round_up_div(size.y, 2), 1 };
+            }
+
+            if(std::string{info.name.c_str().data()} == "ssao blur image") {
+                info.size = { round_up_div(size.x, 2), round_up_div(size.y, 2), 1 };
+            }
+
+            if(std::string{info.name.c_str().data()} == "normal half res image") {
+                info.size = { round_up_div(size.x, 2), round_up_div(size.y, 2), 1 };
+            }
+
+            if(std::string{info.name.c_str().data()} == "normal detail half res image") {
+                info.size = { round_up_div(size.x, 2), round_up_div(size.y, 2), 1 };
+            }
+
+            if(std::string{info.name.c_str().data()} == "depth half res image") {
+                info.size = { round_up_div(size.x, 2), round_up_div(size.y, 2), 1 };
+            }
+
             timg.set_images({.images = std::array{context->create_image(info)}});
         }
 
@@ -540,6 +666,7 @@ namespace foundation {
 
         std::vector<std::tuple<std::string_view, daxa::ComputePipelineCompileInfo2>> computes = {
             {ClearImageTask::name(), ClearImageTask::pipeline_config_info()},
+            {DebugImageTask::name(), DebugImageTask::pipeline_config_info()},
 
             {CullMeshletsOpaqueWriteCommandTask::name(), CullMeshletsOpaqueWriteCommandTask::pipeline_config_info()},
             {CullMeshletsOpaqueTask::name(), CullMeshletsOpaqueTask::pipeline_config_info()},
@@ -561,6 +688,9 @@ namespace foundation {
             {SoftwareRasterizationOnlyDepthWriteCommandTask::name(), SoftwareRasterizationOnlyDepthWriteCommandTask::pipeline_config_info()},
             {SoftwareRasterizationTask::name(), SoftwareRasterizationTask::pipeline_config_info()},
             {SoftwareRasterizationOnlyDepthTask::name(), SoftwareRasterizationOnlyDepthTask::pipeline_config_info()},
+
+            {GenerateGBufferTask::name(), GenerateGBufferTask::pipeline_config_info()},
+            {GenerateSSAOTask::name(), GenerateSSAOTask::pipeline_config_info()},
         };
 
         for (auto [name, info] : computes) {
@@ -594,6 +724,16 @@ namespace foundation {
         render_task_graph.use_persistent_image(overdraw_image);
         render_task_graph.use_persistent_image(wboit_accumulation_image);
         render_task_graph.use_persistent_image(wboit_reveal_image);
+
+        render_task_graph.use_persistent_image(normal_image);
+        render_task_graph.use_persistent_image(normal_half_res_image);
+        render_task_graph.use_persistent_image(normal_detail_image);
+        render_task_graph.use_persistent_image(normal_detail_half_res_image);
+        render_task_graph.use_persistent_image(depth_half_res_image);
+
+        render_task_graph.use_persistent_image(ssao_image);
+        // render_task_graph.use_persistent_image(ssao_blur_image);
+        // render_task_graph.use_persistent_image(ssao_upsample_image);
 
         render_task_graph.use_persistent_buffer(shader_globals_buffer);
         render_task_graph.use_persistent_buffer(scene->gpu_transforms_pool.task_buffer);
@@ -984,6 +1124,105 @@ namespace foundation {
             .context = context,
         });
 
+        render_task_graph.add_task(
+            daxa::InlineTask::Transfer(PostProcessingTasks::CLEAR_GENERATE_GBUFFER_IMAGES)
+            .writes(normal_image)
+            .writes(normal_half_res_image)
+            .writes(normal_detail_image)
+            .writes(normal_detail_half_res_image)
+            .writes(depth_half_res_image)
+            .executes([this](daxa::TaskInterface const &ti) {
+                context->gpu_metrics[PostProcessingTasks::CLEAR_GENERATE_GBUFFER_IMAGES]->start(ti.recorder);
+                ti.recorder.clear_image({
+                    .clear_value = std::array<u32, 4>{0, 0, 0, 0},
+                    .dst_image = ti.get(daxa::TaskImageAttachmentIndex(0)).ids[0],
+                });
+                ti.recorder.clear_image({
+                    .clear_value = std::array<u32, 4>{0, 0, 0, 0},
+                    .dst_image = ti.get(daxa::TaskImageAttachmentIndex(1)).ids[0],
+                });
+                ti.recorder.clear_image({
+                    .clear_value = std::array<u32, 4>{0, 0, 0, 0},
+                    .dst_image = ti.get(daxa::TaskImageAttachmentIndex(2)).ids[0],
+                });
+                ti.recorder.clear_image({
+                    .clear_value = std::array<u32, 4>{0, 0, 0, 0},
+                    .dst_image = ti.get(daxa::TaskImageAttachmentIndex(3)).ids[0],
+                });
+                ti.recorder.clear_image({
+                    .clear_value = std::array<f32, 4>{0, 0, 0, 0},
+                    .dst_image = ti.get(daxa::TaskImageAttachmentIndex(4)).ids[0],
+                });
+                context->gpu_metrics[PostProcessingTasks::CLEAR_GENERATE_GBUFFER_IMAGES]->end(ti.recorder);
+        }));
+
+        render_task_graph.add_task(GenerateGBufferTask {
+            .views = GenerateGBufferTask::Views {
+                .u_globals = context->shader_globals_buffer.view(),
+                .u_meshlets_instance_data = asset_manager->gpu_meshlets_instance_data.view(),
+                .u_meshes = asset_manager->gpu_meshes.view(),
+                .u_transforms = scene->gpu_transforms_pool.task_buffer.view(),
+                .u_materials = asset_manager->gpu_materials.view(),
+                .u_visibility_image = visibility_image.view(),
+                .u_normal_image = normal_image.view(),
+                .u_normal_half_res_image = normal_half_res_image.view(),
+                .u_normal_detail_image = normal_detail_image.view(),
+                .u_normal_detail_half_res_image = normal_detail_half_res_image.view(),
+                .u_depth_half_res_image = depth_half_res_image.view(),
+            },
+            .context = context,
+            .dispatch_callback = [this]() -> daxa::DispatchInfo {
+                return { 
+                    .x = round_up_div(context->shader_globals.render_target_size.x, 8),
+                    .y = round_up_div(context->shader_globals.render_target_size.y, 8),
+                    .z = 1
+                };
+            }
+        });
+
+        render_task_graph.add_task(GenerateSSAOTask {
+            .views = GenerateSSAOTask::Views {
+                .u_globals = context->shader_globals_buffer.view(),
+                .u_normal_detail_half_res_image = normal_detail_half_res_image.view(),
+                .u_depth_half_res_image = depth_half_res_image.view(),
+                .u_ssao_image = ssao_image.view(),
+            },
+            .context = context,
+            .dispatch_callback = [this]() -> daxa::DispatchInfo {
+                return { 
+                    .x = round_up_div(context->shader_globals.render_target_half_size.x, 16),
+                    .y = round_up_div(context->shader_globals.render_target_half_size.y, 16),
+                    .z = 1
+                };
+            }
+        });
+
+        render_task_graph.add_task(ResolveVisibilityBufferTask {
+            .views = ResolveVisibilityBufferTask::Views {
+                .u_globals = context->shader_globals_buffer.view(),
+                .u_meshlets_instance_data = asset_manager->gpu_meshlets_instance_data.view(),
+                .u_meshes = asset_manager->gpu_meshes.view(),
+                .u_transforms = scene->gpu_transforms_pool.task_buffer.view(),
+                .u_materials = asset_manager->gpu_materials.view(),
+                .u_sun = sun_light_buffer.view(),
+                .u_point_lights = point_light_buffer.view(),
+                .u_spot_lights = spot_light_buffer.view(),
+                .u_readback_material = asset_manager->gpu_readback_material_gpu.view(),
+                .u_ssao_image = ssao_image.view(),
+                .u_visibility_image = visibility_image.view(),
+                .u_overdraw_image = overdraw_image.view(),
+                .u_image = render_image.view(),
+            },
+            .context = context,
+            .dispatch_callback = [this]() -> daxa::DispatchInfo {
+                return { 
+                    .x = round_up_div(context->shader_globals.render_target_size.x, 16),
+                    .y = round_up_div(context->shader_globals.render_target_size.y, 16),
+                    .z = 1
+                };
+            }
+        });
+
         render_task_graph.add_task(ExtractDepthTask {
             .views = ExtractDepthTask::Views {
                 .u_globals = context->shader_globals_buffer.view(),
@@ -1018,31 +1257,6 @@ namespace foundation {
                 .u_command = u_command,
             },
             .context = context,
-        });
-
-        render_task_graph.add_task(ResolveVisibilityBufferTask {
-            .views = ResolveVisibilityBufferTask::Views {
-                .u_globals = context->shader_globals_buffer.view(),
-                .u_meshlets_instance_data = asset_manager->gpu_meshlets_instance_data.view(),
-                .u_meshes = asset_manager->gpu_meshes.view(),
-                .u_transforms = scene->gpu_transforms_pool.task_buffer.view(),
-                .u_materials = asset_manager->gpu_materials.view(),
-                .u_sun = sun_light_buffer.view(),
-                .u_point_lights = point_light_buffer.view(),
-                .u_spot_lights = spot_light_buffer.view(),
-                .u_readback_material = asset_manager->gpu_readback_material_gpu.view(),
-                .u_visibility_image = visibility_image.view(),
-                .u_overdraw_image = overdraw_image.view(),
-                .u_image = render_image.view(),
-            },
-            .context = context,
-            .dispatch_callback = [this]() -> daxa::DispatchInfo {
-                return { 
-                    .x = round_up_div(context->shader_globals.render_target_size.x, 16),
-                    .y = round_up_div(context->shader_globals.render_target_size.y, 16),
-                    .z = 1
-                };
-            }
         });
 
         render_task_graph.add_task(ResolveWBOITTask {
@@ -1094,6 +1308,23 @@ namespace foundation {
             },
             .context = context,
         });
+
+        // render_task_graph.add_task(DebugImageTask {
+        //     .views = DebugImageTask::Views {
+        //         .u_globals = context->shader_globals_buffer.view(),
+        //         .u_f32_image = ssao_image.view(),
+        //         .u_u32_image = normal_image.view(),
+        //         .u_color_image = render_image.view(),
+        //     },
+        //     .context = context,
+        //     .dispatch_callback = [this]() -> daxa::DispatchInfo {
+        //         return { 
+        //             .x = round_up_div(context->shader_globals.render_target_size.x, 16),
+        //             .y = round_up_div(context->shader_globals.render_target_size.y, 16),
+        //             .z = 1
+        //         };
+        //     }
+        // });
 
         render_task_graph.add_task(
             daxa::InlineTask{MiscellaneousTasks::IMGUI_DRAW}
