@@ -33,7 +33,7 @@ f32vec3 turbo_color_map(f32 x) {
 [[vk::push_constant]] ResolveVisibilityBufferPush push;
 [shader("compute")]
 [numthreads(16, 16, 1)]
-void resolve_visibility_buffer(u32vec3 pixel : SV_DispatchThreadID) {
+void resolve_visibility_buffer(u32vec3 pixel : SV_DispatchThreadID, u32vec2 tile_index : SV_GroupID) {
     if(any(pixel.xy >= deref(push.uses.u_globals).render_target_size)) { return; }
 
     u32 vis_index = 0;
@@ -190,14 +190,18 @@ void resolve_visibility_buffer(u32vec3 pixel : SV_DispatchThreadID) {
         
     // color = f32vec4(normal * 0.5 + 0.5, 1.0f);
 
-#if OVERDRAW_DEBUG
-    color.rgb = turbo_color_map(f32(push.uses.u_overdraw_image.get()[pixel.xy]) / 24.0);
-#endif
-
     const f32vec3 world_position = pixel_index_to_world_space(push.uses.u_globals.main_camera, push.uses.u_globals.render_target_size_inv, f32vec2(pixel.xy), asfloat(depth));
     f32 occlusion = push.uses.u_ssao_image.get()[pixel.xy / 2];
 
-    color.rgb = occlusion * shade(color.rgb, world_position, normal, push.uses.u_sun, push.uses.u_point_lights, push.uses.u_spot_lights);
+    const u32vec2 resolution = push.uses.u_globals.render_target_size;
+    const u32vec2 tile_frustums = u32vec2(round_up_div(resolution.x, 16), round_up_div(resolution.y, 16));
+    TileData* tile_data = push.uses.u_tile_data + (tile_index.y * tile_frustums.x + tile_index.x);
+
+    color.rgb = occlusion * shade_tiled(color.rgb, world_position, normal, tile_data, push.uses.u_sun, push.uses.u_point_lights, push.uses.u_spot_lights);
+
+#if OVERDRAW_DEBUG
+    color.rgb = f32vec3(f32(push.uses.u_overdraw_image.get()[pixel.xy]) / 24.0);
+#endif
 
     push.uses.u_image.get()[pixel.xy] = color;
 }

@@ -84,7 +84,7 @@ void generate_ssao(u32vec3 pixel : SV_DispatchThreadID) {
     ));
 
     const f32vec3 world_space_normal = decode_normal(push.uses.u_normal_detail_half_res_image.get()[pixel.xy]);
-    const f32vec3 normal = mul(f32mat3x3(push.uses.u_globals.main_camera.view_matrix), world_space_normal.xyz);
+    const f32vec3 normal = normalize(mul(f32mat3x3(push.uses.u_globals.main_camera.view_matrix), world_space_normal.xyz));
 
     const f32vec3 tangent = normalize(random_vec - normal * dot(random_vec, normal));
 	const f32vec3 bitangent = cross(tangent, normal);

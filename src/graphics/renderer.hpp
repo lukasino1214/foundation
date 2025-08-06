@@ -58,6 +58,9 @@ namespace foundation {
         daxa::TaskBuffer point_light_buffer = {};
         daxa::TaskBuffer spot_light_buffer = {};
 
+        daxa::TaskBuffer tile_frustums_buffer = {};
+        daxa::TaskBuffer tile_data_buffer = {};
+
         std::vector<daxa::TaskBuffer> buffers = {};
 
         daxa::TaskGraph render_task_graph = {};

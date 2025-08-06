@@ -21,6 +21,8 @@
 #include <graphics/virtual_geometry/tasks/resolve_wboit.inl>
 #include <graphics/post_processing/tasks/generate_gbuffer.inl>
 #include <graphics/post_processing/tasks/generate_ssao.inl>
+#include <graphics/post_processing/tasks/calculate_frustums.inl>
+#include <graphics/post_processing/tasks/cull_lights.inl>
 #include <ImGuizmo.h>
 
 namespace foundation {
@@ -242,10 +244,24 @@ namespace foundation {
             .name = "spot light buffer"
         });
 
+        tile_frustums_buffer = make_task_buffer(context, daxa::BufferInfo {
+            .size = sizeof(TileFrustum),
+            .allocate_info = daxa::MemoryFlagBits::DEDICATED_MEMORY,
+            .name = "tile frustums buffer"
+        });
+
+        tile_data_buffer = make_task_buffer(context, daxa::BufferInfo {
+            .size = sizeof(TileData),
+            .allocate_info = daxa::MemoryFlagBits::DEDICATED_MEMORY,
+            .name = "tile data buffer"
+        });
+
         buffers = {
             sun_light_buffer,
             point_light_buffer,
             spot_light_buffer,
+            tile_frustums_buffer,
+            tile_data_buffer,
         };
 
         // TODO: remove this
@@ -415,6 +431,8 @@ namespace foundation {
         context->gpu_metrics[PostProcessingTasks::CLEAR_GENERATE_GBUFFER_IMAGES] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
         context->gpu_metrics[GenerateGBufferTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
         context->gpu_metrics[GenerateSSAOTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
+        context->gpu_metrics[CalculateFrustumsTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
+        context->gpu_metrics[CullLightsTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
 
         rebuild_task_graph();
 
@@ -521,6 +539,8 @@ namespace foundation {
                     {PostProcessingTasks::CLEAR_GENERATE_GBUFFER_IMAGES, "clear gbuffer images"},
                     {GenerateGBufferTask::name(), "generate gbuffer"},
                     {GenerateSSAOTask::name(), "generate ssao"},
+                    {CalculateFrustumsTask::name(), "calculate frustums"},
+                    {CullLightsTask::name(), "cull lights"},
                 }
             },
         };
@@ -591,6 +611,24 @@ namespace foundation {
 
     void Renderer::recreate_framebuffer(const glm::uvec2& size) {
         LOG_INFO("resizing framebuffers from [{}, {}] to [{}, {}]", context->shader_globals.render_target_size.x, context->shader_globals.render_target_size.y, size.x, size.y);
+
+        context->destroy_buffer(tile_frustums_buffer.get_state().buffers[0]);
+        tile_frustums_buffer.set_buffers({ .buffers = std::array{
+            context->create_buffer(daxa::BufferInfo {
+                .size = sizeof(TileFrustum) * std::max(round_up_div(size.x, PIXELS_PER_FRUSTUM), 1u) * std::max(round_up_div(size.y, PIXELS_PER_FRUSTUM), 1u),
+                .allocate_info = daxa::MemoryFlagBits::DEDICATED_MEMORY,
+                .name = "tile frustums buffer"
+            })
+        }});
+
+        context->destroy_buffer(tile_data_buffer.get_state().buffers[0]);
+        tile_data_buffer.set_buffers({ .buffers = std::array{
+            context->create_buffer(daxa::BufferInfo {
+                .size = sizeof(TileData) * std::max(round_up_div(size.x, PIXELS_PER_FRUSTUM), 1u) * std::max(round_up_div(size.y, PIXELS_PER_FRUSTUM), 1u),
+                .allocate_info = daxa::MemoryFlagBits::DEDICATED_MEMORY,
+                .name = "tile data buffer"
+            })
+        }});
 
         for (auto &[info, timg] : frame_buffer_images) {
             for(auto image : timg.get_state().images) {
@@ -691,6 +729,8 @@ namespace foundation {
 
             {GenerateGBufferTask::name(), GenerateGBufferTask::pipeline_config_info()},
             {GenerateSSAOTask::name(), GenerateSSAOTask::pipeline_config_info()},
+            {CalculateFrustumsTask::name(), CalculateFrustumsTask::pipeline_config_info()},
+            {CullLightsTask::name(), CullLightsTask::pipeline_config_info()},
         };
 
         for (auto [name, info] : computes) {
@@ -734,6 +774,9 @@ namespace foundation {
         render_task_graph.use_persistent_image(ssao_image);
         // render_task_graph.use_persistent_image(ssao_blur_image);
         // render_task_graph.use_persistent_image(ssao_upsample_image);
+
+        render_task_graph.use_persistent_buffer(tile_frustums_buffer);
+        render_task_graph.use_persistent_buffer(tile_data_buffer);
 
         render_task_graph.use_persistent_buffer(shader_globals_buffer);
         render_task_graph.use_persistent_buffer(scene->gpu_transforms_pool.task_buffer);
@@ -1156,6 +1199,15 @@ namespace foundation {
                 context->gpu_metrics[PostProcessingTasks::CLEAR_GENERATE_GBUFFER_IMAGES]->end(ti.recorder);
         }));
 
+        render_task_graph.add_task(ExtractDepthTask {
+            .views = ExtractDepthTask::Views {
+                .u_globals = context->shader_globals_buffer.view(),
+                .u_visibility_image = visibility_image.view(),
+                .u_depth_image = depth_image_d32.view(),
+            },
+            .context = context,
+        });
+
         render_task_graph.add_task(GenerateGBufferTask {
             .views = GenerateGBufferTask::Views {
                 .u_globals = context->shader_globals_buffer.view(),
@@ -1197,6 +1249,46 @@ namespace foundation {
             }
         });
 
+        render_task_graph.add_task(CalculateFrustumsTask {
+            .views = CalculateFrustumsTask::Views {
+                .u_globals = context->shader_globals_buffer.view(),
+                .u_tile_frustums = tile_frustums_buffer.view(),
+            },
+            .context = context,
+            .dispatch_callback = [this]() -> daxa::DispatchInfo {
+                u32vec2 tile_frustums = {
+                    round_up_div(context->shader_globals.render_target_size.x, 16),
+                    round_up_div(context->shader_globals.render_target_size.y, 16),
+                };
+
+                return { 
+                    .x = round_up_div(tile_frustums.x, 16),
+                    .y = round_up_div(tile_frustums.y, 16),
+                    .z = 1
+                };
+            }
+        });
+
+        render_task_graph.add_task(CullLightsTask {
+            .views = CullLightsTask::Views {
+                .u_globals = context->shader_globals_buffer.view(),
+                .u_tile_frustums = tile_frustums_buffer.view(),
+                .u_tile_data = tile_data_buffer.view(),
+                .u_point_lights = point_light_buffer.view(),
+                .u_spot_lights = spot_light_buffer.view(),
+                .u_depth_image = depth_image_d32.view(),
+                .u_overdraw_image = overdraw_image.view(),
+            },
+            .context = context,
+            .dispatch_callback = [this]() -> daxa::DispatchInfo {
+                return { 
+                    .x = round_up_div(context->shader_globals.render_target_size.x, 16),
+                    .y = round_up_div(context->shader_globals.render_target_size.y, 16),
+                    .z = 1
+                };
+            }
+        });
+
         render_task_graph.add_task(ResolveVisibilityBufferTask {
             .views = ResolveVisibilityBufferTask::Views {
                 .u_globals = context->shader_globals_buffer.view(),
@@ -1207,6 +1299,7 @@ namespace foundation {
                 .u_sun = sun_light_buffer.view(),
                 .u_point_lights = point_light_buffer.view(),
                 .u_spot_lights = spot_light_buffer.view(),
+                .u_tile_data = tile_data_buffer.view(),
                 .u_readback_material = asset_manager->gpu_readback_material_gpu.view(),
                 .u_ssao_image = ssao_image.view(),
                 .u_visibility_image = visibility_image.view(),
@@ -1221,15 +1314,6 @@ namespace foundation {
                     .z = 1
                 };
             }
-        });
-
-        render_task_graph.add_task(ExtractDepthTask {
-            .views = ExtractDepthTask::Views {
-                .u_globals = context->shader_globals_buffer.view(),
-                .u_visibility_image = visibility_image.view(),
-                .u_depth_image = depth_image_d32.view(),
-            },
-            .context = context,
         });
 
         render_task_graph.add_task(DrawMeshletsTransparentWriteCommandTask {

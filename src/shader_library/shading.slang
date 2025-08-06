@@ -78,4 +78,42 @@ f32vec3 shade(f32vec3 diffuse, f32vec3 world_position, f32vec3 normal, SunLight*
     }
 
     return color;
+}
+
+f32vec3 shade_tiled(f32vec3 diffuse, f32vec3 world_position, f32vec3 normal, TileData* tile_data, SunLight* sun, PointLightsData* point_lights, SpotLightsData* spot_lights) {
+    const f32 ambient = 0.1f;
+    f32vec3 color = diffuse;
+
+    {
+        const SunLight* light = sun;
+        const f32 diffuse = max(dot(normal, -light.direction), ambient);
+
+        color *= diffuse * light.color * light.intensity;
+    }
+
+    for(u32 i = 0; i < tile_data.point_light_count; i++) {
+        const u32 index = tile_data.point_light_indices[i];
+        const PointLight light = point_lights.point_lights[index];
+        const f32vec3 position_to_light = normalize(light.position - world_position);
+        const f32 diffuse = max(dot(normal, position_to_light), 0.0f);
+
+        const f32 to_light_dist = length(light.position - world_position);
+        const f32 attenuation = calculate_point_light_attenuation(to_light_dist, light.range);
+
+        color += diffuse * light.color * light.intensity * attenuation;
+    }
+
+    for(u32 i = 0; i < tile_data.spot_light_count; i++) {
+        const u32 index = tile_data.spot_light_indices[i];
+        const SpotLight light = spot_lights.spot_lights[index];
+        const f32vec3 position_to_light = normalize(light.position - world_position);
+        const f32 diffuse = max(dot(normal, position_to_light), 0.0f);
+
+        const f32 to_light_dist = length(light.position - world_position);
+        const f32 attenuation = calculate_spot_light_attenuation(position_to_light, to_light_dist, light);
+
+        color += diffuse * light.color * light.intensity * attenuation;
+    }
+
+    return color;
 } 

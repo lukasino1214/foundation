@@ -294,6 +294,26 @@ struct SpotLightsData {
 };
 DAXA_DECL_BUFFER_PTR(SpotLightsData)
 
+#define PIXELS_PER_FRUSTUM 16
+struct Plane {
+    f32vec3 normal;
+    f32 distance;
+};
+DAXA_DECL_BUFFER_PTR(Plane)
+
+struct TileFrustum {
+    Plane planes[4];
+};
+DAXA_DECL_BUFFER_PTR(TileFrustum)
+
+struct TileData {
+    u32 point_light_count;
+    u32 spot_light_count;
+    u32 point_light_indices[256];
+    u32 spot_light_indices[256];
+};
+DAXA_DECL_BUFFER_PTR(TileData)
+
 #define MAX_POINT_LIGHTS 256
 #define MAX_SPOT_LIGHTS 256
 
