@@ -10,6 +10,8 @@ groupshared u32 spot_light_indices[256];
 groupshared u32 shared_min_depth;
 groupshared u32 shared_max_depth;
 
+groupshared u32 depth_mask;
+
 struct Sphere {
     f32vec3 origin;
     f32 radius;
@@ -27,6 +29,19 @@ bool frustum_cull_sphere_viewspace(const Plane planes[4], Sphere sphere, const f
     }
 
     return result;
+}
+
+u32 construct_mask(const Sphere sphere, const f32 depth_range_min, const f32 depth_range_rcp) {
+    const f32 f_min = sphere.origin.z + sphere.radius;
+    const f32 f_max = sphere.origin.z - sphere.radius;
+
+    const u32 mask_index_start = clamp(u32(floor((f_min - depth_range_min) * depth_range_rcp)), 0, 31);
+    const u32 mask_index_end = clamp(u32(floor((f_max - depth_range_min) * depth_range_rcp)), 0, 31);
+    
+    u32 mask = ~0u;
+    mask >>= 31 - (mask_index_end - mask_index_start);
+    mask <<= mask_index_start;
+    return mask;
 }
 
 [[vk::push_constant]] CullLightsPush push;
@@ -47,12 +62,15 @@ void cull_lights(u32vec2 pixel : SV_DispatchThreadID, u32vec2 tile_index : SV_Gr
         
         shared_min_depth = 0x7f7fffff;
         shared_max_depth = 0;
+
+        depth_mask = 0;
     }
 
     GroupMemoryBarrierWithGroupSync();
     
+    f32 depth = 0.0f;
     if(all(lessThan(pixel.xy, deref(push.uses.u_globals).render_target_size))) {
-        const f32 depth = push.uses.u_depth_image.get()[pixel.xy];
+        depth = push.uses.u_depth_image.get()[pixel.xy];
         if(depth != 0.0f) {
             u32 u_depth = asuint(-screen_to_view(depth));
             InterlockedMin(shared_min_depth, u_depth);
@@ -68,13 +86,19 @@ void cull_lights(u32vec2 pixel : SV_DispatchThreadID, u32vec2 tile_index : SV_Gr
     const f32 min_depth_vs = -asfloat(shared_min_depth);
     const f32 max_depth_vs = -asfloat(shared_max_depth);
 
+    const f32 depth_range_rcp = 32.0f / (max_depth_vs - min_depth_vs);
+    if(all(lessThan(pixel.xy, deref(push.uses.u_globals).render_target_size))) {
+        const u32 depth_mask_index = u32(max(0, min(32, floor((screen_to_view(depth) - min_depth_vs) * depth_range_rcp))));
+        InterlockedOr(depth_mask, 1 << depth_mask_index);
+    }
+
     const TileFrustum frustum = push.uses.u_tile_frustums[tile_index.y * tile_frustums.x + tile_index.x];
     for(u32 i = local_index; i < push.uses.u_point_lights.count; i += 16 * 16) {
         const PointLight light = push.uses.u_point_lights.point_lights[i];
         const f32vec3 light_position = mul(push.uses.u_globals.main_camera.view_matrix, f32vec4(light.position, 1.0f)).xyz;
         Sphere sphere = Sphere(light_position, light.range);
 
-        if(!frustum_cull_sphere_viewspace(frustum.planes, sphere, min_depth_vs, max_depth_vs)) {
+        if(!frustum_cull_sphere_viewspace(frustum.planes, sphere, min_depth_vs, max_depth_vs) && bool(depth_mask & construct_mask(sphere, min_depth_vs, depth_range_rcp))) {
             u32 index;
             InterlockedAdd(point_light_count, 1, index);
             point_light_indices[index] = i;
@@ -91,7 +115,7 @@ void cull_lights(u32vec2 pixel : SV_DispatchThreadID, u32vec2 tile_index : SV_Gr
         const f32 radius = range * 0.5f / (light.outer_cone_angle * light.outer_cone_angle);
         const Sphere sphere = Sphere(light_position + light_direction * radius, radius);
 
-        if(!frustum_cull_sphere_viewspace(frustum.planes, sphere, min_depth_vs, max_depth_vs)) {
+        if(!frustum_cull_sphere_viewspace(frustum.planes, sphere, min_depth_vs, max_depth_vs) && bool(depth_mask & construct_mask(sphere, min_depth_vs, depth_range_rcp))) {
             u32 index;
             InterlockedAdd(spot_light_count, 1, index);
             spot_light_indices[index] = i;
@@ -104,18 +128,17 @@ void cull_lights(u32vec2 pixel : SV_DispatchThreadID, u32vec2 tile_index : SV_Gr
     // InterlockedAdd(push.uses.u_overdraw_image.get()[u32vec2(pixel.xy)], point_light_count);
     // InterlockedAdd(push.uses.u_overdraw_image.get()[u32vec2(pixel.xy)], spot_light_count);
 
-    //TODO: fix me
+    TileData* tile_data = push.uses.u_tile_data + (tile_index.y * tile_frustums.x + tile_index.x);
     if(local_index == 0) {
-        TileData* tile_data = push.uses.u_tile_data + (tile_index.y * tile_frustums.x + tile_index.x);
         tile_data.point_light_count = point_light_count;
         tile_data.spot_light_count = spot_light_count;
+    }
 
-        for(u32 i = 0; i < point_light_count; i++) {
-            tile_data.point_light_indices[i] = point_light_indices[i];
-        }
+    for(u32 i = local_index; i < point_light_count; i += 16 * 16) {
+        tile_data.point_light_indices[i] = point_light_indices[i];
+    }
 
-        for(u32 i = 0; i < spot_light_count; i++) {
-            tile_data.spot_light_indices[i] = spot_light_indices[i];
-        }
+    for(u32 i = local_index; i < spot_light_count; i += 16 * 16) {
+        tile_data.spot_light_indices[i] = spot_light_indices[i];
     }
 }

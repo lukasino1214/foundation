@@ -185,8 +185,8 @@ void resolve_visibility_buffer(u32vec3 pixel : SV_DispatchThreadID, u32vec2 tile
     
     // daxa_ImageViewId metalness_image_id = push.uses.u_materials[mesh.material_index].metalness_image_id;
     // if(metalness_image_id.value != 0) {
-        //     color.g = Texture2D<f32>::get(metalness_image_id).SampleGrad(SamplerState::get(push.uses.u_materials[mesh.material_index].metalness_sampler_id), uv_grad.uv, uv_grad.ddx, uv_grad.ddy).r;
-        // }
+    //     color.g = Texture2D<f32>::get(metalness_image_id).SampleGrad(SamplerState::get(push.uses.u_materials[mesh.material_index].metalness_sampler_id), uv_grad.uv, uv_grad.ddx, uv_grad.ddy).r;
+    // }
         
     // color = f32vec4(normal * 0.5 + 0.5, 1.0f);
 
@@ -202,6 +202,10 @@ void resolve_visibility_buffer(u32vec3 pixel : SV_DispatchThreadID, u32vec2 tile
 #if OVERDRAW_DEBUG
     color.rgb = f32vec3(f32(push.uses.u_overdraw_image.get()[pixel.xy]) / 24.0);
 #endif
+
+    // if(push.uses.u_overdraw_image.get()[pixel.xy] != 0) {
+    //     color.rgb = lerp(color.rgb, turbo_color_map(f32(push.uses.u_overdraw_image.get()[pixel.xy]) / 512.0), 0.5);
+    // }
 
     push.uses.u_image.get()[pixel.xy] = color;
 }
