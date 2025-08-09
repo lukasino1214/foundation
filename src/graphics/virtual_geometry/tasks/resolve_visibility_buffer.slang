@@ -197,7 +197,7 @@ void resolve_visibility_buffer(u32vec3 pixel : SV_DispatchThreadID, u32vec2 tile
     const u32vec2 tile_frustums = u32vec2(round_up_div(resolution.x, 16), round_up_div(resolution.y, 16));
     TileData* tile_data = push.uses.u_tile_data + (tile_index.y * tile_frustums.x + tile_index.x);
 
-    color.rgb = occlusion * shade_tiled(color.rgb, world_position, normal, tile_data, push.uses.u_sun, push.uses.u_point_lights, push.uses.u_spot_lights);
+    color.rgb = occlusion * shade_opaque_tiled(color.rgb, world_position, normal, tile_data, push.uses.u_sun, push.uses.u_point_lights, push.uses.u_spot_lights);
 
 #if OVERDRAW_DEBUG
     color.rgb = f32vec3(f32(push.uses.u_overdraw_image.get()[pixel.xy]) / 24.0);

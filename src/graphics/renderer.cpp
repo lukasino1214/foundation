@@ -1334,6 +1334,7 @@ namespace foundation {
                 .u_sun = sun_light_buffer.view(),
                 .u_point_lights = point_light_buffer.view(),
                 .u_spot_lights = spot_light_buffer.view(),
+                .u_tile_data = tile_data_buffer.view(),
                 .u_wboit_accumulation_image = wboit_accumulation_image.view(),
                 .u_wboit_reveal_image = wboit_reveal_image.view(),
                 .u_depth_image = depth_image_d32.view(),

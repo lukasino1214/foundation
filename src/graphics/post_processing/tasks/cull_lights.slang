@@ -2,10 +2,15 @@
 #include "cull_lights.inl"
 #include "../../../shader_library/cull_util.slang"
 
-groupshared u32 point_light_count;
-groupshared u32 spot_light_count;
-groupshared u32 point_light_indices[256];
-groupshared u32 spot_light_indices[256];
+groupshared u32 opaque_point_light_count;
+groupshared u32 opaque_spot_light_count;
+groupshared u32 opaque_point_light_indices[MAX_POINT_LIGHTS];
+groupshared u32 opaque_spot_light_indices[MAX_SPOT_LIGHTS];
+
+groupshared u32 transparent_point_light_count;
+groupshared u32 transparent_spot_light_count;
+groupshared u32 transparent_point_light_indices[MAX_POINT_LIGHTS];
+groupshared u32 transparent_spot_light_indices[MAX_SPOT_LIGHTS];
 
 groupshared u32 shared_min_depth;
 groupshared u32 shared_max_depth;
@@ -57,8 +62,11 @@ void cull_lights(u32vec2 pixel : SV_DispatchThreadID, u32vec2 tile_index : SV_Gr
     const u32vec2 tile_frustums = u32vec2(round_up_div(resolution.x, 16), round_up_div(resolution.y, 16));
 
     if(local_index == 0) {
-        point_light_count = 0;
-        spot_light_count = 0;
+        opaque_point_light_count = 0;
+        opaque_spot_light_count = 0;
+
+        transparent_point_light_count = 0;
+        transparent_spot_light_count = 0;
         
         shared_min_depth = 0x7f7fffff;
         shared_max_depth = 0;
@@ -98,10 +106,23 @@ void cull_lights(u32vec2 pixel : SV_DispatchThreadID, u32vec2 tile_index : SV_Gr
         const f32vec3 light_position = mul(push.uses.u_globals.main_camera.view_matrix, f32vec4(light.position, 1.0f)).xyz;
         Sphere sphere = Sphere(light_position, light.range);
 
-        if(!frustum_cull_sphere_viewspace(frustum.planes, sphere, min_depth_vs, max_depth_vs) && bool(depth_mask & construct_mask(sphere, min_depth_vs, depth_range_rcp))) {
-            u32 index;
-            InterlockedAdd(point_light_count, 1, index);
-            point_light_indices[index] = i;
+        if(!frustum_cull_sphere_viewspace(frustum.planes, sphere, near_depth_vs, max_depth_vs) && bool(depth_mask & construct_mask(sphere, min_depth_vs, depth_range_rcp))) {
+            u32 transparent_index;
+            InterlockedAdd(transparent_point_light_count, 1, transparent_index);
+
+            if(transparent_index < MAX_POINT_LIGHTS) {
+                transparent_point_light_indices[transparent_index] = i;
+            }
+
+
+            if(bool(depth_mask & construct_mask(sphere, min_depth_vs, depth_range_rcp))) {
+                u32 opaque_index;
+                InterlockedAdd(opaque_point_light_count, 1, opaque_index);
+
+                if(opaque_index < MAX_POINT_LIGHTS) {
+                    opaque_point_light_indices[opaque_index] = i;
+                }
+            }
         }
     }
 
@@ -116,9 +137,22 @@ void cull_lights(u32vec2 pixel : SV_DispatchThreadID, u32vec2 tile_index : SV_Gr
         const Sphere sphere = Sphere(light_position + light_direction * radius, radius);
 
         if(!frustum_cull_sphere_viewspace(frustum.planes, sphere, min_depth_vs, max_depth_vs) && bool(depth_mask & construct_mask(sphere, min_depth_vs, depth_range_rcp))) {
-            u32 index;
-            InterlockedAdd(spot_light_count, 1, index);
-            spot_light_indices[index] = i;
+            u32 transparent_index;
+            InterlockedAdd(transparent_spot_light_count, 1, transparent_index);
+
+            if(transparent_index < MAX_SPOT_LIGHTS) {
+                transparent_spot_light_indices[transparent_index] = i;
+            }
+
+
+            if(bool(depth_mask & construct_mask(sphere, min_depth_vs, depth_range_rcp))) {
+                u32 opaque_index;
+                InterlockedAdd(opaque_spot_light_count, 1, opaque_index);
+
+                if(opaque_index < MAX_SPOT_LIGHTS) {
+                    opaque_spot_light_indices[opaque_index] = i;
+                }
+            }
         }
     }
 
@@ -130,15 +164,25 @@ void cull_lights(u32vec2 pixel : SV_DispatchThreadID, u32vec2 tile_index : SV_Gr
 
     TileData* tile_data = push.uses.u_tile_data + (tile_index.y * tile_frustums.x + tile_index.x);
     if(local_index == 0) {
-        tile_data.point_light_count = point_light_count;
-        tile_data.spot_light_count = spot_light_count;
+        tile_data.opaque_point_light_count = opaque_point_light_count;
+        tile_data.opaque_spot_light_count = opaque_spot_light_count;
+        tile_data.transparent_point_light_count = transparent_point_light_count;
+        tile_data.transparent_spot_light_count = transparent_spot_light_count;
     }
 
-    for(u32 i = local_index; i < point_light_count; i += 16 * 16) {
-        tile_data.point_light_indices[i] = point_light_indices[i];
+    for(u32 i = local_index; i < opaque_point_light_count; i += 16 * 16) {
+        tile_data.opaque_point_light_indices[i] = opaque_point_light_indices[i];
     }
 
-    for(u32 i = local_index; i < spot_light_count; i += 16 * 16) {
-        tile_data.spot_light_indices[i] = spot_light_indices[i];
+    for(u32 i = local_index; i < opaque_spot_light_count; i += 16 * 16) {
+        tile_data.opaque_spot_light_indices[i] = opaque_spot_light_indices[i];
+    }
+
+    for(u32 i = local_index; i < transparent_point_light_count; i += 16 * 16) {
+        tile_data.transparent_point_light_indices[i] = transparent_point_light_indices[i];
+    }
+
+    for(u32 i = local_index; i < transparent_spot_light_count; i += 16 * 16) {
+        tile_data.transparent_spot_light_indices[i] = transparent_spot_light_indices[i];
     }
 }

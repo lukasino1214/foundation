@@ -307,10 +307,14 @@ struct TileFrustum {
 DAXA_DECL_BUFFER_PTR(TileFrustum)
 
 struct TileData {
-    u32 point_light_count;
-    u32 spot_light_count;
-    u32 point_light_indices[256];
-    u32 spot_light_indices[256];
+    u32 opaque_point_light_count;
+    u32 opaque_spot_light_count;
+    u32 opaque_point_light_indices[256];
+    u32 opaque_spot_light_indices[256];
+    u32 transparent_point_light_count;
+    u32 transparent_spot_light_count;
+    u32 transparent_point_light_indices[256];
+    u32 transparent_spot_light_indices[256];
 };
 DAXA_DECL_BUFFER_PTR(TileData)
 
