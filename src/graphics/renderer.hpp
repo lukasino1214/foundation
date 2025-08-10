@@ -60,6 +60,7 @@ namespace foundation {
 
         daxa::TaskBuffer tile_frustums_buffer = {};
         daxa::TaskBuffer tile_data_buffer = {};
+        daxa::TaskBuffer tile_indices_buffer = {};
 
         std::vector<daxa::TaskBuffer> buffers = {};
 

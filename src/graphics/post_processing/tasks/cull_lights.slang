@@ -4,13 +4,13 @@
 
 groupshared u32 opaque_point_light_count;
 groupshared u32 opaque_spot_light_count;
-groupshared u32 opaque_point_light_indices[MAX_POINT_LIGHTS];
-groupshared u32 opaque_spot_light_indices[MAX_SPOT_LIGHTS];
+groupshared u32 bitmask_opaque_point_light_indices[MAX_POINT_LIGHT_BITMASK_SIZE];
+groupshared u32 bitmask_opaque_spot_light_indices[MAX_SPOT_LIGHT_BITMASK_SIZE];
 
 groupshared u32 transparent_point_light_count;
 groupshared u32 transparent_spot_light_count;
-groupshared u32 transparent_point_light_indices[MAX_POINT_LIGHTS];
-groupshared u32 transparent_spot_light_indices[MAX_SPOT_LIGHTS];
+groupshared u32 bitmask_transparent_point_light_indices[MAX_POINT_LIGHT_BITMASK_SIZE];
+groupshared u32 bitmask_transparent_spot_light_indices[MAX_SPOT_LIGHT_BITMASK_SIZE];
 
 groupshared u32 shared_min_depth;
 groupshared u32 shared_max_depth;
@@ -74,6 +74,13 @@ void cull_lights(u32vec2 pixel : SV_DispatchThreadID, u32vec2 tile_index : SV_Gr
         depth_mask = 0;
     }
 
+    for(u32 i = local_index; i < MAX_POINT_LIGHT_BITMASK_SIZE; i += 16 * 16) {
+        bitmask_transparent_point_light_indices[i] = 0;
+        bitmask_opaque_point_light_indices[i] = 0;
+        bitmask_transparent_spot_light_indices[i] = 0;
+        bitmask_opaque_spot_light_indices[i] = 0;
+    }
+
     GroupMemoryBarrierWithGroupSync();
     
     f32 depth = 0.0f;
@@ -111,7 +118,7 @@ void cull_lights(u32vec2 pixel : SV_DispatchThreadID, u32vec2 tile_index : SV_Gr
             InterlockedAdd(transparent_point_light_count, 1, transparent_index);
 
             if(transparent_index < MAX_POINT_LIGHTS) {
-                transparent_point_light_indices[transparent_index] = i;
+                InterlockedOr(bitmask_transparent_point_light_indices[i / 32u], 1u << (i % 32u));
             }
 
 
@@ -120,7 +127,7 @@ void cull_lights(u32vec2 pixel : SV_DispatchThreadID, u32vec2 tile_index : SV_Gr
                 InterlockedAdd(opaque_point_light_count, 1, opaque_index);
 
                 if(opaque_index < MAX_POINT_LIGHTS) {
-                    opaque_point_light_indices[opaque_index] = i;
+                    InterlockedOr(bitmask_opaque_point_light_indices[i / 32u], 1u << (i % 32u));
                 }
             }
         }
@@ -141,7 +148,7 @@ void cull_lights(u32vec2 pixel : SV_DispatchThreadID, u32vec2 tile_index : SV_Gr
             InterlockedAdd(transparent_spot_light_count, 1, transparent_index);
 
             if(transparent_index < MAX_SPOT_LIGHTS) {
-                transparent_spot_light_indices[transparent_index] = i;
+                InterlockedOr(bitmask_transparent_spot_light_indices[i / 32u], 1u << (i % 32u));
             }
 
 
@@ -150,7 +157,7 @@ void cull_lights(u32vec2 pixel : SV_DispatchThreadID, u32vec2 tile_index : SV_Gr
                 InterlockedAdd(opaque_spot_light_count, 1, opaque_index);
 
                 if(opaque_index < MAX_SPOT_LIGHTS) {
-                    opaque_spot_light_indices[opaque_index] = i;
+                    InterlockedOr(bitmask_opaque_spot_light_indices[i / 32u], 1u << (i % 32u));
                 }
             }
         }
@@ -162,7 +169,8 @@ void cull_lights(u32vec2 pixel : SV_DispatchThreadID, u32vec2 tile_index : SV_Gr
     // InterlockedAdd(push.uses.u_overdraw_image.get()[u32vec2(pixel.xy)], point_light_count);
     // InterlockedAdd(push.uses.u_overdraw_image.get()[u32vec2(pixel.xy)], spot_light_count);
 
-    TileData* tile_data = push.uses.u_tile_data + (tile_index.y * tile_frustums.x + tile_index.x);
+    u32 flattened_tile_index = tile_index.y * tile_frustums.x + tile_index.x;
+    TileData* tile_data = push.uses.u_tile_data + flattened_tile_index;
     if(local_index == 0) {
         tile_data.opaque_point_light_count = opaque_point_light_count;
         tile_data.opaque_spot_light_count = opaque_spot_light_count;
@@ -170,19 +178,15 @@ void cull_lights(u32vec2 pixel : SV_DispatchThreadID, u32vec2 tile_index : SV_Gr
         tile_data.transparent_spot_light_count = transparent_spot_light_count;
     }
 
-    for(u32 i = local_index; i < opaque_point_light_count; i += 16 * 16) {
-        tile_data.opaque_point_light_indices[i] = opaque_point_light_indices[i];
-    }
+    u32* bitmask_transparent_point_light_indices_ptr = push.uses.u_tile_indices + 2 * flattened_tile_index * MAX_LIGHT_BITMASK_SIZE;
+    u32* bitmask_opaque_point_light_indices_ptr = push.uses.u_tile_indices + 2 * flattened_tile_index * MAX_LIGHT_BITMASK_SIZE + MAX_POINT_LIGHT_BITMASK_SIZE;
+    u32* bitmask_transparent_spot_light_indices_ptr = push.uses.u_tile_indices + 2 * flattened_tile_index * MAX_LIGHT_BITMASK_SIZE + MAX_POINT_LIGHT_BITMASK_SIZE + MAX_SPOT_LIGHT_BITMASK_SIZE;
+    u32* bitmask_opaque_spot_light_indices_ptr = push.uses.u_tile_indices + 2 * flattened_tile_index * MAX_LIGHT_BITMASK_SIZE + MAX_POINT_LIGHT_BITMASK_SIZE + MAX_SPOT_LIGHT_BITMASK_SIZE + MAX_POINT_LIGHT_BITMASK_SIZE;
 
-    for(u32 i = local_index; i < opaque_spot_light_count; i += 16 * 16) {
-        tile_data.opaque_spot_light_indices[i] = opaque_spot_light_indices[i];
-    }
-
-    for(u32 i = local_index; i < transparent_point_light_count; i += 16 * 16) {
-        tile_data.transparent_point_light_indices[i] = transparent_point_light_indices[i];
-    }
-
-    for(u32 i = local_index; i < transparent_spot_light_count; i += 16 * 16) {
-        tile_data.transparent_spot_light_indices[i] = transparent_spot_light_indices[i];
+    for(u32 i = local_index; i < MAX_POINT_LIGHT_BITMASK_SIZE; i += 16 * 16) {
+        bitmask_transparent_point_light_indices_ptr[i] = bitmask_transparent_point_light_indices[i];
+        bitmask_opaque_point_light_indices_ptr[i] = bitmask_opaque_point_light_indices[i];
+        bitmask_transparent_spot_light_indices_ptr[i] = bitmask_transparent_spot_light_indices[i];
+        bitmask_opaque_spot_light_indices_ptr[i] = bitmask_opaque_spot_light_indices[i];
     }
 }

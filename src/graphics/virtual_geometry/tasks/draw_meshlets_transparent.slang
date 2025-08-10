@@ -144,13 +144,23 @@ PixelOutput draw_meshlets_transparent_frag(in VertexTransparent vertex, in Visib
     }
 
     const f32vec3 world_position = pixel_index_to_world_space(push.uses.u_globals.main_camera, push.uses.u_globals.render_target_size_inv, f32vec2(pixel_position.xy), pixel_position.z);
-    // color.rgb = shade(color.rgb, world_position, normal, push.uses.u_sun, push.uses.u_point_lights, push.uses.u_spot_lights);
     const u32vec2 resolution = push.uses.u_globals.render_target_size;
     const u32vec2 tile_frustums = u32vec2(round_up_div(resolution.x, 16), round_up_div(resolution.y, 16));
     u32vec2 tile_index = u32vec2(pixel_position.xy) / 16;
-    TileData* tile_data = push.uses.u_tile_data + (tile_index.y * tile_frustums.x + tile_index.x);
-
-    color.rgb = shade_transparent_tiled(color.rgb, world_position, normal, tile_data, push.uses.u_sun, push.uses.u_point_lights, push.uses.u_spot_lights);
+    u32 flattened_tile_index = tile_index.y * tile_frustums.x + tile_index.x;
+    TileData* tile_data = push.uses.u_tile_data + flattened_tile_index;
+    
+    color.rgb = shade_tiled(
+        color.rgb, 
+        world_position, 
+        normal, 
+        tile_data, 
+        push.uses.u_sun, 
+        push.uses.u_point_lights, 
+        push.uses.u_spot_lights, 
+        push.uses.u_tile_indices + 2 * flattened_tile_index * MAX_LIGHT_BITMASK_SIZE, 
+        push.uses.u_tile_indices + 2 * flattened_tile_index * MAX_LIGHT_BITMASK_SIZE + MAX_POINT_LIGHT_BITMASK_SIZE + MAX_SPOT_LIGHT_BITMASK_SIZE
+    );
 
     color.rgb *= color.a;
 

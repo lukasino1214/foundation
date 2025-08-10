@@ -256,12 +256,19 @@ namespace foundation {
             .name = "tile data buffer"
         });
 
+        tile_indices_buffer = make_task_buffer(context, daxa::BufferInfo {
+            .size = sizeof(u32),
+            .allocate_info = daxa::MemoryFlagBits::DEDICATED_MEMORY,
+            .name = "tile indices"
+        });
+
         buffers = {
             sun_light_buffer,
             point_light_buffer,
             spot_light_buffer,
             tile_frustums_buffer,
             tile_data_buffer,
+            tile_indices_buffer,
         };
 
         // TODO: remove this
@@ -630,6 +637,15 @@ namespace foundation {
             })
         }});
 
+        context->destroy_buffer(tile_indices_buffer.get_state().buffers[0]);
+        tile_indices_buffer.set_buffers({ .buffers = std::array{
+            context->create_buffer(daxa::BufferInfo {
+                .size = 2 * sizeof(u32) * std::max(round_up_div(MAX_POINT_LIGHTS + MAX_SPOT_LIGHTS, 32), 1u) * std::max(round_up_div(size.x, PIXELS_PER_FRUSTUM), 1u) * std::max(round_up_div(size.y, PIXELS_PER_FRUSTUM), 1u),
+                .allocate_info = daxa::MemoryFlagBits::DEDICATED_MEMORY,
+                .name = "tile indices buffer"
+            })
+        }});
+
         for (auto &[info, timg] : frame_buffer_images) {
             for(auto image : timg.get_state().images) {
                 context->destroy_image(image);
@@ -777,6 +793,7 @@ namespace foundation {
 
         render_task_graph.use_persistent_buffer(tile_frustums_buffer);
         render_task_graph.use_persistent_buffer(tile_data_buffer);
+        render_task_graph.use_persistent_buffer(tile_indices_buffer);
 
         render_task_graph.use_persistent_buffer(shader_globals_buffer);
         render_task_graph.use_persistent_buffer(scene->gpu_transforms_pool.task_buffer);
@@ -1274,6 +1291,7 @@ namespace foundation {
                 .u_globals = context->shader_globals_buffer.view(),
                 .u_tile_frustums = tile_frustums_buffer.view(),
                 .u_tile_data = tile_data_buffer.view(),
+                .u_tile_indices = tile_indices_buffer.view(),
                 .u_point_lights = point_light_buffer.view(),
                 .u_spot_lights = spot_light_buffer.view(),
                 .u_depth_image = depth_image_d32.view(),
@@ -1300,6 +1318,7 @@ namespace foundation {
                 .u_point_lights = point_light_buffer.view(),
                 .u_spot_lights = spot_light_buffer.view(),
                 .u_tile_data = tile_data_buffer.view(),
+                .u_tile_indices = tile_indices_buffer.view(),
                 .u_readback_material = asset_manager->gpu_readback_material_gpu.view(),
                 .u_ssao_image = ssao_image.view(),
                 .u_visibility_image = visibility_image.view(),
@@ -1335,6 +1354,7 @@ namespace foundation {
                 .u_point_lights = point_light_buffer.view(),
                 .u_spot_lights = spot_light_buffer.view(),
                 .u_tile_data = tile_data_buffer.view(),
+                .u_tile_indices = tile_indices_buffer.view(),
                 .u_wboit_accumulation_image = wboit_accumulation_image.view(),
                 .u_wboit_reveal_image = wboit_reveal_image.view(),
                 .u_depth_image = depth_image_d32.view(),

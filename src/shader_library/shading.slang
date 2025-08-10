@@ -80,7 +80,7 @@ f32vec3 shade(f32vec3 diffuse, f32vec3 world_position, f32vec3 normal, SunLight*
     return color;
 }
 
-f32vec3 shade_opaque_tiled(f32vec3 diffuse, f32vec3 world_position, f32vec3 normal, TileData* tile_data, SunLight* sun, PointLightsData* point_lights, SpotLightsData* spot_lights) {
+f32vec3 shade_tiled(f32vec3 diffuse, f32vec3 world_position, f32vec3 normal, TileData* tile_data, SunLight* sun, PointLightsData* point_lights, SpotLightsData* spot_lights, u32* bitmask_point_lights, u32* bitmask_spot_lights)  {
     const f32 ambient = 0.1f;
     f32vec3 color = diffuse;
 
@@ -91,66 +91,44 @@ f32vec3 shade_opaque_tiled(f32vec3 diffuse, f32vec3 world_position, f32vec3 norm
         color *= diffuse * light.color * light.intensity;
     }
 
-    for(u32 i = 0; i < tile_data.opaque_point_light_count; i++) {
-        const u32 index = tile_data.opaque_point_light_indices[i];
-        const PointLight light = point_lights.point_lights[index];
-        const f32vec3 position_to_light = normalize(light.position - world_position);
-        const f32 diffuse = max(dot(normal, position_to_light), 0.0f);
+    for(u32 bucket_index = 0; bucket_index < MAX_POINT_LIGHT_BITMASK_SIZE; bucket_index++) {
+        u32 bucket = bitmask_point_lights[bucket_index];
 
-        const f32 to_light_dist = length(light.position - world_position);
-        const f32 attenuation = calculate_point_light_attenuation(to_light_dist, light.range);
+        while (bucket != 0) {
+            const u32 lsb = firstbitlow(bucket);
+            bucket ^= (1u << lsb);
+            if(lsb == 0xFFFFFFFF) break;
 
-        color += diffuse * light.color * light.intensity * attenuation;
+            const u32 index = bucket_index * 32 + lsb;
+            const PointLight light = point_lights.point_lights[index];
+            const f32vec3 position_to_light = normalize(light.position - world_position);
+            const f32 diffuse = max(dot(normal, position_to_light), 0.0f);
+
+            const f32 to_light_dist = length(light.position - world_position);
+            const f32 attenuation = calculate_point_light_attenuation(to_light_dist, light.range);
+
+            color += diffuse * light.color * light.intensity * attenuation;
+        }
     }
 
-    for(u32 i = 0; i < tile_data.opaque_spot_light_count; i++) {
-        const u32 index = tile_data.opaque_spot_light_indices[i];
-        const SpotLight light = spot_lights.spot_lights[index];
-        const f32vec3 position_to_light = normalize(light.position - world_position);
-        const f32 diffuse = max(dot(normal, position_to_light), 0.0f);
+    for(u32 bucket_index = 0; bucket_index < MAX_SPOT_LIGHT_BITMASK_SIZE; bucket_index++) {
+        u32 bucket = bitmask_spot_lights[bucket_index];
 
-        const f32 to_light_dist = length(light.position - world_position);
-        const f32 attenuation = calculate_spot_light_attenuation(position_to_light, to_light_dist, light);
+        while (bucket != 0) {
+            const u32 lsb = firstbitlow(bucket);
+            bucket ^= (1u << lsb);
+            if(lsb == 0xFFFFFFFF) break;
+            
+            const u32 index = bucket_index * 32 + lsb;
+            const SpotLight light = spot_lights.spot_lights[index];
+            const f32vec3 position_to_light = normalize(light.position - world_position);
+            const f32 diffuse = max(dot(normal, position_to_light), 0.0f);
 
-        color += diffuse * light.color * light.intensity * attenuation;
-    }
+            const f32 to_light_dist = length(light.position - world_position);
+            const f32 attenuation = calculate_spot_light_attenuation(position_to_light, to_light_dist, light);
 
-    return color;
-}
-
-f32vec3 shade_transparent_tiled(f32vec3 diffuse, f32vec3 world_position, f32vec3 normal, TileData* tile_data, SunLight* sun, PointLightsData* point_lights, SpotLightsData* spot_lights) {
-    const f32 ambient = 0.1f;
-    f32vec3 color = diffuse;
-
-    {
-        const SunLight* light = sun;
-        const f32 diffuse = max(dot(normal, -light.direction), ambient);
-
-        color *= diffuse * light.color * light.intensity;
-    }
-
-    for(u32 i = 0; i < tile_data.transparent_point_light_count; i++) {
-        const u32 index = tile_data.transparent_point_light_indices[i];
-        const PointLight light = point_lights.point_lights[index];
-        const f32vec3 position_to_light = normalize(light.position - world_position);
-        const f32 diffuse = max(dot(normal, position_to_light), 0.0f);
-
-        const f32 to_light_dist = length(light.position - world_position);
-        const f32 attenuation = calculate_point_light_attenuation(to_light_dist, light.range);
-
-        color += diffuse * light.color * light.intensity * attenuation;
-    }
-
-    for(u32 i = 0; i < tile_data.transparent_spot_light_count; i++) {
-        const u32 index = tile_data.transparent_spot_light_indices[i];
-        const SpotLight light = spot_lights.spot_lights[index];
-        const f32vec3 position_to_light = normalize(light.position - world_position);
-        const f32 diffuse = max(dot(normal, position_to_light), 0.0f);
-
-        const f32 to_light_dist = length(light.position - world_position);
-        const f32 attenuation = calculate_spot_light_attenuation(position_to_light, to_light_dist, light);
-
-        color += diffuse * light.color * light.intensity * attenuation;
+            color += diffuse * light.color * light.intensity * attenuation;
+        }
     }
 
     return color;

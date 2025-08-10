@@ -309,17 +309,16 @@ DAXA_DECL_BUFFER_PTR(TileFrustum)
 struct TileData {
     u32 opaque_point_light_count;
     u32 opaque_spot_light_count;
-    u32 opaque_point_light_indices[256];
-    u32 opaque_spot_light_indices[256];
     u32 transparent_point_light_count;
     u32 transparent_spot_light_count;
-    u32 transparent_point_light_indices[256];
-    u32 transparent_spot_light_indices[256];
 };
 DAXA_DECL_BUFFER_PTR(TileData)
 
 #define MAX_POINT_LIGHTS 256
+#define MAX_POINT_LIGHT_BITMASK_SIZE (MAX_POINT_LIGHTS / 32)
 #define MAX_SPOT_LIGHTS 256
+#define MAX_SPOT_LIGHT_BITMASK_SIZE (MAX_SPOT_LIGHTS / 32)
+#define MAX_LIGHT_BITMASK_SIZE ((MAX_POINT_LIGHTS + MAX_SPOT_LIGHTS) / 32)
 
 #if defined(__cplusplus)
 #define SHARED_FUNCTION inline
