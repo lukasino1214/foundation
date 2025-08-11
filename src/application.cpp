@@ -58,6 +58,25 @@ namespace foundation {
 //         }
 
         {
+            auto entity = scene->create_entity("damaged helmet");
+            entity.get_handle().add<RootEntityTag>();
+            entity.add_component<TransformComponent>();
+            entity.set_local_position({-10, 5, 0});
+            entity.set_local_rotation({0, 90, 0});
+
+            LoadManifestInfo manifesto {
+                .parent = entity,
+                .path = "assets/binary/DamagedHelmet/DamagedHelmet.bmodel",
+            };
+#if COOK_ASSETS
+            AssetProcessor::convert_gltf_to_binary("assets/models/DamagedHelmet/glTF/DamagedHelmet.gltf", "assets/binary/DamagedHelmet/DamagedHelmet.bmodel");
+#else
+            asset_manager->load_model(manifesto);
+#endif
+        }
+
+
+        {
             auto entity = scene->create_entity("cubes");
             entity.get_handle().add<RootEntityTag>();
             entity.add_component<TransformComponent>();

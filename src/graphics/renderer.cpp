@@ -187,7 +187,7 @@ namespace foundation {
             {
                 {
                     .format = daxa::Format::R32_UINT,
-                    .usage = daxa::ImageUsageFlagBits::SHADER_STORAGE,
+                    .usage = daxa::ImageUsageFlagBits::TRANSFER_DST | daxa::ImageUsageFlagBits::SHADER_STORAGE,
                     .name = normal_image.info().name,
                 },
                 normal_image,
@@ -195,7 +195,7 @@ namespace foundation {
             {
                 {
                     .format = daxa::Format::R32_UINT,
-                    .usage = daxa::ImageUsageFlagBits::SHADER_STORAGE,
+                    .usage = daxa::ImageUsageFlagBits::TRANSFER_DST | daxa::ImageUsageFlagBits::SHADER_STORAGE,
                     .name = normal_half_res_image.info().name,
                 },
                 normal_half_res_image,
@@ -203,7 +203,7 @@ namespace foundation {
             {
                 {
                     .format = daxa::Format::R32_UINT,
-                    .usage = daxa::ImageUsageFlagBits::SHADER_STORAGE,
+                    .usage = daxa::ImageUsageFlagBits::TRANSFER_DST | daxa::ImageUsageFlagBits::SHADER_STORAGE,
                     .name = normal_detail_image.info().name,
                 },
                 normal_detail_image,
@@ -211,7 +211,7 @@ namespace foundation {
             {
                 {
                     .format = daxa::Format::R32_UINT,
-                    .usage = daxa::ImageUsageFlagBits::SHADER_STORAGE,
+                    .usage = daxa::ImageUsageFlagBits::TRANSFER_DST | daxa::ImageUsageFlagBits::SHADER_STORAGE,
                     .name = normal_detail_half_res_image.info().name,
                 },
                 normal_detail_half_res_image,
@@ -219,7 +219,7 @@ namespace foundation {
             {
                 {
                     .format = daxa::Format::R32_SFLOAT,
-                    .usage = daxa::ImageUsageFlagBits::SHADER_STORAGE,
+                    .usage = daxa::ImageUsageFlagBits::TRANSFER_DST | daxa::ImageUsageFlagBits::SHADER_STORAGE,
                     .name = depth_half_res_image.info().name,
                 },
                 depth_half_res_image,
