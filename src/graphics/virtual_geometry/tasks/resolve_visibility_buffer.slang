@@ -146,13 +146,11 @@ void resolve_visibility_buffer(u32vec3 pixel : SV_DispatchThreadID, u32vec2 tile
                 world_positions[2].xyz
             );
 
-            f32vec3 tangent = normalize(uv_grad.ddy.y * p_dx - uv_grad.ddx.y * p_dy);
+            f32 r = 1.0f / (uv_grad.ddx.x * uv_grad.ddy.y - uv_grad.ddx.y * uv_grad.ddy.x);
+            f32vec3 tangent = normalize((p_dx * uv_grad.ddy.y - p_dy * uv_grad.ddx.y) * r);
+            f32vec3 bitangent = normalize((-p_dx * uv_grad.ddy.y + p_dy * uv_grad.ddx.y) * r);
 
-            const f32vec3 x = cross(normal, tangent);
-            tangent = cross(x, normal);
-            tangent = normalize(tangent);
-
-            const daxa_f32mat3x3 tbn = transpose(daxa_f32mat3x3(tangent, cross(tangent, normal), normal));
+            const f32mat3x3 tbn = transpose(daxa_f32mat3x3(tangent, bitangent, normal));
             normal = normalize(mul(tbn, uncompressed_normal));
         }
 
