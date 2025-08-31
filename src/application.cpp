@@ -7,8 +7,7 @@ namespace foundation {
     Application::Application() : 
         window{1280, 720, "Foundation"},
         context{this->window},
-        scripting_engine{&window},
-        scene{std::make_shared<Scene>("scene", &context, &window, &scripting_engine, &file_watcher)},
+        scene{std::make_shared<Scene>("scene", &context, &window, &file_watcher)},
         asset_processor{std::make_unique<AssetProcessor>(&context)},
         thread_pool{std::make_unique<ThreadPool>(std::thread::hardware_concurrency() - 1)},
         asset_manager{std::make_unique<AssetManager>(&context, scene.get(), thread_pool.get(), asset_processor.get())},

@@ -1,6 +1,5 @@
 #pragma once
 
-#include "pch.hpp"
 #if !defined(IMGUI_DEFINE_MATH_OPERATORS_IMPLEMENTED)
 #define IMGUI_DEFINE_MATH_OPERATORS
 #endif

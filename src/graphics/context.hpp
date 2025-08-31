@@ -1,6 +1,5 @@
 #pragma once
 
-#include <pch.hpp>
 #include <graphics/window.hpp>
 #include <graphics/camera.hpp>
 #include <graphics/utils/gpu_metric.hpp>

@@ -1,7 +1,5 @@
 #pragma once
 
-#include <pch.hpp>
-
 namespace foundation {
     struct PerfomanceCounter {
         std::string_view task_name = {};

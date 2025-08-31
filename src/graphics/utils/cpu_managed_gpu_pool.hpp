@@ -2,7 +2,6 @@
 
 #include <graphics/context.hpp>
 #include <graphics/helper.hpp>
-#include <pch.hpp>
 
 namespace foundation {
     template<typename T>

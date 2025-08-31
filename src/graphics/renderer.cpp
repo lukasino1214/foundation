@@ -591,10 +591,10 @@ namespace foundation {
             PROFILE_SCOPE_NAMED(pipelines);
             auto reloaded_result = context->pipeline_manager.reload_all();
             if (auto* reload_err = daxa::get_if<daxa::PipelineReloadError>(&reloaded_result)) {
-                std::cout << "Failed to reload " << reload_err->message << '\n';
+                std::println("Failed to reload {}", reload_err->message);
             }
             if (daxa::get_if<daxa::PipelineReloadSuccess>(&reloaded_result) != nullptr) {
-                std::cout << "Successfully reloaded!\n";
+                std::println("Successfully reloaded!");
             }
         }
 

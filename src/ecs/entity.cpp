@@ -1,5 +1,4 @@
 #include "entity.hpp"
-#include "components.hpp"
 
 namespace foundation {
     Entity::Entity(flecs::entity _handle, Scene* _scene) : handle{_handle}, scene{_scene} {}

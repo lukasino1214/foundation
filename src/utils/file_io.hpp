@@ -1,7 +1,5 @@
 #pragma once
 
-#include "pch.hpp"
-
 namespace foundation {
     void write_bytes_to_file(const std::vector<byte>& data, const std::filesystem::path& file_path);
 

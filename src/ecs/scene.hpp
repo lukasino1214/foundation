@@ -3,7 +3,6 @@
 #include "graphics/context.hpp"
 #include "graphics/utils/cpu_managed_gpu_pool.hpp"
 #include <utils/file_watcher.hpp>
-#include <scripting/scripting_engine.hpp>
 #include <flecs.h>
 
 namespace foundation {
@@ -24,7 +23,7 @@ namespace foundation {
     struct GPUTransformIndex;
 
     struct Scene {
-        Scene(const std::string_view& _name, Context* _context, NativeWIndow* _window, ScriptingEngine* _scripting_engine, FileWatcher* _file_watcher);
+        Scene(const std::string_view& _name, Context* _context, NativeWIndow* _window, FileWatcher* _file_watcher);
         ~Scene();
 
         auto create_entity(const std::string_view& _name) -> Entity;
@@ -37,7 +36,6 @@ namespace foundation {
         std::unique_ptr<flecs::world> world;
         Context* context;
         NativeWIndow* window;
-        ScriptingEngine* scripting_engine = {};
         FileWatcher* file_watcher = {};
 
         GPUSceneData scene_data = {};

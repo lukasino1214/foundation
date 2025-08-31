@@ -1,7 +1,5 @@
 #pragma once
 
-#include <pch.hpp>
-
 namespace foundation {
     struct GPUMetricPool {
         explicit GPUMetricPool(const daxa::Device& _device);

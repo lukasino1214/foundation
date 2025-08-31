@@ -7,13 +7,11 @@
 #include "ui/panels/file_browser.hpp"
 #include "ui/panels/viewport_panel.hpp"
 #include "ui/panels/scene_hierarchy_panel.hpp"
-#include <pch.hpp>
 #include <graphics/window.hpp>
 #include <graphics/camera.hpp>
 #include <graphics/renderer.hpp>
 #include <graphics/context.hpp>
 #include <utils/file_watcher.hpp>
-#include <scripting/scripting_engine.hpp>
 
 namespace foundation {
     struct Application {
@@ -27,7 +25,6 @@ namespace foundation {
         NativeWIndow window;
         Context context;
         FileWatcher file_watcher = {};
-        ScriptingEngine scripting_engine = {};
         std::shared_ptr<Scene> scene;
         std::unique_ptr<AssetProcessor> asset_processor;
         std::unique_ptr<ThreadPool> thread_pool;

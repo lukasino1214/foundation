@@ -1,6 +1,5 @@
 #pragma once
 
-#include <pch.hpp>
 #include <graphics/context.hpp>
 
 namespace foundation {

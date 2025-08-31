@@ -1,7 +1,5 @@
 #pragma once
 
-#include <pch.hpp>
-
 namespace foundation {
     struct ByteReader;
     template<typename T>
