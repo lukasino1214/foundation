@@ -34,6 +34,7 @@ namespace foundation {
 
     struct MeshComponent {
         std::optional<u32> mesh_group_index;
+        std::optional<u32> mesh_group_manifest_entry_index;
 
         void draw();
     };

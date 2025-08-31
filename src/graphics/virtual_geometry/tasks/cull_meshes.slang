@@ -57,9 +57,9 @@ void cull_meshes(u32vec3 thread_index : SV_DispatchThreadID) {
                 continue;
             }
 
-            InterlockedOr(push.uses.u_readback_mesh[global_mesh_index / 32u], 1u << (global_mesh_index % 32u));
+            InterlockedOr(push.uses.u_readback_mesh[mesh.manifest_index / 32u], 1u << (mesh.manifest_index % 32u));
 
-            if(mesh.mesh_buffer.value == 0) { continue; }
+            // if(mesh.mesh_buffer.value == 0) { continue; }
             MeshData mesh_data;
             mesh_data.global_mesh_index = global_mesh_index;
             mesh_data.transform_index = entity_data.transform_index;

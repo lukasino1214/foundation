@@ -1556,7 +1556,7 @@ namespace foundation {
 
         // Mesh mesh = info.old_mesh;
         // mesh.mesh_buffer = {};
-        Mesh mesh = {};
+        MeshGeometryData mesh_geometry_data = {};
         daxa::BufferId mesh_buffer = {};
         daxa::BufferId staging_mesh_buffer = {};
 
@@ -1584,19 +1584,19 @@ namespace foundation {
 
             {
                 PROFILE_ZONE_NAMED(creating_buffer);
-                const u64 total_mesh_buffer_size =
-                    sizeof(Meshlet) * processed_info.meshlets.size() +
-                    sizeof(MeshletBoundingSpheres) * processed_info.bounding_spheres.size() +
-                    sizeof(MeshletSimplificationError) * processed_info.simplification_errors.size() +
-                    sizeof(AABB) * processed_info.aabbs.size() +
-                    sizeof(u8) * processed_info.micro_indices.size() +
-                    sizeof(u32) * processed_info.indirect_vertices.size() +
-                    sizeof(u32) * processed_info.primitive_indices.size() +
-                    sizeof(f32vec3) * processed_info.positions.size() +
-                    sizeof(u32) * processed_info.normals.size() +
-                    sizeof(u32) * processed_info.uvs.size();
+                u64 total_mesh_buffer_size = {};
+                total_mesh_buffer_size += processed_info.meshlets.size() * sizeof(Meshlet);
+                total_mesh_buffer_size += processed_info.simplification_errors.size() * sizeof(MeshletSimplificationError);
+                total_mesh_buffer_size += processed_info.micro_indices.size() * sizeof(u8);
+                total_mesh_buffer_size += processed_info.indirect_vertices.size() * sizeof(u32);
+                total_mesh_buffer_size += processed_info.primitive_indices.size() * sizeof(u32);
+                total_mesh_buffer_size += processed_info.positions.size() * sizeof(f32vec3);
+                total_mesh_buffer_size += processed_info.normals.size() * sizeof(u32);
+                total_mesh_buffer_size += processed_info.uvs.size() * sizeof(u32);
+                total_mesh_buffer_size += processed_info.bounding_spheres.size() * sizeof(MeshletBoundingSpheres);
+                total_mesh_buffer_size += processed_info.aabbs.size() * sizeof(AABB);
 
-                mesh.aabb = processed_info.mesh_aabb; 
+                mesh_geometry_data.aabb = processed_info.mesh_aabb; 
 
                 staging_mesh_buffer = context->create_buffer(daxa::BufferInfo {
                     .size = s_cast<daxa::usize>(total_mesh_buffer_size),
@@ -1606,6 +1606,7 @@ namespace foundation {
                 
                 mesh_buffer = context->create_buffer(daxa::BufferInfo {
                     .size = s_cast<daxa::usize>(total_mesh_buffer_size),
+                    .allocate_info = daxa::MemoryFlagBits::DEDICATED_MEMORY,
                     .name = "mesh buffer: " + info.asset_path.filename().string() + " mesh " + std::to_string(info.mesh_group_index) + " primitive " + std::to_string(info.mesh_index)
                 });
             }
@@ -1623,28 +1624,29 @@ namespace foundation {
                     accumulated_offset += vec.size() * sizeof(vec[0]);
                 };
 
-                memcpy_data(mesh.meshlets, processed_info.meshlets);
-                memcpy_data(mesh.bounding_spheres, processed_info.bounding_spheres);
-                memcpy_data(mesh.simplification_errors, processed_info.simplification_errors);
-                memcpy_data(mesh.meshlet_aabbs, processed_info.aabbs);
-                memcpy_data(mesh.micro_indices, processed_info.micro_indices);
-                memcpy_data(mesh.indirect_vertices, processed_info.indirect_vertices);
-                memcpy_data(mesh.primitive_indices, processed_info.primitive_indices);
-                memcpy_data(mesh.vertex_positions, processed_info.positions);
-                memcpy_data(mesh.vertex_normals, processed_info.normals);
-                memcpy_data(mesh.vertex_uvs, processed_info.uvs);
+                memcpy_data(mesh_geometry_data.meshlets, processed_info.meshlets);
+                memcpy_data(mesh_geometry_data.bounding_spheres, processed_info.bounding_spheres);
+                memcpy_data(mesh_geometry_data.simplification_errors, processed_info.simplification_errors);
+                memcpy_data(mesh_geometry_data.meshlet_aabbs, processed_info.aabbs);
+                memcpy_data(mesh_geometry_data.micro_indices, processed_info.micro_indices);
+                memcpy_data(mesh_geometry_data.indirect_vertices, processed_info.indirect_vertices);
+                memcpy_data(mesh_geometry_data.primitive_indices, processed_info.primitive_indices);
+                memcpy_data(mesh_geometry_data.vertex_positions, processed_info.positions);
+                memcpy_data(mesh_geometry_data.vertex_normals, processed_info.normals);
+                memcpy_data(mesh_geometry_data.vertex_uvs, processed_info.uvs);
                 
-                mesh.mesh_buffer = mesh_buffer;
+                mesh_geometry_data.mesh_buffer = mesh_buffer;
+                mesh_geometry_data.manifest_index = info.manifest_index;
 
                 const BinaryMesh& binary_mesh = info.asset->meshes[info.asset->mesh_groups[info.mesh_group_index].mesh_offset + info.mesh_index];
                 if(binary_mesh.material_index.has_value()) {
-                    mesh.material_index = info.material_manifest_offset + binary_mesh.material_index.value();
+                    mesh_geometry_data.material_index = info.material_manifest_offset + binary_mesh.material_index.value();
                 } else {
-                    mesh.material_index = INVALID_ID;
+                    mesh_geometry_data.material_index = INVALID_ID;
                 }
 
-                mesh.meshlet_count = s_cast<u32>(processed_info.meshlets.size());
-                mesh.vertex_count = s_cast<u32>(processed_info.positions.size());
+                mesh_geometry_data.meshlet_count = s_cast<u32>(processed_info.meshlets.size());
+                mesh_geometry_data.vertex_count = s_cast<u32>(processed_info.positions.size());
             }
         // }
 
@@ -1655,7 +1657,7 @@ namespace foundation {
                 .staging_mesh_buffer = staging_mesh_buffer,
                 .mesh_buffer = mesh_buffer,
                 // .old_buffer = std::bit_cast<daxa::BufferId>(info.old_mesh.mesh_buffer),
-                .mesh = mesh,
+                .mesh_geometry_data = mesh_geometry_data,
                 .manifest_index = info.manifest_index,
                 .material_manifest_offset = info.material_manifest_offset,
             });
@@ -1791,7 +1793,7 @@ namespace foundation {
         {
             PROFILE_SCOPE_NAMED(mesh_upload_info_);
             for(MeshUploadInfo& mesh_upload_info : ret.uploaded_meshes) {
-                if(context->device.is_buffer_id_valid(std::bit_cast<daxa::BufferId>(mesh_upload_info.mesh.mesh_buffer))) {
+                if(context->device.is_buffer_id_valid(std::bit_cast<daxa::BufferId>(mesh_upload_info.mesh_geometry_data.mesh_buffer))) {
                     context->destroy_buffer_deferred(cmd_recorder, mesh_upload_info.staging_mesh_buffer);
 
                     cmd_recorder.copy_buffer_to_buffer(daxa::BufferCopyInfo {

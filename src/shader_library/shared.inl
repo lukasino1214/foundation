@@ -191,8 +191,29 @@ struct MeshletSimplificationError {
 };
 DAXA_DECL_BUFFER_PTR(MeshletSimplificationError)
 
-struct Mesh {
+struct MeshGeometryData {
     daxa_BufferId mesh_buffer;
+    u32 manifest_index;
+    u32 material_index;
+    u32 meshlet_count;
+    u32 vertex_count;
+    AABB aabb;
+    daxa_BufferPtr(Meshlet) meshlets;
+    daxa_BufferPtr(MeshletBoundingSpheres) bounding_spheres;
+    daxa_BufferPtr(MeshletSimplificationError) simplification_errors;
+    daxa_BufferPtr(AABB) meshlet_aabbs;
+    daxa_BufferPtr(u32) micro_indices;
+    daxa_BufferPtr(u32) indirect_vertices;
+    daxa_BufferPtr(u32) primitive_indices;
+    daxa_BufferPtr(f32vec3) vertex_positions;
+    daxa_BufferPtr(u32) vertex_normals;
+    daxa_BufferPtr(u32) vertex_uvs;
+};
+
+DAXA_DECL_BUFFER_PTR_ALIGN(MeshGeometryData, 8)
+
+struct Mesh {
+    u32 manifest_index;
     u32 material_index;
     u32 meshlet_count;
     u32 vertex_count;

@@ -27,7 +27,7 @@ namespace foundation {
 
     struct MeshManifestEntry {
         struct VirtualGeometryRenderInfo {
-            Mesh mesh = {};
+            MeshGeometryData mesh_geometry_data = {};
             u32 material_manifest_index = {};
         };
 
@@ -37,6 +37,7 @@ namespace foundation {
         u8 unload_delay = {};
         bool loading = true;
         std::optional<VirtualGeometryRenderInfo> geometry_info = {};
+        std::vector<u32> gpu_mesh_indices = {};
     };
 
     struct MeshGroupManifestEntry {
@@ -88,6 +89,12 @@ namespace foundation {
         std::string name = {};
     };
 
+    struct MeshGroupToMeshesMapping {
+        u32 mesh_group_manifest_index = {};
+        u32 mesh_group_index = {};
+        u32 mesh_offset = {};
+    };
+
     struct AssetManager {
         AssetManager(Context* _context, Scene* _scene, ThreadPool* _thread_pool, AssetProcessor* _asset_processor);
         ~AssetManager();
@@ -114,7 +121,7 @@ namespace foundation {
         std::vector<MeshManifestEntry> mesh_manifest_entries = {};
         std::vector<MeshGroupManifestEntry> mesh_group_manifest_entries = {};
         std::vector<u32> dirty_meshes = {};
-        std::vector<u32> dirty_mesh_groups = {};
+        std::vector<MeshGroupToMeshesMapping> dirty_mesh_groups = {};
 
         std::vector<u32> readback_material = {};
         std::vector<u32> texture_sizes = {};
@@ -136,6 +143,8 @@ namespace foundation {
         daxa::TaskBuffer gpu_opaque_prefix_sum_work_expansion_mesh = {};
         daxa::TaskBuffer gpu_masked_prefix_sum_work_expansion_mesh = {};
         daxa::TaskBuffer gpu_transparent_prefix_sum_work_expansion_mesh = {};
+
+        usize total_mesh_group_count = {};
 
         usize total_mesh_count = {};
         usize total_opaque_mesh_count = {};

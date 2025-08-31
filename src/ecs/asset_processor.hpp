@@ -77,7 +77,7 @@ namespace foundation {
         daxa::BufferId staging_mesh_buffer = {};
         daxa::BufferId mesh_buffer = {};
         // daxa::BufferId old_buffer = {};
-        Mesh mesh = {};
+        MeshGeometryData mesh_geometry_data = {};
 
         u32 manifest_index = {};
         u32 material_manifest_offset = {};
