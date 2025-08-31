@@ -158,8 +158,8 @@ namespace foundation {
         context->destroy_buffer(gpu_transparent_prefix_sum_work_expansion_mesh.get_state().buffers[0]);
 
         for(auto& mesh_manifest : mesh_manifest_entries) {
-            if(context->device.is_buffer_id_valid(mesh_manifest.virtual_geometry_render_info->mesh.mesh_buffer)) {
-                context->destroy_buffer(mesh_manifest.virtual_geometry_render_info->mesh.mesh_buffer);
+            if(context->device.is_buffer_id_valid(mesh_manifest.geometry_info->mesh.mesh_buffer)) {
+                context->destroy_buffer(mesh_manifest.geometry_info->mesh.mesh_buffer);
             }
         }
 
@@ -299,7 +299,7 @@ namespace foundation {
                         .asset_manifest_index = asset_manifest_index,
                         .asset_local_mesh_index = mesh_group_index,
                         .asset_local_primitive_index = mesh_index,
-                        .virtual_geometry_render_info = std::nullopt
+                        .geometry_info = std::nullopt
                     });
                 }
 
@@ -407,7 +407,7 @@ namespace foundation {
                             .mesh_index = mesh_index,
                             .material_manifest_offset = asset_manifest->material_manifest_offset,
                             .manifest_index = mesh_group_manifest.mesh_manifest_indices_offset + mesh_index,
-                            .old_mesh = {},
+                            // .old_mesh = {},
                             .file_path = asset_manifest->path.parent_path() / asset->meshes[mesh_group.mesh_offset + mesh_index].file_path
                         },
                         .asset_processor = asset_processor,
@@ -476,44 +476,44 @@ namespace foundation {
     }
 
     void AssetManager::update_meshes() {
-        if(readback_mesh.empty()) { return; }
+        // if(readback_mesh.empty()) { return; }
 
-        for(u32 global_mesh_index = 0; global_mesh_index < mesh_manifest_entries.size(); global_mesh_index++) {
-            MeshManifestEntry& mesh_manifest_entry = mesh_manifest_entries[global_mesh_index];
-            const bool keep_mesh_in_memory = (readback_mesh[global_mesh_index / 32u] & (1u << (global_mesh_index % 32u))) != 0;
+        // for(u32 global_mesh_index = 0; global_mesh_index < mesh_manifest_entries.size(); global_mesh_index++) {
+        //     MeshManifestEntry& mesh_manifest_entry = mesh_manifest_entries[global_mesh_index];
+        //     const bool keep_mesh_in_memory = (readback_mesh[global_mesh_index / 32u] & (1u << (global_mesh_index % 32u))) != 0;
 
-            const AssetManifestEntry& asset_manifest = asset_manifest_entries[mesh_manifest_entry.asset_manifest_index];
-            const u32 mesh_group_index = asset_manifest.mesh_group_manifest_offset + mesh_manifest_entry.asset_local_mesh_index;
-            const MeshGroupManifestEntry mesh_group_manifest_entry = mesh_group_manifest_entries[mesh_group_index];
-            const auto& mesh_group = asset_manifest.asset->mesh_groups.at(mesh_manifest_entry.asset_local_mesh_index);
+        //     const AssetManifestEntry& asset_manifest = asset_manifest_entries[mesh_manifest_entry.asset_manifest_index];
+        //     const u32 mesh_group_index = asset_manifest.mesh_group_manifest_offset + mesh_manifest_entry.asset_local_mesh_index;
+        //     const MeshGroupManifestEntry mesh_group_manifest_entry = mesh_group_manifest_entries[mesh_group_index];
+        //     const auto& mesh_group = asset_manifest.asset->mesh_groups.at(mesh_manifest_entry.asset_local_mesh_index);
 
-            if(!mesh_manifest_entry.virtual_geometry_render_info.has_value()) { continue; }
-            const daxa::BufferId mesh_buffer = mesh_manifest_entry.virtual_geometry_render_info->mesh.mesh_buffer;
-            bool is_in_memory = !mesh_buffer.is_empty() && context->device.is_buffer_id_valid(mesh_buffer);
+        //     if(!mesh_manifest_entry.geometry_info.has_value()) { continue; }
+        //     const daxa::BufferId mesh_buffer = mesh_manifest_entry.geometry_info->mesh.mesh_buffer;
+        //     bool is_in_memory = !mesh_buffer.is_empty() && context->device.is_buffer_id_valid(mesh_buffer);
             
-            mesh_manifest_entry.unload_delay++;
+        //     mesh_manifest_entry.unload_delay++;
             
-            if(mesh_manifest_entry.unload_delay < 254) { continue; }
-            if(mesh_manifest_entry.loading) { continue; }
-            if(keep_mesh_in_memory == is_in_memory) { continue; }
+        //     if(mesh_manifest_entry.unload_delay < 254) { continue; }
+        //     if(mesh_manifest_entry.loading) { continue; }
+        //     if(keep_mesh_in_memory == is_in_memory) { continue; }
 
-            mesh_manifest_entry.loading = true;
-            mesh_manifest_entry.unload_delay = 0;
+        //     mesh_manifest_entry.loading = true;
+        //     mesh_manifest_entry.unload_delay = 0;
 
-            thread_pool->async_dispatch(std::make_shared<LoadMeshTask>(LoadMeshTask::TaskInfo{
-                .load_info = {
-                    .asset_path = asset_manifest.path,
-                    .asset = asset_manifest.asset.get(),
-                    .mesh_group_index = mesh_manifest_entry.asset_local_mesh_index,
-                    .mesh_index = mesh_manifest_entry.asset_local_primitive_index,
-                    .material_manifest_offset = asset_manifest.material_manifest_offset,
-                    .manifest_index = mesh_group_manifest_entry.mesh_manifest_indices_offset + mesh_manifest_entry.asset_local_primitive_index,
-                    .old_mesh = mesh_manifest_entry.virtual_geometry_render_info->mesh,
-                    .file_path = asset_manifest.path.parent_path() / asset_manifest.asset->meshes[mesh_group.mesh_offset + mesh_manifest_entry.asset_local_primitive_index].file_path
-                },
-                .asset_processor = asset_processor,
-            }), TaskPriority::LOW);
-        }
+        //     thread_pool->async_dispatch(std::make_shared<LoadMeshTask>(LoadMeshTask::TaskInfo{
+        //         .load_info = {
+        //             .asset_path = asset_manifest.path,
+        //             .asset = asset_manifest.asset.get(),
+        //             .mesh_group_index = mesh_manifest_entry.asset_local_mesh_index,
+        //             .mesh_index = mesh_manifest_entry.asset_local_primitive_index,
+        //             .material_manifest_offset = asset_manifest.material_manifest_offset,
+        //             .manifest_index = mesh_group_manifest_entry.mesh_manifest_indices_offset + mesh_manifest_entry.asset_local_primitive_index,
+        //             .old_mesh = mesh_manifest_entry.geometry_info->mesh,
+        //             .file_path = asset_manifest.path.parent_path() / asset_manifest.asset->meshes[mesh_group.mesh_offset + mesh_manifest_entry.asset_local_primitive_index].file_path
+        //         },
+        //         .asset_processor = asset_processor,
+        //     }), TaskPriority::LOW);
+        // }
     }
 
     auto AssetManager::record_manifest_update(const RecordManifestUpdateInfo& info) -> daxa::ExecutableCommandList {
@@ -767,8 +767,8 @@ namespace foundation {
                 auto& asset_manifest = asset_manifest_entries[mesh_manifest.asset_manifest_index];
                 const BinaryMesh& binary_mesh = asset_manifest.asset->meshes[asset_manifest.asset->mesh_groups[mesh_manifest.asset_local_mesh_index].mesh_offset + mesh_manifest.asset_local_primitive_index];
 
-                mesh_manifest.virtual_geometry_render_info = MeshManifestEntry::VirtualGeometryRenderInfo { .mesh = mesh_upload_info.mesh, };
-                if(!mesh_manifest.virtual_geometry_render_info.has_value() && binary_mesh.material_index.has_value()) {
+                mesh_manifest.geometry_info = MeshManifestEntry::VirtualGeometryRenderInfo { .mesh = mesh_upload_info.mesh, };
+                if(!mesh_manifest.geometry_info.has_value() && binary_mesh.material_index.has_value()) {
                     u32 material_index = mesh_upload_info.material_manifest_offset + binary_mesh.material_index.value();
                     auto& material_manifest = material_manifest_entries.at(material_index);
 
@@ -779,7 +779,7 @@ namespace foundation {
                         .dst_offset = material_manifest.material_manifest_index * sizeof(Material),
                         .size = sizeof(Material),
                     });
-                    mesh_manifest.virtual_geometry_render_info->material_manifest_index = material_manifest.material_manifest_index;
+                    mesh_manifest.geometry_info->material_manifest_index = material_manifest.material_manifest_index;
                 }
             }
 

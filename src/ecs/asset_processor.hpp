@@ -63,7 +63,7 @@ namespace foundation {
         u32 mesh_index = {};
         u32 material_manifest_offset = {};
         u32 manifest_index = {};
-        Mesh old_mesh = {};
+        // Mesh old_mesh = {};
         std::filesystem::path file_path = {};
     };
 
@@ -76,7 +76,7 @@ namespace foundation {
     struct MeshUploadInfo {
         daxa::BufferId staging_mesh_buffer = {};
         daxa::BufferId mesh_buffer = {};
-        daxa::BufferId old_buffer = {};
+        // daxa::BufferId old_buffer = {};
         Mesh mesh = {};
 
         u32 manifest_index = {};

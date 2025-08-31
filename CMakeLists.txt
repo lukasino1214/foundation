@@ -104,7 +104,6 @@ add_executable(${PROJECT_NAME}
     "src/graphics/helper.cpp"
     "src/graphics/camera.cpp"
     "src/math/decompose.cpp"
-    "src/scripting/scripting_engine.cpp"
     "src/ui/panels/viewport_panel.cpp"
     "src/ui/panels/scene_hierarchy_panel.cpp"
     "src/ui/panels/file_browser.cpp"

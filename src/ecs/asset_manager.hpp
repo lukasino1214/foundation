@@ -36,7 +36,7 @@ namespace foundation {
         u32 asset_local_primitive_index = {};
         u8 unload_delay = {};
         bool loading = true;
-        std::optional<VirtualGeometryRenderInfo> virtual_geometry_render_info = {};
+        std::optional<VirtualGeometryRenderInfo> geometry_info = {};
     };
 
     struct MeshGroupManifestEntry {
