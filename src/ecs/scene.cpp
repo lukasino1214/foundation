@@ -23,7 +23,7 @@ namespace foundation {
             "scene data"
         }); 
 
-        query_transforms = world->query_builder<GlobalPosition, GlobalRotation, GlobalScale, GlobalMatrix, LocalPosition, LocalRotation, LocalScale, LocalMatrix, GlobalMatrix*, TransformDirty, GPUTransformIndex>().term_at(8).cascade(flecs::ChildOf).optional().cached().build();
+        query_transforms = world->query_builder<GlobalPosition, GlobalRotation, GlobalScale, GlobalMatrix, LocalPosition, LocalRotation, LocalScale, LocalMatrix, GlobalMatrix*, TransformDirty>().term_at(8).cascade(flecs::ChildOf).optional().cached().build();
     }
 
     Scene::~Scene() {
@@ -52,14 +52,14 @@ namespace foundation {
 
         {
             bool scene_data_updated = false;
-            world->each([&](flecs::entity entity, RenderInfo& info, GPUTransformIndex& gpu_transform, MeshComponent&mesh){
+            world->each([&](flecs::entity entity, RenderInfo& info, GPUTransformIndex& gpu_transform, MeshComponent& mesh){
                 if(info.is_dirty) {
                     scene_data_updated = true;
                     scene_data.entity_count++;
 
                     gpu_entities_data_pool.update_handle(task_interface, info.gpu_handle, {
                         .mesh_group_index = mesh.mesh_group_index.value(),
-                        .transform_index = gpu_transform.gpu_handle.index
+                        // .transform_index = gpu_transform.gpu_handle.index
                     });
 
                     transform_handle_to_entity[gpu_transform.gpu_handle.index] = entity;
@@ -82,7 +82,7 @@ namespace foundation {
         }
 
         std::vector<flecs::entity> queue = {};
-        query_transforms.each([&](flecs::entity entity, GlobalPosition& global_position, GlobalRotation& global_rotation, GlobalScale& global_scale, GlobalMatrix& global_matrix, LocalPosition& local_position, LocalRotation& local_rotation, LocalScale& local_scale, LocalMatrix& local_matrix, GlobalMatrix* parent_global_matrix, TransformDirty, GPUTransformIndex& gpu_transform) {
+        query_transforms.each([&](flecs::entity entity, GlobalPosition& global_position, GlobalRotation& global_rotation, GlobalScale& global_scale, GlobalMatrix& global_matrix, LocalPosition& local_position, LocalRotation& local_rotation, LocalScale& local_scale, LocalMatrix& local_matrix, GlobalMatrix* parent_global_matrix, TransformDirty) {
             entity.children([&](flecs::entity c){
                 c.add<TransformDirty>();
             });
@@ -94,10 +94,13 @@ namespace foundation {
             global_matrix.matrix = ((parent_global_matrix != nullptr) ? parent_global_matrix->matrix : glm::mat4{1.0f}) * local_matrix.matrix;
             math::decompose_transform(global_matrix.matrix, global_position.position, global_rotation.rotation, global_scale.scale);
 
+            queue.push_back(entity);
+        });
+        
+        world->each([&](GlobalMatrix& global_matrix, GPUTransformIndex& gpu_transform, TransformDirty){
             if(gpu_transforms_pool.update_handle(task_interface, gpu_transform.gpu_handle, { 
                 .model_matrix = global_matrix.matrix
             })) {
-                queue.push_back(entity);
             } else {
                 LOG_INFO("hehe");
             }

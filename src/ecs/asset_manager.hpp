@@ -25,6 +25,11 @@ namespace foundation {
         BinaryModelHeader header = {};
     };
 
+    struct GPUMeshGroupToMeshMapping {
+        u32 mesh_group_index = {};
+        u32 mesh_index = {};
+    };
+
     struct MeshManifestEntry {
         struct VirtualGeometryRenderInfo {
             MeshGeometryData mesh_geometry_data = {};
@@ -37,7 +42,7 @@ namespace foundation {
         u8 unload_delay = {};
         bool loading = true;
         std::optional<VirtualGeometryRenderInfo> geometry_info = {};
-        std::vector<u32> gpu_mesh_indices = {};
+        std::vector<GPUMeshGroupToMeshMapping> gpu_mesh_indices = {};
     };
 
     struct MeshGroupManifestEntry {

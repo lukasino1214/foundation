@@ -52,7 +52,7 @@ void cull_meshlets(u32vec3 thread_index : SV_DispatchThreadID) {
     const MeshData mesh_data = push.uses.u_culled_meshes_data->meshes[dst_item_info.src_item_index];
     const Mesh mesh = push.uses.u_meshes[mesh_data.global_mesh_index];
     const AABB aabb = mesh.meshlet_aabbs[dst_item_info.in_expansion_index];
-    const f32mat4x4 transform_matrix = mat_4x3_to_4x4(push.uses.u_transforms[mesh_data.transform_index].model_matrix);
+    const f32mat4x4 transform_matrix = mat_4x3_to_4x4(push.uses.u_transforms[mesh.mesh_group_index].model_matrix);
     const u32vec2 viewport_size = push.uses.u_globals->render_target_size.xy;
 
     const f32mat4x4 mvp = mul(push.uses.u_globals->main_camera.projection_view_matrix, transform_matrix);
@@ -118,7 +118,6 @@ void cull_meshlets(u32vec3 thread_index : SV_DispatchThreadID) {
     MeshletInstanceData meshlet_instance_data;
     meshlet_instance_data.mesh_index = mesh_data.global_mesh_index;
     meshlet_instance_data.meshlet_index = meshlet_index;
-    meshlet_instance_data.transform_index = mesh_data.transform_index;
 
     if(is_sw_candidate && push.uses.u_globals->render_as_observer == 0 && !push.force_hw_rasterization) {
         u32 i = 0;

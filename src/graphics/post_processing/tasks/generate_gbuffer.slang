@@ -40,7 +40,7 @@ void generate_gbuffer(u32vec3 pixel : SV_DispatchThreadID, u32vec2 in_group_pixe
             mesh.vertex_positions[indices[2]]
         );
 
-        const f32mat4x4 transform_matrix = mat_4x3_to_4x4(push.uses.u_transforms[meshlet_instance_data.transform_index].model_matrix); 
+        const f32mat4x4 transform_matrix = mat_4x3_to_4x4(push.uses.u_transforms[mesh.mesh_group_index].model_matrix); 
         const f32vec4[3] world_positions = f32vec4[3](
             mul(transform_matrix, f32vec4(positions[0], 1.0)),
             mul(transform_matrix, f32vec4(positions[1], 1.0)),

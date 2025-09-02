@@ -213,6 +213,7 @@ struct MeshGeometryData {
 DAXA_DECL_BUFFER_PTR_ALIGN(MeshGeometryData, 8)
 
 struct Mesh {
+    u32 mesh_group_index;
     u32 manifest_index;
     u32 material_index;
     u32 meshlet_count;
@@ -235,19 +236,16 @@ DAXA_DECL_BUFFER_PTR_ALIGN(Mesh, 8)
 struct MeshletInstanceData {
     u32 mesh_index;
     u32 meshlet_index;
-    u32 transform_index;
 };
 DAXA_DECL_BUFFER_PTR(MeshletInstanceData)
 
 struct EntityData {
     u32 mesh_group_index;
-    u32 transform_index;
 };
 DAXA_DECL_BUFFER_PTR(EntityData)
 
 struct MeshData {
     u32 global_mesh_index;
-    u32 transform_index;
 };
 DAXA_DECL_BUFFER_PTR(MeshData)
 

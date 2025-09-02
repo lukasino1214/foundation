@@ -319,9 +319,11 @@ namespace foundation {
         for(u32 mesh_group_index = 0; mesh_group_index < asset->mesh_groups.size(); mesh_group_index++) {
             const auto& mesh_group = asset->mesh_groups.at(mesh_group_index);
 
+            u32 gpu_mesh_group_index = s_cast<u32>(total_mesh_group_count++);
+
             dirty_mesh_groups.push_back(MeshGroupToMeshesMapping {
                 .mesh_group_manifest_index = asset_manifest->mesh_group_manifest_offset + mesh_group_index,
-                .mesh_group_index = s_cast<u32>(total_mesh_group_count++),
+                .mesh_group_index = gpu_mesh_group_index,
                 .mesh_offset = s_cast<u32>(total_mesh_count),
             });
 
@@ -332,7 +334,10 @@ namespace foundation {
                 
                 u32 gpu_mesh_index = s_cast<u32>(total_mesh_count++);
                 dirty_meshes.push_back(s_cast<u32>(gpu_mesh_index));
-                mesh_manifest_entry.gpu_mesh_indices.push_back(gpu_mesh_index);
+                mesh_manifest_entry.gpu_mesh_indices.push_back({
+                    .mesh_group_index = gpu_mesh_group_index,
+                    .mesh_index = gpu_mesh_index,
+                });
         
                 if(binary_mesh.material_index.has_value()) {
                     const BinaryMaterial& binary_material = asset->materials[binary_mesh.material_index.value()];
@@ -793,8 +798,16 @@ namespace foundation {
                 }
             }
 
+            u32 total_gpu_mesh_count = {};
+            for (u32 upload_index = 0; upload_index < info.uploaded_meshes.size(); upload_index++) {
+                auto const & upload = info.uploaded_meshes[upload_index];
+            
+                MeshManifestEntry& mesh_manifest_entry = mesh_manifest_entries[upload.manifest_index];
+                total_gpu_mesh_count += mesh_manifest_entry.gpu_mesh_indices.size();
+            }
+
             daxa::BufferId staging_buffer = context->create_buffer({
-                .size = info.uploaded_meshes.size() * sizeof(Mesh),
+                .size = total_gpu_mesh_count * sizeof(Mesh),
                 .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
                 .name = "mesh manifest upload staging buffer",
             });
@@ -802,51 +815,41 @@ namespace foundation {
             context->destroy_buffer_deferred(cmd_recorder, staging_buffer);
             Mesh* staging_ptr = context->device.buffer_host_address_as<Mesh>(staging_buffer).value();
 
+            u32 gpu_mesh_index_iter = 0;
             for (u32 upload_index = 0; upload_index < info.uploaded_meshes.size(); upload_index++) {
                 auto const & upload = info.uploaded_meshes[upload_index];
-                // std::memcpy(staging_ptr + upload_index, &upload.mesh, sizeof(Mesh));
-
-                // cmd_recorder.copy_buffer_to_buffer({
-                //     .src_buffer = staging_buffer,
-                //     .dst_buffer = gpu_meshes.get_state().buffers[0],
-                //     .src_offset = upload_index * sizeof(Mesh),
-                //     .dst_offset = upload.manifest_index * sizeof(Mesh),
-                //     .size = sizeof(Mesh),
-                // });
-
                 MeshManifestEntry& mesh_manifest_entry = mesh_manifest_entries[upload.manifest_index];
-                AssetManifestEntry& asset_manifest_entry = asset_manifest_entries[mesh_manifest_entry.asset_manifest_index];
-                u32 mesh_group_index = asset_manifest_entry.mesh_group_manifest_offset + mesh_manifest_entry.asset_local_mesh_index;
-                MeshGroupManifestEntry& mesh_group_manifest_entry = mesh_group_manifest_entries[mesh_group_index];
+                
+                for(auto [gpu_mesh_group_index, gpu_mesh_index] : mesh_manifest_entry.gpu_mesh_indices) {
+                    Mesh mesh = {
+                        .mesh_group_index = gpu_mesh_group_index,
+                        .manifest_index = upload.mesh_geometry_data.manifest_index,
+                        .material_index = upload.mesh_geometry_data.material_index,
+                        .meshlet_count = upload.mesh_geometry_data.meshlet_count,
+                        .vertex_count = upload.mesh_geometry_data.vertex_count,
+                        .aabb = upload.mesh_geometry_data.aabb,
+                        .meshlets = upload.mesh_geometry_data.meshlets,
+                        .bounding_spheres = upload.mesh_geometry_data.bounding_spheres,
+                        .simplification_errors = upload.mesh_geometry_data.simplification_errors,
+                        .meshlet_aabbs = upload.mesh_geometry_data.meshlet_aabbs,
+                        .micro_indices = upload.mesh_geometry_data.micro_indices,
+                        .indirect_vertices = upload.mesh_geometry_data.indirect_vertices,
+                        .primitive_indices = upload.mesh_geometry_data.primitive_indices,
+                        .vertex_positions = upload.mesh_geometry_data.vertex_positions,
+                        .vertex_normals = upload.mesh_geometry_data.vertex_normals,
+                        .vertex_uvs = upload.mesh_geometry_data.vertex_uvs,
+                    };
+                    std::memcpy(staging_ptr + gpu_mesh_index_iter, &mesh, sizeof(Mesh));
 
-                Mesh mesh = {
-                    .manifest_index = upload.mesh_geometry_data.manifest_index,
-                    .material_index = upload.mesh_geometry_data.material_index,
-                    .meshlet_count = upload.mesh_geometry_data.meshlet_count,
-                    .vertex_count = upload.mesh_geometry_data.vertex_count,
-                    .aabb = upload.mesh_geometry_data.aabb,
-                    .meshlets = upload.mesh_geometry_data.meshlets,
-                    .bounding_spheres = upload.mesh_geometry_data.bounding_spheres,
-                    .simplification_errors = upload.mesh_geometry_data.simplification_errors,
-                    .meshlet_aabbs = upload.mesh_geometry_data.meshlet_aabbs,
-                    .micro_indices = upload.mesh_geometry_data.micro_indices,
-                    .indirect_vertices = upload.mesh_geometry_data.indirect_vertices,
-                    .primitive_indices = upload.mesh_geometry_data.primitive_indices,
-                    .vertex_positions = upload.mesh_geometry_data.vertex_positions,
-                    .vertex_normals = upload.mesh_geometry_data.vertex_normals,
-                    .vertex_uvs = upload.mesh_geometry_data.vertex_uvs,
-                };
-
-                std::memcpy(staging_ptr + upload_index, &mesh, sizeof(Mesh));
-
-                for(u32 mesh_index : mesh_manifest_entry.gpu_mesh_indices) {
                     cmd_recorder.copy_buffer_to_buffer({
                         .src_buffer = staging_buffer,
                         .dst_buffer = gpu_meshes.get_state().buffers[0],
-                        .src_offset = upload_index * sizeof(Mesh),
-                        .dst_offset = mesh_index * sizeof(Mesh),
+                        .src_offset = gpu_mesh_index_iter * sizeof(Mesh),
+                        .dst_offset = gpu_mesh_index * sizeof(Mesh),
                         .size = sizeof(Mesh),
                     });
+
+                    gpu_mesh_index_iter++;
                 }
             }
         }

@@ -48,7 +48,7 @@ void draw_meshlets_transparent_mesh(
     const Mesh mesh = push.uses.u_meshes[meshlet_instance_data.mesh_index];
     const Meshlet meshlet = mesh.meshlets[meshlet_instance_data.meshlet_index];
 
-    f32mat4x4 pvm = mat_4x3_to_4x4(push.uses.u_transforms[meshlet_instance_data.transform_index].model_matrix);
+    f32mat4x4 pvm = mat_4x3_to_4x4(push.uses.u_transforms[mesh.mesh_group_index].model_matrix);
     
     const u32 meshlet_index = push.uses.u_meshlets_data_merged.hw_offset + payload.index;
     

@@ -35,7 +35,6 @@ public:
                 handle.add<GlobalScale>();
                 handle.add<GlobalMatrix>();
                 handle.add<TransformDirty>();
-                handle.set<GPUTransformIndex>({ scene->gpu_transforms_pool.allocate_handle() });
 
                 handle.add<LocalPosition>();
                 handle.add<LocalRotation>();
@@ -44,6 +43,10 @@ public:
                 handle.add<TransformDirty>();
                 handle.add<TransformComponent>();
                 return nullptr;
+            }
+            
+            if constexpr (std::is_same_v<T, MeshComponent>) {
+                handle.set<GPUTransformIndex>({ scene->gpu_transforms_pool.allocate_handle() });
             }
 
             handle.set<T>(T{});
