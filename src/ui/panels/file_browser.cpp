@@ -144,7 +144,6 @@ namespace foundation {
                 }
 
                 if(ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left) && ImGui::IsItemHovered()) {
-                    std::println("double clicked");
                     if(is_folder) {
                         folder_clicked = true;
                         clicked_path = current_path / item;

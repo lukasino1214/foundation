@@ -181,7 +181,7 @@ namespace foundation {
                     .file_path = file_name
                 });
 
-                std::println("mesh group: [{} / {}] - mesh: [{} / {}] - done", mesh_index+1, asset->meshes.size(), primitive_index+1, gltf_mesh.primitives.size());
+                fmt::println("mesh group: [{} / {}] - mesh: [{} / {}] - done", mesh_index+1, asset->meshes.size(), primitive_index+1, gltf_mesh.primitives.size());
             }
 
             binary_mesh_groups.push_back({
@@ -210,7 +210,7 @@ namespace foundation {
 
         struct CustomErrorHandler : public nvtt::ErrorHandler {
             void error(nvtt::Error e) override {
-                std::println("{}", std::to_string(e));
+                fmt::println("{}", std::to_string(e));
             }
         };
 
@@ -233,7 +233,7 @@ namespace foundation {
 
         std::vector<BinaryMaterial> binary_materials = {};
         for(u32 material_index = 0; material_index < s_cast<u32>(asset->materials.size()); material_index++) {
-            auto const & material = asset->materials.at(material_index);
+            const auto& material = asset->materials.at(material_index);
             u32 const material_manifest_index = material_index;
             bool const has_normal_texture = material.normalTexture.has_value();
             bool const has_albedo_texture = material.pbrData.baseColorTexture.has_value();
@@ -336,7 +336,7 @@ namespace foundation {
                               (cached_material_type == MaterialType::GltfEmissive && material_index.material_type == MaterialType::GltfAlbedo)) {
                         preferred_material_type = MaterialType::GltfAlbedo;
                     } else {
-                        std::println("explode first {} different {}", std::to_string(s_cast<u32>(cached_material_type)), std::to_string(s_cast<u32>(material_index.material_type)));
+                        fmt::println("explode first {} different {}", std::to_string(s_cast<u32>(cached_material_type)), std::to_string(s_cast<u32>(material_index.material_type)));
                         std::abort();
                     }
                 }
@@ -346,7 +346,7 @@ namespace foundation {
 
             if(preferred_material_type == MaterialType::None) {
                 if(cached_material_types.size() != 1) {
-                    std::println("explode");
+                    fmt::println("explode");
                     std::abort();
                 } else {
                     preferred_material_type = cached_material_types[0];
@@ -419,7 +419,7 @@ namespace foundation {
             {
                 auto gltf_data = get_data(image.data);
                 u8* image_data = stbi_load_from_memory(r_cast<const u8*>(gltf_data.data()), s_cast<i32>(gltf_data.size()), &width, &height, &num_channels, 4);
-                if(image_data == nullptr) { std::println("bozo"); }
+                if(image_data == nullptr) { fmt::println("bozo"); }
                 raw_data.resize(s_cast<u64>(width * height * 4));
                 std::memcpy(raw_data.data(), image_data, s_cast<u64>(width * height * 4));
                 stbi_image_free(image_data);
@@ -780,7 +780,7 @@ namespace foundation {
                 binary_textures[i].file_path = create_file(texture);
             }
 
-            std::println("[{} / {}] - image - done", i+1, asset->images.size());
+            fmt::println("[{} / {}] - image - done", i+1, asset->images.size());
         }
 
         std::vector<std::byte> compressed_data = {};
@@ -806,7 +806,7 @@ namespace foundation {
                 .textures = binary_textures,
             });
 
-            std::println("writer {}", byte_writer.data.size());
+            fmt::println("writer {}", byte_writer.data.size());
             compressed_data = zstd_compress(byte_writer.data, 14);
         }
     
@@ -862,7 +862,7 @@ namespace foundation {
             return combinations;
         };
 
-        std::unordered_map<MeshletPair, u32, PairHasher> meshlet_pair_to_shared_vertex_count = {};
+        ankerl::unordered_dense::map<MeshletPair, u32, PairHasher> meshlet_pair_to_shared_vertex_count = {};
         for(auto& vertex_meshlets_ids : vertices_to_meshlets) {
             std::vector<std::pair<u32, u32>> meshlet_pairs = create_combinations(vertex_meshlets_ids);
             for(auto [meshlet_queue_id_1, meshlet_queue_id_2] : meshlet_pairs) {
@@ -1052,8 +1052,8 @@ namespace foundation {
         simplified_group_indices.resize(index_count);
 
         if(s_cast<f32>(simplified_group_indices.size()) / s_cast<f32>(group_indices.size()) > SIMPLIFICATION_FAILURE_PERCENTAGE) {
-            std::println("new {} original {}", simplified_group_indices.size(), group_indices.size());
-            std::println("retry % {} error % {}", (s_cast<f32>(simplified_group_indices.size()) / s_cast<f32>(group_indices.size())), error);
+            fmt::println("new {} original {}", simplified_group_indices.size(), group_indices.size());
+            fmt::println("retry % {} error % {}", (s_cast<f32>(simplified_group_indices.size()) / s_cast<f32>(group_indices.size())), error);
             return std::nullopt;
         }
 
@@ -1478,7 +1478,7 @@ namespace foundation {
 
                 if(!simplification_result.has_value()) {
                     retry_queue.insert(retry_queue.end(), group_meshlets.begin(), group_meshlets.end());
-                    std::println("retry");
+                    fmt::println("retry");
                     continue;
                 }
 
@@ -1598,15 +1598,15 @@ namespace foundation {
 
                 mesh_geometry_data.aabb = processed_info.mesh_aabb; 
 
-                staging_mesh_buffer = context->create_buffer(daxa::BufferInfo {
+                staging_mesh_buffer = context->device.create_buffer(daxa::BufferInfo {
                     .size = s_cast<daxa::usize>(total_mesh_buffer_size),
                     .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
                     .name = "mesh buffer: " + info.asset_path.filename().string() + " mesh " + std::to_string(info.mesh_group_index) + " primitive " + std::to_string(info.mesh_index) + " staging",
                 });
                 
-                mesh_buffer = context->create_buffer(daxa::BufferInfo {
+                mesh_buffer = context->device.create_buffer(daxa::BufferInfo {
                     .size = s_cast<daxa::usize>(total_mesh_buffer_size),
-                    .allocate_info = daxa::MemoryFlagBits::DEDICATED_MEMORY,
+                    .allocate_info = daxa::MemoryFlagBits::NONE,
                     .name = "mesh buffer: " + info.asset_path.filename().string() + " mesh " + std::to_string(info.mesh_group_index) + " primitive " + std::to_string(info.mesh_index)
                 });
             }
@@ -1693,7 +1693,7 @@ namespace foundation {
             u32 width = info.requested_resolution != 0 ? std:: min(texture.width, info.requested_resolution) : texture.width;
             u32 height = info.requested_resolution != 0 ? std:: min(texture.height, info.requested_resolution) : texture.height;
             mip_levels = s_cast<u32>(std::floor(std::log2(width))) + 1;
-            daxa_image = context->create_image(daxa::ImageInfo {
+            daxa_image = context->device.create_image(daxa::ImageInfo {
                 .dimensions = 2,
                 .format = texture.format,
                 .size = {width, height, 1},
@@ -1727,7 +1727,7 @@ namespace foundation {
                 };
             }
 
-            staging_buffer = context->create_buffer(daxa::BufferInfo {
+            staging_buffer = context->device.create_buffer(daxa::BufferInfo {
                 .size = _size,
                 .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
                 .name = "staging buffer: " + info.image_path.string() + " " + std::to_string(info.texture_index)
@@ -1738,7 +1738,7 @@ namespace foundation {
             }
         } else {
             mip_levels = static_cast<u32>(std::floor(std::log2(info.requested_resolution))) + 1;
-            daxa_image = context->create_image(daxa::ImageInfo {
+            daxa_image = context->device.create_image(daxa::ImageInfo {
                 .dimensions = 2,
                 .format = image_info.format,
                 .size = { info.requested_resolution, info.requested_resolution, 1},
@@ -1794,7 +1794,7 @@ namespace foundation {
             PROFILE_SCOPE_NAMED(mesh_upload_info_);
             for(MeshUploadInfo& mesh_upload_info : ret.uploaded_meshes) {
                 if(context->device.is_buffer_id_valid(std::bit_cast<daxa::BufferId>(mesh_upload_info.mesh_geometry_data.mesh_buffer))) {
-                    context->destroy_buffer_deferred(cmd_recorder, mesh_upload_info.staging_mesh_buffer);
+                    cmd_recorder.destroy_buffer_deferred(mesh_upload_info.staging_mesh_buffer);
 
                     cmd_recorder.copy_buffer_to_buffer(daxa::BufferCopyInfo {
                         .src_buffer = mesh_upload_info.staging_mesh_buffer,
@@ -1989,11 +1989,11 @@ namespace foundation {
                 }
 
                 if(context->device.is_image_id_valid(texture_upload_info.old_image)) {
-                    context->destroy_image_deferred(cmd_recorder, texture_upload_info.old_image);
+                    cmd_recorder.destroy_image_deferred(texture_upload_info.old_image);
                 }
 
                 if(context->device.is_buffer_id_valid(texture_upload_info.staging_buffer)) {
-                    context->destroy_buffer_deferred(cmd_recorder, texture_upload_info.staging_buffer);
+                    cmd_recorder.destroy_buffer_deferred(texture_upload_info.staging_buffer);
                 }
             }
         }

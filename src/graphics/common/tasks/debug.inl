@@ -64,7 +64,7 @@ struct DebugEntityOOBDrawTask : DebugEntityOOBDraw::Task {
     foundation::Context* context = {};
     DebugEntityOOBDrawPush push = {};
 
-    void assign_blob(auto & arr, auto const & span) {
+    void assign_blob(auto & arr, const auto& span) {
         std::memcpy(arr.value.data(), span.data(), span.size());
     }
 
@@ -149,7 +149,7 @@ struct DebugAABBDrawTask : DebugAABBDraw::Task {
     foundation::Context* context = {};
     DebugAABBDrawPush push = {};
 
-    void assign_blob(auto & arr, auto const & span) {
+    void assign_blob(auto & arr, const auto& span) {
         std::memcpy(arr.value.data(), span.data(), span.size());
     }
 
@@ -234,7 +234,7 @@ struct DebugCircleDrawTask : DebugCircleDraw::Task {
     foundation::Context* context = {};
     DebugCircleDrawPush push = {};
 
-    void assign_blob(auto & arr, auto const & span) {
+    void assign_blob(auto & arr, const auto& span) {
         std::memcpy(arr.value.data(), span.data(), span.size());
     }
 
@@ -319,7 +319,7 @@ struct DebugLineDrawTask : DebugLineDraw::Task {
     foundation::Context* context = {};
     DebugLineDrawPush push = {};
 
-    void assign_blob(auto & arr, auto const & span) {
+    void assign_blob(auto & arr, const auto& span) {
         std::memcpy(arr.value.data(), span.data(), span.size());
     }
 

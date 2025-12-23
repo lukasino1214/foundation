@@ -11,19 +11,19 @@ namespace foundation {
         daxa::BufferId buffer = task_buffer.get_state().buffers[0];
         auto info = context->device.buffer_info(buffer).value();
         if(info.size < new_size) {
-            context->destroy_buffer_deferred(cmd_recorder, buffer);
-            LOG_INFO("{} buffer resized from {} bytes to {} bytes", info.name.c_str().data(), info.size, new_size);
+            cmd_recorder.destroy_buffer_deferred(buffer);
+            fmt::println("{} buffer resized from {} bytes to {} bytes", info.name.c_str().data(), info.size, new_size);
             info.size = new_size;
-            daxa::BufferId new_buffer = context->create_buffer(info);
+            daxa::BufferId new_buffer = context->device.create_buffer(info);
 
             auto data = lambda(new_buffer);
 
-            daxa::BufferId staging_buffer = context->create_buffer(daxa::BufferInfo {
+            daxa::BufferId staging_buffer = context->device.create_buffer(daxa::BufferInfo {
                 .size = sizeof(decltype(data)),
                 .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
                 .name = std::string{"staging"} + std::string{info.name.c_str().data()}
             });
-            context->destroy_buffer_deferred(cmd_recorder, staging_buffer);
+            cmd_recorder.destroy_buffer_deferred(staging_buffer);
             std::memcpy(context->device.buffer_host_address(staging_buffer).value(), &data, sizeof(decltype(data)));
             cmd_recorder.copy_buffer_to_buffer({
                 .src_buffer = staging_buffer,

@@ -49,7 +49,7 @@ f32vec3 shade(f32vec3 diffuse, f32vec3 world_position, f32vec3 normal, SunLight*
     f32vec3 color = diffuse;
 
     {
-        const SunLight* light = sun;
+        SunLight* light = sun;
         const f32 diffuse = max(dot(normal, -light.direction), ambient);
 
         color *= diffuse * light.color * light.intensity;
@@ -85,7 +85,7 @@ f32vec3 shade_tiled(f32vec3 diffuse, f32vec3 world_position, f32vec3 normal, Til
     f32vec3 color = diffuse;
 
     {
-        const SunLight* light = sun;
+        SunLight* light = sun;
         const f32 diffuse = max(dot(normal, -light.direction), ambient);
 
         color *= diffuse * light.color * light.intensity;

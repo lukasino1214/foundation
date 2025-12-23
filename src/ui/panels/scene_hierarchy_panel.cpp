@@ -109,7 +109,7 @@ namespace foundation {
             }
         }
 
-        bool opened = ImGui::TreeNodeEx(r_cast<void*>((uint64_t)(uint32_t)entity.get_handle()), treeNodeFlags, "%s", entity.get_name().data());
+        bool opened = ImGui::TreeNodeEx(r_cast<void*>(s_cast<u64>(s_cast<u32>(entity.get_handle()))), treeNodeFlags, "%s", entity.get_name().data());
 
         if (ImGui::IsItemClicked(ImGuiPopupFlags_MouseButtonLeft) || ImGui::IsItemClicked(ImGuiPopupFlags_MouseButtonRight)) {
             selected_entity = entity;

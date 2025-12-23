@@ -3,7 +3,7 @@
 #include <type_traits>
 
 namespace foundation {
-    const u32 boldFontIndex = 1;
+    // const u32 boldFontIndex = 1;
     static i32 s_UIContextID = 0;
     static i32 s_Counter = 0;
     std::array<char, 16> IDBuffer;
@@ -376,7 +376,7 @@ namespace foundation {
             return modified;
         }
 
-        auto string_input(const char* label_ID, std::string &value, const ImGuiInputTextFlags input_flags) -> bool {
+        auto string_input(const char* /* label_ID */, std::string &value, const ImGuiInputTextFlags /* input_flags */) -> bool {
             std::memset(buffer.data(), 0, sizeof(buffer));
             std::memcpy(buffer.data(), value.c_str(), sizeof(buffer));
             bool modified =  ImGui::InputText("##Tag", buffer.data(), buffer.size());
@@ -646,7 +646,7 @@ namespace foundation {
             ImGui::Dummy(ImVec2{width, height});
         }
 
-        auto drag_float(const BetterDragFloatInfo& info) -> bool {
+        auto drag_float(const BetterDragFloatInfo& /* info */) -> bool {
             return true;
         }
     }

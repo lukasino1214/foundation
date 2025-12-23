@@ -76,13 +76,23 @@ namespace foundation {
             BOOL value = 1;
             DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &value, sizeof(value));
             auto is_windows11_or_greater = []() -> bool {
-                using Fn_RtlGetVersion = void(WINAPI *)(OSVERSIONINFOEX *);
+                                using Fn_RtlGetVersion = LONG (WINAPI *)(OSVERSIONINFOEX *);
                 Fn_RtlGetVersion fn_RtlGetVersion = nullptr;
                 auto* ntdll_dll = LoadLibrary(TEXT("ntdll.dll"));
-                if (ntdll_dll != nullptr) { fn_RtlGetVersion = r_cast<Fn_RtlGetVersion>(GetProcAddress(ntdll_dll, "RtlGetVersion")); }
+                if (ntdll_dll != nullptr) {
+                    FARPROC proc = GetProcAddress(ntdll_dll, "RtlGetVersion");
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wcast-function-type-mismatch"
+                    if (proc != nullptr) {
+                        fn_RtlGetVersion = reinterpret_cast<Fn_RtlGetVersion>(proc);
+                    }
+#pragma clang diagnostic pop
+                }
                 auto version_info = OSVERSIONINFOEX{};
                 version_info.dwOSVersionInfoSize = sizeof(OSVERSIONINFOEX);
-                fn_RtlGetVersion(&version_info);
+                if (fn_RtlGetVersion) {
+                    fn_RtlGetVersion(&version_info);
+                }
                 FreeLibrary(ntdll_dll);
                 return version_info.dwMajorVersion >= 10 && version_info.dwMinorVersion >= 0 && version_info.dwBuildNumber >= 22000;
             };

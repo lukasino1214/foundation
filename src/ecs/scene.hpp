@@ -2,7 +2,6 @@
 
 #include "graphics/context.hpp"
 #include "graphics/utils/cpu_managed_gpu_pool.hpp"
-#include <utils/file_watcher.hpp>
 #include <flecs.h>
 
 namespace foundation {
@@ -23,7 +22,7 @@ namespace foundation {
     struct GPUTransformIndex;
 
     struct Scene {
-        Scene(const std::string_view& _name, Context* _context, NativeWIndow* _window, FileWatcher* _file_watcher);
+        Scene(const std::string_view& _name, Context* _context, NativeWIndow* _window);
         ~Scene();
 
         auto create_entity(const std::string_view& _name) -> Entity;
@@ -36,13 +35,12 @@ namespace foundation {
         std::unique_ptr<flecs::world> world;
         Context* context;
         NativeWIndow* window;
-        FileWatcher* file_watcher = {};
 
         GPUSceneData scene_data = {};
         daxa::TaskBuffer gpu_scene_data = {};
         CPUManagedGPUPool<TransformInfo> gpu_transforms_pool;
         CPUManagedGPUPool<EntityData> gpu_entities_data_pool;
         flecs::query<GlobalPosition, GlobalRotation, GlobalScale, GlobalMatrix, LocalPosition, LocalRotation, LocalScale, LocalMatrix, GlobalMatrix*, TransformDirty> query_transforms = {};
-        std::unordered_map<decltype(CPUManagedGPUPool<TransformInfo>::Handle::index), flecs::entity> transform_handle_to_entity = {};
+        ankerl::unordered_dense::map<decltype(CPUManagedGPUPool<TransformInfo>::Handle::index), flecs::entity> transform_handle_to_entity = {};
     };
 }

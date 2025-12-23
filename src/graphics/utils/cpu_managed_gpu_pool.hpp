@@ -11,13 +11,13 @@ namespace foundation {
         CPUManagedGPUPool(Context* _context, const std::string_view& name) : context{_context} {
             task_buffer = make_task_buffer(context, {
                 sizeof(T),
-                daxa::MemoryFlagBits::DEDICATED_MEMORY,
+                daxa::MemoryFlagBits::NONE,
                 name
             });
         }
 
         ~CPUManagedGPUPool() {
-            context->destroy_buffer(task_buffer.get_state().buffers[0]);
+            context->device.destroy_buffer(task_buffer.get_state().buffers[0]);
         }
 
         auto allocate_handle() -> Handle {
@@ -30,11 +30,11 @@ namespace foundation {
             auto info = context->device.buffer_info(buffer).value();
             u32 new_size = ammount_of_handles * sizeof(T);
             if(info.size < new_size) {
-                context->destroy_buffer_deferred(cmd_recorder, buffer);
-                LOG_INFO("{} buffer resized from {} bytes to {} bytes", info.name.c_str().data(), info.size, new_size);
+                cmd_recorder.destroy_buffer_deferred(buffer);
+                fmt::println("{} buffer resized from {} bytes to {} bytes", info.name.c_str().data(), info.size, new_size);
                 u32 old_size = s_cast<u32>(info.size);
                 info.size = new_size;
-                daxa::BufferId new_buffer = context->create_buffer(info);
+                daxa::BufferId new_buffer = context->device.create_buffer(info);
                 cmd_recorder.copy_buffer_to_buffer(daxa::BufferCopyInfo {
                     .src_buffer = buffer,
                     .dst_buffer = new_buffer,

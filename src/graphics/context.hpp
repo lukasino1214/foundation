@@ -89,31 +89,21 @@ namespace foundation {
         daxa::TransferMemoryPool transient_mem;
 
         std::unique_ptr<std::mutex> resource_mutex = std::make_unique<std::mutex>();
-        usize image_memory_usage = {};
-        usize buffer_memory_usage = {};
 
         ShaderGlobals shader_globals = {};
         daxa::TaskBuffer shader_globals_buffer = {};
 
-        std::unordered_map<std::string_view, std::shared_ptr<daxa::RasterPipeline>> raster_pipelines = {};
-        std::unordered_map<std::string_view, std::shared_ptr<daxa::ComputePipeline>> compute_pipelines = {};
+        ankerl::unordered_dense::map<std::string_view, std::shared_ptr<daxa::RasterPipeline>> raster_pipelines = {};
+        ankerl::unordered_dense::map<std::string_view, std::shared_ptr<daxa::ComputePipeline>> compute_pipelines = {};
 
         std::unique_ptr<GPUMetricPool> gpu_metric_pool = {};
-        std::unordered_map<std::string_view, std::shared_ptr<GPUMetric>> gpu_metrics = {};
+        ankerl::unordered_dense::map<std::string_view, std::shared_ptr<GPUMetric>> gpu_metrics = {};
 
-        std::unordered_map<daxa::SamplerInfo, daxa::SamplerId, SamplerInfoHasher, SamplerInfoEquality> samplers = {};
+        ankerl::unordered_dense::map<daxa::SamplerInfo, daxa::SamplerId, SamplerInfoHasher, SamplerInfoEquality> samplers = {};
 
         ShaderDebugDrawContext shader_debug_draw_context;
 
         auto get_sampler(const daxa::SamplerInfo& info) -> daxa::SamplerId;
-
-        auto create_image(const daxa::ImageInfo& info) -> daxa::ImageId;
-        void destroy_image(const daxa::ImageId& id);
-        void destroy_image_deferred(daxa::CommandRecorder& cmd, const daxa::ImageId& id);
-
-        auto create_buffer(const daxa::BufferInfo& info) -> daxa::BufferId;
-        void destroy_buffer(const daxa::BufferId& id);
-        void destroy_buffer_deferred(daxa::CommandRecorder& cmd, const daxa::BufferId& id);
 
         void update_shader_globals(ControlledCamera3D& main_camera, ControlledCamera3D& observer_camera, const glm::uvec2& size);
 

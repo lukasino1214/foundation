@@ -228,37 +228,37 @@ namespace foundation {
 
         sun_light_buffer = make_task_buffer(context, daxa::BufferInfo {
             .size = sizeof(SunLight),
-            .allocate_info = daxa::MemoryFlagBits::DEDICATED_MEMORY,
+            .allocate_info = daxa::MemoryFlagBits::NONE,
             .name = "sun light buffer"
         });
 
         point_light_buffer = make_task_buffer(context, daxa::BufferInfo {
             .size = sizeof(PointLightsData) + (sizeof(PointLight) * MAX_POINT_LIGHTS),
-            .allocate_info = daxa::MemoryFlagBits::DEDICATED_MEMORY,
+            .allocate_info = daxa::MemoryFlagBits::NONE,
             .name = "point light buffer"
         });
 
         spot_light_buffer = make_task_buffer(context, daxa::BufferInfo {
             .size = sizeof(SpotLightsData) + (sizeof(SpotLight) * MAX_SPOT_LIGHTS),
-            .allocate_info = daxa::MemoryFlagBits::DEDICATED_MEMORY,
+            .allocate_info = daxa::MemoryFlagBits::NONE,
             .name = "spot light buffer"
         });
 
         tile_frustums_buffer = make_task_buffer(context, daxa::BufferInfo {
             .size = sizeof(TileFrustum),
-            .allocate_info = daxa::MemoryFlagBits::DEDICATED_MEMORY,
+            .allocate_info = daxa::MemoryFlagBits::NONE,
             .name = "tile frustums buffer"
         });
 
         tile_data_buffer = make_task_buffer(context, daxa::BufferInfo {
             .size = sizeof(TileData),
-            .allocate_info = daxa::MemoryFlagBits::DEDICATED_MEMORY,
+            .allocate_info = daxa::MemoryFlagBits::NONE,
             .name = "tile data buffer"
         });
 
         tile_indices_buffer = make_task_buffer(context, daxa::BufferInfo {
             .size = sizeof(u32),
-            .allocate_info = daxa::MemoryFlagBits::DEDICATED_MEMORY,
+            .allocate_info = daxa::MemoryFlagBits::NONE,
             .name = "tile indices"
         });
 
@@ -275,12 +275,12 @@ namespace foundation {
         auto cmd_recorder = context->device.create_command_recorder({});
 
         {
-            daxa::BufferId stagging_buffer = context->create_buffer(daxa::BufferInfo {
+            daxa::BufferId staging_buffer = context->device.create_buffer(daxa::BufferInfo {
                 .size = sizeof(SunLight),
                 .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
-                .name = "sun stagging_buffer"
+                .name = "sun staging_buffer"
             });
-            context->destroy_buffer_deferred(cmd_recorder, stagging_buffer);
+            cmd_recorder.destroy_buffer_deferred(staging_buffer);
 
             SunLight light = {
                 .direction = { -1.0f, -1.0f, -1.0f },
@@ -288,29 +288,29 @@ namespace foundation {
                 .intensity = 1.0f
             };
 
-            std::memcpy(context->device.buffer_host_address(stagging_buffer).value(), &light, sizeof(SunLight));
+            std::memcpy(context->device.buffer_host_address(staging_buffer).value(), &light, sizeof(SunLight));
 
             cmd_recorder.copy_buffer_to_buffer(daxa::BufferCopyInfo {
-                .src_buffer = stagging_buffer,
+                .src_buffer = staging_buffer,
                 .dst_buffer = sun_light_buffer.get_state().buffers[0],
                 .size = sizeof(SunLight)
             });
         }
 
         {
-            daxa::BufferId stagging_buffer = context->create_buffer(daxa::BufferInfo {
+            daxa::BufferId staging_buffer = context->device.create_buffer(daxa::BufferInfo {
                 .size = sizeof(PointLightsData) + (sizeof(PointLight) * MAX_POINT_LIGHTS),
                 .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
-                .name = "point stagging_buffer"
+                .name = "point staging_buffer"
             });
-            context->destroy_buffer_deferred(cmd_recorder, stagging_buffer);
+            cmd_recorder.destroy_buffer_deferred(staging_buffer);
 
             PointLightsData light = {
                 .count = MAX_POINT_LIGHTS,
                 .point_lights = context->device.buffer_device_address(point_light_buffer.get_state().buffers[0]).value() + sizeof(PointLightsData) 
             };
 
-            std::memcpy(context->device.buffer_host_address(stagging_buffer).value(), &light, sizeof(PointLightsData));
+            std::memcpy(context->device.buffer_host_address(staging_buffer).value(), &light, sizeof(PointLightsData));
 
             std::vector<PointLight> point_lights = {};
             point_lights.reserve(MAX_POINT_LIGHTS);
@@ -326,29 +326,29 @@ namespace foundation {
                 }
             }
 
-            std::memcpy(context->device.buffer_host_address(stagging_buffer).value() + sizeof(PointLightsData), point_lights.data(), sizeof(PointLight) * MAX_POINT_LIGHTS);
+            std::memcpy(context->device.buffer_host_address(staging_buffer).value() + sizeof(PointLightsData), point_lights.data(), sizeof(PointLight) * MAX_POINT_LIGHTS);
             
             cmd_recorder.copy_buffer_to_buffer(daxa::BufferCopyInfo {
-                .src_buffer = stagging_buffer,
+                .src_buffer = staging_buffer,
                 .dst_buffer = point_light_buffer.get_state().buffers[0],
                 .size = sizeof(PointLightsData) + (sizeof(PointLight) * MAX_POINT_LIGHTS)
             });
         }
 
         {
-            daxa::BufferId stagging_buffer = context->create_buffer(daxa::BufferInfo {
+            daxa::BufferId staging_buffer = context->device.create_buffer(daxa::BufferInfo {
                 .size = sizeof(SpotLightsData) + (sizeof(SpotLight) * MAX_POINT_LIGHTS),
                 .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
-                .name = "spot stagging_buffer"
+                .name = "spot staging_buffer"
             });
-            context->destroy_buffer_deferred(cmd_recorder, stagging_buffer);
+            cmd_recorder.destroy_buffer_deferred(staging_buffer);
 
             SpotLightsData light = {
                 .count = MAX_POINT_LIGHTS,
                 .spot_lights = context->device.buffer_device_address(spot_light_buffer.get_state().buffers[0]).value() + sizeof(SpotLightsData) 
             };
 
-            std::memcpy(context->device.buffer_host_address(stagging_buffer).value(), &light, sizeof(SpotLightsData));
+            std::memcpy(context->device.buffer_host_address(staging_buffer).value(), &light, sizeof(SpotLightsData));
 
             std::vector<SpotLight> spot_lights = {};
             spot_lights.reserve(MAX_POINT_LIGHTS);
@@ -367,10 +367,10 @@ namespace foundation {
                 }
             }
 
-            std::memcpy(context->device.buffer_host_address(stagging_buffer).value() + sizeof(SpotLightsData), spot_lights.data(), sizeof(SpotLight) * MAX_POINT_LIGHTS);
+            std::memcpy(context->device.buffer_host_address(staging_buffer).value() + sizeof(SpotLightsData), spot_lights.data(), sizeof(SpotLight) * MAX_POINT_LIGHTS);
             
             cmd_recorder.copy_buffer_to_buffer(daxa::BufferCopyInfo {
-                .src_buffer = stagging_buffer,
+                .src_buffer = staging_buffer,
                 .dst_buffer = spot_light_buffer.get_state().buffers[0],
                 .size = sizeof(SpotLightsData) + (sizeof(SpotLight) * MAX_POINT_LIGHTS)
             });
@@ -568,13 +568,13 @@ namespace foundation {
     Renderer::~Renderer() {
         for(auto& task_image : images) {
             for(auto image : task_image.get_state().images) {
-                context->destroy_image(image);
+                context->device.destroy_image(image);
             }
         }
 
         for (auto& task_buffer : buffers) {
             for (auto buffer : task_buffer.get_state().buffers) {
-                context->destroy_buffer(buffer);
+                context->device.destroy_buffer(buffer);
             }
         }
 
@@ -591,10 +591,10 @@ namespace foundation {
             PROFILE_SCOPE_NAMED(pipelines);
             auto reloaded_result = context->pipeline_manager.reload_all();
             if (auto* reload_err = daxa::get_if<daxa::PipelineReloadError>(&reloaded_result)) {
-                std::println("Failed to reload {}", reload_err->message);
+                fmt::println("Failed to reload {}", reload_err->message);
             }
             if (daxa::get_if<daxa::PipelineReloadSuccess>(&reloaded_result) != nullptr) {
-                std::println("Successfully reloaded!");
+                fmt::println("Successfully reloaded!");
             }
         }
 
@@ -617,38 +617,38 @@ namespace foundation {
     }
 
     void Renderer::recreate_framebuffer(const glm::uvec2& size) {
-        LOG_INFO("resizing framebuffers from [{}, {}] to [{}, {}]", context->shader_globals.render_target_size.x, context->shader_globals.render_target_size.y, size.x, size.y);
+        fmt::println("resizing framebuffers from [{}, {}] to [{}, {}]", context->shader_globals.render_target_size.x, context->shader_globals.render_target_size.y, size.x, size.y);
 
-        context->destroy_buffer(tile_frustums_buffer.get_state().buffers[0]);
+        context->device.destroy_buffer(tile_frustums_buffer.get_state().buffers[0]);
         tile_frustums_buffer.set_buffers({ .buffers = std::array{
-            context->create_buffer(daxa::BufferInfo {
+            context->device.create_buffer(daxa::BufferInfo {
                 .size = sizeof(TileFrustum) * std::max(round_up_div(size.x, PIXELS_PER_FRUSTUM), 1u) * std::max(round_up_div(size.y, PIXELS_PER_FRUSTUM), 1u),
-                .allocate_info = daxa::MemoryFlagBits::DEDICATED_MEMORY,
+                .allocate_info = daxa::MemoryFlagBits::NONE,
                 .name = "tile frustums buffer"
             })
         }});
 
-        context->destroy_buffer(tile_data_buffer.get_state().buffers[0]);
+        context->device.destroy_buffer(tile_data_buffer.get_state().buffers[0]);
         tile_data_buffer.set_buffers({ .buffers = std::array{
-            context->create_buffer(daxa::BufferInfo {
+            context->device.create_buffer(daxa::BufferInfo {
                 .size = sizeof(TileData) * std::max(round_up_div(size.x, PIXELS_PER_FRUSTUM), 1u) * std::max(round_up_div(size.y, PIXELS_PER_FRUSTUM), 1u),
-                .allocate_info = daxa::MemoryFlagBits::DEDICATED_MEMORY,
+                .allocate_info = daxa::MemoryFlagBits::NONE,
                 .name = "tile data buffer"
             })
         }});
 
-        context->destroy_buffer(tile_indices_buffer.get_state().buffers[0]);
+        context->device.destroy_buffer(tile_indices_buffer.get_state().buffers[0]);
         tile_indices_buffer.set_buffers({ .buffers = std::array{
-            context->create_buffer(daxa::BufferInfo {
+            context->device.create_buffer(daxa::BufferInfo {
                 .size = 2 * sizeof(u32) * std::max(round_up_div(MAX_POINT_LIGHTS + MAX_SPOT_LIGHTS, 32), 1u) * std::max(round_up_div(size.x, PIXELS_PER_FRUSTUM), 1u) * std::max(round_up_div(size.y, PIXELS_PER_FRUSTUM), 1u),
-                .allocate_info = daxa::MemoryFlagBits::DEDICATED_MEMORY,
+                .allocate_info = daxa::MemoryFlagBits::NONE,
                 .name = "tile indices buffer"
             })
         }});
 
         for (auto &[info, timg] : frame_buffer_images) {
             for(auto image : timg.get_state().images) {
-                context->destroy_image(image);
+                context->device.destroy_image(image);
             }
 
             info.size = { std::max(size.x, 1u), std::max(size.y, 1u), 1 };
@@ -673,7 +673,7 @@ namespace foundation {
                 info.size = { round_up_div(size.x, 2), round_up_div(size.y, 2), 1 };
             }
 
-            timg.set_images({.images = std::array{context->create_image(info)}});
+            timg.set_images({.images = std::array{context->device.create_image(info)}});
         }
 
         context->shader_globals.render_target_size = { size.x, size.y };
@@ -710,9 +710,9 @@ namespace foundation {
         for (auto [name, info] : rasters) {
             auto compilation_result = this->context->pipeline_manager.add_raster_pipeline2(info);
             if(compilation_result.is_ok()) {
-                std::println("SUCCESSFULLY compiled pipeline {}", name);
+                fmt::println("SUCCESSFULLY compiled pipeline {}", name);
             } else {
-                std::println("FAILED to compile pipeline {} with message \n {}", name, compilation_result.message());
+                fmt::println("FAILED to compile pipeline {} with message \n {}", name, compilation_result.message());
             }
 
             this->context->raster_pipelines[name] = compilation_result.value();
@@ -752,9 +752,9 @@ namespace foundation {
         for (auto [name, info] : computes) {
             auto compilation_result = this->context->pipeline_manager.add_compute_pipeline2(info);
             if(compilation_result.is_ok()) {
-                std::println("SUCCESSFULLY compiled pipeline {}", name);
+                fmt::println("SUCCESSFULLY compiled pipeline {}", name);
             } else {
-                std::println("FAILED to compile pipeline {} with message \n {}", name, compilation_result.message());
+                fmt::println("FAILED to compile pipeline {} with message \n {}", name, compilation_result.message());
             }
             
             this->context->compute_pipelines[name] = compilation_result.value();
@@ -1437,7 +1437,9 @@ namespace foundation {
             .executes([&](daxa::TaskInterface const &ti) {
                 context->gpu_metrics[MiscellaneousTasks::IMGUI_DRAW]->start(ti.recorder);
                 auto size = ti.device.image_info(ti.get(daxa::TaskImageAttachmentIndex(0)).ids[0]).value().size;
+                
                 imgui_renderer.record_commands(ImGui::GetDrawData(), ti.recorder, ti.get(daxa::TaskImageAttachmentIndex(0)).ids[0], size.x, size.y);
+
                 context->gpu_metrics[MiscellaneousTasks::IMGUI_DRAW]->end(ti.recorder);
         }));
 
@@ -1527,8 +1529,6 @@ namespace foundation {
         ImGui::End();
 
         ImGui::Begin("Memory Usage");
-        ImGui::Text("%s", std::format("Total memory usage for images: {} MBs", std::to_string(s_cast<f64>(context->image_memory_usage) / 1024.0 / 1024.0)).c_str());
-        ImGui::Text("%s", std::format("Total memory usage for buffers: {} MBs", std::to_string(s_cast<f64>(context->buffer_memory_usage) / 1024.0 / 1024.0)).c_str());
         ImGui::End();
 
         ImGui::Begin("Material Readback");

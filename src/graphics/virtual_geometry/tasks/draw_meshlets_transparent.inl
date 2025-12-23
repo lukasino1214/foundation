@@ -61,7 +61,7 @@ struct DrawMeshletsTransparentTask : DrawMeshletsTransparent::Task {
     foundation::Context* context = {};
     DrawMeshletsTransparentPush push = {};
 
-    void assign_blob(auto & arr, auto const & span) {
+    void assign_blob(auto & arr, const auto& span) {
         std::memcpy(arr.value.data(), span.data(), span.size());
     }
 

@@ -13,13 +13,13 @@
 #include <math/decompose.hpp>
 
 namespace foundation {
-    Scene::Scene(const std::string_view& _name, Context* _context, NativeWIndow* _window, FileWatcher* _file_watcher)
-     : name{_name}, world{std::make_unique<flecs::world>()}, context{_context}, window{_window}, file_watcher{_file_watcher},
+    Scene::Scene(const std::string_view& _name, Context* _context, NativeWIndow* _window)
+     : name{_name}, world{std::make_unique<flecs::world>()}, context{_context}, window{_window},
         gpu_transforms_pool(context, "gpu_transforms"), gpu_entities_data_pool(context, "gpu_entities_data") {
         PROFILE_SCOPE;
         gpu_scene_data = make_task_buffer(context, {
             sizeof(GPUSceneData), 
-            daxa::MemoryFlagBits::DEDICATED_MEMORY, 
+            daxa::MemoryFlagBits::NONE, 
             "scene data"
         }); 
 
@@ -27,7 +27,7 @@ namespace foundation {
     }
 
     Scene::~Scene() {
-        context->destroy_buffer(gpu_scene_data.get_state().buffers[0]);
+        context->device.destroy_buffer(gpu_scene_data.get_state().buffers[0]);
     }
 
     auto Scene::create_entity(const std::string_view& _name) -> Entity {
@@ -40,7 +40,7 @@ namespace foundation {
         entity.get_handle().destruct();
     }
 
-    void Scene::update(f32 delta_time) {
+    void Scene::update(f32 /* delta_time */) {
         PROFILE_SCOPE_NAMED(scene_update);
     }
 
@@ -102,7 +102,7 @@ namespace foundation {
                 .model_matrix = global_matrix.matrix
             })) {
             } else {
-                LOG_INFO("hehe");
+                fmt::println("hehe");
             }
         });
 

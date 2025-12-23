@@ -13,8 +13,6 @@
 #include <atomic>
 #include <concepts>
 #include <span>
-#include <bit>
-#include <print>
 #include <type_traits>
 #include <utility>
 #include <thread>
@@ -69,7 +67,6 @@ namespace foundation {
 }
 
 #include <shader_library/shared.inl>
-#include <common/result.hpp>
 
 inline constexpr auto find_msb(daxa::u32 v) -> daxa::u32 {
     daxa::u32 index = 0;
@@ -100,12 +97,6 @@ inline constexpr auto find_next_lower_po2(daxa::u32 v) -> daxa::u32 {
 #define PROFILE_ZONE_NAMED(name)
 #endif
 
-// #define LOG_ON
-// #include <utils/logger.hpp>
-
-#define LOG_ERROR(fmt, ...)
-#define LOG_WARN(fmt, ...)
-#define LOG_INFO(fmt, ...)
-#define LOG_DEBUG(fmt, ...)
-
 #include <libassert/assert.hpp>
+#include <fmt/format.h>
+#include <ankerl/unordered_dense.h>

@@ -11,7 +11,6 @@
 #include <graphics/camera.hpp>
 #include <graphics/renderer.hpp>
 #include <graphics/context.hpp>
-#include <utils/file_watcher.hpp>
 
 namespace foundation {
     struct Application {
@@ -24,7 +23,6 @@ namespace foundation {
 
         NativeWIndow window;
         Context context;
-        FileWatcher file_watcher = {};
         std::shared_ptr<Scene> scene;
         std::unique_ptr<AssetProcessor> asset_processor;
         std::unique_ptr<ThreadPool> thread_pool;

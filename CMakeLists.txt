@@ -79,12 +79,9 @@ find_package(flecs CONFIG REQUIRED)
 find_package(fastgltf CONFIG REQUIRED)
 find_package(Tracy CONFIG REQUIRED)
 find_package(imguizmo CONFIG REQUIRED)
-find_package(Lua REQUIRED)
-find_package(sol2 CONFIG REQUIRED)
 find_package(metis CONFIG REQUIRED)
 find_package(meshoptimizer CONFIG REQUIRED)
 find_package(simdjson CONFIG REQUIRED)
-find_package(quill CONFIG REQUIRED)
 find_package(libassert CONFIG REQUIRED)
 find_package(fmt CONFIG REQUIRED)
 
@@ -110,8 +107,6 @@ add_executable(${PROJECT_NAME}
     "src/ui/ui.cpp"
     "src/utils/file_io.cpp"
     "src/utils/zstd.cpp"
-    "src/utils/file_watcher.cpp"
-    "src/utils/logger.cpp"
 )
 
 target_precompile_headers(${PROJECT_NAME} PRIVATE "src/pch.hpp")
@@ -135,17 +130,14 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     $<IF:$<TARGET_EXISTS:flecs::flecs>,flecs::flecs,flecs::flecs_static>
     Tracy::TracyClient
     imguizmo::imguizmo
-    ${LUA_LIBRARIES}
-    sol2
     metis
     meshoptimizer::meshoptimizer
     simdjson::simdjson
-    quill::quill
     libassert::assert
     fmt::fmt
 )
 
-target_include_directories(${PROJECT_NAME} PRIVATE ${Stb_INCLUDE_DIR} ${LUA_INCLUDE_DIR})
+target_include_directories(${PROJECT_NAME} PRIVATE ${Stb_INCLUDE_DIR})
 target_include_directories(${PROJECT_NAME} PRIVATE "${NVTT_DIR}/include")
 
 if(FALSE)
@@ -187,3 +179,12 @@ add_dependencies(copy_compile_commands ${PROJECT_NAME})
 
 install(FILES "${_NVTT_SL}" CONFIGURATIONS Debug DESTINATION "bin_${ARCH}_debug")
 install(FILES "${_NVTT_SL}" CONFIGURATIONS Release DESTINATION "bin_${ARCH}")
+
+find_program(SLANG_DLL slang.dll)
+find_program(SLANG_GLSLANG_DLL slang-glslang.dll)
+# find_program(SLANG_COMPILER_DLL slang-compiler.dll)
+add_custom_command(TARGET foundation POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy ${SLANG_DLL} $<TARGET_FILE_DIR:foundation>
+    COMMAND ${CMAKE_COMMAND} -E copy ${SLANG_GLSLANG_DLL} $<TARGET_FILE_DIR:foundation>
+    # COMMAND ${CMAKE_COMMAND} -E copy ${SLANG_COMPILER_DLL} $<TARGET_FILE_DIR:foundation>
+)
