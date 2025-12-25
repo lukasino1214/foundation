@@ -50,6 +50,7 @@ namespace foundation {
         daxa::TaskBuffer gpu_meshes = {};
         daxa::TaskBuffer gpu_mesh_groups = {};
         daxa::TaskBuffer gpu_mesh_indices = {};
+        daxa::TaskBuffer gpu_transforms = {};
 
         daxa::TaskBuffer gpu_culled_meshes_data = {};
         daxa::TaskBuffer gpu_opaque_prefix_sum_work_expansion_mesh = {};

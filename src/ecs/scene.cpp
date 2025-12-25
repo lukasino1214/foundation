@@ -15,7 +15,7 @@
 namespace foundation {
     Scene::Scene(const std::string_view& _name, Context* _context, NativeWIndow* _window)
      : name{_name}, world{std::make_unique<flecs::world>()}, context{_context}, window{_window},
-        gpu_transforms_pool(context, "gpu_transforms"), gpu_entities_data_pool(context, "gpu_entities_data") {
+        gpu_entities_data_pool(context, "gpu_entities_data") {
         PROFILE_SCOPE;
         gpu_scene_data = make_task_buffer(context, {
             sizeof(GPUSceneData), 
@@ -44,15 +44,14 @@ namespace foundation {
         PROFILE_SCOPE_NAMED(scene_update);
     }
 
-    void Scene::update_gpu(const daxa::TaskInterface& task_interface) {
+    auto Scene::update_gpu(const daxa::TaskInterface& task_interface) -> std::vector<flecs::entity> {
         PROFILE_SCOPE_NAMED(scene_update_gpu);
 
-        gpu_transforms_pool.update_buffer(task_interface);
         gpu_entities_data_pool.update_buffer(task_interface);
 
         {
             bool scene_data_updated = false;
-            world->each([&](flecs::entity entity, RenderInfo& info, GPUTransformIndex& gpu_transform, MeshComponent& mesh){
+            world->each([&](flecs::entity entity, RenderInfo& info, MeshComponent& mesh){
                 if(info.is_dirty) {
                     scene_data_updated = true;
                     scene_data.entity_count++;
@@ -80,6 +79,7 @@ namespace foundation {
         }
 
         std::vector<flecs::entity> queue = {};
+        std::vector<flecs::entity> meshes = {};
         query_transforms.each([&](flecs::entity entity, GlobalPosition& global_position, GlobalRotation& global_rotation, GlobalScale& global_scale, GlobalMatrix& global_matrix, LocalPosition& local_position, LocalRotation& local_rotation, LocalScale& local_scale, LocalMatrix& local_matrix, GlobalMatrix* parent_global_matrix, TransformDirty) {
             entity.children([&](flecs::entity c){
                 c.add<TransformDirty>();
@@ -93,14 +93,8 @@ namespace foundation {
             math::decompose_transform(global_matrix.matrix, global_position.position, global_rotation.rotation, global_scale.scale);
 
             queue.push_back(entity);
-        });
-        
-        world->each([&](GlobalMatrix& global_matrix, GPUTransformIndex& gpu_transform, TransformDirty){
-            if(gpu_transforms_pool.update_handle(task_interface, gpu_transform.gpu_handle, { 
-                .model_matrix = global_matrix.matrix
-            })) {
-            } else {
-                fmt::println("hehe");
+            if(entity.has<MeshComponent>()) {
+                meshes.push_back(entity);
             }
         });
 
@@ -108,11 +102,6 @@ namespace foundation {
             entity.remove<TransformDirty>();
         }
 
-        world->each([&](GPUTransformIndex& gpu_transform, OOBComponent& oob){
-            context->shader_debug_draw_context.entity_oob_draws.draw(ShaderDebugEntityOOBDraw{ 
-                .color = oob.color,
-                .transform_index = gpu_transform.gpu_handle.index
-            });
-        });
+        return meshes;
     }
 }

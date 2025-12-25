@@ -796,7 +796,7 @@ namespace foundation {
         render_task_graph.use_persistent_buffer(tile_indices_buffer);
 
         render_task_graph.use_persistent_buffer(shader_globals_buffer);
-        render_task_graph.use_persistent_buffer(scene->gpu_transforms_pool.task_buffer);
+        render_task_graph.use_persistent_buffer(gpu_scene->gpu_transforms);
         render_task_graph.use_persistent_buffer(asset_manager->gpu_materials);
         render_task_graph.use_persistent_buffer(scene->gpu_scene_data);
         render_task_graph.use_persistent_buffer(scene->gpu_entities_data_pool.task_buffer);
@@ -859,7 +859,24 @@ namespace foundation {
             .writes(shader_globals_buffer)
             .executes([&](daxa::TaskInterface const &ti) {
                 context->gpu_metrics[MiscellaneousTasks::UPDATE_SCENE]->start(ti.recorder);
-                scene->update_gpu(ti);
+                auto entities = scene->update_gpu(ti);
+
+                for(auto entity : entities) {
+                    auto alloc_optional = ti.allocator->allocate_fill(f32mat4x3{entity.get<GlobalMatrix>()->matrix});
+                    if(!alloc_optional.has_value()) {
+                        throw std::runtime_error("what");
+                    }
+
+                    auto alloc = alloc_optional.value();
+                    ti.recorder.copy_buffer_to_buffer({
+                        .src_buffer = ti.allocator->buffer(),
+                        .dst_buffer = gpu_scene->gpu_transforms.get_state().buffers[0],
+                        .src_offset = alloc.buffer_offset,
+                        .dst_offset = entity.get<MeshComponent>()->mesh_group_index.value() * sizeof(f32mat4x3),
+                        .size = sizeof(f32mat4x3),
+                    });
+                }
+
                 context->gpu_metrics[MiscellaneousTasks::UPDATE_SCENE]->end(ti.recorder);
         }));
 
@@ -890,7 +907,7 @@ namespace foundation {
             .views = DrawMeshletsOnlyDepthTask::Views {
                 .u_meshlets_data_merged = gpu_scene->gpu_meshlets_data_merged_opaque.view(),
                 .u_meshes = gpu_scene->gpu_meshes.view(),
-                .u_transforms = scene->gpu_transforms_pool.task_buffer.view(),
+                .u_transforms = gpu_scene->gpu_transforms.view(),
                 .u_materials = asset_manager->gpu_materials.view(),
                 .u_globals = context->shader_globals_buffer.view(),
                 .u_command = u_command,
@@ -911,7 +928,7 @@ namespace foundation {
             .views = DrawMeshletsOnlyDepthMaskedTask::Views {
                 .u_meshlets_data_merged = gpu_scene->gpu_meshlets_data_merged_masked.view(),
                 .u_meshes = gpu_scene->gpu_meshes.view(),
-                .u_transforms = scene->gpu_transforms_pool.task_buffer.view(),
+                .u_transforms = gpu_scene->gpu_transforms.view(),
                 .u_materials = asset_manager->gpu_materials.view(),
                 .u_globals = context->shader_globals_buffer.view(),
                 .u_command = u_command,
@@ -944,7 +961,7 @@ namespace foundation {
             .views = SoftwareRasterizationOnlyDepthTask::Views {
                 .u_meshlets_data_merged = gpu_scene->gpu_meshlets_data_merged_opaque.view(),
                 .u_meshes = gpu_scene->gpu_meshes.view(),
-                .u_transforms = scene->gpu_transforms_pool.task_buffer.view(),
+                .u_transforms = gpu_scene->gpu_transforms.view(),
                 .u_materials = asset_manager->gpu_materials.view(),
                 .u_globals = context->shader_globals_buffer.view(),
                 .u_depth_image = depth_image_u32.view(),
@@ -1012,7 +1029,7 @@ namespace foundation {
                 .u_mesh_groups = gpu_scene->gpu_mesh_groups.view(),
                 .u_mesh_indices = gpu_scene->gpu_mesh_indices.view(),
                 .u_meshes = gpu_scene->gpu_meshes.view(),
-                .u_transforms = scene->gpu_transforms_pool.task_buffer.view(),
+                .u_transforms = gpu_scene->gpu_transforms.view(),
                 .u_materials = asset_manager->gpu_materials.view(),
                 .u_culled_meshes_data = gpu_scene->gpu_culled_meshes_data.view(),
                 .u_readback_mesh = asset_manager->gpu_readback_mesh_gpu.view(),
@@ -1038,7 +1055,7 @@ namespace foundation {
             .views = CullMeshletsOpaqueTask::Views {
                 .u_globals = context->shader_globals_buffer.view(),
                 .u_meshes = gpu_scene->gpu_meshes.view(),
-                .u_transforms = scene->gpu_transforms_pool.task_buffer.view(),
+                .u_transforms = gpu_scene->gpu_transforms.view(),
                 .u_prefix_sum_work_expansion_mesh = gpu_scene->gpu_opaque_prefix_sum_work_expansion_mesh.view(),
                 .u_culled_meshes_data = gpu_scene->gpu_culled_meshes_data.view(),
                 .u_meshlets_data_merged = gpu_scene->gpu_meshlets_data_merged_opaque.view(),
@@ -1065,7 +1082,7 @@ namespace foundation {
             .views = CullMeshletsMaskedTask::Views {
                 .u_globals = context->shader_globals_buffer.view(),
                 .u_meshes = gpu_scene->gpu_meshes.view(),
-                .u_transforms = scene->gpu_transforms_pool.task_buffer.view(),
+                .u_transforms = gpu_scene->gpu_transforms.view(),
                 .u_prefix_sum_work_expansion_mesh = gpu_scene->gpu_masked_prefix_sum_work_expansion_mesh.view(),
                 .u_culled_meshes_data = gpu_scene->gpu_culled_meshes_data.view(),
                 .u_meshlets_data_merged = gpu_scene->gpu_meshlets_data_merged_masked.view(),
@@ -1092,7 +1109,7 @@ namespace foundation {
             .views = CullMeshletsTransparentTask::Views {
                 .u_globals = context->shader_globals_buffer.view(),
                 .u_meshes = gpu_scene->gpu_meshes.view(),
-                .u_transforms = scene->gpu_transforms_pool.task_buffer.view(),
+                .u_transforms = gpu_scene->gpu_transforms.view(),
                 .u_prefix_sum_work_expansion_mesh = gpu_scene->gpu_transparent_prefix_sum_work_expansion_mesh.view(),
                 .u_culled_meshes_data = gpu_scene->gpu_culled_meshes_data.view(),
                 .u_meshlets_data_merged = gpu_scene->gpu_meshlets_data_merged_transparent.view(),
@@ -1130,7 +1147,7 @@ namespace foundation {
             .views = DrawMeshletsTask::Views {
                 .u_meshlets_data_merged = gpu_scene->gpu_meshlets_data_merged_opaque.view(),
                 .u_meshes = gpu_scene->gpu_meshes.view(),
-                .u_transforms = scene->gpu_transforms_pool.task_buffer.view(),
+                .u_transforms = gpu_scene->gpu_transforms.view(),
                 .u_materials = asset_manager->gpu_materials.view(),
                 .u_globals = context->shader_globals_buffer.view(),
                 .u_visibility_image = visibility_image.view(),
@@ -1152,7 +1169,7 @@ namespace foundation {
             .views = DrawMeshletsMaskedTask::Views {
                 .u_meshlets_data_merged = gpu_scene->gpu_meshlets_data_merged_masked.view(),
                 .u_meshes = gpu_scene->gpu_meshes.view(),
-                .u_transforms = scene->gpu_transforms_pool.task_buffer.view(),
+                .u_transforms = gpu_scene->gpu_transforms.view(),
                 .u_materials = asset_manager->gpu_materials.view(),
                 .u_globals = context->shader_globals_buffer.view(),
                 .u_visibility_image = visibility_image.view(),
@@ -1174,7 +1191,7 @@ namespace foundation {
             .views = SoftwareRasterizationTask::Views {
                 .u_meshlets_data_merged = gpu_scene->gpu_meshlets_data_merged_opaque.view(),
                 .u_meshes = gpu_scene->gpu_meshes.view(),
-                .u_transforms = scene->gpu_transforms_pool.task_buffer.view(),
+                .u_transforms = gpu_scene->gpu_transforms.view(),
                 .u_materials = asset_manager->gpu_materials.view(),
                 .u_globals = context->shader_globals_buffer.view(),
                 .u_visibility_image = visibility_image.view(),
@@ -1230,7 +1247,7 @@ namespace foundation {
                 .u_globals = context->shader_globals_buffer.view(),
                 .u_meshlets_instance_data = gpu_scene->gpu_meshlets_instance_data.view(),
                 .u_meshes = gpu_scene->gpu_meshes.view(),
-                .u_transforms = scene->gpu_transforms_pool.task_buffer.view(),
+                .u_transforms = gpu_scene->gpu_transforms.view(),
                 .u_materials = asset_manager->gpu_materials.view(),
                 .u_visibility_image = visibility_image.view(),
                 .u_normal_image = normal_image.view(),
@@ -1312,7 +1329,7 @@ namespace foundation {
                 .u_globals = context->shader_globals_buffer.view(),
                 .u_meshlets_instance_data = gpu_scene->gpu_meshlets_instance_data.view(),
                 .u_meshes = gpu_scene->gpu_meshes.view(),
-                .u_transforms = scene->gpu_transforms_pool.task_buffer.view(),
+                .u_transforms = gpu_scene->gpu_transforms.view(),
                 .u_materials = asset_manager->gpu_materials.view(),
                 .u_sun = sun_light_buffer.view(),
                 .u_point_lights = point_light_buffer.view(),
@@ -1347,7 +1364,7 @@ namespace foundation {
             .views = DrawMeshletsTransparentTask::Views {
                 .u_meshlets_data_merged = gpu_scene->gpu_meshlets_data_merged_transparent.view(),
                 .u_meshes = gpu_scene->gpu_meshes.view(),
-                .u_transforms = scene->gpu_transforms_pool.task_buffer.view(),
+                .u_transforms = gpu_scene->gpu_transforms.view(),
                 .u_materials = asset_manager->gpu_materials.view(),
                 .u_globals = context->shader_globals_buffer.view(),
                 .u_sun = sun_light_buffer.view(),
@@ -1377,7 +1394,7 @@ namespace foundation {
         render_task_graph.add_task(DebugEntityOOBDrawTask {
             .views = DebugEntityOOBDrawTask::Views {
                 .u_globals = context->shader_globals_buffer.view(),
-                .u_transforms = scene->gpu_transforms_pool.task_buffer.view(),
+                .u_transforms = gpu_scene->gpu_transforms.view(),
                 .u_image = render_image.view(),
                 .u_visibility_image = visibility_image.view(),
             },
@@ -1387,7 +1404,7 @@ namespace foundation {
         render_task_graph.add_task(DebugAABBDrawTask {
             .views = DebugAABBDrawTask::Views {
                 .u_globals = context->shader_globals_buffer.view(),
-                .u_transforms = scene->gpu_transforms_pool.task_buffer.view(),
+                .u_transforms = gpu_scene->gpu_transforms.view(),
                 .u_image = render_image.view(),
                 .u_visibility_image = visibility_image.view(),
             },
@@ -1397,7 +1414,7 @@ namespace foundation {
         render_task_graph.add_task(DebugCircleDrawTask {
             .views = DebugCircleDrawTask::Views {
                 .u_globals = context->shader_globals_buffer.view(),
-                .u_transforms = scene->gpu_transforms_pool.task_buffer.view(),
+                .u_transforms = gpu_scene->gpu_transforms.view(),
                 .u_image = render_image.view(),
                 .u_visibility_image = visibility_image.view(),
             },
@@ -1407,7 +1424,7 @@ namespace foundation {
         render_task_graph.add_task(DebugLineDrawTask {
             .views = DebugLineDrawTask::Views {
                 .u_globals = context->shader_globals_buffer.view(),
-                .u_transforms = scene->gpu_transforms_pool.task_buffer.view(),
+                .u_transforms = gpu_scene->gpu_transforms.view(),
                 .u_image = render_image.view(),
                 .u_visibility_image = visibility_image.view(),
             },

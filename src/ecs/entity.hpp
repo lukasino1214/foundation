@@ -44,10 +44,6 @@ public:
                 handle.add<TransformComponent>();
                 return nullptr;
             }
-            
-            if constexpr (std::is_same_v<T, MeshComponent>) {
-                handle.set<GPUTransformIndex>({ scene->gpu_transforms_pool.allocate_handle() });
-            }
 
             handle.set<T>(T{});
             T* component =  handle.get_mut<T>();

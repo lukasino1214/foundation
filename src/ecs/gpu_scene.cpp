@@ -20,6 +20,12 @@ namespace foundation {
             .allocate_info = daxa::MemoryFlagBits::NONE,
             .name = "mesh indices"
         });
+        
+        gpu_transforms = make_task_buffer(context, {
+            .size = sizeof(f32mat4x3),
+            .allocate_info = daxa::MemoryFlagBits::NONE,
+            .name = "transforms"
+        });
 
         gpu_culled_meshes_data = make_task_buffer(context, {
             .size = sizeof(MeshesData),
@@ -74,6 +80,7 @@ namespace foundation {
         context->device.destroy_buffer(gpu_meshes.get_state().buffers[0]);
         context->device.destroy_buffer(gpu_mesh_groups.get_state().buffers[0]);
         context->device.destroy_buffer(gpu_mesh_indices.get_state().buffers[0]);
+        context->device.destroy_buffer(gpu_transforms.get_state().buffers[0]);
         
         context->device.destroy_buffer(gpu_culled_meshes_data.get_state().buffers[0]);
         context->device.destroy_buffer(gpu_opaque_prefix_sum_work_expansion_mesh.get_state().buffers[0]);
@@ -104,6 +111,7 @@ namespace foundation {
 
         reallocate_buffer(context, cmd_recorder, gpu_meshes, s_cast<u32>(total_mesh_count * sizeof(Mesh)));
         reallocate_buffer(context, cmd_recorder, gpu_mesh_groups, s_cast<u32>(total_mesh_group_count * sizeof(MeshGroup)));
+        reallocate_buffer(context, cmd_recorder, gpu_transforms, s_cast<u32>(total_mesh_group_count * sizeof(f32mat4x3)));
         reallocate_buffer(context, cmd_recorder, gpu_mesh_indices, s_cast<u32>(total_mesh_count * sizeof(u32)));
         reallocate_buffer<MeshesData>(context, cmd_recorder, gpu_culled_meshes_data, s_cast<u32>(total_mesh_count * sizeof(MeshData) + sizeof(MeshesData)), [&](const daxa::BufferId& buffer) -> MeshesData {
             return MeshesData {

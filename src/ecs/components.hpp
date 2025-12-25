@@ -22,8 +22,6 @@ namespace foundation {
     struct GlobalMatrix { glm::mat4 matrix{1.0f}; };
 
     struct TransformDirty {};
-    struct GPUTransformIndex { CPUManagedGPUPool<TransformInfo>::Handle gpu_handle = {}; };
-
     struct TransformComponent {};
 
     struct ModelComponent {
@@ -35,13 +33,6 @@ namespace foundation {
     struct MeshComponent {
         std::optional<u32> mesh_group_index;
         std::optional<u32> mesh_group_manifest_entry_index;
-
-        void draw();
-    };
-
-    struct OOBComponent {
-        glm::vec3 extent = { 1.0f, 1.0f, 1.0f };
-        glm::vec3 color = { 1.0f, 1.0f, 1.0f };
 
         void draw();
     };

@@ -203,10 +203,6 @@ namespace foundation {
             if(selected_entity.has_component<MeshComponent>()) {
                 draw_component<MeshComponent>(selected_entity, "Mesh Component");
             }
-
-            if(selected_entity.has_component<OOBComponent>()) {
-                draw_component<OOBComponent>(selected_entity, "OOB Component");
-            }
             
             if (ImGui::BeginPopupContextWindow(nullptr, ImGuiPopupFlags_NoOpenOverItems | ImGuiPopupFlags_MouseButtonRight)) {
                 // add_new_component<TransformComponent>(selected_entity, "Add Transform Component");

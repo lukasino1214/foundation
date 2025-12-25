@@ -19,7 +19,6 @@ namespace foundation {
 
     struct TransformDirty;
     struct TransformComponent;
-    struct GPUTransformIndex;
 
     struct Scene {
         Scene(const std::string_view& _name, Context* _context, NativeWIndow* _window);
@@ -29,7 +28,7 @@ namespace foundation {
         void destroy_entity(Entity& entity);
 
         void update(f32 delta_time);
-        void update_gpu(const daxa::TaskInterface& task_interface);
+        auto update_gpu(const daxa::TaskInterface& task_interface) -> std::vector<flecs::entity>;
 
         std::string name;
         std::unique_ptr<flecs::world> world;
@@ -38,7 +37,6 @@ namespace foundation {
 
         GPUSceneData scene_data = {};
         daxa::TaskBuffer gpu_scene_data = {};
-        CPUManagedGPUPool<TransformInfo> gpu_transforms_pool;
         CPUManagedGPUPool<EntityData> gpu_entities_data_pool;
         flecs::query<GlobalPosition, GlobalRotation, GlobalScale, GlobalMatrix, LocalPosition, LocalRotation, LocalScale, LocalMatrix, GlobalMatrix*, TransformDirty> query_transforms = {};
     };
