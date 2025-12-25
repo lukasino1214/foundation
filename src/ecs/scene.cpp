@@ -62,8 +62,6 @@ namespace foundation {
                         // .transform_index = gpu_transform.gpu_handle.index
                     });
 
-                    transform_handle_to_entity[gpu_transform.gpu_handle.index] = entity;
-
                     info.is_dirty = false;
                 }
 

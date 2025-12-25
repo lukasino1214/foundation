@@ -9,7 +9,7 @@
 
 namespace foundation {
     struct Renderer {
-        Renderer(NativeWIndow* _window, Context* _context, Scene* _scene, AssetManager* _asset_manager);
+        Renderer(NativeWIndow* _window, Context* _context, Scene* _scene, AssetManager* _asset_manager, GPUScene* _gpu_scene);
         ~Renderer();
 
         void render();
@@ -28,6 +28,7 @@ namespace foundation {
         Context* context = {};
         Scene* scene = {};
         AssetManager* asset_manager = {};
+        GPUScene* gpu_scene = {};
 
         daxa::TaskImage swapchain_image = {};
         daxa::TaskImage render_image = {};

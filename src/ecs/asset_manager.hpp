@@ -7,6 +7,7 @@
 
 #include "ecs/entity.hpp"
 #include "ecs/scene.hpp"
+#include "ecs/gpu_scene.hpp"
 
 namespace foundation {
     struct LoadManifestInfo {
@@ -94,12 +95,6 @@ namespace foundation {
         std::string name = {};
     };
 
-    struct MeshGroupToMeshesMapping {
-        u32 mesh_group_manifest_index = {};
-        u32 mesh_group_index = {};
-        u32 mesh_offset = {};
-    };
-
     struct AssetManager {
         AssetManager(Context* _context, Scene* _scene, ThreadPool* _thread_pool, AssetProcessor* _asset_processor);
         ~AssetManager();
@@ -113,7 +108,7 @@ namespace foundation {
 
         void update_textures();
         void update_meshes();
-        auto record_manifest_update(const RecordManifestUpdateInfo& info) -> daxa::ExecutableCommandList;
+        auto record_manifest_update(const RecordManifestUpdateInfo& info, GPUScene* gpu_scene) -> daxa::ExecutableCommandList;
 
         Context* context;
         Scene* scene;
@@ -125,29 +120,20 @@ namespace foundation {
         std::vector<MaterialManifestEntry> material_manifest_entries = {};
         std::vector<MeshManifestEntry> mesh_manifest_entries = {};
         std::vector<MeshGroupManifestEntry> mesh_group_manifest_entries = {};
+        
         std::vector<u32> dirty_meshes = {};
         std::vector<MeshGroupToMeshesMapping> dirty_mesh_groups = {};
+        std::vector<u32> dirty_materials = {};
 
         std::vector<u32> readback_material = {};
         std::vector<u32> texture_sizes = {};
         std::vector<u32> readback_mesh = {};
-
-        daxa::TaskBuffer gpu_meshes = {};
+        
         daxa::TaskBuffer gpu_materials = {};
-        daxa::TaskBuffer gpu_mesh_groups = {};
-        daxa::TaskBuffer gpu_mesh_indices = {};
-        daxa::TaskBuffer gpu_meshlets_instance_data = {};
-        daxa::TaskBuffer gpu_meshlets_data_merged_opaque = {};
-        daxa::TaskBuffer gpu_meshlets_data_merged_masked = {};
-        daxa::TaskBuffer gpu_meshlets_data_merged_transparent = {};
-        daxa::TaskBuffer gpu_culled_meshes_data = {};
         daxa::TaskBuffer gpu_readback_material_gpu = {};
         daxa::TaskBuffer gpu_readback_material_cpu = {};
         daxa::TaskBuffer gpu_readback_mesh_gpu = {};
         daxa::TaskBuffer gpu_readback_mesh_cpu = {};
-        daxa::TaskBuffer gpu_opaque_prefix_sum_work_expansion_mesh = {};
-        daxa::TaskBuffer gpu_masked_prefix_sum_work_expansion_mesh = {};
-        daxa::TaskBuffer gpu_transparent_prefix_sum_work_expansion_mesh = {};
 
         usize total_mesh_group_count = {};
 

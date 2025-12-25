@@ -4,6 +4,7 @@
 #include "ecs/asset_manager.hpp"
 #include "ecs/asset_processor.hpp"
 #include "ecs/scene.hpp"
+#include "ecs/gpu_scene.hpp"
 #include "ui/panels/file_browser.hpp"
 #include "ui/panels/viewport_panel.hpp"
 #include "ui/panels/scene_hierarchy_panel.hpp"
@@ -24,6 +25,7 @@ namespace foundation {
         NativeWIndow window;
         Context context;
         std::shared_ptr<Scene> scene;
+        std::unique_ptr<GPUScene> gpu_scene;
         std::unique_ptr<AssetProcessor> asset_processor;
         std::unique_ptr<ThreadPool> thread_pool;
         std::unique_ptr<AssetManager> asset_manager;

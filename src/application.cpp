@@ -8,6 +8,7 @@ namespace foundation {
         window{1280, 720, "Foundation"},
         context{this->window},
         scene{std::make_shared<Scene>("scene", &context, &window)},
+        gpu_scene{std::make_unique<GPUScene>(&context)},
         asset_processor{std::make_unique<AssetProcessor>(&context)},
         thread_pool{std::make_unique<ThreadPool>(std::thread::hardware_concurrency() - 1)},
         asset_manager{std::make_unique<AssetManager>(&context, scene.get(), thread_pool.get(), asset_processor.get())},
@@ -16,7 +17,7 @@ namespace foundation {
 
         scene->update(delta_time);
         context.update_shader_globals(main_camera, observer_camera, { 720, 480 });
-        renderer = std::make_unique<Renderer>(&window, &context, scene.get(), asset_manager.get());
+        renderer = std::make_unique<Renderer>(&window, &context, scene.get(), asset_manager.get(), gpu_scene.get());
         renderer->recreate_framebuffer({ 720, 480 });
 
         struct CompilePipelinesTask : Task {
@@ -183,7 +184,7 @@ namespace foundation {
                 auto cmd_list = asset_manager->record_manifest_update(AssetManager::RecordManifestUpdateInfo {
                     .uploaded_meshes = commands.uploaded_meshes,
                     .uploaded_textures = commands.uploaded_textures
-                });
+                }, gpu_scene.get());
 
                 auto cmd_lists = std::array{std::move(commands.upload_commands), std::move(cmd_list)};
                 context.device.submit_commands(daxa::CommandSubmitInfo {

@@ -43,34 +43,10 @@ namespace foundation {
 
     AssetManager::AssetManager(Context* _context, Scene* _scene, ThreadPool* _thread_pool, AssetProcessor* _asset_processor) : context{_context}, scene{_scene}, thread_pool{_thread_pool}, asset_processor{_asset_processor} {
         PROFILE_SCOPE;
-        gpu_meshes = make_task_buffer(context, {
-            sizeof(Mesh), 
-            daxa::MemoryFlagBits::NONE, 
-            "meshes"
-        });
-
         gpu_materials = make_task_buffer(context, {
             sizeof(Material), 
             daxa::MemoryFlagBits::NONE, 
             "materials"
-        });
-
-        gpu_mesh_groups = make_task_buffer(context, {
-            sizeof(MeshGroup),
-            daxa::MemoryFlagBits::NONE,
-            "mesh groups"
-        });
-
-        gpu_mesh_indices = make_task_buffer(context, {
-            sizeof(u32),
-            daxa::MemoryFlagBits::NONE,
-            "mesh indices"
-        });
-
-        gpu_culled_meshes_data = make_task_buffer(context, {
-            sizeof(MeshesData),
-            daxa::MemoryFlagBits::NONE,
-            "culled meshes data"
         });
 
         gpu_readback_material_gpu = make_task_buffer(context, {
@@ -96,66 +72,14 @@ namespace foundation {
             daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
             "readback mesh cpu"
         });
-
-        gpu_meshlets_instance_data = make_task_buffer(context, {
-            sizeof(MeshletInstanceData),
-            daxa::MemoryFlagBits::NONE,
-            "meshlets instance data"
-        });
-
-        gpu_meshlets_data_merged_opaque = make_task_buffer(context, {
-            sizeof(MeshletsDataMerged),
-            daxa::MemoryFlagBits::NONE,
-            "meshlets data merged opaque"
-        });
-
-        gpu_meshlets_data_merged_masked = make_task_buffer(context, {
-            sizeof(MeshletsDataMerged),
-            daxa::MemoryFlagBits::NONE,
-            "meshlets data merged masked"
-        });
-
-        gpu_meshlets_data_merged_transparent = make_task_buffer(context, {
-            sizeof(MeshletsDataMerged),
-            daxa::MemoryFlagBits::NONE,
-            "meshlets data merged transparent"
-        });
-
-        gpu_opaque_prefix_sum_work_expansion_mesh = make_task_buffer(context, {
-            sizeof(PrefixSumWorkExpansion),
-            daxa::MemoryFlagBits::NONE,
-            "opaque prefix sum work expansion mesh"
-        });
-
-        gpu_masked_prefix_sum_work_expansion_mesh = make_task_buffer(context, {
-            sizeof(PrefixSumWorkExpansion),
-            daxa::MemoryFlagBits::NONE,
-            "masked prefix sum work expansion mesh"
-        });
-
-        gpu_transparent_prefix_sum_work_expansion_mesh = make_task_buffer(context, {
-            sizeof(PrefixSumWorkExpansion),
-            daxa::MemoryFlagBits::NONE,
-            "transparent prefix sum work expansion mesh"
-        });
     }
+
     AssetManager::~AssetManager() {
-        context->device.destroy_buffer(gpu_meshes.get_state().buffers[0]);
         context->device.destroy_buffer(gpu_materials.get_state().buffers[0]);
-        context->device.destroy_buffer(gpu_mesh_groups.get_state().buffers[0]);
-        context->device.destroy_buffer(gpu_mesh_indices.get_state().buffers[0]);
-        context->device.destroy_buffer(gpu_meshlets_instance_data.get_state().buffers[0]);
-        context->device.destroy_buffer(gpu_meshlets_data_merged_opaque.get_state().buffers[0]);
-        context->device.destroy_buffer(gpu_meshlets_data_merged_masked.get_state().buffers[0]);
-        context->device.destroy_buffer(gpu_meshlets_data_merged_transparent.get_state().buffers[0]);
-        context->device.destroy_buffer(gpu_culled_meshes_data.get_state().buffers[0]);
         context->device.destroy_buffer(gpu_readback_material_gpu.get_state().buffers[0]);
         context->device.destroy_buffer(gpu_readback_material_cpu.get_state().buffers[0]);
         context->device.destroy_buffer(gpu_readback_mesh_gpu.get_state().buffers[0]);
         context->device.destroy_buffer(gpu_readback_mesh_cpu.get_state().buffers[0]);
-        context->device.destroy_buffer(gpu_opaque_prefix_sum_work_expansion_mesh.get_state().buffers[0]);
-        context->device.destroy_buffer(gpu_masked_prefix_sum_work_expansion_mesh.get_state().buffers[0]);
-        context->device.destroy_buffer(gpu_transparent_prefix_sum_work_expansion_mesh.get_state().buffers[0]);
 
         for(auto& mesh_manifest : mesh_manifest_entries) {
             if(context->device.is_buffer_id_valid(mesh_manifest.geometry_info->mesh_geometry_data.mesh_buffer)) {
@@ -256,6 +180,7 @@ namespace foundation {
                 });
             }
 
+            material_manifest_entries.reserve(asset->materials.size());
             for (u32 material_index = 0; material_index < s_cast<u32>(asset->materials.size()); material_index++) {
                 auto make_texture_info = [texture_manifest_offset](const std::optional<BinaryMaterial::BinaryTextureInfo>& info) -> std::optional<MaterialManifestEntry::TextureInfo> {
                     if(!info.has_value()) { return std::nullopt; }
@@ -265,6 +190,7 @@ namespace foundation {
                     });
                 };
 
+                dirty_materials.push_back(s_cast<u32>(material_manifest_entries.size()));
                 const BinaryMaterial& material = asset->materials[material_index];
                 material_manifest_entries.push_back(MaterialManifestEntry{
                     .albedo_info = make_texture_info(material.albedo_info),
@@ -325,6 +251,7 @@ namespace foundation {
                 .mesh_group_manifest_index = asset_manifest->mesh_group_manifest_offset + mesh_group_index,
                 .mesh_group_index = gpu_mesh_group_index,
                 .mesh_offset = s_cast<u32>(total_mesh_count),
+                .mesh_count = mesh_group.mesh_count,
             });
 
             for(u32 mesh_index = 0; mesh_index < mesh_group.mesh_count; mesh_index++) {
@@ -531,134 +458,11 @@ namespace foundation {
         // }
     }
 
-    auto AssetManager::record_manifest_update(const RecordManifestUpdateInfo& info) -> daxa::ExecutableCommandList {
+    auto AssetManager::record_manifest_update(const RecordManifestUpdateInfo& info, GPUScene* gpu_scene) -> daxa::ExecutableCommandList {
         PROFILE_SCOPE;
-        auto cmd_recorder = context->device.create_command_recorder({ .name = "asset manager update" });
+        daxa::CommandRecorder cmd_recorder = context->device.create_command_recorder({ .name = "asset manager update" });
 
-        reallocate_buffer(context, cmd_recorder, gpu_meshes, s_cast<u32>(total_mesh_count * sizeof(Mesh)));
         reallocate_buffer(context, cmd_recorder, gpu_materials, s_cast<u32>(material_manifest_entries.size() * sizeof(Material)));
-        reallocate_buffer(context, cmd_recorder, gpu_mesh_groups, s_cast<u32>(total_mesh_group_count * sizeof(MeshGroup)));
-        reallocate_buffer(context, cmd_recorder, gpu_mesh_indices, s_cast<u32>(total_mesh_count * sizeof(u32)));
-        reallocate_buffer<MeshesData>(context, cmd_recorder, gpu_culled_meshes_data, s_cast<u32>(total_mesh_count * sizeof(MeshData) + sizeof(MeshesData)), [&](const daxa::BufferId& buffer) -> MeshesData {
-            return MeshesData {
-                .count = 0,
-                .meshes = context->device.buffer_device_address(buffer).value() + sizeof(MeshesData)
-            };
-        });
-
-        if(reallocate_buffer(context, cmd_recorder, gpu_meshlets_instance_data, 2 * total_meshlet_count * sizeof(MeshletInstanceData))) {
-            daxa::DeviceAddress buffer_address = context->device.buffer_device_address(gpu_meshlets_instance_data.get_state().buffers[0]).value();
-            
-            u32 hw_offset = 0;
-            u32 sw_offset = s_cast<u32>(total_opaque_meshlet_count);
-            {
-                daxa::BufferId stagging_buffer = context->device.create_buffer(daxa::BufferInfo {
-                    .size = sizeof(MeshletsDataMerged),
-                    .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
-                    .name = "opaque stagging buffer"
-                });
-                cmd_recorder.destroy_buffer_deferred(stagging_buffer);
-
-                MeshletsDataMerged data {
-                    .hw_count = 0,
-                    .sw_count = 0,
-                    .hw_offset = hw_offset,
-                    .sw_offset = sw_offset,
-                    .hw_meshlet_data = buffer_address + hw_offset * sizeof(MeshletInstanceData),
-                    .sw_meshlet_data = buffer_address + sw_offset * sizeof(MeshletInstanceData),
-                };
-
-                std::memcpy(context->device.buffer_host_address(stagging_buffer).value(), &data, sizeof(MeshletsDataMerged));
-                cmd_recorder.copy_buffer_to_buffer(daxa::BufferCopyInfo {
-                    .src_buffer = stagging_buffer,
-                    .dst_buffer = gpu_meshlets_data_merged_opaque.get_state().buffers[0],
-                    .size = sizeof(MeshletsDataMerged),
-                });
-            }
-            hw_offset = 2 * s_cast<u32>(total_opaque_meshlet_count);
-            sw_offset = 2 * s_cast<u32>(total_opaque_meshlet_count) + s_cast<u32>(total_masked_meshlet_count);
-            {
-                daxa::BufferId stagging_buffer = context->device.create_buffer(daxa::BufferInfo {
-                    .size = sizeof(MeshletsDataMerged),
-                    .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
-                    .name = "masked stagging buffer"
-                });
-                cmd_recorder.destroy_buffer_deferred(stagging_buffer);
-
-                MeshletsDataMerged data {
-                    .hw_count = 0,
-                    .sw_count = 0,
-                    .hw_offset = hw_offset,
-                    .sw_offset = sw_offset,
-                    .hw_meshlet_data = buffer_address + hw_offset * sizeof(MeshletInstanceData),
-                    .sw_meshlet_data = buffer_address + sw_offset * sizeof(MeshletInstanceData),
-                };
-
-                std::memcpy(context->device.buffer_host_address(stagging_buffer).value(), &data, sizeof(MeshletsDataMerged));
-                cmd_recorder.copy_buffer_to_buffer(daxa::BufferCopyInfo {
-                    .src_buffer = stagging_buffer,
-                    .dst_buffer = gpu_meshlets_data_merged_masked.get_state().buffers[0],
-                    .size = sizeof(MeshletsDataMerged),
-                });
-            }
-            hw_offset = 2 * s_cast<u32>(total_opaque_meshlet_count) + 2 * s_cast<u32>(total_masked_meshlet_count);
-            sw_offset = 2 * s_cast<u32>(total_opaque_meshlet_count) + 2 * s_cast<u32>(total_masked_meshlet_count) + s_cast<u32>(total_transparent_meshlet_count);
-            {
-                daxa::BufferId stagging_buffer = context->device.create_buffer(daxa::BufferInfo {
-                    .size = sizeof(MeshletsDataMerged),
-                    .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
-                    .name = "transparent stagging buffer"
-                });
-                cmd_recorder.destroy_buffer_deferred(stagging_buffer);
-
-                MeshletsDataMerged data {
-                    .hw_count = 0,
-                    .sw_count = 0,
-                    .hw_offset = hw_offset,
-                    .sw_offset = sw_offset,
-                    .hw_meshlet_data = buffer_address + hw_offset * sizeof(MeshletInstanceData),
-                    .sw_meshlet_data = buffer_address + sw_offset * sizeof(MeshletInstanceData),
-                };
-
-                std::memcpy(context->device.buffer_host_address(stagging_buffer).value(), &data, sizeof(MeshletsDataMerged));
-                cmd_recorder.copy_buffer_to_buffer(daxa::BufferCopyInfo {
-                    .src_buffer = stagging_buffer,
-                    .dst_buffer = gpu_meshlets_data_merged_transparent.get_state().buffers[0],
-                    .size = sizeof(MeshletsDataMerged),
-                });
-            }
-        }
-
-        reallocate_buffer<PrefixSumWorkExpansion>(context, cmd_recorder, gpu_opaque_prefix_sum_work_expansion_mesh, total_opaque_mesh_count * sizeof(u32) * 3 + sizeof(PrefixSumWorkExpansion), [&](const daxa::BufferId& buffer) -> PrefixSumWorkExpansion {
-            return PrefixSumWorkExpansion {
-                .merged_expansion_count_thread_count = 0,
-                .expansions_max = s_cast<u32>(total_mesh_count),
-                .workgroup_count = 0,
-                .expansions_inclusive_prefix_sum = context->device.buffer_device_address(buffer).value() + sizeof(PrefixSumWorkExpansion) + total_mesh_count * sizeof(u32) * 0,
-                .expansions_src_work_item = context->device.buffer_device_address(buffer).value() + sizeof(PrefixSumWorkExpansion) + total_mesh_count * sizeof(u32) * 1,
-                .expansions_expansion_factor = context->device.buffer_device_address(buffer).value() + sizeof(PrefixSumWorkExpansion) + total_mesh_count * sizeof(u32) * 2
-            };
-        });
-        reallocate_buffer<PrefixSumWorkExpansion>(context, cmd_recorder, gpu_masked_prefix_sum_work_expansion_mesh, total_masked_mesh_count * sizeof(u32) * 3 + sizeof(PrefixSumWorkExpansion), [&](const daxa::BufferId& buffer) -> PrefixSumWorkExpansion {
-            return PrefixSumWorkExpansion {
-                .merged_expansion_count_thread_count = 0,
-                .expansions_max = s_cast<u32>(total_masked_mesh_count),
-                .workgroup_count = 0,
-                .expansions_inclusive_prefix_sum = context->device.buffer_device_address(buffer).value() + sizeof(PrefixSumWorkExpansion) + total_masked_mesh_count * sizeof(u32) * 0,
-                .expansions_src_work_item = context->device.buffer_device_address(buffer).value() + sizeof(PrefixSumWorkExpansion) + total_masked_mesh_count * sizeof(u32) * 1,
-                .expansions_expansion_factor = context->device.buffer_device_address(buffer).value() + sizeof(PrefixSumWorkExpansion) + total_masked_mesh_count * sizeof(u32) * 2
-            };
-        });
-        reallocate_buffer<PrefixSumWorkExpansion>(context, cmd_recorder, gpu_transparent_prefix_sum_work_expansion_mesh, total_transparent_mesh_count * sizeof(u32) * 3 + sizeof(PrefixSumWorkExpansion), [&](const daxa::BufferId& buffer) -> PrefixSumWorkExpansion {
-            return PrefixSumWorkExpansion {
-                .merged_expansion_count_thread_count = 0,
-                .expansions_max = s_cast<u32>(total_transparent_mesh_count),
-                .workgroup_count = 0,
-                .expansions_inclusive_prefix_sum = context->device.buffer_device_address(buffer).value() + sizeof(PrefixSumWorkExpansion) + total_transparent_mesh_count * sizeof(u32) * 0,
-                .expansions_src_work_item = context->device.buffer_device_address(buffer).value() + sizeof(PrefixSumWorkExpansion) + total_transparent_mesh_count * sizeof(u32) * 1,
-                .expansions_expansion_factor = context->device.buffer_device_address(buffer).value() + sizeof(PrefixSumWorkExpansion) + total_transparent_mesh_count * sizeof(u32) * 2
-            };
-        });
 
         const u32 readback_mesh_size = round_up_div(s_cast<u32>(mesh_manifest_entries.size()), 32u);
 
@@ -670,112 +474,24 @@ namespace foundation {
         reallocate_buffer(context, cmd_recorder, gpu_readback_mesh_gpu, readback_mesh_size * sizeof(u32));
         reallocate_buffer(context, cmd_recorder, gpu_readback_mesh_cpu, readback_mesh_size * sizeof(u32));
 
-        if(!dirty_meshes.empty()) {
-            daxa::BufferId staging_buffer = context->device.create_buffer(daxa::BufferInfo {
-                .size = sizeof(Mesh),
-                .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
-                .name = "staging buffer meshes"
-            });
-            cmd_recorder.destroy_buffer_deferred(staging_buffer);
+        gpu_scene->update(cmd_recorder, GPUScene::UpdateInfo {
+            .total_mesh_group_count = total_mesh_group_count,
+            .total_mesh_count = total_mesh_count,
+            .total_opaque_mesh_count = total_opaque_mesh_count,
+            .total_masked_mesh_count = total_masked_mesh_count,
+            .total_transparent_mesh_count = total_transparent_mesh_count,
+            .total_meshlet_count = total_meshlet_count,
+            .total_opaque_meshlet_count = total_opaque_meshlet_count,
+            .total_masked_meshlet_count = total_masked_meshlet_count,
+            .total_transparent_meshlet_count = total_transparent_meshlet_count,
+            .dirty_meshes = dirty_meshes,
+            .dirty_mesh_groups = dirty_mesh_groups,
+        });
 
-            Mesh mesh = {};
-            std::memcpy(context->device.buffer_host_address(staging_buffer).value(), &mesh, sizeof(Mesh));
-
-            for(const u32 mesh_index : dirty_meshes) {
-                cmd_recorder.copy_buffer_to_buffer(daxa::BufferCopyInfo {
-                    .src_buffer = staging_buffer,
-                    .dst_buffer = gpu_meshes.get_state().buffers[0],
-                    .src_offset = 0,
-                    .dst_offset = mesh_index * sizeof(Mesh),
-                    .size = sizeof(Mesh)
-                });
-            }
-            
-            dirty_meshes = {};
-        }
-
-        if(!dirty_mesh_groups.empty()) {
-            std::vector<MeshGroup> mesh_groups = {};
-            std::vector<u32> meshes = {};
-            u64 buffer_ptr = context->device.buffer_device_address(gpu_mesh_indices.get_state().buffers[0]).value();
-            mesh_groups.reserve(dirty_mesh_groups.size());
-            for(const auto& mesh_group_mapping : dirty_mesh_groups) {
-                const auto& mesh_group = mesh_group_manifest_entries[mesh_group_mapping.mesh_group_manifest_index];
-                
-                mesh_groups.push_back(MeshGroup {
-                    .mesh_indices = buffer_ptr + mesh_group_mapping.mesh_offset * sizeof(u32),
-                    .count = mesh_group.mesh_count,
-                    .padding = {},
-                });
-                
-                meshes.reserve(meshes.size() + mesh_group.mesh_count);
-                for(u32 i = 0; i < mesh_group.mesh_count; i++) {
-                    meshes.push_back(mesh_group_mapping.mesh_offset + i);
-                }
-            }
-
-            usize staging_size = mesh_groups.size() * sizeof(MeshGroup) + meshes.size() * sizeof(u32);
-            daxa::BufferId staging_buffer = context->device.create_buffer(daxa::BufferInfo {
-                .size = staging_size,
-                .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
-                .name = "staging buffer scene data"
-            });
-            cmd_recorder.destroy_buffer_deferred(staging_buffer);
-            std::byte* ptr = context->device.buffer_host_address(staging_buffer).value();
-
-            usize offset = 0; 
-            std::memcpy(ptr + offset, mesh_groups.data(), mesh_groups.size() * sizeof(MeshGroup));
-            offset += mesh_groups.size() * sizeof(MeshGroup);
-            std::memcpy(ptr + offset, meshes.data(), meshes.size() * sizeof(u32));
-            offset += meshes.size() * sizeof(u32);
-
-            usize mesh_group_offset = 0;
-            usize meshes_offset = mesh_group_offset + mesh_groups.size() * sizeof(MeshGroup);
-            for(const auto& mesh_group_mapping : dirty_mesh_groups) {
-                const auto& mesh_group = mesh_group_manifest_entries[mesh_group_mapping.mesh_group_manifest_index];
-
-                cmd_recorder.copy_buffer_to_buffer(daxa::BufferCopyInfo {
-                    .src_buffer = staging_buffer,
-                    .dst_buffer = gpu_mesh_groups.get_state().buffers[0],
-                    .src_offset = mesh_group_offset,
-                    .dst_offset = mesh_group_mapping.mesh_group_index * sizeof(MeshGroup),
-                    .size = sizeof(MeshGroup)
-                });
-
-                cmd_recorder.copy_buffer_to_buffer(daxa::BufferCopyInfo {
-                    .src_buffer = staging_buffer,
-                    .dst_buffer = gpu_mesh_indices.get_state().buffers[0],
-                    .src_offset = meshes_offset,
-                    .dst_offset = mesh_group_mapping.mesh_offset * sizeof(u32),
-                    .size = mesh_group.mesh_count * sizeof(u32)
-                });
-
-                mesh_group_offset += sizeof(MeshGroup);
-                meshes_offset += mesh_group.mesh_count * sizeof(u32);
-            }
-            dirty_mesh_groups.clear();
-        }
+        dirty_meshes.clear();
+        dirty_mesh_groups.clear();
 
         if(!info.uploaded_meshes.empty()) {
-            daxa::BufferId material_null_buffer = context->device.create_buffer({
-                .size = s_cast<u32>(sizeof(Material)),
-                .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
-                .name = "material null buffer",
-            });
-            cmd_recorder.destroy_buffer_deferred(material_null_buffer);
-            {
-                Material material = {};
-                material.albedo_factor = f32vec4{ 1.0f, 1.0f, 1.0f, 1.0f };
-                material.metallic_factor = 1.0f;
-                material.roughness_factor = 1.0f;
-                material.emissive_factor = { 0.0f, 0.0f, 0.0f };
-                material.alpha_mode = 0;
-                material.alpha_cutoff = 0.5f;
-                material.double_sided = 0u;
-
-                std::memcpy(context->device.buffer_host_address_as<Material>(material_null_buffer).value(), &material, sizeof(Material));
-            }
-
             for(const auto& mesh_upload_info : info.uploaded_meshes) {
                 auto& mesh_manifest = mesh_manifest_entries[mesh_upload_info.manifest_index];
                 mesh_manifest.loading = false;
@@ -786,14 +502,6 @@ namespace foundation {
                 if(!mesh_manifest.geometry_info.has_value() && binary_mesh.material_index.has_value()) {
                     u32 material_index = mesh_upload_info.material_manifest_offset + binary_mesh.material_index.value();
                     auto& material_manifest = material_manifest_entries.at(material_index);
-
-                    cmd_recorder.copy_buffer_to_buffer(daxa::BufferCopyInfo {
-                        .src_buffer = material_null_buffer,
-                        .dst_buffer = gpu_materials.get_state().buffers[0],
-                        .src_offset = 0,
-                        .dst_offset = material_manifest.material_manifest_index * sizeof(Material),
-                        .size = sizeof(Material),
-                    });
                     mesh_manifest.geometry_info->material_manifest_index = material_manifest.material_manifest_index;
                 }
             }
@@ -843,7 +551,7 @@ namespace foundation {
 
                     cmd_recorder.copy_buffer_to_buffer({
                         .src_buffer = staging_buffer,
-                        .dst_buffer = gpu_meshes.get_state().buffers[0],
+                        .dst_buffer = gpu_scene->gpu_meshes.get_state().buffers[0],
                         .src_offset = gpu_mesh_index_iter * sizeof(Mesh),
                         .dst_offset = gpu_mesh_index * sizeof(Mesh),
                         .size = sizeof(Mesh),
@@ -854,7 +562,6 @@ namespace foundation {
             }
         }
 
-        std::vector<u32> dirty_material_manifest_indices = {};
         for(const auto& texture_upload_info : info.uploaded_textures) {
             auto& texture_manifest = texture_manifest_entries.at(texture_upload_info.manifest_index);
             texture_manifest.current_resolution = context->device.image_info(texture_upload_info.dst_image).value().size.x;
@@ -883,26 +590,22 @@ namespace foundation {
                     material_entry.emissive_info->texture_manifest_index = texture_upload_info.manifest_index;
                 }
 
-                if (std::find(dirty_material_manifest_indices.begin(), dirty_material_manifest_indices.end(), material_using_texture_info.material_manifest_index) == dirty_material_manifest_indices.end()) {
-                    dirty_material_manifest_indices.push_back(material_using_texture_info.material_manifest_index);
+                if (std::find(dirty_materials.begin(), dirty_materials.end(), material_using_texture_info.material_manifest_index) == dirty_materials.end()) {
+                    dirty_materials.push_back(material_using_texture_info.material_manifest_index);
                 }
             }
         }
 
-        for(const auto& mesh_upload_info : info.uploaded_meshes) {
-            dirty_material_manifest_indices.push_back(mesh_upload_info.mesh_geometry_data.material_index);
-        }
-
-        if(!dirty_material_manifest_indices.empty()) {
+        if(!dirty_materials.empty()) {
             daxa::BufferId staging_buffer = context->device.create_buffer({
-                .size = s_cast<u32>(dirty_material_manifest_indices.size() * sizeof(Material)),
+                .size = s_cast<u32>(dirty_materials.size() * sizeof(Material)),
                 .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
                 .name = "staging buffer material manifest",
             });
             cmd_recorder.destroy_buffer_deferred(staging_buffer);
             Material* ptr = context->device.buffer_host_address_as<Material>(staging_buffer).value();
-            for (u32 dirty_materials_index = 0; dirty_materials_index < dirty_material_manifest_indices.size(); dirty_materials_index++) {
-                MaterialManifestEntry& material = material_manifest_entries.at(dirty_material_manifest_indices.at(dirty_materials_index));
+            for (u32 dirty_materials_index = 0; dirty_materials_index < dirty_materials.size(); dirty_materials_index++) {
+                MaterialManifestEntry& material = material_manifest_entries.at(dirty_materials.at(dirty_materials_index));
 
                 Material gpu_material = {};
                 gpu_material.albedo_factor = material.albedo_factor,
@@ -954,6 +657,7 @@ namespace foundation {
                     .size = sizeof(Material),
                 });
             }
+            dirty_materials.clear();
         }
 
         cmd_recorder.pipeline_barrier({

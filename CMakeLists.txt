@@ -91,6 +91,7 @@ add_executable(${PROJECT_NAME}
     "src/common/thread_pool.cpp"
     "src/ecs/asset_manager.cpp"
     "src/ecs/asset_processor.cpp"
+    "src/ecs/gpu_scene.cpp"
     "src/ecs/components.cpp"
     "src/ecs/entity.cpp"
     "src/ecs/scene.cpp"
