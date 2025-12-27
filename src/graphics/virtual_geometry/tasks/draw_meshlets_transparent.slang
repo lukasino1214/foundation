@@ -17,24 +17,12 @@ void draw_meshlets_transparent_write_command() {
     *write_push.uses.u_command = command;
 }
 
-struct MeshPayload {
-    u32 index;
-};
-
 [[vk::push_constant]] DrawMeshletsTransparentPush push;
-[shader("amplification")]
-[numthreads(1, 1, 1)]
-void draw_meshlets_transparent_task(u32vec3 local_thread_index : SV_GroupThreadID, u32vec3 global_thread_index : SV_DispatchThreadID, u32vec3 group_index : SV_GroupID) {
-    MeshPayload payload;
-    payload.index = global_thread_index.x;
-    DispatchMesh(1, 1, 1, payload);
-}
 
 [outputtopology("triangle")]
 [shader("mesh")]
 [numthreads(MAX_TRIANGLES_PER_MESHLET, 1, 1)]
 void draw_meshlets_transparent_mesh(
-    in payload MeshPayload payload,
     u32vec3 local_thread_index : SV_GroupThreadID,
     u32vec3 group_index : SV_GroupID,
     u32vec3 global_thread_index : SV_DispatchThreadID,
@@ -44,13 +32,13 @@ void draw_meshlets_transparent_mesh(
     const u32 thread_index = local_thread_index.x;
 
     
-    const MeshletInstanceData meshlet_instance_data = push.uses.u_meshlets_data_merged.hw_meshlet_data[payload.index];
+    const MeshletInstanceData meshlet_instance_data = push.uses.u_meshlets_data_merged.hw_meshlet_data[group_index.x];
     const Mesh mesh = push.uses.u_meshes[meshlet_instance_data.mesh_index];
     const Meshlet meshlet = mesh.meshlets[meshlet_instance_data.meshlet_index];
 
     f32mat4x4 pvm = mat_4x3_to_4x4(push.uses.u_transforms[mesh.mesh_group_index].model_matrix);
     
-    const u32 meshlet_index = push.uses.u_meshlets_data_merged.hw_offset + payload.index;
+    const u32 meshlet_index = push.uses.u_meshlets_data_merged.hw_offset + group_index.x;
     
     SetMeshOutputCounts(meshlet.vertex_count, meshlet.triangle_count);
     if(thread_index < meshlet.vertex_count) {

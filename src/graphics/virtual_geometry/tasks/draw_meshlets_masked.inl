@@ -76,12 +76,6 @@ struct DrawMeshletsMaskedTask : DrawMeshletsMasked::Task {
                 .language = daxa::ShaderLanguage::SLANG,
                 .defines = { { std::string{DrawMeshletsMaskedTask::name()} + "_SHADER", "1" } } 
             },
-            .task_shader_info = daxa::ShaderCompileInfo2 {
-                .source = daxa::ShaderSource { daxa::ShaderFile { .path = "src/graphics/virtual_geometry/tasks/draw_meshlets_masked.slang" }, },
-                .entry_point = "draw_meshlets_masked_task",
-                .language = daxa::ShaderLanguage::SLANG,
-                .defines = { { std::string{DrawMeshletsMaskedTask::name()} + "_SHADER", "1" } },
-            },
             .raster = {
                 .face_culling = daxa::FaceCullFlagBits::NONE
             },

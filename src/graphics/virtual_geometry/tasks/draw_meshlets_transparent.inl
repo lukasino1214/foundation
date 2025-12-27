@@ -83,12 +83,6 @@ struct DrawMeshletsTransparentTask : DrawMeshletsTransparent::Task {
                 .language = daxa::ShaderLanguage::SLANG,
                 .defines = { { std::string{DrawMeshletsTransparentTask::name()} + "_SHADER", "1" } } 
             },
-            .task_shader_info = daxa::ShaderCompileInfo2 {
-                .source = daxa::ShaderSource { daxa::ShaderFile { .path = "src/graphics/virtual_geometry/tasks/draw_meshlets_transparent.slang" }, },
-                .entry_point = "draw_meshlets_transparent_task",
-                .language = daxa::ShaderLanguage::SLANG,
-                .defines = { { std::string{DrawMeshletsTransparentTask::name()} + "_SHADER", "1" } },
-            },
             .color_attachments = {
                 daxa::RenderAttachment {
                     .format = daxa::Format::R16G16B16A16_SFLOAT,

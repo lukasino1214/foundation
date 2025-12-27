@@ -72,12 +72,6 @@ struct DrawMeshletsOnlyDepthMaskedTask : DrawMeshletsOnlyDepthMasked::Task {
                 .language = daxa::ShaderLanguage::SLANG,
                 .defines = { { std::string{DrawMeshletsOnlyDepthMaskedTask::name()} + "_SHADER", "1" } },
             },
-            .task_shader_info = daxa::ShaderCompileInfo2 {
-                .source = daxa::ShaderSource { daxa::ShaderFile { .path = "src/graphics/virtual_geometry/tasks/draw_meshlets_only_depth_masked.slang" }, },
-                .entry_point = "draw_meshlets_only_depth_masked_task",
-                .language = daxa::ShaderLanguage::SLANG,
-                .defines = { { std::string{DrawMeshletsOnlyDepthMaskedTask::name()} + "_SHADER", "1" } },
-            },
             .depth_test = { daxa::DepthTestInfo {
                 .depth_attachment_format = daxa::Format::D32_SFLOAT,
                 .enable_depth_write = true,
