@@ -193,6 +193,7 @@ DAXA_DECL_BUFFER_PTR(MeshletSimplificationError)
 
 struct MeshGeometryData {
     daxa_BufferId mesh_buffer;
+    u32 material_type;
     u32 manifest_index;
     u32 material_index;
     u32 meshlet_count;

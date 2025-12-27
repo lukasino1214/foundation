@@ -82,8 +82,8 @@ namespace foundation {
         context->device.destroy_buffer(gpu_readback_mesh_cpu.get_state().buffers[0]);
 
         for(auto& mesh_manifest : mesh_manifest_entries) {
-            if(context->device.is_buffer_id_valid(mesh_manifest.geometry_info->mesh_geometry_data.mesh_buffer)) {
-                context->device.destroy_buffer(mesh_manifest.geometry_info->mesh_geometry_data.mesh_buffer);
+            if(context->device.is_buffer_id_valid(mesh_manifest.geometry_info.mesh_geometry_data.mesh_buffer)) {
+                context->device.destroy_buffer(mesh_manifest.geometry_info.mesh_geometry_data.mesh_buffer);
             }
         }
 
@@ -133,14 +133,8 @@ namespace foundation {
                 BinaryModelHeader header = {};
                 byte_reader.read(header);
 
-                total_meshlet_count += header.meshlet_count;
-                total_triangle_count += header.triangle_count;
-                total_vertex_count += header.vertex_count;
-
                 BinaryAssetInfo binary_asset = {};
                 byte_reader.read(binary_asset);
-                
-                total_unique_mesh_count += s_cast<u32>(binary_asset.meshes.size());
 
                 asset_manifest_entries.push_back(AssetManifestEntry {
                     .path = info.path,
@@ -215,16 +209,45 @@ namespace foundation {
             
             for(u32 mesh_group_index = 0; mesh_group_index < asset->mesh_groups.size(); mesh_group_index++) {
                 const auto& mesh_group = asset->mesh_groups.at(mesh_group_index);
-
+                
                 u32 mesh_manifest_indices_offset = s_cast<u32>(mesh_manifest_entries.size());
                 mesh_manifest_entries.reserve(mesh_manifest_entries.size() + mesh_group.mesh_count);
+
+                update_mesh_groups.push_back(UpdateMeshGroup {
+                    .mesh_group_index = asset_manifest->mesh_group_manifest_offset + mesh_group_index,
+                    .mesh_count = mesh_group.mesh_count,
+                });
                 
                 for(u32 mesh_index = 0; mesh_index < mesh_group.mesh_count; mesh_index++) {
+                    const BinaryMesh& binary_mesh = asset->meshes[mesh_group.mesh_offset + mesh_index];
+
+                    u32 material_index = INVALID_ID;
+                    u32 material_type = 0;
+                    if(binary_mesh.material_index.has_value()) {
+                        material_index = asset_manifest->material_manifest_offset + binary_mesh.material_index.value();
+                        material_type = s_cast<u32>(material_manifest_entries[material_index].alpha_mode);
+                    }
+
+                    MeshGeometryData mesh_geometry_data = {
+                        .material_type = material_type,
+                        .material_index = material_index,
+                        .meshlet_count = binary_mesh.meshlet_count,
+                    };
+
+                    update_meshes.push_back({
+                        .mesh_group_index = asset_manifest->mesh_group_manifest_offset + mesh_group_index,
+                        .mesh_index = mesh_index,
+                        .mesh_geometry_data = mesh_geometry_data,
+                    });
+
                     mesh_manifest_entries.push_back(MeshManifestEntry {
                         .asset_manifest_index = asset_manifest_index,
                         .asset_local_mesh_index = mesh_group_index,
                         .asset_local_primitive_index = mesh_index,
-                        .geometry_info = std::nullopt
+                        .geometry_info = {
+                            .mesh_geometry_data = mesh_geometry_data,
+                            .material_manifest_index = material_index,
+                        },
                     });
                 }
 
@@ -238,65 +261,6 @@ namespace foundation {
             }
         }
 
-        total_meshlet_count += asset_manifest->header.meshlet_count;
-        total_triangle_count += asset_manifest->header.triangle_count;
-        total_vertex_count += asset_manifest->header.vertex_count;
-
-        for(u32 mesh_group_index = 0; mesh_group_index < asset->mesh_groups.size(); mesh_group_index++) {
-            const auto& mesh_group = asset->mesh_groups.at(mesh_group_index);
-
-            u32 gpu_mesh_group_index = s_cast<u32>(total_mesh_group_count++);
-
-            dirty_mesh_groups.push_back(MeshGroupToMeshesMapping {
-                .mesh_group_manifest_index = asset_manifest->mesh_group_manifest_offset + mesh_group_index,
-                .mesh_group_index = gpu_mesh_group_index,
-                .mesh_offset = s_cast<u32>(total_mesh_count),
-                .mesh_count = mesh_group.mesh_count,
-            });
-
-            for(u32 mesh_index = 0; mesh_index < mesh_group.mesh_count; mesh_index++) {
-                const BinaryMesh& binary_mesh = asset->meshes[mesh_group.mesh_offset + mesh_index];
-
-                MeshManifestEntry& mesh_manifest_entry = mesh_manifest_entries[asset_manifest->mesh_manifest_offset + mesh_group.mesh_offset + mesh_index];
-                
-                u32 gpu_mesh_index = s_cast<u32>(total_mesh_count++);
-                dirty_meshes.push_back(s_cast<u32>(gpu_mesh_index));
-                mesh_manifest_entry.gpu_mesh_indices.push_back({
-                    .mesh_group_index = gpu_mesh_group_index,
-                    .mesh_index = gpu_mesh_index,
-                });
-        
-                if(binary_mesh.material_index.has_value()) {
-                    const BinaryMaterial& binary_material = asset->materials[binary_mesh.material_index.value()];
-        
-                    switch (binary_material.alpha_mode) {
-                        case BinaryAlphaMode::Opaque: { 
-                            total_opaque_mesh_count++; 
-                            total_opaque_meshlet_count += binary_mesh.meshlet_count;
-                            break; 
-                        }
-                        case BinaryAlphaMode::Masked: { 
-                            total_masked_mesh_count++; 
-                            total_masked_meshlet_count += binary_mesh.meshlet_count;
-                            break; }
-                        case BinaryAlphaMode::Transparent: { 
-                            total_transparent_mesh_count++; 
-                            total_transparent_meshlet_count += binary_mesh.meshlet_count;
-                            break; 
-                        }
-                        default: { 
-                            fmt::println("something went wrong. so boom! {}", s_cast<u32>(binary_material.alpha_mode)); 
-                            std::exit(-1); 
-                            break; 
-                        }
-                    }
-                } else {
-                    total_opaque_meshlet_count += binary_mesh.meshlet_count;
-                    total_opaque_mesh_count++;
-                }
-            }
-        }
-
         std::vector<Entity> node_index_to_entity = {};
         for(u32 node_index = 0; node_index < s_cast<u32>(asset->nodes.size()); node_index++) {
             node_index_to_entity.push_back(scene->create_entity(std::format("asset {} {} {}", asset_manifest_entries.size(), asset->nodes[node_index].name, info.parent.get_name().data())));
@@ -307,9 +271,9 @@ namespace foundation {
             Entity& parent_entity = node_index_to_entity[node_index];
             if(node.mesh_index.has_value()) {
                 auto* mesh_component = parent_entity.add_component<MeshComponent>();
-                mesh_component->mesh_group_index = total_mesh_group_count - asset->mesh_groups.size() + node.mesh_index.value();
                 mesh_component->mesh_group_manifest_entry_index = asset_manifest->mesh_group_manifest_offset + node.mesh_index.value();
                 parent_entity.add_component<RenderInfo>();
+                parent_entity.get_handle().add<GPUDirty>();
             }
 
             glm::vec3 position = {};
@@ -350,6 +314,7 @@ namespace foundation {
                             .material_manifest_offset = asset_manifest->material_manifest_offset,
                             .manifest_index = mesh_group_manifest.mesh_manifest_indices_offset + mesh_index,
                             // .old_mesh = {},
+                            .mesh_geometry_data = mesh_manifest_entries[asset_manifest->mesh_manifest_offset + mesh_group.mesh_offset + mesh_index].geometry_info.mesh_geometry_data,
                             .file_path = asset_manifest->path.parent_path() / asset->meshes[mesh_group.mesh_offset + mesh_index].file_path
                         },
                         .asset_processor = asset_processor,
@@ -379,7 +344,7 @@ namespace foundation {
         }
     }
 
-    void AssetManager::update_textures() {
+    void AssetManager::stream_textures() {
         if(texture_sizes.empty()) { return; }
         std::fill(texture_sizes.begin(), texture_sizes.end(), 16);
         for(u32 texture_index = 0; texture_index < texture_manifest_entries.size(); texture_index++) {
@@ -417,7 +382,7 @@ namespace foundation {
         }
     }
 
-    void AssetManager::update_meshes() {
+    void AssetManager::stream_meshes() {
         // if(readback_mesh.empty()) { return; }
 
         // for(u32 global_mesh_index = 0; global_mesh_index < mesh_manifest_entries.size(); global_mesh_index++) {
@@ -458,8 +423,9 @@ namespace foundation {
         // }
     }
 
-    auto AssetManager::record_manifest_update(const RecordManifestUpdateInfo& info, GPUScene* gpu_scene) -> daxa::ExecutableCommandList {
+    auto AssetManager::record_manifest_update(const RecordManifestUpdateInfo& info) -> RecordedManifestUpdateInfo {
         PROFILE_SCOPE;
+        RecordedManifestUpdateInfo ret;
         daxa::CommandRecorder cmd_recorder = context->device.create_command_recorder({ .name = "asset manager update" });
 
         reallocate_buffer(context, cmd_recorder, gpu_materials, s_cast<u32>(material_manifest_entries.size() * sizeof(Material)));
@@ -474,92 +440,16 @@ namespace foundation {
         reallocate_buffer(context, cmd_recorder, gpu_readback_mesh_gpu, readback_mesh_size * sizeof(u32));
         reallocate_buffer(context, cmd_recorder, gpu_readback_mesh_cpu, readback_mesh_size * sizeof(u32));
 
-        gpu_scene->update(cmd_recorder, GPUScene::UpdateInfo {
-            .total_mesh_group_count = total_mesh_group_count,
-            .total_mesh_count = total_mesh_count,
-            .total_opaque_mesh_count = total_opaque_mesh_count,
-            .total_masked_mesh_count = total_masked_mesh_count,
-            .total_transparent_mesh_count = total_transparent_mesh_count,
-            .total_meshlet_count = total_meshlet_count,
-            .total_opaque_meshlet_count = total_opaque_meshlet_count,
-            .total_masked_meshlet_count = total_masked_meshlet_count,
-            .total_transparent_meshlet_count = total_transparent_meshlet_count,
-            .dirty_meshes = dirty_meshes,
-            .dirty_mesh_groups = dirty_mesh_groups,
-        });
+        for(const auto& mesh_upload_info : info.uploaded_meshes) {
+            MeshManifestEntry& mesh_manifest_entry = mesh_manifest_entries[mesh_upload_info.manifest_index];
+            mesh_manifest_entry.loading = false;
+            mesh_manifest_entry.geometry_info = MeshManifestEntry::VirtualGeometryRenderInfo { .mesh_geometry_data = mesh_upload_info.mesh_geometry_data, };
 
-        dirty_meshes.clear();
-        dirty_mesh_groups.clear();
-
-        if(!info.uploaded_meshes.empty()) {
-            for(const auto& mesh_upload_info : info.uploaded_meshes) {
-                auto& mesh_manifest = mesh_manifest_entries[mesh_upload_info.manifest_index];
-                mesh_manifest.loading = false;
-                auto& asset_manifest = asset_manifest_entries[mesh_manifest.asset_manifest_index];
-                const BinaryMesh& binary_mesh = asset_manifest.asset->meshes[asset_manifest.asset->mesh_groups[mesh_manifest.asset_local_mesh_index].mesh_offset + mesh_manifest.asset_local_primitive_index];
-
-                mesh_manifest.geometry_info = MeshManifestEntry::VirtualGeometryRenderInfo { .mesh_geometry_data = mesh_upload_info.mesh_geometry_data, };
-                if(!mesh_manifest.geometry_info.has_value() && binary_mesh.material_index.has_value()) {
-                    u32 material_index = mesh_upload_info.material_manifest_offset + binary_mesh.material_index.value();
-                    auto& material_manifest = material_manifest_entries.at(material_index);
-                    mesh_manifest.geometry_info->material_manifest_index = material_manifest.material_manifest_index;
-                }
-            }
-
-            u32 total_gpu_mesh_count = {};
-            for (u32 upload_index = 0; upload_index < info.uploaded_meshes.size(); upload_index++) {
-                const auto& upload = info.uploaded_meshes[upload_index];
-            
-                MeshManifestEntry& mesh_manifest_entry = mesh_manifest_entries[upload.manifest_index];
-                total_gpu_mesh_count += mesh_manifest_entry.gpu_mesh_indices.size();
-            }
-
-            daxa::BufferId staging_buffer = context->device.create_buffer({
-                .size = total_gpu_mesh_count * sizeof(Mesh),
-                .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
-                .name = "mesh manifest upload staging buffer",
+            update_meshes.push_back({
+                .mesh_group_index = asset_manifest_entries[mesh_manifest_entry.asset_manifest_index].mesh_group_manifest_offset + mesh_manifest_entry.asset_local_mesh_index,
+                .mesh_index = mesh_manifest_entry.asset_local_primitive_index,
+                .mesh_geometry_data = mesh_upload_info.mesh_geometry_data
             });
-
-            cmd_recorder.destroy_buffer_deferred(staging_buffer);
-            Mesh* staging_ptr = context->device.buffer_host_address_as<Mesh>(staging_buffer).value();
-
-            u32 gpu_mesh_index_iter = 0;
-            for (u32 upload_index = 0; upload_index < info.uploaded_meshes.size(); upload_index++) {
-                const auto& upload = info.uploaded_meshes[upload_index];
-                MeshManifestEntry& mesh_manifest_entry = mesh_manifest_entries[upload.manifest_index];
-                
-                for(auto [gpu_mesh_group_index, gpu_mesh_index] : mesh_manifest_entry.gpu_mesh_indices) {
-                    Mesh mesh = {
-                        .mesh_group_index = gpu_mesh_group_index,
-                        .manifest_index = upload.mesh_geometry_data.manifest_index,
-                        .material_index = upload.mesh_geometry_data.material_index,
-                        .meshlet_count = upload.mesh_geometry_data.meshlet_count,
-                        .vertex_count = upload.mesh_geometry_data.vertex_count,
-                        .aabb = upload.mesh_geometry_data.aabb,
-                        .meshlets = upload.mesh_geometry_data.meshlets,
-                        .bounding_spheres = upload.mesh_geometry_data.bounding_spheres,
-                        .simplification_errors = upload.mesh_geometry_data.simplification_errors,
-                        .meshlet_aabbs = upload.mesh_geometry_data.meshlet_aabbs,
-                        .micro_indices = upload.mesh_geometry_data.micro_indices,
-                        .indirect_vertices = upload.mesh_geometry_data.indirect_vertices,
-                        .primitive_indices = upload.mesh_geometry_data.primitive_indices,
-                        .vertex_positions = upload.mesh_geometry_data.vertex_positions,
-                        .vertex_normals = upload.mesh_geometry_data.vertex_normals,
-                        .vertex_uvs = upload.mesh_geometry_data.vertex_uvs,
-                    };
-                    std::memcpy(staging_ptr + gpu_mesh_index_iter, &mesh, sizeof(Mesh));
-
-                    cmd_recorder.copy_buffer_to_buffer({
-                        .src_buffer = staging_buffer,
-                        .dst_buffer = gpu_scene->gpu_meshes.get_state().buffers[0],
-                        .src_offset = gpu_mesh_index_iter * sizeof(Mesh),
-                        .dst_offset = gpu_mesh_index * sizeof(Mesh),
-                        .size = sizeof(Mesh),
-                    });
-
-                    gpu_mesh_index_iter++;
-                }
-            }
         }
 
         for(const auto& texture_upload_info : info.uploaded_textures) {
@@ -665,6 +555,12 @@ namespace foundation {
             .dst_access = daxa::AccessConsts::READ_WRITE,
         });
 
-        return cmd_recorder.complete_current_commands();
+        ret.update_mesh_groups = std::move(update_mesh_groups);
+        update_mesh_groups = {};
+        ret.update_meshes = std::move(update_meshes);
+        update_meshes = {};
+        ret.command_list = cmd_recorder.complete_current_commands();
+
+        return ret;
     }
 }

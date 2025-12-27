@@ -1556,7 +1556,7 @@ namespace foundation {
 
         // Mesh mesh = info.old_mesh;
         // mesh.mesh_buffer = {};
-        MeshGeometryData mesh_geometry_data = {};
+        MeshGeometryData mesh_geometry_data = info.mesh_geometry_data;
         daxa::BufferId mesh_buffer = {};
         daxa::BufferId staging_mesh_buffer = {};
 

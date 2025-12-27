@@ -23,6 +23,7 @@ namespace foundation {
 
     struct TransformDirty {};
     struct TransformComponent {};
+    struct GPUDirty {};
 
     struct ModelComponent {
         std::filesystem::path path;

@@ -8,7 +8,7 @@ namespace foundation {
         window{1280, 720, "Foundation"},
         context{this->window},
         scene{std::make_shared<Scene>("scene", &context, &window)},
-        gpu_scene{std::make_unique<GPUScene>(&context)},
+        gpu_scene{std::make_unique<GPUScene>(&context, scene.get())},
         asset_processor{std::make_unique<AssetProcessor>(&context)},
         thread_pool{std::make_unique<ThreadPool>(std::thread::hardware_concurrency() - 1)},
         asset_manager{std::make_unique<AssetManager>(&context, scene.get(), thread_pool.get(), asset_processor.get())},
@@ -175,18 +175,23 @@ namespace foundation {
 
             {
                 PROFILE_ZONE_NAMED(update_textures);
-                asset_manager->update_textures();
+                asset_manager->stream_textures();
                 PROFILE_ZONE_NAMED(update_meshes);
-                asset_manager->update_meshes();
+                asset_manager->stream_meshes();
                 PROFILE_ZONE_NAMED(record_gpu_load_processing_commands);
                 auto commands = asset_processor->record_gpu_load_processing_commands();
                 PROFILE_ZONE_NAMED(record_manifest_update);
-                auto cmd_list = asset_manager->record_manifest_update(AssetManager::RecordManifestUpdateInfo {
+                auto update_info = asset_manager->record_manifest_update(AssetManager::RecordManifestUpdateInfo {
                     .uploaded_meshes = commands.uploaded_meshes,
                     .uploaded_textures = commands.uploaded_textures
-                }, gpu_scene.get());
+                });
 
-                auto cmd_lists = std::array{std::move(commands.upload_commands), std::move(cmd_list)};
+                auto gpu_scene_cmd_list = gpu_scene->update(GPUScene::UpdateInfo {
+                    .update_mesh_groups = update_info.update_mesh_groups,
+                    .update_meshes = update_info.update_meshes,
+                });
+
+                auto cmd_lists = std::array{std::move(commands.upload_commands), std::move(update_info.command_list), std::move(gpu_scene_cmd_list)};
                 context.device.submit_commands(daxa::CommandSubmitInfo {
                     .command_lists = cmd_lists
                 });
@@ -248,17 +253,17 @@ namespace foundation {
         }
 
         ImGui::Begin("Asset Manager Statistics");
-        ImGui::Text("Unique Mesh Count: %u", s_cast<u32>(asset_manager->total_unique_mesh_count));
-        ImGui::Text("Opaque Mesh Count: %u", s_cast<u32>(asset_manager->total_opaque_mesh_count));
-        ImGui::Text("Masked Mesh Count: %u", s_cast<u32>(asset_manager->total_masked_mesh_count));
-        ImGui::Text("Transparent Mesh Count: %zu", asset_manager->total_transparent_mesh_count);
-        ImGui::Text("Mesh Count: %u", s_cast<u32>(asset_manager->total_mesh_count));
-        ImGui::Text("Meshlet Count: %zu", asset_manager->total_meshlet_count);
-        ImGui::Text("Opaque Meshlet Count: %zu", asset_manager->total_opaque_meshlet_count);
-        ImGui::Text("Masked Meshlet Count: %zu", asset_manager->total_masked_meshlet_count);
-        ImGui::Text("Transparent Meshlet Count: %zu", asset_manager->total_transparent_meshlet_count);
-        ImGui::Text("Triangle Count: %zu", asset_manager->total_triangle_count);
-        ImGui::Text("Vertex Count: %zu", asset_manager->total_vertex_count);
+        // ImGui::Text("Unique Mesh Count: %u", s_cast<u32>(asset_manager->total_unique_mesh_count));
+        // ImGui::Text("Opaque Mesh Count: %u", s_cast<u32>(asset_manager->total_opaque_mesh_count));
+        // ImGui::Text("Masked Mesh Count: %u", s_cast<u32>(asset_manager->total_masked_mesh_count));
+        // ImGui::Text("Transparent Mesh Count: %zu", asset_manager->total_transparent_mesh_count);
+        // ImGui::Text("Mesh Count: %u", s_cast<u32>(asset_manager->total_mesh_count));
+        // ImGui::Text("Meshlet Count: %zu", asset_manager->total_meshlet_count);
+        // ImGui::Text("Opaque Meshlet Count: %zu", asset_manager->total_opaque_meshlet_count);
+        // ImGui::Text("Masked Meshlet Count: %zu", asset_manager->total_masked_meshlet_count);
+        // ImGui::Text("Transparent Meshlet Count: %zu", asset_manager->total_transparent_meshlet_count);
+        // ImGui::Text("Triangle Count: %zu", asset_manager->total_triangle_count);
+        // ImGui::Text("Vertex Count: %zu", asset_manager->total_vertex_count);
         ImGui::End();
 
         scene_hierarchy_panel.draw();

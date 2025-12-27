@@ -26,11 +26,6 @@ namespace foundation {
         BinaryModelHeader header = {};
     };
 
-    struct GPUMeshGroupToMeshMapping {
-        u32 mesh_group_index = {};
-        u32 mesh_index = {};
-    };
-
     struct MeshManifestEntry {
         struct VirtualGeometryRenderInfo {
             MeshGeometryData mesh_geometry_data = {};
@@ -42,7 +37,7 @@ namespace foundation {
         u32 asset_local_primitive_index = {};
         u8 unload_delay = {};
         bool loading = true;
-        std::optional<VirtualGeometryRenderInfo> geometry_info = {};
+        VirtualGeometryRenderInfo geometry_info = {};
         std::vector<GPUMeshGroupToMeshMapping> gpu_mesh_indices = {};
     };
 
@@ -106,9 +101,15 @@ namespace foundation {
             std::span<const TextureUploadInfo> uploaded_textures = {};
         };
 
-        void update_textures();
-        void update_meshes();
-        auto record_manifest_update(const RecordManifestUpdateInfo& info, GPUScene* gpu_scene) -> daxa::ExecutableCommandList;
+        struct RecordedManifestUpdateInfo {
+            daxa::ExecutableCommandList command_list = {};
+            std::vector<UpdateMeshGroup> update_mesh_groups = {};
+            std::vector<UpdateMesh> update_meshes = {};
+        };
+
+        void stream_textures();
+        void stream_meshes();
+        auto record_manifest_update(const RecordManifestUpdateInfo& info) -> RecordedManifestUpdateInfo;
 
         Context* context;
         Scene* scene;
@@ -121,9 +122,9 @@ namespace foundation {
         std::vector<MeshManifestEntry> mesh_manifest_entries = {};
         std::vector<MeshGroupManifestEntry> mesh_group_manifest_entries = {};
         
-        std::vector<u32> dirty_meshes = {};
-        std::vector<MeshGroupToMeshesMapping> dirty_mesh_groups = {};
         std::vector<u32> dirty_materials = {};
+        std::vector<UpdateMeshGroup> update_mesh_groups = {};
+        std::vector<UpdateMesh> update_meshes = {};
 
         std::vector<u32> readback_material = {};
         std::vector<u32> texture_sizes = {};
@@ -134,21 +135,5 @@ namespace foundation {
         daxa::TaskBuffer gpu_readback_material_cpu = {};
         daxa::TaskBuffer gpu_readback_mesh_gpu = {};
         daxa::TaskBuffer gpu_readback_mesh_cpu = {};
-
-        usize total_mesh_group_count = {};
-
-        usize total_mesh_count = {};
-        usize total_opaque_mesh_count = {};
-        usize total_masked_mesh_count = {};
-        usize total_transparent_mesh_count = {};
-
-        usize total_meshlet_count = {};
-        usize total_opaque_meshlet_count = {};
-        usize total_masked_meshlet_count = {};
-        usize total_transparent_meshlet_count = {};
-        
-        usize total_triangle_count = {};
-        usize total_vertex_count = {};
-        usize total_unique_mesh_count = {};
     };
 }

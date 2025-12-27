@@ -64,6 +64,7 @@ namespace foundation {
         u32 material_manifest_offset = {};
         u32 manifest_index = {};
         // Mesh old_mesh = {};
+        MeshGeometryData mesh_geometry_data = {};
         std::filesystem::path file_path = {};
     };
 
