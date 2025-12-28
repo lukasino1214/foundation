@@ -44,7 +44,7 @@
       "deps/Daxa",
       "deps/Daxa/cmake/vcpkg-overlay-ports/glfw3",
       "deps/Daxa/cmake/vcpkg-overlay-ports/fsr2",
-      "deps/Daxa/cmake/vcpkg-overlay-ports/shader-slang",
+      "cmake/vcpkg-overlay-ports/shader-slang",
       "cmake/vcpkg-overlay-ports/meshoptimizer",
       "cmake/vcpkg-overlay-ports/sol2",
       "cmake/vcpkg-overlay-ports/fastgltf",
