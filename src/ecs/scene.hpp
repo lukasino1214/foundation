@@ -28,7 +28,7 @@ namespace foundation {
         void destroy_entity(Entity& entity);
 
         void update(f32 delta_time);
-        auto update_gpu(const daxa::TaskInterface& task_interface) -> std::vector<flecs::entity>;
+        void update_gpu(const daxa::TaskInterface& task_interface);
 
         std::string name;
         std::unique_ptr<flecs::world> world;

@@ -113,7 +113,7 @@ namespace foundation {
         std::vector<u32> dirty_meshes = {};
         std::vector<MeshGroupToMeshesMapping> dirty_mesh_groups = {};
 
-        scene->world->each([&](flecs::entity e, MeshComponent& mesh_component, GPUDirty) {
+        scene->world->each([&](flecs::entity e, MeshComponent& mesh_component, GPUMeshDirty) {
             MeshGroupData& mesh_group = mesh_group_data[mesh_component.mesh_group_manifest_entry_index.value()];
             mesh_group.entites.push_back(e);
             
@@ -173,7 +173,7 @@ namespace foundation {
         });
 
         for(flecs::entity e : deletion_queue) {
-            e.remove<GPUDirty>();
+            e.remove<GPUMeshDirty>();
         }
 
         reallocate_buffer(context, cmd_recorder, gpu_meshes, s_cast<u32>(total_mesh_count * sizeof(Mesh)));
@@ -416,6 +416,42 @@ namespace foundation {
                 }
             }
         }
+
+        std::vector<flecs::entity> moved_entities = {};
+        scene->world->each([&](flecs::entity e, MeshComponent& mesh_component, GPUTransformDirty) {
+            moved_entities.push_back(e);
+        });
+
+        if(!moved_entities.empty()) {
+            daxa::BufferId staging_buffer = context->device.create_buffer({
+                .size = moved_entities.size() * sizeof(f32mat4x3),
+                .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
+                .name = "transform upload staging buffer",
+            });
+
+            cmd_recorder.destroy_buffer_deferred(staging_buffer);
+            f32mat4x3* staging_ptr = context->device.buffer_host_address_as<f32mat4x3>(staging_buffer).value();
+
+            for(u32 i = 0; i < moved_entities.size(); i++) {
+                flecs::entity e = moved_entities[i];
+
+                staging_ptr[i] = e.get<GlobalMatrix>()->matrix;
+                cmd_recorder.copy_buffer_to_buffer({
+                    .src_buffer = staging_buffer,
+                    .dst_buffer = gpu_transforms.get_state().buffers[0],
+                    .src_offset = i * sizeof(f32mat4x3),
+                    .dst_offset = e.get<MeshComponent>()->mesh_group_index.value() * sizeof(f32mat4x3),
+                    .size = sizeof(f32mat4x3),
+                });
+
+                e.remove<GPUTransformDirty>();
+            }
+        } else {
+            for(flecs::entity e : moved_entities) {
+                e.remove<GPUTransformDirty>();
+            }
+        }
+
 
         return cmd_recorder.complete_current_commands();
     }

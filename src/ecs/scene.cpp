@@ -42,9 +42,32 @@ namespace foundation {
 
     void Scene::update(f32 /* delta_time */) {
         PROFILE_SCOPE_NAMED(scene_update);
+
+        std::vector<flecs::entity> queue = {};
+        query_transforms.each([&](flecs::entity entity, GlobalPosition& global_position, GlobalRotation& global_rotation, GlobalScale& global_scale, GlobalMatrix& global_matrix, LocalPosition& local_position, LocalRotation& local_rotation, LocalScale& local_scale, LocalMatrix& local_matrix, GlobalMatrix* parent_global_matrix, TransformDirty) {
+            entity.children([&](flecs::entity c){
+                c.add<TransformDirty>();
+            });
+
+            local_matrix.matrix = glm::translate(glm::mat4(1.0f), local_position.position) 
+                * glm::toMat4(glm::quat(glm::radians(local_rotation.rotation))) 
+                * glm::scale(glm::mat4(1.0f), local_scale.scale);
+
+            global_matrix.matrix = ((parent_global_matrix != nullptr) ? parent_global_matrix->matrix : glm::mat4{1.0f}) * local_matrix.matrix;
+            math::decompose_transform(global_matrix.matrix, global_position.position, global_rotation.rotation, global_scale.scale);
+
+            queue.push_back(entity);
+        });
+
+        for(auto& entity : queue) {
+            if(entity.has<MeshComponent>()) {
+                entity.add<GPUTransformDirty>();
+            }
+            entity.remove<TransformDirty>();
+        }
     }
 
-    auto Scene::update_gpu(const daxa::TaskInterface& task_interface) -> std::vector<flecs::entity> {
+    void Scene::update_gpu(const daxa::TaskInterface& task_interface) {
         PROFILE_SCOPE_NAMED(scene_update_gpu);
 
         gpu_entities_data_pool.update_buffer(task_interface);
@@ -77,31 +100,5 @@ namespace foundation {
                 });
             }
         }
-
-        std::vector<flecs::entity> queue = {};
-        std::vector<flecs::entity> meshes = {};
-        query_transforms.each([&](flecs::entity entity, GlobalPosition& global_position, GlobalRotation& global_rotation, GlobalScale& global_scale, GlobalMatrix& global_matrix, LocalPosition& local_position, LocalRotation& local_rotation, LocalScale& local_scale, LocalMatrix& local_matrix, GlobalMatrix* parent_global_matrix, TransformDirty) {
-            entity.children([&](flecs::entity c){
-                c.add<TransformDirty>();
-            });
-
-            local_matrix.matrix = glm::translate(glm::mat4(1.0f), local_position.position) 
-                * glm::toMat4(glm::quat(glm::radians(local_rotation.rotation))) 
-                * glm::scale(glm::mat4(1.0f), local_scale.scale);
-
-            global_matrix.matrix = ((parent_global_matrix != nullptr) ? parent_global_matrix->matrix : glm::mat4{1.0f}) * local_matrix.matrix;
-            math::decompose_transform(global_matrix.matrix, global_position.position, global_rotation.rotation, global_scale.scale);
-
-            queue.push_back(entity);
-            if(entity.has<MeshComponent>()) {
-                meshes.push_back(entity);
-            }
-        });
-
-        for(auto& entity : queue) {
-            entity.remove<TransformDirty>();
-        }
-
-        return meshes;
     }
 }

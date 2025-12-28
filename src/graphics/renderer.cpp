@@ -95,6 +95,7 @@ namespace foundation {
             normal_detail_half_res_image,
             depth_half_res_image,
         };
+
         frame_buffer_images = {
             {
                 {
@@ -859,24 +860,7 @@ namespace foundation {
             .writes(shader_globals_buffer)
             .executes([&](daxa::TaskInterface const &ti) {
                 context->gpu_metrics[MiscellaneousTasks::UPDATE_SCENE]->start(ti.recorder);
-                auto entities = scene->update_gpu(ti);
-
-                for(auto entity : entities) {
-                    auto alloc_optional = ti.allocator->allocate_fill(f32mat4x3{entity.get<GlobalMatrix>()->matrix});
-                    if(!alloc_optional.has_value()) {
-                        throw std::runtime_error("what");
-                    }
-
-                    auto alloc = alloc_optional.value();
-                    ti.recorder.copy_buffer_to_buffer({
-                        .src_buffer = ti.allocator->buffer(),
-                        .dst_buffer = gpu_scene->gpu_transforms.get_state().buffers[0],
-                        .src_offset = alloc.buffer_offset,
-                        .dst_offset = entity.get<MeshComponent>()->mesh_group_index.value() * sizeof(f32mat4x3),
-                        .size = sizeof(f32mat4x3),
-                    });
-                }
-
+                scene->update_gpu(ti);
                 context->gpu_metrics[MiscellaneousTasks::UPDATE_SCENE]->end(ti.recorder);
         }));
 

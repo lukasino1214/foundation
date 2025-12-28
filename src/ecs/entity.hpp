@@ -45,6 +45,10 @@ public:
                 return nullptr;
             }
 
+            if constexpr(std::is_same_v<T, MeshComponent>) {
+                handle.add<GPUMeshDirty>();
+            }
+
             handle.set<T>(T{});
             T* component =  handle.get_mut<T>();
 
