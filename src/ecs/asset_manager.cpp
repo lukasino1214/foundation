@@ -85,6 +85,10 @@ namespace foundation {
             if(context->device.is_buffer_id_valid(mesh_manifest.geometry_info.mesh_geometry_data.mesh_buffer)) {
                 context->device.destroy_buffer(mesh_manifest.geometry_info.mesh_geometry_data.mesh_buffer);
             }
+
+            if(context->device.is_blas_id_valid(std::bit_cast<daxa::BlasId>(mesh_manifest.geometry_info.mesh_geometry_data.blas))) {
+                context->device.destroy_blas(std::bit_cast<daxa::BlasId>(mesh_manifest.geometry_info.mesh_geometry_data.blas));
+            }
         }
 
         for(auto& texture_manifest : texture_manifest_entries) {

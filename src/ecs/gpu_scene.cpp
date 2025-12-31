@@ -75,6 +75,8 @@ namespace foundation {
             .allocate_info = daxa::MemoryFlagBits::NONE,
             .name = "meshlets data merged transparent"
         });
+
+        gpu_tlas = daxa::TaskTlas{{ .name = "tlas" }};
     }
 
     GPUScene::~GPUScene() {
@@ -92,6 +94,8 @@ namespace foundation {
         context->device.destroy_buffer(gpu_meshlets_data_merged_opaque.get_state().buffers[0]);
         context->device.destroy_buffer(gpu_meshlets_data_merged_masked.get_state().buffers[0]);
         context->device.destroy_buffer(gpu_meshlets_data_merged_transparent.get_state().buffers[0]);
+
+        context->device.destroy_tlas(gpu_tlas.get_state().tlas[0]);
     }
 
     auto GPUScene::update(const UpdateInfo& info) -> daxa::ExecutableCommandList {
@@ -452,6 +456,87 @@ namespace foundation {
             }
         }
 
+        cmd_recorder.pipeline_barrier(daxa::MemoryBarrierInfo {
+            .src_access = daxa::AccessConsts::TRANSFER_WRITE,
+            .dst_access = daxa::AccessConsts::READ,
+        });
+
+        if(!info.update_meshes.empty() || !info.update_mesh_groups.empty() || !moved_entities.empty()) {
+            std::vector<daxa_BlasInstanceData> blas_instances = {};
+            for(const auto& [_, mesh_group] : mesh_group_data) {
+                for(flecs::entity entity : mesh_group.entites) {
+                    for(const auto& mesh : mesh_group.meshes) {
+                        if(mesh.mesh_geometry_data.mesh_buffer.is_empty()) { continue; }
+                        glm::mat3x4 new_matrix = glm::transpose(entity.get<GlobalMatrix>()->matrix);
+                        blas_instances.push_back(daxa_BlasInstanceData {
+                            .transform = *r_cast<daxa_f32mat3x4*>(&new_matrix),
+                            .instance_custom_index = 0,
+                            .mask = 0xFF,
+                            .instance_shader_binding_table_record_offset = 0,
+                            .flags = DAXA_GEOMETRY_INSTANCE_FORCE_OPAQUE,
+                            .blas_device_address = context->device.blas_device_address(std::bit_cast<daxa::BlasId>(mesh.mesh_geometry_data.blas)).value(),
+                        });
+                    }
+                }
+            }
+
+            daxa::BufferId staging_blas_instances_buffer = context->device.create_buffer({
+                .size = sizeof(daxa_BlasInstanceData) * blas_instances.size(),
+                .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
+                .name = "staging_blas_instances_buffer",
+            });
+            std::memcpy(context->device.buffer_host_address(staging_blas_instances_buffer).value(), blas_instances.data(), sizeof(daxa_BlasInstanceData) * blas_instances.size());
+
+            daxa::BufferId blas_instances_buffer = context->device.create_buffer({
+                .size = sizeof(daxa_BlasInstanceData) * blas_instances.size(),
+                .name = "blas_instances_buffer",
+            });
+            cmd_recorder.destroy_buffer_deferred(blas_instances_buffer);
+
+            cmd_recorder.copy_buffer_to_buffer(daxa::BufferCopyInfo {
+                .src_buffer = staging_blas_instances_buffer,
+                .dst_buffer = blas_instances_buffer,
+                .size = sizeof(daxa_BlasInstanceData) * blas_instances.size()
+            });
+            cmd_recorder.destroy_buffer_deferred(staging_blas_instances_buffer);
+
+            const daxa_u32 ACCELERATION_STRUCTURE_BUILD_OFFSET_ALIGMENT = 256;
+            auto round_up_to_multiple = [](daxa_u32 value, daxa_u32 multiple_of) -> daxa_u32 {
+                return ((value + multiple_of - 1) / multiple_of) * multiple_of;
+            };
+
+            auto tlas_blas_instances_infos = std::array{daxa::TlasInstanceInfo{
+                .data = context->device.buffer_device_address(blas_instances_buffer).value(),
+                .count = s_cast<u32>(blas_instances.size()),
+                .is_data_array_of_pointers = false,
+                .flags = daxa::GeometryFlagBits::NONE,
+            }};
+
+            auto tlas_build_info = daxa::TlasBuildInfo {
+                .flags = daxa::AccelerationStructureBuildFlagBits::PREFER_FAST_TRACE,
+                .instances = tlas_blas_instances_infos,
+            };
+
+            const daxa::AccelerationStructureBuildSizesInfo tlas_build_sizes = context->device.tlas_build_sizes(tlas_build_info);
+            if(!gpu_tlas.get_state().tlas.empty()) { context->device.destroy_tlas(gpu_tlas.get_state().tlas[0]); }
+            daxa::TlasId tlas = context->device.create_tlas({
+                .size = round_up_to_multiple(s_cast<u32>(tlas_build_sizes.acceleration_structure_size), ACCELERATION_STRUCTURE_BUILD_OFFSET_ALIGMENT),
+                .name = "tlas"
+            });
+            gpu_tlas.set_tlas({ .tlas = std::span{&tlas, 1}});
+
+            daxa::BufferId tlas_scratch_buffer = context->device.create_buffer({
+                .size = round_up_to_multiple(s_cast<u32>(tlas_build_sizes.build_scratch_size), ACCELERATION_STRUCTURE_BUILD_OFFSET_ALIGMENT),
+            });
+            cmd_recorder.destroy_buffer_deferred(tlas_scratch_buffer);
+
+            tlas_build_info.dst_tlas = tlas;
+            tlas_build_info.scratch_data = context->device.buffer_device_address(tlas_scratch_buffer).value();
+        
+            cmd_recorder.build_acceleration_structures({
+                .tlas_build_infos = std::array{tlas_build_info},
+            });
+        }
 
         return cmd_recorder.complete_current_commands();
     }

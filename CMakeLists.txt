@@ -181,11 +181,11 @@ add_dependencies(copy_compile_commands ${PROJECT_NAME})
 install(FILES "${_NVTT_SL}" CONFIGURATIONS Debug DESTINATION "bin_${ARCH}_debug")
 install(FILES "${_NVTT_SL}" CONFIGURATIONS Release DESTINATION "bin_${ARCH}")
 
-find_program(SLANG_DLL slang.dll)
-find_program(SLANG_GLSLANG_DLL slang-glslang.dll)
+# find_program(SLANG_DLL slang.dll)
+# find_program(SLANG_GLSLANG_DLL slang-glslang.dll)
 # find_program(SLANG_COMPILER_DLL slang-compiler.dll)
-add_custom_command(TARGET foundation POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy ${SLANG_DLL} $<TARGET_FILE_DIR:foundation>
-    COMMAND ${CMAKE_COMMAND} -E copy ${SLANG_GLSLANG_DLL} $<TARGET_FILE_DIR:foundation>
-    # COMMAND ${CMAKE_COMMAND} -E copy ${SLANG_COMPILER_DLL} $<TARGET_FILE_DIR:foundation>
-)
+# add_custom_command(TARGET foundation POST_BUILD
+#     COMMAND ${CMAKE_COMMAND} -E copy ${SLANG_DLL} $<TARGET_FILE_DIR:foundation>
+#     COMMAND ${CMAKE_COMMAND} -E copy ${SLANG_GLSLANG_DLL} $<TARGET_FILE_DIR:foundation>
+#     COMMAND ${CMAKE_COMMAND} -E copy ${SLANG_COMPILER_DLL} $<TARGET_FILE_DIR:foundation>
+# )

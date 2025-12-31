@@ -23,6 +23,7 @@
 #include <graphics/post_processing/tasks/generate_ssao.inl>
 #include <graphics/post_processing/tasks/calculate_frustums.inl>
 #include <graphics/post_processing/tasks/cull_lights.inl>
+#include <graphics/virtual_geometry/tasks/ray_tracing.inl>
 #include <ImGuizmo.h>
 
 namespace foundation {
@@ -442,6 +443,8 @@ namespace foundation {
         context->gpu_metrics[CalculateFrustumsTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
         context->gpu_metrics[CullLightsTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
 
+        context->gpu_metrics[RayTraceTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
+
         rebuild_task_graph();
 
         context->shader_globals.samplers = {
@@ -551,6 +554,12 @@ namespace foundation {
                     {CullLightsTask::name(), "cull lights"},
                 }
             },
+            PerfomanceCategory {
+                .name = "ray trace",
+                .counters = {
+                    {RayTraceTask::name(), "ray trace"},
+                }
+            },
         };
 
         performace_metrics.insert(performace_metrics.end(), virtual_geometry_performance_metrics.begin(), virtual_geometry_performance_metrics.end());
@@ -577,6 +586,10 @@ namespace foundation {
             for (auto buffer : task_buffer.get_state().buffers) {
                 context->device.destroy_buffer(buffer);
             }
+        }
+
+        for(auto& [_, ray_tracing_pipeline_info] : context->ray_tracing_pipelines) {
+            context->device.destroy_buffer(ray_tracing_pipeline_info->sbt_buffer_id);
         }
 
         ImGui_ImplGlfw_Shutdown();
@@ -760,6 +773,25 @@ namespace foundation {
             
             this->context->compute_pipelines[name] = compilation_result.value();
         }
+
+        std::vector<std::tuple<std::string_view, daxa::RayTracingPipelineCompileInfo2>> ray_traces = {
+            {RayTraceTask::name(), RayTraceTask::pipeline_config_info()},
+        };
+
+        for (auto [name, info] : ray_traces) {
+            auto compilation_result = this->context->pipeline_manager.add_ray_tracing_pipeline2(info);
+            if(compilation_result.is_ok()) {
+                fmt::println("SUCCESSFULLY compiled pipeline {}", name);
+            } else {
+                fmt::println("FAILED to compile pipeline {} with message \n {}", name, compilation_result.message());
+            }
+
+            context->ray_tracing_pipelines[name] = std::make_shared<RayTracingPipelineInfo>();
+            context->ray_tracing_pipelines[name]->pipeline = compilation_result.value();
+            auto sbt_info = context->ray_tracing_pipelines[name]->pipeline->create_default_sbt();
+            context->ray_tracing_pipelines[name]->sbt = sbt_info.table;
+            context->ray_tracing_pipelines[name]->sbt_buffer_id = sbt_info.buffer;
+        }
     }
 
     void Renderer::rebuild_task_graph() {
@@ -816,6 +848,8 @@ namespace foundation {
         render_task_graph.use_persistent_buffer(gpu_scene->gpu_opaque_prefix_sum_work_expansion_mesh);
         render_task_graph.use_persistent_buffer(gpu_scene->gpu_masked_prefix_sum_work_expansion_mesh);
         render_task_graph.use_persistent_buffer(gpu_scene->gpu_transparent_prefix_sum_work_expansion_mesh);
+
+        render_task_graph.use_persistent_tlas(gpu_scene->gpu_tlas);
 
         render_task_graph.use_persistent_buffer(sun_light_buffer);
         render_task_graph.use_persistent_buffer(point_light_buffer);
@@ -1414,6 +1448,15 @@ namespace foundation {
             },
             .context = context,
         });
+
+        // render_task_graph.add_task(RayTraceTask {
+        //     .views = RayTraceTask::Views {
+        //         .u_globals = context->shader_globals_buffer.view(),
+        //         .tlas = gpu_scene->gpu_tlas.view(),
+        //         .u_image = render_image.view(),
+        //     },
+        //     .context = context,
+        // });
 
         // render_task_graph.add_task(DebugImageTask {
         //     .views = DebugImageTask::Views {

@@ -10,7 +10,7 @@ if (VCPKG_TARGET_IS_WINDOWS)
 			ARCHIVE
 			URLS "https://github.com/shader-slang/slang/releases/download/v${VERSION}/slang-${VERSION}-windows-x86_64.zip"
 			FILENAME "slang-${VERSION}-win64.zip"
-			SHA512 e7054076c65505e97a9d7131fed69790bf1cc193e1036de3727ef94f23ded22a6ffd4dd78be285d96e196b6eb238e91e01280d74e045cb83798f0d5af1a516fb
+			SHA512 f0db79c5c2b63223cc6ab5a9c67761ece0b6e7becd9200fd53f0659e499a29bec555acd29223adc066406c03ffe3cb7373a08efcdf94beb16bf3d36ee1426862
 		)
 		set(SLANG_BIN_PATH "bin")
 		set(SLANG_LIB_PATH "lib")
@@ -75,8 +75,8 @@ vcpkg_extract_source_archive(
 	NO_REMOVE_ONE_LEVEL
 )
 
-# file(INSTALL "${BINDIST_PATH}/${SLANG_BIN_PATH}/${SLANG_LIB_PREFIX}slang-compiler${SLANG_DYNLIB_SUFFIX}" DESTINATION "${CURRENT_PACKAGES_DIR}/bin")
-# file(INSTALL "${BINDIST_PATH}/${SLANG_BIN_PATH}/${SLANG_LIB_PREFIX}slang-compiler${SLANG_DYNLIB_SUFFIX}" DESTINATION "${CURRENT_PACKAGES_DIR}/debug/bin")
+file(INSTALL "${BINDIST_PATH}/${SLANG_BIN_PATH}/${SLANG_LIB_PREFIX}slang-compiler${SLANG_DYNLIB_SUFFIX}" DESTINATION "${CURRENT_PACKAGES_DIR}/bin")
+file(INSTALL "${BINDIST_PATH}/${SLANG_BIN_PATH}/${SLANG_LIB_PREFIX}slang-compiler${SLANG_DYNLIB_SUFFIX}" DESTINATION "${CURRENT_PACKAGES_DIR}/debug/bin")
 file(INSTALL "${BINDIST_PATH}/${SLANG_BIN_PATH}/${SLANG_LIB_PREFIX}slang${SLANG_DYNLIB_SUFFIX}" DESTINATION "${CURRENT_PACKAGES_DIR}/bin")
 file(INSTALL "${BINDIST_PATH}/${SLANG_BIN_PATH}/${SLANG_LIB_PREFIX}slang${SLANG_DYNLIB_SUFFIX}" DESTINATION "${CURRENT_PACKAGES_DIR}/debug/bin")
 file(INSTALL "${BINDIST_PATH}/${SLANG_BIN_PATH}/${SLANG_LIB_PREFIX}slang-llvm${SLANG_DYNLIB_SUFFIX}" DESTINATION "${CURRENT_PACKAGES_DIR}/bin")
@@ -146,13 +146,13 @@ set_target_properties(slang::glslang PROPERTIES
 )
 add_dependencies(slang::slang slang::glslang)
 
-# add_library(slang::compiler MODULE IMPORTED)
-# set_target_properties(slang::compiler PROPERTIES
-#     IMPORTED_LOCATION_RELEASE "${_IMPORT_PREFIX}/bin/slang-compiler${SLANG_DYNLIB_SUFFIX}"
-#     IMPORTED_LOCATION_DEBUG "${_IMPORT_PREFIX}/debug/bin/slang-compiler${SLANG_DYNLIB_SUFFIX}"
-#     LINKER_LANGUAGE CXX
-# )
-# add_dependencies(slang::slang slang::compiler)
+add_library(slang::compiler MODULE IMPORTED)
+set_target_properties(slang::compiler PROPERTIES
+    IMPORTED_LOCATION_RELEASE "${_IMPORT_PREFIX}/bin/slang-compiler${SLANG_DYNLIB_SUFFIX}"
+    IMPORTED_LOCATION_DEBUG "${_IMPORT_PREFIX}/debug/bin/slang-compiler${SLANG_DYNLIB_SUFFIX}"
+    LINKER_LANGUAGE CXX
+)
+add_dependencies(slang::slang slang::compiler)
 
 # Cleanup temporary variables.
 set(_IMPORT_PREFIX)
@@ -190,7 +190,7 @@ vcpkg_from_github(
 	OUT_SOURCE_PATH SOURCE_PATH
 	REPO shader-slang/slang
 	REF v${VERSION}
-	SHA512 5c29bb9e6063ddccb48d76321f9d7ccc7fb70e05b59d9c5e97fb47cb3748c2ed564cd15d8b1b509056640f9effc51b3920d0a1780954470a1cc374a0b40b8a7c
+	SHA512 8d31d747ccd58f1d37ab357e32871db41e7b4c062e952e575f3a69979b11c69b12593ee102086af60adee0952302d3de505849ff723e8ec62f526396f6893300
 	HEAD_REF master
 )
 

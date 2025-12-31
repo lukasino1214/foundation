@@ -46,6 +46,10 @@ constexpr auto min(const T& a, const T& b) -> T {
 
 #elif DAXA_LANGUAGE == DAXA_LANGUAGE_SLANG
 
+struct daxa_BlasId {
+    uint64_t value;
+};
+
 typedef daxa_f32mat4x4 f32mat4x4;
 typedef daxa_f32mat4x3 f32mat4x3;
 typedef daxa_f32mat3x4 f32mat3x4;
@@ -153,6 +157,10 @@ func AtomicAddU64(__ref uint64_t dest, uint64_t value) -> uint64_t {
 }
 
 #elif DAXA_LANGUAGE == DAXA_LANGUAGE_GLSL
+
+struct daxa_BlasId {
+    uint64_t value;
+};
 
 #define f32mat4x4 daxa_f32mat4x4
 #define f32mat4x3 daxa_f32mat4x3

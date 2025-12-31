@@ -38,7 +38,6 @@ namespace foundation {
         u8 unload_delay = {};
         bool loading = true;
         VirtualGeometryRenderInfo geometry_info = {};
-        std::vector<GPUMeshGroupToMeshMapping> gpu_mesh_indices = {};
     };
 
     struct MeshGroupManifestEntry {

@@ -1,4 +1,5 @@
 #pragma once
+#define DAXA_RAY_TRACING 1
 #include <daxa/daxa.inl>
 #include "glue.inl"
 
@@ -193,11 +194,13 @@ DAXA_DECL_BUFFER_PTR(MeshletSimplificationError)
 
 struct MeshGeometryData {
     daxa_BufferId mesh_buffer;
+    daxa_BlasId blas;
     u32 material_type;
     u32 manifest_index;
     u32 material_index;
     u32 meshlet_count;
     u32 vertex_count;
+    u32 index_count;
     AABB aabb;
     daxa_BufferPtr(Meshlet) meshlets;
     daxa_BufferPtr(MeshletBoundingSpheres) bounding_spheres;
@@ -209,6 +212,7 @@ struct MeshGeometryData {
     daxa_BufferPtr(f32vec3) vertex_positions;
     daxa_BufferPtr(u32) vertex_normals;
     daxa_BufferPtr(u32) vertex_uvs;
+    daxa_BufferPtr(u32) indices;
 };
 
 DAXA_DECL_BUFFER_PTR_ALIGN(MeshGeometryData, 8)

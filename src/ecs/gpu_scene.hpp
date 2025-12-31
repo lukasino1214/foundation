@@ -81,5 +81,7 @@ namespace foundation {
         daxa::TaskBuffer gpu_meshlets_data_merged_opaque = {};
         daxa::TaskBuffer gpu_meshlets_data_merged_masked = {};
         daxa::TaskBuffer gpu_meshlets_data_merged_transparent = {};
+
+        daxa::TaskTlas gpu_tlas = {};
     };
 }

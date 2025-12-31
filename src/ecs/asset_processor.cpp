@@ -34,7 +34,7 @@ static constexpr i32 TARGET_MESHLETS_PER_GROUP = 8;
 static constexpr f32 SIMPLIFICATION_FAILURE_PERCENTAGE = 0.95f;
 
 namespace foundation {
-    AssetProcessor::AssetProcessor(Context* _context) : context{_context}, mesh_upload_mutex{std::make_unique<std::mutex>()} { PROFILE_SCOPE; }
+    AssetProcessor::AssetProcessor(Context* _context) : context{_context} { PROFILE_SCOPE; }
     AssetProcessor::~AssetProcessor() = default;
 
     template <typename ElemT, bool IS_INDEX_BUFFER>
@@ -1540,6 +1540,7 @@ namespace foundation {
             .positions = vert_positions,
             .normals = packed_normals,
             .uvs = packed_uvs,
+            .indices = indices,
             .meshlets = meshlets,
             .bounding_spheres = bounding_spheres,
             .simplification_errors = simplification_errors,
@@ -1593,6 +1594,7 @@ namespace foundation {
                 total_mesh_buffer_size += processed_info.positions.size() * sizeof(f32vec3);
                 total_mesh_buffer_size += processed_info.normals.size() * sizeof(u32);
                 total_mesh_buffer_size += processed_info.uvs.size() * sizeof(u32);
+                total_mesh_buffer_size += processed_info.indices.size() * sizeof(u32);
                 total_mesh_buffer_size += processed_info.bounding_spheres.size() * sizeof(MeshletBoundingSpheres);
                 total_mesh_buffer_size += processed_info.aabbs.size() * sizeof(AABB);
 
@@ -1634,6 +1636,7 @@ namespace foundation {
                 memcpy_data(mesh_geometry_data.vertex_positions, processed_info.positions);
                 memcpy_data(mesh_geometry_data.vertex_normals, processed_info.normals);
                 memcpy_data(mesh_geometry_data.vertex_uvs, processed_info.uvs);
+                memcpy_data(mesh_geometry_data.indices, processed_info.indices);
                 
                 mesh_geometry_data.mesh_buffer = mesh_buffer;
                 mesh_geometry_data.manifest_index = info.manifest_index;
@@ -1647,6 +1650,7 @@ namespace foundation {
 
                 mesh_geometry_data.meshlet_count = s_cast<u32>(processed_info.meshlets.size());
                 mesh_geometry_data.vertex_count = s_cast<u32>(processed_info.positions.size());
+                mesh_geometry_data.index_count = s_cast<u32>(processed_info.indices.size());
             }
         // }
 
@@ -1792,7 +1796,7 @@ namespace foundation {
 
         {
             PROFILE_SCOPE_NAMED(mesh_upload_info_);
-            for(MeshUploadInfo& mesh_upload_info : ret.uploaded_meshes) {
+            for(const MeshUploadInfo& mesh_upload_info : ret.uploaded_meshes) {
                 if(context->device.is_buffer_id_valid(std::bit_cast<daxa::BufferId>(mesh_upload_info.mesh_geometry_data.mesh_buffer))) {
                     cmd_recorder.destroy_buffer_deferred(mesh_upload_info.staging_mesh_buffer);
 
@@ -1806,6 +1810,95 @@ namespace foundation {
                 } else {
                     // context->destroy_buffer_deferred(cmd_recorder, mesh_upload_info.old_buffer);
                 }
+            }
+
+            if(!ret.uploaded_meshes.empty()) {
+                daxa::BufferId staging_transform_buffer = context->device.create_buffer({
+                    .size = sizeof(daxa_f32mat3x4),
+                    .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
+                    .name = "staging transform buffer",
+                });
+                cmd_recorder.destroy_buffer_deferred(staging_transform_buffer);
+
+                daxa::BufferId transform_buffer =  context->device.create_buffer({
+                    .size = sizeof(daxa_f32mat3x4),
+                    .name = "transform buffer",
+                });
+                cmd_recorder.destroy_buffer_deferred(transform_buffer);
+
+                *context->device.buffer_host_address_as<f32mat3x4>(staging_transform_buffer).value() = f32mat3x4{
+                    {1, 0, 0, 0},
+                    {0, 1, 0, 0},
+                    {0, 0, 1, 0},
+                };
+
+                cmd_recorder.copy_buffer_to_buffer(daxa::BufferCopyInfo {
+                    .src_buffer = staging_transform_buffer,
+                    .dst_buffer = transform_buffer,
+                    .size = sizeof(daxa_f32mat3x4)
+                });
+
+                cmd_recorder.pipeline_barrier(daxa::MemoryBarrierInfo {
+                    .src_access = daxa::AccessConsts::TRANSFER_WRITE,
+                    .dst_access = daxa::AccessConsts::READ
+                });
+
+                const daxa_u32 ACCELERATION_STRUCTURE_BUILD_OFFSET_ALIGMENT = 256;
+                auto round_up_to_multiple = [](daxa_u32 value, daxa_u32 multiple_of) -> daxa_u32 {
+                    return ((value + multiple_of - 1) / multiple_of) * multiple_of;
+                };
+
+                std::vector<daxa::BlasBuildInfo> blas_build_infos = {};
+                std::vector<daxa::BlasTriangleGeometryInfo> geometry_store = {};
+                geometry_store.reserve(ret.uploaded_meshes.size());
+
+                u32 current_scratch_buffer_offset = 0;
+                for(MeshUploadInfo& mesh_upload_info : ret.uploaded_meshes) {
+                    geometry_store.push_back(daxa::BlasTriangleGeometryInfo{
+                        .vertex_format = daxa::Format::R32G32B32_SFLOAT,
+                        .vertex_data = mesh_upload_info.mesh_geometry_data.vertex_positions,
+                        .vertex_stride = sizeof(daxa_f32vec3),
+                        .max_vertex = mesh_upload_info.mesh_geometry_data.vertex_count - 1,
+                        .index_type = daxa::IndexType::uint32,
+                        .index_data = mesh_upload_info.mesh_geometry_data.indices,
+                        .transform_data = context->device.buffer_device_address(transform_buffer).value(),
+                        .count = mesh_upload_info.mesh_geometry_data.index_count / 3,
+                        .flags = daxa::GeometryFlagBits::OPAQUE,
+                    });
+
+                    daxa::BlasBuildInfo blas_build_info = {
+                        .flags = daxa::AccelerationStructureBuildFlagBits::PREFER_FAST_TRACE | daxa::AccelerationStructureBuildFlagBits::ALLOW_DATA_ACCESS,
+                        .geometries = std::span(&geometry_store.back(), 1), 
+                        .scratch_data = {},
+                    };
+                    
+                    daxa::AccelerationStructureBuildSizesInfo build_size_info = context->device.blas_build_sizes(blas_build_info);
+
+                    mesh_upload_info.mesh_geometry_data.blas = context->device.create_blas({
+                        .size = round_up_to_multiple(s_cast<u32>(build_size_info.acceleration_structure_size), ACCELERATION_STRUCTURE_BUILD_OFFSET_ALIGMENT),
+                        .name = fmt::format("{} blas", context->device.buffer_info(mesh_upload_info.mesh_geometry_data.mesh_buffer).value().name.c_str().data())
+                    });
+
+                    u32 aligned_scratch_size = round_up_to_multiple(s_cast<u32>(build_size_info.build_scratch_size), ACCELERATION_STRUCTURE_BUILD_OFFSET_ALIGMENT);
+                    blas_build_info.dst_blas = std::bit_cast<daxa::BlasId>(mesh_upload_info.mesh_geometry_data.blas);
+                    blas_build_info.scratch_data = current_scratch_buffer_offset;
+                    current_scratch_buffer_offset += aligned_scratch_size;
+
+                    blas_build_infos.push_back(blas_build_info);
+                }
+
+                daxa::BufferId blas_scratch_buffer = context->device.create_buffer({
+                    .size = current_scratch_buffer_offset,
+                });
+                cmd_recorder.destroy_buffer_deferred(blas_scratch_buffer);
+
+                for(auto& blas_build_info : blas_build_infos) {
+                    blas_build_info.scratch_data += context->device.buffer_device_address(blas_scratch_buffer).value();
+                }
+
+                cmd_recorder.build_acceleration_structures({
+                    .blas_build_infos = blas_build_infos,
+                });
             }
         }
 

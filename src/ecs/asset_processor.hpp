@@ -11,6 +11,7 @@ namespace foundation {
         std::vector<f32vec3> positions = {};
         std::vector<u32> normals = {};
         std::vector<u32> uvs = {};
+        std::vector<u32> indices = {};
         std::vector<Meshlet> meshlets = {};
         std::vector<MeshletBoundingSpheres> bounding_spheres = {};
         std::vector<MeshletSimplificationError> simplification_errors = {};
@@ -24,6 +25,7 @@ namespace foundation {
             writer.write(value.positions);
             writer.write(value.normals);
             writer.write(value.uvs);
+            writer.write(value.indices);
             writer.write(value.meshlets);
             writer.write(value.bounding_spheres);
             writer.write(value.simplification_errors);
@@ -39,6 +41,7 @@ namespace foundation {
             reader.read(value.positions);
             reader.read(value.normals);
             reader.read(value.uvs);
+            reader.read(value.indices);
             reader.read(value.meshlets);
             reader.read(value.bounding_spheres);
             reader.read(value.simplification_errors);

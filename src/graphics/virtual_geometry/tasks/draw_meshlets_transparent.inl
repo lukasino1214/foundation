@@ -96,7 +96,7 @@ struct DrawMeshletsTransparentTask : DrawMeshletsTransparent::Task {
                     }},
                 },
                 daxa::RenderAttachment {
-                    .format = daxa::Format::R16_SFLOAT,
+                    .format = daxa::Format::R32_SFLOAT,
                     .blend = { daxa::BlendInfo {
                         .src_color_blend_factor = daxa::BlendFactor::ZERO,
                         .dst_color_blend_factor = daxa::BlendFactor::ONE_MINUS_SRC_COLOR,

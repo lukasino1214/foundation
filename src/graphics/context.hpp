@@ -78,6 +78,12 @@ namespace foundation {
         }
     };
 
+    struct RayTracingPipelineInfo {
+        std::shared_ptr<daxa::RayTracingPipeline> pipeline = {};
+        daxa::RayTracingShaderBindingTable sbt = {};
+        daxa::BufferId sbt_buffer_id = {};
+    };
+
     struct Context {
         Context(const NativeWIndow& window);
         ~Context();
@@ -95,6 +101,7 @@ namespace foundation {
 
         ankerl::unordered_dense::map<std::string_view, std::shared_ptr<daxa::RasterPipeline>> raster_pipelines = {};
         ankerl::unordered_dense::map<std::string_view, std::shared_ptr<daxa::ComputePipeline>> compute_pipelines = {};
+        ankerl::unordered_dense::map<std::string_view, std::shared_ptr<RayTracingPipelineInfo>> ray_tracing_pipelines = {};
 
         std::unique_ptr<GPUMetricPool> gpu_metric_pool = {};
         ankerl::unordered_dense::map<std::string_view, std::shared_ptr<GPUMetric>> gpu_metrics = {};
