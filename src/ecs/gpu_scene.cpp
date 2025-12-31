@@ -4,6 +4,12 @@
 
 namespace foundation {
     GPUScene::GPUScene(Context* _context, Scene* _scene) : context{_context}, scene{_scene} {
+        gpu_mesh_group_count = make_task_buffer(context, {
+            .size = sizeof(u32),
+            .allocate_info = daxa::MemoryFlagBits::NONE,
+            .name = "mesh group count"
+        });
+        
         gpu_meshes = make_task_buffer(context, {
             .size = sizeof(Mesh),
             .allocate_info = daxa::MemoryFlagBits::NONE,
@@ -80,6 +86,8 @@ namespace foundation {
     }
 
     GPUScene::~GPUScene() {
+        context->device.destroy_buffer(gpu_mesh_group_count.get_state().buffers[0]);
+
         context->device.destroy_buffer(gpu_meshes.get_state().buffers[0]);
         context->device.destroy_buffer(gpu_mesh_groups.get_state().buffers[0]);
         context->device.destroy_buffer(gpu_mesh_indices.get_state().buffers[0]);
@@ -117,6 +125,7 @@ namespace foundation {
         std::vector<u32> dirty_meshes = {};
         std::vector<MeshGroupToMeshesMapping> dirty_mesh_groups = {};
 
+        usize old_mesh_group_count = total_mesh_group_count;
         scene->world->each([&](flecs::entity e, MeshComponent& mesh_component, GPUMeshDirty) {
             MeshGroupData& mesh_group = mesh_group_data[mesh_component.mesh_group_manifest_entry_index.value()];
             mesh_group.entites.push_back(e);
@@ -178,6 +187,25 @@ namespace foundation {
 
         for(flecs::entity e : deletion_queue) {
             e.remove<GPUMeshDirty>();
+        }
+
+        static bool first_time = true;
+        if(old_mesh_group_count != total_mesh_group_count || first_time) {
+            daxa::BufferId staging_buffer = context->device.create_buffer({
+                .size = sizeof(u32),
+                .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
+                .name = "mesh group count staging buffer",
+            });
+            cmd_recorder.destroy_buffer_deferred(staging_buffer);
+
+            std::memcpy(context->device.buffer_host_address(staging_buffer).value(), &total_mesh_group_count, sizeof(u32));
+            cmd_recorder.copy_buffer_to_buffer(daxa::BufferCopyInfo {
+                .src_buffer = staging_buffer,
+                .dst_buffer = gpu_mesh_group_count.get_state().buffers[0],
+                .size = sizeof(u32)
+            });
+            
+            first_time = false;
         }
 
         reallocate_buffer(context, cmd_recorder, gpu_meshes, s_cast<u32>(total_mesh_count * sizeof(Mesh)));
@@ -422,7 +450,7 @@ namespace foundation {
         }
 
         std::vector<flecs::entity> moved_entities = {};
-        scene->world->each([&](flecs::entity e, MeshComponent& mesh_component, GPUTransformDirty) {
+        scene->world->each([&](flecs::entity e, MeshComponent&, GPUTransformDirty) {
             moved_entities.push_back(e);
         });
 

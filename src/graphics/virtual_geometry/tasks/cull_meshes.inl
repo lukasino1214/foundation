@@ -9,7 +9,7 @@
 #include "../../../shader_library/shared.inl"
 
 DAXA_DECL_TASK_HEAD_BEGIN(CullMeshesWriteCommand)
-DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(GPUSceneData), u_scene_data)
+DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(u32), u_mesh_group_count)
 DAXA_TH_BUFFER_PTR(WRITE, daxa_BufferPtr(MeshesData), u_culled_meshes_data)
 DAXA_TH_BUFFER_PTR(WRITE, daxa_BufferPtr(PrefixSumWorkExpansion), u_opaque_prefix_sum_work_expansion_mesh)
 DAXA_TH_BUFFER_PTR(WRITE, daxa_BufferPtr(PrefixSumWorkExpansion), u_masked_prefix_sum_work_expansion_mesh)
@@ -32,9 +32,8 @@ using CullMeshesWriteCommandTask = foundation::WriteIndirectComputeDispatchTask<
 #endif
 
 DAXA_DECL_TASK_HEAD_BEGIN(CullMeshes)
-DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(GPUSceneData), u_scene_data)
+DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(u32), u_mesh_group_count)
 DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(ShaderGlobals), u_globals)
-DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(EntityData), u_entities_data)
 DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(MeshGroup), u_mesh_groups)
 DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(u32), u_mesh_indices)
 DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(Mesh), u_meshes)

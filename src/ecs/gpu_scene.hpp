@@ -67,6 +67,8 @@ namespace foundation {
         usize total_masked_meshlet_count = {};
         usize total_transparent_meshlet_count = {};
 
+        daxa::TaskBuffer gpu_mesh_group_count = {};
+
         daxa::TaskBuffer gpu_meshes = {};
         daxa::TaskBuffer gpu_mesh_groups = {};
         daxa::TaskBuffer gpu_mesh_indices = {};

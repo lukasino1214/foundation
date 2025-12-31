@@ -35,9 +35,6 @@ namespace foundation {
         Context* context;
         NativeWIndow* window;
 
-        GPUSceneData scene_data = {};
-        daxa::TaskBuffer gpu_scene_data = {};
-        CPUManagedGPUPool<EntityData> gpu_entities_data_pool;
         flecs::query<GlobalPosition, GlobalRotation, GlobalScale, GlobalMatrix, LocalPosition, LocalRotation, LocalScale, LocalMatrix, GlobalMatrix*, TransformDirty> query_transforms = {};
     };
 }

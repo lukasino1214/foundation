@@ -9,7 +9,7 @@
 [shader("compute")]
 [numthreads(1, 1, 1)]
 void cull_meshes_write_command() {
-    const u32 needed_threads = write_push.uses.u_scene_data->entity_count;
+    const u32 needed_threads = *write_push.uses.u_mesh_group_count;
     const u32 needed_workgroups = round_up_div(needed_threads, 16);
     DispatchIndirectStruct command;
     command.x = needed_workgroups;
@@ -31,13 +31,12 @@ void cull_meshes_write_command() {
 [shader("compute")]
 [numthreads(16, 1, 1)]
 void cull_meshes(u32vec3 thread_index : SV_DispatchThreadID) {
-    const u32 count = push.uses.u_scene_data->entity_count;
+    const u32 count = *push.uses.u_mesh_group_count;
     const u32 current_thread_index = thread_index.x;
     const bool thread_active = current_thread_index < count;
 
     if(thread_active) {
-        EntityData entity_data = push.uses.u_entities_data[current_thread_index];
-        MeshGroup mesh_group = push.uses.u_mesh_groups[entity_data.mesh_group_index];
+        MeshGroup mesh_group = push.uses.u_mesh_groups[current_thread_index];
 
         for(u32 local_mesh_index = 0; local_mesh_index < mesh_group.count; local_mesh_index++) {
             const u32 global_mesh_index = mesh_group.mesh_indices[local_mesh_index];

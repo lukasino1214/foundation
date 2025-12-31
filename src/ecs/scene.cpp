@@ -14,21 +14,13 @@
 
 namespace foundation {
     Scene::Scene(const std::string_view& _name, Context* _context, NativeWIndow* _window)
-     : name{_name}, world{std::make_unique<flecs::world>()}, context{_context}, window{_window},
-        gpu_entities_data_pool(context, "gpu_entities_data") {
+     : name{_name}, world{std::make_unique<flecs::world>()}, context{_context}, window{_window} {
         PROFILE_SCOPE;
-        gpu_scene_data = make_task_buffer(context, {
-            sizeof(GPUSceneData), 
-            daxa::MemoryFlagBits::NONE, 
-            "scene data"
-        }); 
 
         query_transforms = world->query_builder<GlobalPosition, GlobalRotation, GlobalScale, GlobalMatrix, LocalPosition, LocalRotation, LocalScale, LocalMatrix, GlobalMatrix*, TransformDirty>().term_at(8).cascade(flecs::ChildOf).optional().cached().build();
     }
 
-    Scene::~Scene() {
-        context->device.destroy_buffer(gpu_scene_data.get_state().buffers[0]);
-    }
+    Scene::~Scene() {}
 
     auto Scene::create_entity(const std::string_view& _name) -> Entity {
         flecs::entity e = world->entity(_name.data());
@@ -69,36 +61,5 @@ namespace foundation {
 
     void Scene::update_gpu(const daxa::TaskInterface& task_interface) {
         PROFILE_SCOPE_NAMED(scene_update_gpu);
-
-        gpu_entities_data_pool.update_buffer(task_interface);
-
-        {
-            bool scene_data_updated = false;
-            world->each([&](flecs::entity entity, RenderInfo& info, MeshComponent& mesh){
-                if(info.is_dirty) {
-                    scene_data_updated = true;
-                    scene_data.entity_count++;
-
-                    gpu_entities_data_pool.update_handle(task_interface, info.gpu_handle, {
-                        .mesh_group_index = mesh.mesh_group_index.value(),
-                        // .transform_index = gpu_transform.gpu_handle.index
-                    });
-
-                    info.is_dirty = false;
-                }
-
-            });
-
-            if(scene_data_updated) {
-                auto alloc = task_interface.allocator->allocate_fill(scene_data).value();
-                task_interface.recorder.copy_buffer_to_buffer(daxa::BufferCopyInfo {
-                    .src_buffer = task_interface.allocator->buffer(),
-                    .dst_buffer = gpu_scene_data.get_state().buffers[0],
-                    .src_offset = alloc.buffer_offset,
-                    .dst_offset = {},
-                    .size = sizeof(GPUSceneData),
-                });
-            }
-        }
     }
 }

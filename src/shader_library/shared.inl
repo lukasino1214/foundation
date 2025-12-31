@@ -142,12 +142,6 @@ struct Material {
 
 DAXA_DECL_BUFFER_PTR(Material)
 
-struct GPUSceneData {
-    u32 entity_count;
-};
-
-DAXA_DECL_BUFFER_PTR(GPUSceneData)
-
 struct MeshGroup {
     daxa_BufferPtr(u32) mesh_indices;
     u32 count;
@@ -243,11 +237,6 @@ struct MeshletInstanceData {
     u32 meshlet_index;
 };
 DAXA_DECL_BUFFER_PTR(MeshletInstanceData)
-
-struct EntityData {
-    u32 mesh_group_index;
-};
-DAXA_DECL_BUFFER_PTR(EntityData)
 
 struct MeshData {
     u32 global_mesh_index;

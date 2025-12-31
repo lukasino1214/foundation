@@ -38,9 +38,4 @@ namespace foundation {
 
         void draw();
     };
-
-    struct RenderInfo {
-        CPUManagedGPUPool<EntityData>::Handle gpu_handle = {};
-        bool is_dirty = true;
-    };
 }

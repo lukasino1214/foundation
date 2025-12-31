@@ -276,7 +276,6 @@ namespace foundation {
             if(node.mesh_index.has_value()) {
                 auto* mesh_component = parent_entity.add_component<MeshComponent>();
                 mesh_component->mesh_group_manifest_entry_index = asset_manifest->mesh_group_manifest_offset + node.mesh_index.value();
-                parent_entity.add_component<RenderInfo>();
             }
 
             glm::vec3 position = {};

@@ -831,8 +831,12 @@ namespace foundation {
         render_task_graph.use_persistent_buffer(shader_globals_buffer);
         render_task_graph.use_persistent_buffer(gpu_scene->gpu_transforms);
         render_task_graph.use_persistent_buffer(asset_manager->gpu_materials);
-        render_task_graph.use_persistent_buffer(scene->gpu_scene_data);
-        render_task_graph.use_persistent_buffer(scene->gpu_entities_data_pool.task_buffer);
+        render_task_graph.use_persistent_buffer(asset_manager->gpu_readback_material_gpu);
+        render_task_graph.use_persistent_buffer(asset_manager->gpu_readback_material_cpu);
+        render_task_graph.use_persistent_buffer(asset_manager->gpu_readback_mesh_gpu);
+        render_task_graph.use_persistent_buffer(asset_manager->gpu_readback_mesh_cpu);
+
+        render_task_graph.use_persistent_buffer(gpu_scene->gpu_mesh_group_count);
         render_task_graph.use_persistent_buffer(gpu_scene->gpu_mesh_groups);
         render_task_graph.use_persistent_buffer(gpu_scene->gpu_mesh_indices);
         render_task_graph.use_persistent_buffer(gpu_scene->gpu_meshes);
@@ -841,14 +845,9 @@ namespace foundation {
         render_task_graph.use_persistent_buffer(gpu_scene->gpu_meshlets_data_merged_masked);
         render_task_graph.use_persistent_buffer(gpu_scene->gpu_meshlets_data_merged_transparent);
         render_task_graph.use_persistent_buffer(gpu_scene->gpu_culled_meshes_data);
-        render_task_graph.use_persistent_buffer(asset_manager->gpu_readback_material_gpu);
-        render_task_graph.use_persistent_buffer(asset_manager->gpu_readback_material_cpu);
-        render_task_graph.use_persistent_buffer(asset_manager->gpu_readback_mesh_gpu);
-        render_task_graph.use_persistent_buffer(asset_manager->gpu_readback_mesh_cpu);
         render_task_graph.use_persistent_buffer(gpu_scene->gpu_opaque_prefix_sum_work_expansion_mesh);
         render_task_graph.use_persistent_buffer(gpu_scene->gpu_masked_prefix_sum_work_expansion_mesh);
         render_task_graph.use_persistent_buffer(gpu_scene->gpu_transparent_prefix_sum_work_expansion_mesh);
-
         render_task_graph.use_persistent_tlas(gpu_scene->gpu_tlas);
 
         render_task_graph.use_persistent_buffer(sun_light_buffer);
@@ -1029,7 +1028,7 @@ namespace foundation {
 
         render_task_graph.add_task(CullMeshesWriteCommandTask {
             .views = CullMeshesWriteCommandTask::Views {
-                .u_scene_data = scene->gpu_scene_data.view(),
+                .u_mesh_group_count = gpu_scene->gpu_mesh_group_count.view(),
                 .u_culled_meshes_data = gpu_scene->gpu_culled_meshes_data.view(),
                 .u_opaque_prefix_sum_work_expansion_mesh = gpu_scene->gpu_opaque_prefix_sum_work_expansion_mesh.view(),
                 .u_masked_prefix_sum_work_expansion_mesh = gpu_scene->gpu_masked_prefix_sum_work_expansion_mesh.view(),
@@ -1041,9 +1040,8 @@ namespace foundation {
 
         render_task_graph.add_task(CullMeshesTask {
             .views = CullMeshesTask::Views {
-                .u_scene_data = scene->gpu_scene_data.view(),
+                .u_mesh_group_count = gpu_scene->gpu_mesh_group_count.view(),
                 .u_globals = context->shader_globals_buffer.view(),
-                .u_entities_data = scene->gpu_entities_data_pool.task_buffer.view(),
                 .u_mesh_groups = gpu_scene->gpu_mesh_groups.view(),
                 .u_mesh_indices = gpu_scene->gpu_mesh_indices.view(),
                 .u_meshes = gpu_scene->gpu_meshes.view(),
