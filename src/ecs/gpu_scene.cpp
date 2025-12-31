@@ -83,6 +83,42 @@ namespace foundation {
         });
 
         gpu_tlas = daxa::TaskTlas{{ .name = "tlas" }};
+
+        sun_light_buffer = make_task_buffer(context, daxa::BufferInfo {
+            .size = sizeof(SunLight),
+            .allocate_info = daxa::MemoryFlagBits::NONE,
+            .name = "sun light buffer"
+        });
+
+        point_light_buffer = make_task_buffer(context, daxa::BufferInfo {
+            .size = sizeof(PointLightsData) + sizeof(PointLight),
+            .allocate_info = daxa::MemoryFlagBits::NONE,
+            .name = "point light buffer"
+        });
+
+        spot_light_buffer = make_task_buffer(context, daxa::BufferInfo {
+            .size = sizeof(SpotLightsData) + sizeof(SpotLight),
+            .allocate_info = daxa::MemoryFlagBits::NONE,
+            .name = "spot light buffer"
+        });
+
+        tile_frustums_buffer = make_task_buffer(context, {
+            .size = sizeof(TileFrustum),
+            .allocate_info = daxa::MemoryFlagBits::NONE,
+            .name = "tile frustums buffer"
+        });
+
+        tile_data_buffer = make_task_buffer(context, {
+            .size = sizeof(TileData),
+            .allocate_info = daxa::MemoryFlagBits::NONE,
+            .name = "tile data buffer"
+        });
+
+        tile_indices_buffer = make_task_buffer(context, {
+            .size = sizeof(u32),
+            .allocate_info = daxa::MemoryFlagBits::NONE,
+            .name = "tile indices buffer"
+        });
     }
 
     GPUScene::~GPUScene() {
@@ -104,6 +140,14 @@ namespace foundation {
         context->device.destroy_buffer(gpu_meshlets_data_merged_transparent.get_state().buffers[0]);
 
         context->device.destroy_tlas(gpu_tlas.get_state().tlas[0]);
+
+        context->device.destroy_buffer(sun_light_buffer.get_state().buffers[0]);
+        context->device.destroy_buffer(point_light_buffer.get_state().buffers[0]);
+        context->device.destroy_buffer(spot_light_buffer.get_state().buffers[0]);
+
+        context->device.destroy_buffer(tile_frustums_buffer.get_state().buffers[0]);
+        context->device.destroy_buffer(tile_data_buffer.get_state().buffers[0]);
+        context->device.destroy_buffer(tile_indices_buffer.get_state().buffers[0]);
     }
 
     auto GPUScene::update(const UpdateInfo& info) -> daxa::ExecutableCommandList {
@@ -189,6 +233,7 @@ namespace foundation {
             e.remove<GPUMeshDirty>();
         }
 
+    {
         static bool first_time = true;
         if(old_mesh_group_count != total_mesh_group_count || first_time) {
             daxa::BufferId staging_buffer = context->device.create_buffer({
@@ -207,6 +252,7 @@ namespace foundation {
             
             first_time = false;
         }
+    }
 
         reallocate_buffer(context, cmd_recorder, gpu_meshes, s_cast<u32>(total_mesh_count * sizeof(Mesh)));
         reallocate_buffer(context, cmd_recorder, gpu_mesh_groups, s_cast<u32>(total_mesh_group_count * sizeof(MeshGroup)));
@@ -482,6 +528,173 @@ namespace foundation {
             for(flecs::entity e : moved_entities) {
                 e.remove<GPUTransformDirty>();
             }
+        }
+
+        {
+            static bool first_time = true;
+            if(first_time) {
+                daxa::BufferId staging_buffer = context->device.create_buffer(daxa::BufferInfo {
+                    .size = sizeof(SunLight),
+                    .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
+                    .name = "sun staging_buffer"
+                });
+                cmd_recorder.destroy_buffer_deferred(staging_buffer);
+
+                SunLight light = {
+                    .direction = { -1.0f, -1.0f, -1.0f },
+                    .color = { 1.0f, 1.0f, 1.0f },
+                    .intensity = 1.0f
+                };
+
+                std::memcpy(context->device.buffer_host_address(staging_buffer).value(), &light, sizeof(SunLight));
+
+                cmd_recorder.copy_buffer_to_buffer(daxa::BufferCopyInfo {
+                    .src_buffer = staging_buffer,
+                    .dst_buffer = sun_light_buffer.get_state().buffers[0],
+                    .size = sizeof(SunLight)
+                });
+
+                first_time = false;
+            }
+        }
+
+        {
+            std::vector<flecs::entity> entities = {};
+            scene->world->each([&](flecs::entity e, PointLightComponent& point_light_component, GPULightDirty) {
+                if(!point_light_component.gpu_index.has_value()) {
+                    point_light_component.gpu_index = total_point_light_count++;
+                }
+
+                entities.push_back(e);
+            });
+
+            reallocate_buffer<PointLightsData>(context, cmd_recorder, point_light_buffer, s_cast<u32>(total_point_light_count * sizeof(PointLight) + sizeof(PointLightsData)), [&](const daxa::BufferId& buffer) -> PointLightsData {
+                return PointLightsData {
+                    .count = static_cast<u32>(total_point_light_count),
+                    .bitmask_size = round_up_div(s_cast<u32>(total_point_light_count), 32),
+                    .point_lights = context->device.buffer_device_address(buffer).value() + sizeof(PointLightsData)
+                };
+            });
+
+            if(!entities.empty()) {
+                daxa::BufferId staging_buffer = context->device.create_buffer({
+                    .size = entities.size() * sizeof(PointLight),
+                    .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
+                    .name = "point light staging buffer"
+                });
+                cmd_recorder.destroy_buffer_deferred(staging_buffer);
+
+                for(u32 i = 0; i < entities.size(); i++) {
+                    const PointLightComponent* p = entities[i].get<PointLightComponent>();
+                    PointLight light = {
+                        .position = p->position,
+                        .color = p->color,
+                        .intensity = p->intensity,
+                        .range = p->range,
+                    };
+
+                    std::memcpy(context->device.buffer_host_address(staging_buffer).value() + sizeof(PointLight) * i, &light, sizeof(PointLight));
+                    cmd_recorder.copy_buffer_to_buffer(daxa::BufferCopyInfo {
+                        .src_buffer = staging_buffer,
+                        .dst_buffer = point_light_buffer.get_state().buffers[0],
+                        .src_offset = sizeof(PointLight) * i,
+                        .dst_offset = sizeof(PointLightsData) + sizeof(PointLight) * p->gpu_index.value(),
+                        .size = sizeof(PointLight)
+                    });
+                }
+            }
+
+            for(flecs::entity e : entities) {
+                e.remove<GPULightDirty>();
+            }
+        }
+
+        {
+            std::vector<flecs::entity> entities = {};
+            scene->world->each([&](flecs::entity e, SpotLightComponent& spot_light_component, GPULightDirty) {
+                if(!spot_light_component.gpu_index.has_value()) {
+                    spot_light_component.gpu_index = total_spot_light_count++;
+                }
+
+                entities.push_back(e);
+            });
+
+            reallocate_buffer<SpotLightsData>(context, cmd_recorder, spot_light_buffer, s_cast<u32>(total_spot_light_count * sizeof(SpotLight) + sizeof(SpotLightsData)), [&](const daxa::BufferId& buffer) -> SpotLightsData {
+                return SpotLightsData {
+                    .count = static_cast<u32>(total_spot_light_count),
+                    .bitmask_size = round_up_div(s_cast<u32>(total_spot_light_count), 32),
+                    .spot_lights = context->device.buffer_device_address(buffer).value() + sizeof(SpotLightsData)
+                };
+            });
+
+            if(!entities.empty()) {
+                daxa::BufferId staging_buffer = context->device.create_buffer({
+                    .size = entities.size() * sizeof(SpotLight),
+                    .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
+                    .name = "spot light staging buffer"
+                });
+                cmd_recorder.destroy_buffer_deferred(staging_buffer);
+
+                for(u32 i = 0; i < entities.size(); i++) {
+                    const SpotLightComponent* s = entities[i].get<SpotLightComponent>();
+                    SpotLight light = {
+                        .position = s->position,
+                        .direction = s->direction,
+                        .color = s->color,
+                        .intensity = s->intensity,
+                        .range = s->range,
+                        .inner_cone_angle = s->inner_cone_angle,
+                        .outer_cone_angle = s->outer_cone_angle,
+                    };
+
+                    std::memcpy(context->device.buffer_host_address(staging_buffer).value() + sizeof(SpotLight) * i, &light, sizeof(SpotLight));
+                    cmd_recorder.copy_buffer_to_buffer(daxa::BufferCopyInfo {
+                        .src_buffer = staging_buffer,
+                        .dst_buffer = spot_light_buffer.get_state().buffers[0],
+                        .src_offset = sizeof(SpotLight) * i,
+                        .dst_offset = sizeof(SpotLightsData) + sizeof(SpotLight) * s->gpu_index.value(),
+                        .size = sizeof(SpotLight)
+                    });
+                }
+            }
+
+            for(flecs::entity e : entities) {
+                e.remove<GPULightDirty>();
+            }
+        }
+
+        if(screen_resized) {
+            const u32vec2 size = context->shader_globals.render_target_size;
+
+            context->device.destroy_buffer(tile_frustums_buffer.get_state().buffers[0]);
+            tile_frustums_buffer.set_buffers({ .buffers = std::array{
+                context->device.create_buffer(daxa::BufferInfo {
+                    .size = sizeof(TileFrustum) * std::max(round_up_div(size.x, PIXELS_PER_FRUSTUM), 1u) * std::max(round_up_div(size.y, PIXELS_PER_FRUSTUM), 1u),
+                    .allocate_info = daxa::MemoryFlagBits::NONE,
+                    .name = "tile frustums buffer"
+                })
+            }});
+
+            context->device.destroy_buffer(tile_data_buffer.get_state().buffers[0]);
+            tile_data_buffer.set_buffers({ .buffers = std::array{
+                context->device.create_buffer(daxa::BufferInfo {
+                    .size = sizeof(TileData) * std::max(round_up_div(size.x, PIXELS_PER_FRUSTUM), 1u) * std::max(round_up_div(size.y, PIXELS_PER_FRUSTUM), 1u),
+                    .allocate_info = daxa::MemoryFlagBits::NONE,
+                    .name = "tile data buffer"
+                })
+            }});
+
+            context->device.destroy_buffer(tile_indices_buffer.get_state().buffers[0]);
+            const u32 total_amount_of_lights = s_cast<u32>(total_point_light_count + total_spot_light_count);
+            tile_indices_buffer.set_buffers({ .buffers = std::array{
+                context->device.create_buffer(daxa::BufferInfo {
+                    .size = 2 * sizeof(u32) * std::max(round_up_div(total_amount_of_lights, 32), 1u) * std::max(round_up_div(size.x, PIXELS_PER_FRUSTUM), 1u) * std::max(round_up_div(size.y, PIXELS_PER_FRUSTUM), 1u),
+                    .allocate_info = daxa::MemoryFlagBits::NONE,
+                    .name = "tile indices buffer"
+                })
+            }});
+
+            screen_resized = false;
         }
 
         cmd_recorder.pipeline_barrier(daxa::MemoryBarrierInfo {

@@ -178,14 +178,18 @@ void cull_lights(u32vec2 pixel : SV_DispatchThreadID, u32vec2 tile_index : SV_Gr
         tile_data.transparent_spot_light_count = transparent_spot_light_count;
     }
 
-    u32* bitmask_transparent_point_light_indices_ptr = push.uses.u_tile_indices + 2 * flattened_tile_index * MAX_LIGHT_BITMASK_SIZE;
-    u32* bitmask_opaque_point_light_indices_ptr = push.uses.u_tile_indices + 2 * flattened_tile_index * MAX_LIGHT_BITMASK_SIZE + MAX_POINT_LIGHT_BITMASK_SIZE;
-    u32* bitmask_transparent_spot_light_indices_ptr = push.uses.u_tile_indices + 2 * flattened_tile_index * MAX_LIGHT_BITMASK_SIZE + MAX_POINT_LIGHT_BITMASK_SIZE + MAX_SPOT_LIGHT_BITMASK_SIZE;
-    u32* bitmask_opaque_spot_light_indices_ptr = push.uses.u_tile_indices + 2 * flattened_tile_index * MAX_LIGHT_BITMASK_SIZE + MAX_POINT_LIGHT_BITMASK_SIZE + MAX_SPOT_LIGHT_BITMASK_SIZE + MAX_POINT_LIGHT_BITMASK_SIZE;
+    const u32 combined_bitmask_size = push.uses.u_point_lights.bitmask_size + push.uses.u_spot_lights.bitmask_size;
+    u32* bitmask_transparent_point_light_indices_ptr = push.uses.u_tile_indices + 2 * flattened_tile_index * combined_bitmask_size;
+    u32* bitmask_opaque_point_light_indices_ptr = push.uses.u_tile_indices + 2 * flattened_tile_index * combined_bitmask_size + push.uses.u_point_lights.bitmask_size;
+    u32* bitmask_transparent_spot_light_indices_ptr = push.uses.u_tile_indices + 2 * flattened_tile_index * combined_bitmask_size + combined_bitmask_size;
+    u32* bitmask_opaque_spot_light_indices_ptr = push.uses.u_tile_indices + 2 * flattened_tile_index * combined_bitmask_size + combined_bitmask_size + push.uses.u_point_lights.bitmask_size;
 
-    for(u32 i = local_index; i < MAX_POINT_LIGHT_BITMASK_SIZE; i += 16 * 16) {
+    for(u32 i = local_index; i < push.uses.u_point_lights.bitmask_size; i += 16 * 16) {
         bitmask_transparent_point_light_indices_ptr[i] = bitmask_transparent_point_light_indices[i];
         bitmask_opaque_point_light_indices_ptr[i] = bitmask_opaque_point_light_indices[i];
+    }
+
+    for(u32 i = local_index; i < push.uses.u_spot_lights.bitmask_size; i += 16 * 16) {
         bitmask_transparent_spot_light_indices_ptr[i] = bitmask_transparent_spot_light_indices[i];
         bitmask_opaque_spot_light_indices_ptr[i] = bitmask_opaque_spot_light_indices[i];
     }

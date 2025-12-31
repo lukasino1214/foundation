@@ -49,6 +49,14 @@ public:
                 handle.add<GPUMeshDirty>();
             }
 
+            if constexpr(std::is_same_v<T, PointLightComponent>) {
+                handle.add<GPULightDirty>();
+            }
+
+            if constexpr(std::is_same_v<T, SpotLightComponent>) {
+                handle.add<GPULightDirty>();
+            }
+
             handle.set<T>(T{});
             T* component =  handle.get_mut<T>();
 

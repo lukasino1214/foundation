@@ -23,19 +23,43 @@ namespace foundation {
 
     struct TransformDirty {};
     struct TransformComponent {};
-    struct GPUMeshDirty {};
     struct GPUTransformDirty {};
-
+    
     struct ModelComponent {
         std::filesystem::path path;
-
+        
         void draw();
     };
-
+    
     struct MeshComponent {
         std::optional<u32> mesh_group_index;
         std::optional<u32> mesh_group_manifest_entry_index;
-
+        
         void draw();
     };
+
+    struct GPUMeshDirty {};
+
+    struct PointLightComponent {
+        f32vec3 position;
+        f32vec3 color;
+        f32 intensity;
+        f32 range;
+
+        std::optional<u32> gpu_index;
+    };
+    
+    struct SpotLightComponent {
+        f32vec3 position;
+        f32vec3 direction;
+        f32vec3 color;
+        f32 intensity;
+        f32 range;
+        f32 inner_cone_angle;
+        f32 outer_cone_angle;
+
+        std::optional<u32> gpu_index;
+    };
+    
+    struct GPULightDirty {};
 }

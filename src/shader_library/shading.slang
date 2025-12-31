@@ -91,7 +91,7 @@ f32vec3 shade_tiled(f32vec3 diffuse, f32vec3 world_position, f32vec3 normal, Til
         color *= diffuse * light.color * light.intensity;
     }
 
-    for(u32 bucket_index = 0; bucket_index < MAX_POINT_LIGHT_BITMASK_SIZE; bucket_index++) {
+    for(u32 bucket_index = 0; bucket_index < point_lights.bitmask_size; bucket_index++) {
         u32 bucket = bitmask_point_lights[bucket_index];
 
         while (bucket != 0) {
@@ -111,7 +111,7 @@ f32vec3 shade_tiled(f32vec3 diffuse, f32vec3 world_position, f32vec3 normal, Til
         }
     }
 
-    for(u32 bucket_index = 0; bucket_index < MAX_SPOT_LIGHT_BITMASK_SIZE; bucket_index++) {
+    for(u32 bucket_index = 0; bucket_index < spot_lights.bitmask_size; bucket_index++) {
         u32 bucket = bitmask_spot_lights[bucket_index];
 
         while (bucket != 0) {

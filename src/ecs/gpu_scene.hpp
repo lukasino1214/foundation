@@ -85,5 +85,17 @@ namespace foundation {
         daxa::TaskBuffer gpu_meshlets_data_merged_transparent = {};
 
         daxa::TaskTlas gpu_tlas = {};
+
+        usize total_point_light_count = {};
+        usize total_spot_light_count = {};
+
+        daxa::TaskBuffer sun_light_buffer = {};
+        daxa::TaskBuffer point_light_buffer = {};
+        daxa::TaskBuffer spot_light_buffer = {};
+
+        bool screen_resized = true;
+        daxa::TaskBuffer tile_frustums_buffer = {};
+        daxa::TaskBuffer tile_data_buffer = {};
+        daxa::TaskBuffer tile_indices_buffer = {};
     };
 }

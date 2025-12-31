@@ -297,12 +297,14 @@ DAXA_DECL_BUFFER_PTR(SpotLight)
 
 struct PointLightsData {
     u32 count;
+    u32 bitmask_size;
     daxa_BufferPtr(PointLight) point_lights;
 };
 DAXA_DECL_BUFFER_PTR(PointLightsData)
 
 struct SpotLightsData {
     u32 count;
+    u32 bitmask_size;
     daxa_BufferPtr(SpotLight) spot_lights;
 };
 DAXA_DECL_BUFFER_PTR(SpotLightsData)

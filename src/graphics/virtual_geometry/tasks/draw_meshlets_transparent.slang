@@ -138,6 +138,7 @@ PixelOutput draw_meshlets_transparent_frag(in VertexTransparent vertex, in Visib
     u32 flattened_tile_index = tile_index.y * tile_frustums.x + tile_index.x;
     TileData* tile_data = push.uses.u_tile_data + flattened_tile_index;
     
+    const u32 combined_bitmask_size = push.uses.u_point_lights.bitmask_size + push.uses.u_spot_lights.bitmask_size;
     color.rgb = shade_tiled(
         color.rgb, 
         world_position, 
@@ -146,8 +147,8 @@ PixelOutput draw_meshlets_transparent_frag(in VertexTransparent vertex, in Visib
         push.uses.u_sun, 
         push.uses.u_point_lights, 
         push.uses.u_spot_lights, 
-        push.uses.u_tile_indices + 2 * flattened_tile_index * MAX_LIGHT_BITMASK_SIZE, 
-        push.uses.u_tile_indices + 2 * flattened_tile_index * MAX_LIGHT_BITMASK_SIZE + MAX_POINT_LIGHT_BITMASK_SIZE + MAX_SPOT_LIGHT_BITMASK_SIZE
+        push.uses.u_tile_indices + 2 * flattened_tile_index * combined_bitmask_size, 
+        push.uses.u_tile_indices + 2 * flattened_tile_index * combined_bitmask_size + combined_bitmask_size
     );
 
     color.rgb *= color.a;

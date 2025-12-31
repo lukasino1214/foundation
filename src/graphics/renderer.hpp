@@ -55,14 +55,6 @@ namespace foundation {
         std::vector<daxa::TaskImage> images = {};
         std::vector<std::pair<daxa::ImageInfo, daxa::TaskImage>> frame_buffer_images = {};
 
-        daxa::TaskBuffer sun_light_buffer = {};
-        daxa::TaskBuffer point_light_buffer = {};
-        daxa::TaskBuffer spot_light_buffer = {};
-
-        daxa::TaskBuffer tile_frustums_buffer = {};
-        daxa::TaskBuffer tile_data_buffer = {};
-        daxa::TaskBuffer tile_indices_buffer = {};
-
         std::vector<daxa::TaskBuffer> buffers = {};
 
         daxa::TaskGraph render_task_graph = {};

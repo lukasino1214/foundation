@@ -39,6 +39,33 @@ namespace foundation {
 
         ui_windows.push_back(std::make_unique<FileBrowser>(std::filesystem::current_path()));
 
+        for(u32 x = 0; x < 16; x++) {
+            for(u32 y = 0; y < 16; y++) {
+                auto entity = scene->create_entity(fmt::format("point light {} {}", x, y));
+                entity.get_handle().add<RootEntityTag>();
+                auto* p = entity.add_component<PointLightComponent>();
+                p->position = { x, 1, y };
+                p->color = { 1.0f, 1.0f, 1.0f };
+                p->intensity = 1.0f;
+                p->range = 1.0f;
+            }
+        }
+
+        for(u32 x = 0; x < 16; x++) {
+            for(u32 y = 0; y < 16; y++) {
+                auto entity = scene->create_entity(fmt::format("spot light {} {}", x, y));
+                entity.get_handle().add<RootEntityTag>();
+                auto* s = entity.add_component<SpotLightComponent>();
+                s->position = { x, 1, y };
+                s->direction = { 0, -1, 0 };
+                s->color = { 1.0f, 0.0f, 0.0f };
+                s->intensity = 1.0f;
+                s->range = 1.0f;
+                s->inner_cone_angle = 0.0f;
+                s->outer_cone_angle = std::numbers::pi_v<f32> / 4.0f;
+            }
+        }
+
 #define COOK_ASSETS 0
 
 //         {

@@ -228,162 +228,7 @@ namespace foundation {
             },
         };
 
-        sun_light_buffer = make_task_buffer(context, daxa::BufferInfo {
-            .size = sizeof(SunLight),
-            .allocate_info = daxa::MemoryFlagBits::NONE,
-            .name = "sun light buffer"
-        });
-
-        point_light_buffer = make_task_buffer(context, daxa::BufferInfo {
-            .size = sizeof(PointLightsData) + (sizeof(PointLight) * MAX_POINT_LIGHTS),
-            .allocate_info = daxa::MemoryFlagBits::NONE,
-            .name = "point light buffer"
-        });
-
-        spot_light_buffer = make_task_buffer(context, daxa::BufferInfo {
-            .size = sizeof(SpotLightsData) + (sizeof(SpotLight) * MAX_SPOT_LIGHTS),
-            .allocate_info = daxa::MemoryFlagBits::NONE,
-            .name = "spot light buffer"
-        });
-
-        tile_frustums_buffer = make_task_buffer(context, daxa::BufferInfo {
-            .size = sizeof(TileFrustum),
-            .allocate_info = daxa::MemoryFlagBits::NONE,
-            .name = "tile frustums buffer"
-        });
-
-        tile_data_buffer = make_task_buffer(context, daxa::BufferInfo {
-            .size = sizeof(TileData),
-            .allocate_info = daxa::MemoryFlagBits::NONE,
-            .name = "tile data buffer"
-        });
-
-        tile_indices_buffer = make_task_buffer(context, daxa::BufferInfo {
-            .size = sizeof(u32),
-            .allocate_info = daxa::MemoryFlagBits::NONE,
-            .name = "tile indices"
-        });
-
-        buffers = {
-            sun_light_buffer,
-            point_light_buffer,
-            spot_light_buffer,
-            tile_frustums_buffer,
-            tile_data_buffer,
-            tile_indices_buffer,
-        };
-
-        // TODO: remove this
-        auto cmd_recorder = context->device.create_command_recorder({});
-
-        {
-            daxa::BufferId staging_buffer = context->device.create_buffer(daxa::BufferInfo {
-                .size = sizeof(SunLight),
-                .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
-                .name = "sun staging_buffer"
-            });
-            cmd_recorder.destroy_buffer_deferred(staging_buffer);
-
-            SunLight light = {
-                .direction = { -1.0f, -1.0f, -1.0f },
-                .color = { 1.0f, 1.0f, 1.0f },
-                .intensity = 1.0f
-            };
-
-            std::memcpy(context->device.buffer_host_address(staging_buffer).value(), &light, sizeof(SunLight));
-
-            cmd_recorder.copy_buffer_to_buffer(daxa::BufferCopyInfo {
-                .src_buffer = staging_buffer,
-                .dst_buffer = sun_light_buffer.get_state().buffers[0],
-                .size = sizeof(SunLight)
-            });
-        }
-
-        {
-            daxa::BufferId staging_buffer = context->device.create_buffer(daxa::BufferInfo {
-                .size = sizeof(PointLightsData) + (sizeof(PointLight) * MAX_POINT_LIGHTS),
-                .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
-                .name = "point staging_buffer"
-            });
-            cmd_recorder.destroy_buffer_deferred(staging_buffer);
-
-            PointLightsData light = {
-                .count = MAX_POINT_LIGHTS,
-                .point_lights = context->device.buffer_device_address(point_light_buffer.get_state().buffers[0]).value() + sizeof(PointLightsData) 
-            };
-
-            std::memcpy(context->device.buffer_host_address(staging_buffer).value(), &light, sizeof(PointLightsData));
-
-            std::vector<PointLight> point_lights = {};
-            point_lights.reserve(MAX_POINT_LIGHTS);
-
-            for(u32 x = 0; x < 16; x++) {
-                for(u32 y = 0; y < 16; y++) {
-                    point_lights.push_back(PointLight {
-                        .position = { x, 1, y },
-                        .color = { 1.0f, 1.0f, 1.0f },
-                        .intensity = 1.0f,
-                        .range = 1.0f,
-                    });
-                }
-            }
-
-            std::memcpy(context->device.buffer_host_address(staging_buffer).value() + sizeof(PointLightsData), point_lights.data(), sizeof(PointLight) * MAX_POINT_LIGHTS);
-            
-            cmd_recorder.copy_buffer_to_buffer(daxa::BufferCopyInfo {
-                .src_buffer = staging_buffer,
-                .dst_buffer = point_light_buffer.get_state().buffers[0],
-                .size = sizeof(PointLightsData) + (sizeof(PointLight) * MAX_POINT_LIGHTS)
-            });
-        }
-
-        {
-            daxa::BufferId staging_buffer = context->device.create_buffer(daxa::BufferInfo {
-                .size = sizeof(SpotLightsData) + (sizeof(SpotLight) * MAX_POINT_LIGHTS),
-                .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
-                .name = "spot staging_buffer"
-            });
-            cmd_recorder.destroy_buffer_deferred(staging_buffer);
-
-            SpotLightsData light = {
-                .count = MAX_POINT_LIGHTS,
-                .spot_lights = context->device.buffer_device_address(spot_light_buffer.get_state().buffers[0]).value() + sizeof(SpotLightsData) 
-            };
-
-            std::memcpy(context->device.buffer_host_address(staging_buffer).value(), &light, sizeof(SpotLightsData));
-
-            std::vector<SpotLight> spot_lights = {};
-            spot_lights.reserve(MAX_POINT_LIGHTS);
-
-            for(u32 x = 0; x < 16; x++) {
-                for(u32 y = 0; y < 16; y++) {
-                    spot_lights.push_back(SpotLight {
-                        .position = { x, 1, y },
-                        .direction = { 0, -1, 0 },
-                        .color = { 1.0f, 0.0f, 0.0f },
-                        .intensity = 1.0f,
-                        .range = 1.0f,
-                        .inner_cone_angle = 0.0f,
-                        .outer_cone_angle = std::numbers::pi_v<f32> / 4.0f
-                    });
-                }
-            }
-
-            std::memcpy(context->device.buffer_host_address(staging_buffer).value() + sizeof(SpotLightsData), spot_lights.data(), sizeof(SpotLight) * MAX_POINT_LIGHTS);
-            
-            cmd_recorder.copy_buffer_to_buffer(daxa::BufferCopyInfo {
-                .src_buffer = staging_buffer,
-                .dst_buffer = spot_light_buffer.get_state().buffers[0],
-                .size = sizeof(SpotLightsData) + (sizeof(SpotLight) * MAX_POINT_LIGHTS)
-            });
-        }
-
-        context->device.submit_commands(daxa::CommandSubmitInfo {
-            .command_lists = std::to_array({ cmd_recorder.complete_current_commands() })
-        });
-        
-        context->device.wait_idle();
-        context->device.wait_idle();
+        buffers = {};
 
         context->gpu_metrics[ClearImageTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
         context->gpu_metrics[DebugImageTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
@@ -633,32 +478,7 @@ namespace foundation {
     void Renderer::recreate_framebuffer(const glm::uvec2& size) {
         fmt::println("resizing framebuffers from [{}, {}] to [{}, {}]", context->shader_globals.render_target_size.x, context->shader_globals.render_target_size.y, size.x, size.y);
 
-        context->device.destroy_buffer(tile_frustums_buffer.get_state().buffers[0]);
-        tile_frustums_buffer.set_buffers({ .buffers = std::array{
-            context->device.create_buffer(daxa::BufferInfo {
-                .size = sizeof(TileFrustum) * std::max(round_up_div(size.x, PIXELS_PER_FRUSTUM), 1u) * std::max(round_up_div(size.y, PIXELS_PER_FRUSTUM), 1u),
-                .allocate_info = daxa::MemoryFlagBits::NONE,
-                .name = "tile frustums buffer"
-            })
-        }});
-
-        context->device.destroy_buffer(tile_data_buffer.get_state().buffers[0]);
-        tile_data_buffer.set_buffers({ .buffers = std::array{
-            context->device.create_buffer(daxa::BufferInfo {
-                .size = sizeof(TileData) * std::max(round_up_div(size.x, PIXELS_PER_FRUSTUM), 1u) * std::max(round_up_div(size.y, PIXELS_PER_FRUSTUM), 1u),
-                .allocate_info = daxa::MemoryFlagBits::NONE,
-                .name = "tile data buffer"
-            })
-        }});
-
-        context->device.destroy_buffer(tile_indices_buffer.get_state().buffers[0]);
-        tile_indices_buffer.set_buffers({ .buffers = std::array{
-            context->device.create_buffer(daxa::BufferInfo {
-                .size = 2 * sizeof(u32) * std::max(round_up_div(MAX_POINT_LIGHTS + MAX_SPOT_LIGHTS, 32), 1u) * std::max(round_up_div(size.x, PIXELS_PER_FRUSTUM), 1u) * std::max(round_up_div(size.y, PIXELS_PER_FRUSTUM), 1u),
-                .allocate_info = daxa::MemoryFlagBits::NONE,
-                .name = "tile indices buffer"
-            })
-        }});
+        gpu_scene->screen_resized = true;
 
         for (auto &[info, timg] : frame_buffer_images) {
             for(auto image : timg.get_state().images) {
@@ -824,9 +644,9 @@ namespace foundation {
         // render_task_graph.use_persistent_image(ssao_blur_image);
         // render_task_graph.use_persistent_image(ssao_upsample_image);
 
-        render_task_graph.use_persistent_buffer(tile_frustums_buffer);
-        render_task_graph.use_persistent_buffer(tile_data_buffer);
-        render_task_graph.use_persistent_buffer(tile_indices_buffer);
+        render_task_graph.use_persistent_buffer(gpu_scene->tile_frustums_buffer);
+        render_task_graph.use_persistent_buffer(gpu_scene->tile_data_buffer);
+        render_task_graph.use_persistent_buffer(gpu_scene->tile_indices_buffer);
 
         render_task_graph.use_persistent_buffer(shader_globals_buffer);
         render_task_graph.use_persistent_buffer(gpu_scene->gpu_transforms);
@@ -850,9 +670,9 @@ namespace foundation {
         render_task_graph.use_persistent_buffer(gpu_scene->gpu_transparent_prefix_sum_work_expansion_mesh);
         render_task_graph.use_persistent_tlas(gpu_scene->gpu_tlas);
 
-        render_task_graph.use_persistent_buffer(sun_light_buffer);
-        render_task_graph.use_persistent_buffer(point_light_buffer);
-        render_task_graph.use_persistent_buffer(spot_light_buffer);
+        render_task_graph.use_persistent_buffer(gpu_scene->sun_light_buffer);
+        render_task_graph.use_persistent_buffer(gpu_scene->point_light_buffer);
+        render_task_graph.use_persistent_buffer(gpu_scene->spot_light_buffer);
 
         render_task_graph.add_task(
             daxa::InlineTask::Transfer(MiscellaneousTasks::UPDATE_GLOBALS)
@@ -1302,7 +1122,7 @@ namespace foundation {
         render_task_graph.add_task(CalculateFrustumsTask {
             .views = CalculateFrustumsTask::Views {
                 .u_globals = context->shader_globals_buffer.view(),
-                .u_tile_frustums = tile_frustums_buffer.view(),
+                .u_tile_frustums = gpu_scene->tile_frustums_buffer.view(),
             },
             .context = context,
             .dispatch_callback = [this]() -> daxa::DispatchInfo {
@@ -1322,11 +1142,11 @@ namespace foundation {
         render_task_graph.add_task(CullLightsTask {
             .views = CullLightsTask::Views {
                 .u_globals = context->shader_globals_buffer.view(),
-                .u_tile_frustums = tile_frustums_buffer.view(),
-                .u_tile_data = tile_data_buffer.view(),
-                .u_tile_indices = tile_indices_buffer.view(),
-                .u_point_lights = point_light_buffer.view(),
-                .u_spot_lights = spot_light_buffer.view(),
+                .u_tile_frustums = gpu_scene->tile_frustums_buffer.view(),
+                .u_tile_data = gpu_scene->tile_data_buffer.view(),
+                .u_tile_indices = gpu_scene->tile_indices_buffer.view(),
+                .u_point_lights = gpu_scene->point_light_buffer.view(),
+                .u_spot_lights = gpu_scene->spot_light_buffer.view(),
                 .u_depth_image = depth_image_d32.view(),
                 .u_overdraw_image = overdraw_image.view(),
             },
@@ -1347,11 +1167,11 @@ namespace foundation {
                 .u_meshes = gpu_scene->gpu_meshes.view(),
                 .u_transforms = gpu_scene->gpu_transforms.view(),
                 .u_materials = asset_manager->gpu_materials.view(),
-                .u_sun = sun_light_buffer.view(),
-                .u_point_lights = point_light_buffer.view(),
-                .u_spot_lights = spot_light_buffer.view(),
-                .u_tile_data = tile_data_buffer.view(),
-                .u_tile_indices = tile_indices_buffer.view(),
+                .u_sun = gpu_scene->sun_light_buffer.view(),
+                .u_point_lights = gpu_scene->point_light_buffer.view(),
+                .u_spot_lights = gpu_scene->spot_light_buffer.view(),
+                .u_tile_data = gpu_scene->tile_data_buffer.view(),
+                .u_tile_indices = gpu_scene->tile_indices_buffer.view(),
                 .u_readback_material = asset_manager->gpu_readback_material_gpu.view(),
                 .u_ssao_image = ssao_image.view(),
                 .u_visibility_image = visibility_image.view(),
@@ -1383,11 +1203,11 @@ namespace foundation {
                 .u_transforms = gpu_scene->gpu_transforms.view(),
                 .u_materials = asset_manager->gpu_materials.view(),
                 .u_globals = context->shader_globals_buffer.view(),
-                .u_sun = sun_light_buffer.view(),
-                .u_point_lights = point_light_buffer.view(),
-                .u_spot_lights = spot_light_buffer.view(),
-                .u_tile_data = tile_data_buffer.view(),
-                .u_tile_indices = tile_indices_buffer.view(),
+                .u_sun = gpu_scene->sun_light_buffer.view(),
+                .u_point_lights = gpu_scene->point_light_buffer.view(),
+                .u_spot_lights = gpu_scene->spot_light_buffer.view(),
+                .u_tile_data = gpu_scene->tile_data_buffer.view(),
+                .u_tile_indices = gpu_scene->tile_indices_buffer.view(),
                 .u_wboit_accumulation_image = wboit_accumulation_image.view(),
                 .u_wboit_reveal_image = wboit_reveal_image.view(),
                 .u_depth_image = depth_image_d32.view(),
@@ -1577,8 +1397,8 @@ namespace foundation {
             {
                 bool open = (ImGui::CollapsingHeader("Total Buffer VRAM Use:        "));
                 ImGui::SameLine();
-                ImGui::Text(fmt::format("{:>10.2f} mb", s_cast<f32>(mem_report.total_buffer_device_memory_use) / 1024.0f  / 1024.0f).c_str());
-                if (open){
+                ImGui::Text("%s", fmt::format("{:>10.2f} mb", s_cast<f32>(mem_report.total_buffer_device_memory_use) / 1024.0f  / 1024.0f).c_str());
+                if (open) {
                     std::stable_sort(mem_report.buffer_list.begin(), mem_report.buffer_list.end(), [](auto& a, auto& b){ return a.size > b.size; });
                     usize const list_len_max = 30;
                     usize const list_len = std::min(list_len_max, mem_report.buffer_list.size());
@@ -1587,7 +1407,7 @@ namespace foundation {
                         ImGui::TableSetupColumn("Size", {});
                         ImGui::TableSetupColumn("Block Allocated?", {});
                         ImGui::TableHeadersRow();
-                        for (auto i = 0; i < list_len; ++i) {
+                        for (usize i = 0; i < list_len; ++i) {
                             auto buf = mem_report.buffer_list[i];
                             char const * name = context->device.buffer_info(buf.id).value().name.data();
     
@@ -1595,7 +1415,7 @@ namespace foundation {
                             ImGui::TableSetColumnIndex(0);
                             ImGui::Text("%s", name);
                             ImGui::TableSetColumnIndex(1);
-                            ImGui::Text("%fmb", s_cast<f32>(buf.size) / 1024.0f / 1024.0f);
+                            ImGui::Text("%fmb", s_cast<f64>(buf.size) / 1024.0 / 1024.0);
                             ImGui::TableSetColumnIndex(2);
                             ImGui::Text(buf.block_allocated ? "Yes" : "No");
                         }
@@ -1616,7 +1436,7 @@ namespace foundation {
                         ImGui::TableSetupColumn("Size", {});
                         ImGui::TableSetupColumn("Block Allocated?", {});
                         ImGui::TableHeadersRow();
-                        for (auto i = 0; i < list_len; ++i) {
+                        for (usize i = 0; i < list_len; ++i) {
                             auto img = mem_report.image_list[i];
                             char const * name = context->device.image_info(img.id).value().name.data();
     
@@ -1624,7 +1444,7 @@ namespace foundation {
                             ImGui::TableSetColumnIndex(0);
                             ImGui::Text("%s", name);
                             ImGui::TableSetColumnIndex(1);
-                            ImGui::Text("%fmb", s_cast<f32>(img.size) / 1024.0f / 1024.0f);
+                            ImGui::Text("%fmb", s_cast<f64>(img.size) / 1024.0 / 1024.0);
                             ImGui::TableSetColumnIndex(2);
                             ImGui::Text(img.block_allocated ? "Yes" : "No");
                         }
@@ -1636,7 +1456,7 @@ namespace foundation {
                 bool open = (ImGui::CollapsingHeader("Total Aliased Tlas VRAM Use:   "));
                 ImGui::SameLine();
                 ImGui::Text("%s", fmt::format("{:>10.2f} mb", s_cast<f32>(mem_report.total_aliased_tlas_device_memory_use) / 1024.0f  / 1024.0f).c_str());
-                if (open){
+                if (open) {
                     std::stable_sort(mem_report.tlas_list.begin(), mem_report.tlas_list.end(), [](auto& a, auto& b){ return a.size > b.size; });
                     usize const list_len_max = 30;
                     usize const list_len = std::min(list_len_max, mem_report.tlas_list.size());
@@ -1645,7 +1465,7 @@ namespace foundation {
                         ImGui::TableSetupColumn("Size", {});
                         ImGui::TableSetupColumn("Buffer Allocated?", {});
                         ImGui::TableHeadersRow();
-                        for (auto i = 0; i < list_len; ++i) {
+                        for (usize i = 0; i < list_len; ++i) {
                             auto tlas = mem_report.tlas_list[i];
                             char const * name = context->device.tlas_info(tlas.id).value().name.data();
     
@@ -1653,7 +1473,7 @@ namespace foundation {
                             ImGui::TableSetColumnIndex(0);
                             ImGui::Text("%s", name);
                             ImGui::TableSetColumnIndex(1);
-                            ImGui::Text("%fmb", s_cast<f32>(tlas.size) / 1024.0f / 1024.0f);
+                            ImGui::Text("%fmb", s_cast<f64>(tlas.size) / 1024.0 / 1024.0);
                             ImGui::TableSetColumnIndex(2);
                             ImGui::Text("Yes");
                         }
@@ -1682,7 +1502,7 @@ namespace foundation {
                             ImGui::TableSetColumnIndex(0);
                             ImGui::Text("%s", name);
                             ImGui::TableSetColumnIndex(1);
-                            ImGui::Text("%fmb", s_cast<f32>(blas.size) / 1024.0f / 1024.0f);
+                            ImGui::Text("%fmb", s_cast<f64>(blas.size) / 1024.0 / 1024.0);
                             ImGui::TableSetColumnIndex(2);
                             ImGui::Text("Yes");
                         }
