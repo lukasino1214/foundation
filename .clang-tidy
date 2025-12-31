@@ -25,9 +25,14 @@ Checks: "*,
         -cppcoreguidelines-pro-type-union-access,
         -cppcoreguidelines-pro-bounds-pointer-arithmetic,
         -cppcoreguidelines-avoid-const-or-ref-data-members,
-        -readability-redundant-member-init
-        -modernize-use-designated-initializers
-        -modernize-concat-nested-namespaces
+        -readability-redundant-member-init,
+        -modernize-use-designated-initializers,
+        -modernize-concat-nested-namespaces,
+        -modernize-use-ranges,
+        -cppcoreguidelines-pro-type-vararg,
+        -boost-use-ranges,
+        -hicpp-vararg,
+        -readability-redundant-inline-specifier
 "
 WarningsAsErrors: ''
 HeaderFilterRegex: ''

@@ -187,7 +187,7 @@ namespace foundation {
         [[nodiscard]] auto get_height() const -> u32;
 
         void set_name(std::string name);
-        [[nodiscard]] auto get_name() const -> std::string const &;
+        [[nodiscard]] auto get_name() const -> const std::string&;
 
         std::unique_ptr<WindowState> window_state = {};
         u32 glfw_window_id = {};
@@ -197,4 +197,4 @@ namespace foundation {
         i32 cursor_pos_change_x = {};
         i32 cursor_pos_change_y = {};
     };
-}
+} // namespace foundation

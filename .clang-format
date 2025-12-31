@@ -25,3 +25,5 @@ PackConstructorInitializers: Never
 BreakInheritanceList: AfterColon
 BreakConstructorInitializers: AfterColon
 SpaceBeforeInheritanceColon: true
+ReferenceAlignment: Left
+SpaceBeforeParens: Never
