@@ -38,7 +38,7 @@ namespace foundation {
     AssetProcessor::~AssetProcessor() = default;
 
     template <typename ElemT, bool IS_INDEX_BUFFER>
-    auto load_data(fastgltf::Asset& asset, fastgltf::Accessor& accessor) {
+    auto load_data(const fastgltf::Asset& asset, const fastgltf::Accessor& accessor) {
         std::vector<ElemT> ret(accessor.count);
         if constexpr(IS_INDEX_BUFFER) {
             if (accessor.componentType == fastgltf::ComponentType::UnsignedShort) {
@@ -783,6 +783,51 @@ namespace foundation {
             fmt::println("[{} / {}] - image - done", i+1, asset->images.size());
         }
 
+        std::vector<BinaryAnimation> binary_animations = {};
+        for(const auto& animation : asset->animations) {
+            BinaryAnimation binary_animation = {};
+            binary_animation.name = animation.name.c_str();
+
+            binary_animation.channels.reserve(animation.channels.size());
+            for(const auto& channel : animation.channels) {
+                binary_animation.channels.push_back(BinaryAnimation::Channel {
+                    .sampler = s_cast<u32>(channel.samplerIndex),
+                    .node = s_cast<u32>(channel.nodeIndex.value()),
+                    .path = s_cast<BinaryAnimation::PathType>(s_cast<u32>(channel.path) - 1),
+                });
+            }
+
+            binary_animation.samplers.reserve(animation.samplers.size());
+            for(const auto& sampler : animation.samplers) {
+                BinaryAnimation::Sampler binary_sampler = {};
+                binary_sampler.interpolation = s_cast<BinaryAnimation::InterpolationType>(sampler.interpolation);
+                binary_sampler.timestamps = load_data<f32, false>(*asset, asset->accessors[sampler.inputAccessor]);
+
+                const auto& value_accessor = asset->accessors[sampler.outputAccessor];
+                switch (value_accessor.type) {
+                    case fastgltf::AccessorType::Vec3: {
+                        std::vector<f32vec3> data = load_data<f32vec3, false>(*asset, value_accessor);
+                        binary_sampler.values.resize(3 * data.size());
+                        std::memcpy(binary_sampler.values.data(), data.data(), 3 * data.size() * sizeof(f32));
+                        break;
+                    }
+                    case fastgltf::AccessorType::Vec4: {
+                        std::vector<f32vec4> data = load_data<f32vec4, false>(*asset, value_accessor);
+                        binary_sampler.values.resize(4 * data.size());
+                        std::memcpy(binary_sampler.values.data(), data.data(), 4 * data.size() * sizeof(f32));
+                        break;
+                    }
+                    default: {
+                        throw std::runtime_error("something went wrong"); 
+                    }
+                }
+
+                binary_animation.samplers.push_back(binary_sampler);
+            }
+
+            binary_animations.push_back(binary_animation);
+        }
+
         std::vector<std::byte> compressed_data = {};
         {
             ByteWriter byte_writer;
@@ -804,6 +849,7 @@ namespace foundation {
                 .meshes = binary_meshes,
                 .materials = binary_materials,
                 .textures = binary_textures,
+                .animations = binary_animations,
             });
 
             fmt::println("writer {}", byte_writer.data.size());

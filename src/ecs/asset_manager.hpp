@@ -4,6 +4,7 @@
 #include "pch.hpp"
 #include "graphics/context.hpp"
 #include "asset_processor.hpp"
+#include "animation_manager.hpp"
 
 #include "ecs/entity.hpp"
 #include "ecs/scene.hpp"
@@ -90,7 +91,7 @@ namespace foundation {
     };
 
     struct AssetManager {
-        AssetManager(Context* _context, Scene* _scene, ThreadPool* _thread_pool, AssetProcessor* _asset_processor);
+        AssetManager(Context* _context, Scene* _scene, ThreadPool* _thread_pool, AssetProcessor* _asset_processor, AnimationManager* _animation_manager);
         ~AssetManager();
 
         void load_model(LoadManifestInfo& info);
@@ -114,6 +115,7 @@ namespace foundation {
         Scene* scene;
         ThreadPool* thread_pool;
         AssetProcessor* asset_processor;
+        AnimationManager* animation_manager;
 
         std::vector<AssetManifestEntry> asset_manifest_entries = {};
         std::vector<TextureManifestEntry> texture_manifest_entries = {};

@@ -702,7 +702,9 @@ namespace foundation {
             .dst_access = daxa::AccessConsts::READ,
         });
 
-        if(!info.update_meshes.empty() || !info.update_mesh_groups.empty() || !moved_entities.empty()) {
+        if((!info.update_meshes.empty() || !info.update_mesh_groups.empty() || !moved_entities.empty()) && false) {
+            PROFILE_SCOPE_NAMED(build_tlas);
+
             std::vector<daxa_BlasInstanceData> blas_instances = {};
             for(const auto& [_, mesh_group] : mesh_group_data) {
                 for(flecs::entity entity : mesh_group.entites) {

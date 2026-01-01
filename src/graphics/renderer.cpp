@@ -1390,7 +1390,7 @@ namespace foundation {
         ImGui::Text("total time : %f ms", total_time);
         ImGui::End();
 
-        ImGui::Begin("Memory Usage");
+        if(ImGui::Begin("Memory Usage"))
         {
             auto mem_report = context->device.device_memory_report_convenient();
 

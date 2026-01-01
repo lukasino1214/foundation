@@ -251,12 +251,86 @@ namespace foundation {
         }
     };
 
+    struct BinaryAnimation {
+        enum struct PathType : u32 {
+            Position,
+            Rotation,
+            Scale,
+            Weights,
+        };
+
+        enum struct InterpolationType : u32 {
+            Linear,
+            Step,
+            CubicSpline
+        };
+
+        struct Channel {
+            u32 sampler = {};
+            u32 node = {};
+            PathType path = {};
+
+            static void serialize(ByteWriter& writer, const Channel& value) {
+                writer.write(value.sampler);
+                writer.write(value.node);
+                writer.write(value.path);
+            }
+
+            static auto deserialize(ByteReader& reader) -> Channel { 
+                Channel value = {};
+                reader.read(value.sampler);
+                reader.read(value.node);
+                reader.read(value.path);
+                return value;    
+            }
+        };
+
+        struct Sampler {
+            std::vector<f32> timestamps = {};
+            std::vector<f32> values = {};
+            InterpolationType interpolation = {};
+
+            static void serialize(ByteWriter& writer, const Sampler& value) {
+                writer.write(value.timestamps);
+                writer.write(value.values);
+                writer.write(value.interpolation);
+            }
+
+            static auto deserialize(ByteReader& reader) -> Sampler { 
+                Sampler value = {};
+                reader.read(value.timestamps);
+                reader.read(value.values);
+                reader.read(value.interpolation);
+                return value;    
+            }
+        };
+
+        std::vector<Channel> channels = {};
+        std::vector<Sampler> samplers = {};
+        std::string name = {};
+
+        static void serialize(ByteWriter& writer, const BinaryAnimation& value) {
+            writer.write(value.channels);
+            writer.write(value.samplers);
+            writer.write(value.name);
+        }
+
+        static auto deserialize(ByteReader& reader) -> BinaryAnimation { 
+            BinaryAnimation value = {};
+            reader.read(value.channels);
+            reader.read(value.samplers);
+            reader.read(value.name);
+            return value;    
+        }
+    };  
+
     struct BinaryAssetInfo {
         std::vector<BinaryNode> nodes = {};
         std::vector<BinaryMeshGroup> mesh_groups = {};
         std::vector<BinaryMesh> meshes = {};
         std::vector<BinaryMaterial> materials = {};
         std::vector<BinaryTexture> textures = {};
+        std::vector<BinaryAnimation> animations = {};
 
         static void serialize(ByteWriter& writer, const BinaryAssetInfo& value) {
             writer.write(value.nodes);
@@ -264,6 +338,7 @@ namespace foundation {
             writer.write(value.meshes);
             writer.write(value.materials);
             writer.write(value.textures);
+            writer.write(value.animations);
         }
 
         static auto deserialize(ByteReader& reader) -> BinaryAssetInfo { 
@@ -273,6 +348,7 @@ namespace foundation {
             reader.read(value.meshes);
             reader.read(value.materials);
             reader.read(value.textures);
+            reader.read(value.animations);
             return value;    
         }
     };

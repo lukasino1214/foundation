@@ -1,6 +1,7 @@
 #pragma once
 
 #include <ui/ui.hpp>
+#include "ecs/animation_manager.hpp"
 #include "ecs/asset_manager.hpp"
 #include "ecs/asset_processor.hpp"
 #include "ecs/scene.hpp"
@@ -25,6 +26,7 @@ namespace foundation {
         NativeWIndow window;
         Context context;
         std::shared_ptr<Scene> scene;
+        std::unique_ptr<AnimationManager> animation_manager;
         std::unique_ptr<GPUScene> gpu_scene;
         std::unique_ptr<AssetProcessor> asset_processor;
         std::unique_ptr<ThreadPool> thread_pool;

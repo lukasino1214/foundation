@@ -41,7 +41,7 @@ namespace foundation {
         };
     };
 
-    AssetManager::AssetManager(Context* _context, Scene* _scene, ThreadPool* _thread_pool, AssetProcessor* _asset_processor) : context{_context}, scene{_scene}, thread_pool{_thread_pool}, asset_processor{_asset_processor} {
+    AssetManager::AssetManager(Context* _context, Scene* _scene, ThreadPool* _thread_pool, AssetProcessor* _asset_processor, AnimationManager* _animation_manager) : context{_context}, scene{_scene}, thread_pool{_thread_pool}, asset_processor{_asset_processor}, animation_manager{_animation_manager} {
         PROFILE_SCOPE;
         gpu_materials = make_task_buffer(context, {
             sizeof(Material), 
@@ -108,19 +108,22 @@ namespace foundation {
         mc->path = info.path;
 
         bool asset_isnt_in_memory = true;
-        const AssetManifestEntry* asset_manifest = {};
-        const BinaryAssetInfo* asset = {};
+        u32 found_asset_manifest_index = {};
+        AssetManifestEntry* asset_manifest = {};
+        BinaryAssetInfo* asset = {};
 
-        for(const auto& asset_manifest_ : asset_manifest_entries) {
-            if(info.path == asset_manifest_.path) {
+        for(u32 i = 0; i < asset_manifest_entries.size(); i++) {
+            if(info.path == asset_manifest_entries[i].path) {
                 asset_isnt_in_memory = false;
-                asset_manifest = std::addressof(asset_manifest_);
+                asset_manifest = std::addressof(asset_manifest_entries[i]);
                 asset = asset_manifest->asset.get();
+                found_asset_manifest_index = i;
             }
         }
 
         if(asset_isnt_in_memory) {
             u32 const asset_manifest_index = s_cast<u32>(asset_manifest_entries.size());
+            found_asset_manifest_index = asset_manifest_index;
             u32 const texture_manifest_offset = s_cast<u32>(texture_manifest_entries.size());
             u32 const material_manifest_offset = s_cast<u32>(material_manifest_entries.size());
             u32 const mesh_manifest_offset = s_cast<u32>(mesh_manifest_entries.size());
@@ -265,14 +268,15 @@ namespace foundation {
             }
         }
 
-        std::vector<Entity> node_index_to_entity = {};
+        std::vector<flecs::entity> node_index_to_entity = {};
         for(u32 node_index = 0; node_index < s_cast<u32>(asset->nodes.size()); node_index++) {
-            node_index_to_entity.push_back(scene->create_entity(std::format("asset {} {} {}", asset_manifest_entries.size(), asset->nodes[node_index].name, info.parent.get_name().data())));
+            Entity e = scene->create_entity(std::format("asset {} {} {} {}", asset_manifest_entries.size(), asset->nodes[node_index].name, info.parent.get_name().data(), node_index));
+            node_index_to_entity.push_back(e.get_handle());
         }
 
         for(u32 node_index = 0; node_index < s_cast<u32>(asset->nodes.size()); node_index++) {
             const auto& node = asset->nodes[node_index];
-            Entity& parent_entity = node_index_to_entity[node_index];
+            Entity parent_entity(node_index_to_entity[node_index], scene);
             if(node.mesh_index.has_value()) {
                 auto* mesh_component = parent_entity.add_component<MeshComponent>();
                 mesh_component->mesh_group_manifest_entry_index = asset_manifest->mesh_group_manifest_offset + node.mesh_index.value();
@@ -288,18 +292,25 @@ namespace foundation {
             parent_entity.set_local_rotation(rotation);
             parent_entity.set_local_scale(scale);
 
-            for(u32 children_index = 0; children_index < node.children.size(); children_index++) {
-                Entity& child_entity = node_index_to_entity[children_index];
+            for(u32 children_index : node.children) {
+                Entity child_entity(node_index_to_entity[children_index], scene);
                 parent_entity.set_child(child_entity);
             }
         }
 
         for(u32 node_index = 0; node_index < s_cast<u32>(asset->nodes.size()); node_index++) {
-            Entity& entity = node_index_to_entity[node_index];
+            Entity entity(node_index_to_entity[node_index], scene);
 
             if(!entity.has_parent()) {
                 info.parent.set_child(entity);
             }
+        }
+
+        if(!asset->animations.empty()) {
+            animation_manager->add_animation(found_asset_manifest_index, asset->animations, {
+                .entity = info.parent.get_handle(),
+                .node_index_to_entity = node_index_to_entity
+            });
         }
 
         if(asset_isnt_in_memory) {
