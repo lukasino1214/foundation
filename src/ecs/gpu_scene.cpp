@@ -475,7 +475,6 @@ namespace foundation {
                         .meshlet_aabbs = mesh_geometry_data.meshlet_aabbs,
                         .micro_indices = mesh_geometry_data.micro_indices,
                         .indirect_vertices = mesh_geometry_data.indirect_vertices,
-                        .primitive_indices = mesh_geometry_data.primitive_indices,
                         .vertex_positions = mesh_geometry_data.vertex_positions,
                         .vertex_normals = mesh_geometry_data.vertex_normals,
                         .vertex_uvs = mesh_geometry_data.vertex_uvs,

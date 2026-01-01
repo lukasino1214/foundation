@@ -82,12 +82,12 @@ namespace foundation {
         context->device.destroy_buffer(gpu_readback_mesh_cpu.get_state().buffers[0]);
 
         for(auto& mesh_manifest : mesh_manifest_entries) {
-            if(context->device.is_buffer_id_valid(mesh_manifest.geometry_info.mesh_geometry_data.mesh_buffer)) {
-                context->device.destroy_buffer(mesh_manifest.geometry_info.mesh_geometry_data.mesh_buffer);
+            if(context->device.is_buffer_id_valid(mesh_manifest.mesh_geometry_data.mesh_buffer)) {
+                context->device.destroy_buffer(mesh_manifest.mesh_geometry_data.mesh_buffer);
             }
 
-            if(context->device.is_blas_id_valid(std::bit_cast<daxa::BlasId>(mesh_manifest.geometry_info.mesh_geometry_data.blas))) {
-                context->device.destroy_blas(std::bit_cast<daxa::BlasId>(mesh_manifest.geometry_info.mesh_geometry_data.blas));
+            if(context->device.is_blas_id_valid(std::bit_cast<daxa::BlasId>(mesh_manifest.mesh_geometry_data.blas))) {
+                context->device.destroy_blas(std::bit_cast<daxa::BlasId>(mesh_manifest.mesh_geometry_data.blas));
             }
         }
 
@@ -251,10 +251,7 @@ namespace foundation {
                         .asset_manifest_index = asset_manifest_index,
                         .asset_local_mesh_index = mesh_group_index,
                         .asset_local_primitive_index = mesh_index,
-                        .geometry_info = {
-                            .mesh_geometry_data = mesh_geometry_data,
-                            .material_manifest_index = material_index,
-                        },
+                        .mesh_geometry_data = mesh_geometry_data,
                     });
                 }
 
@@ -327,7 +324,7 @@ namespace foundation {
                             .material_manifest_offset = asset_manifest->material_manifest_offset,
                             .manifest_index = mesh_group_manifest.mesh_manifest_indices_offset + mesh_index,
                             // .old_mesh = {},
-                            .mesh_geometry_data = mesh_manifest_entries[asset_manifest->mesh_manifest_offset + mesh_group.mesh_offset + mesh_index].geometry_info.mesh_geometry_data,
+                            .mesh_geometry_data = mesh_manifest_entries[asset_manifest->mesh_manifest_offset + mesh_group.mesh_offset + mesh_index].mesh_geometry_data,
                             .file_path = asset_manifest->path.parent_path() / asset->meshes[mesh_group.mesh_offset + mesh_index].file_path
                         },
                         .asset_processor = asset_processor,
@@ -456,7 +453,7 @@ namespace foundation {
         for(const auto& mesh_upload_info : info.uploaded_meshes) {
             MeshManifestEntry& mesh_manifest_entry = mesh_manifest_entries[mesh_upload_info.manifest_index];
             mesh_manifest_entry.loading = false;
-            mesh_manifest_entry.geometry_info = MeshManifestEntry::VirtualGeometryRenderInfo { .mesh_geometry_data = mesh_upload_info.mesh_geometry_data, };
+            mesh_manifest_entry.mesh_geometry_data = mesh_upload_info.mesh_geometry_data;
 
             update_meshes.push_back({
                 .mesh_group_index = asset_manifest_entries[mesh_manifest_entry.asset_manifest_index].mesh_group_manifest_offset + mesh_manifest_entry.asset_local_mesh_index,

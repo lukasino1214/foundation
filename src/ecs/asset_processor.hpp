@@ -155,8 +155,8 @@ namespace foundation {
 
         auto record_gpu_load_processing_commands() -> RecordCommands;
 
-        static auto process_mesh(const ProcessMeshInfo& info) -> ProcessedMeshInfo;
-        static void convert_gltf_to_binary(const std::filesystem::path& input_path, const std::filesystem::path& output_path);
+        static void convert_gltf_to_binary(const std::filesystem::path& input_path, const std::filesystem::path& output_path, bool disable_nanite_lods);
+        static auto process_mesh(const ProcessMeshInfo& info, bool disable_nanite_lods) -> ProcessedMeshInfo;
 
         static auto generate_meshlets(const GenerateMeshletsInfo& info) -> ProcessedMeshletsInfo;
         static auto generate_index_buffer(const GenerateIndexBufferInfo& info) -> ProcessedIndexBufferInfo;

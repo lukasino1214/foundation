@@ -19,14 +19,14 @@ namespace foundation {
 
         struct AnimationData {
             std::vector<EntityData> entity_data = {};
-            std::vector<BinaryAnimation> binary_animations = {};
+            std::span<const BinaryAnimation> binary_animations = {};
         };
 
         AnimationManager(Scene* _scene);
         ~AnimationManager();
 
         void update(f32 delta_time);
-        void add_animation(u32 asset_manifest_index, const std::vector<BinaryAnimation>& binary_animations, EntityData&& entity_data);
+        void add_animation(u32 asset_manifest_index, std::span<const BinaryAnimation> binary_animations, EntityData&& entity_data);
 
         Scene* scene = {};
         ankerl::unordered_dense::map<u32, AnimationData> animation_datas = {};

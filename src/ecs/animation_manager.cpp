@@ -64,7 +64,7 @@ namespace foundation {
                                                 break;
                                             }
                                             case BinaryAnimation::PathType::Weights: {
-                                                throw std::runtime_error("something went wrong");
+                                                // throw std::runtime_error("something went wrong");
                                                 break;
                                             }
                                         }
@@ -88,7 +88,7 @@ namespace foundation {
                                                 break;
                                             }
                                             case BinaryAnimation::PathType::Weights: {
-                                                throw std::runtime_error("something went wrong");
+                                                // throw std::runtime_error("something went wrong");
                                                 break;
                                             }
                                         }
@@ -110,7 +110,7 @@ namespace foundation {
         }
     }
 
-    void AnimationManager::add_animation(u32 asset_manifest_index, const std::vector<BinaryAnimation>& binary_animations, EntityData&& entity_data) {
+    void AnimationManager::add_animation(u32 asset_manifest_index, std::span<const BinaryAnimation> binary_animations, EntityData&& entity_data) {
         std::vector<AnimationState> animation_states = {};
         animation_states.reserve(binary_animations.size());
         for(const BinaryAnimation& animation : binary_animations) {

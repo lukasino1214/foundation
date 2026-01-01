@@ -93,15 +93,15 @@ void cull_meshlets(u32vec3 thread_index : SV_DispatchThreadID) {
     if(!is_ndc_aabb_hiz_depth_visible(ndc_aabb, push.uses.u_globals->next_lower_po2_render_target_size, push.uses.u_hiz)) {
         return;
     }
-    
-    const MeshletBoundingSpheres bounding_spheres = mesh.bounding_spheres[meshlet_index];
-    const MeshletSimplificationError simplification_errors = mesh.simplification_errors[meshlet_index];
 
-    let lod_is_ok = lod_error_is_imperceptible(bounding_spheres.lod_group_sphere, simplification_errors.group_error, transform_matrix, projection_matrix);
-    let parent_lod_is_ok = lod_error_is_imperceptible(bounding_spheres.lod_parent_group_sphere, simplification_errors.parent_group_error, transform_matrix, projection_matrix);
-    
-    if (!lod_is_ok || parent_lod_is_ok) { 
-        return; 
+    if(mesh.simplification_errors != nullptr) {
+        const MeshletBoundingSpheres bounding_spheres = mesh.bounding_spheres[meshlet_index];
+        const MeshletSimplificationError simplification_error = mesh.simplification_errors[meshlet_index];
+        let lod_is_ok = lod_error_is_imperceptible(bounding_spheres.lod_group_sphere, simplification_error.group_error, transform_matrix, projection_matrix);
+        let parent_lod_is_ok = lod_error_is_imperceptible(bounding_spheres.lod_parent_group_sphere, simplification_error.parent_group_error, transform_matrix, projection_matrix);
+        if (!lod_is_ok || parent_lod_is_ok) { 
+            return; 
+        }
     }
 
     i32vec2 min_viewport = i32vec2((ndc_aabb.ndc_min.xy * f32vec2(0.5, -0.5) + 0.5) * f32vec2(viewport_size));

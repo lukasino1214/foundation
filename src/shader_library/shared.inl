@@ -202,7 +202,6 @@ struct MeshGeometryData {
     daxa_BufferPtr(AABB) meshlet_aabbs;
     daxa_BufferPtr(u32) micro_indices;
     daxa_BufferPtr(u32) indirect_vertices;
-    daxa_BufferPtr(u32) primitive_indices;
     daxa_BufferPtr(f32vec3) vertex_positions;
     daxa_BufferPtr(u32) vertex_normals;
     daxa_BufferPtr(u32) vertex_uvs;
@@ -224,7 +223,6 @@ struct Mesh {
     daxa_BufferPtr(AABB) meshlet_aabbs;
     daxa_BufferPtr(u32) micro_indices;
     daxa_BufferPtr(u32) indirect_vertices;
-    daxa_BufferPtr(u32) primitive_indices;
     daxa_BufferPtr(f32vec3) vertex_positions;
     daxa_BufferPtr(u32) vertex_normals;
     daxa_BufferPtr(u32) vertex_uvs;

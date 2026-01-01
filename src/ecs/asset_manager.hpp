@@ -28,17 +28,12 @@ namespace foundation {
     };
 
     struct MeshManifestEntry {
-        struct VirtualGeometryRenderInfo {
-            MeshGeometryData mesh_geometry_data = {};
-            u32 material_manifest_index = {};
-        };
-
         u32 asset_manifest_index = {};
         u32 asset_local_mesh_index = {};
         u32 asset_local_primitive_index = {};
         u8 unload_delay = {};
         bool loading = true;
-        VirtualGeometryRenderInfo geometry_info = {};
+        MeshGeometryData mesh_geometry_data = {};
     };
 
     struct MeshGroupManifestEntry {

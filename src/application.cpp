@@ -79,7 +79,7 @@ namespace foundation {
 //                 .path = "assets/binary/Sponza/Sponza.bmodel",
 //             };
 // #if COOK_ASSETS
-//             AssetProcessor::convert_gltf_to_binary("assets/models/Sponza/glTF/Sponza.gltf", "assets/binary/Sponza/Sponza.bmodel");
+//             AssetProcessor::convert_gltf_to_binary("assets/models/Sponza/glTF/Sponza.gltf", "assets/binary/Sponza/Sponza.bmodel", false);
 // #else
 //             asset_manager->load_model(manifesto);
 // #endif
@@ -97,7 +97,7 @@ namespace foundation {
                 .path = "assets/binary/DamagedHelmet/DamagedHelmet.bmodel",
             };
 #if COOK_ASSETS
-            AssetProcessor::convert_gltf_to_binary("assets/models/DamagedHelmet/glTF/DamagedHelmet.gltf", "assets/binary/DamagedHelmet/DamagedHelmet.bmodel");
+            AssetProcessor::convert_gltf_to_binary("assets/models/DamagedHelmet/glTF/DamagedHelmet.gltf", "assets/binary/DamagedHelmet/DamagedHelmet.bmodel", false);
 #else
             asset_manager->load_model(manifesto);
 #endif
@@ -115,7 +115,7 @@ namespace foundation {
                 .path = "assets/binary/Cubes/Cubes.bmodel",
             };
 #if COOK_ASSETS
-            AssetProcessor::convert_gltf_to_binary("assets/models/Cubes/Cubes.gltf", "assets/binary/Cubes/Cubes.bmodel");
+            AssetProcessor::convert_gltf_to_binary("assets/models/Cubes/Cubes.gltf", "assets/binary/Cubes/Cubes.bmodel", false);
 #else
             asset_manager->load_model(manifesto);
 #endif
@@ -139,7 +139,7 @@ namespace foundation {
                         .path = "assets/binary/Bistro/Bistro.bmodel",
                     };
 #if COOK_ASSETS
-                    AssetProcessor::convert_gltf_to_binary("assets/models/Bistro/Bistro.glb", "assets/binary/Bistro/Bistro.bmodel");
+                    AssetProcessor::convert_gltf_to_binary("assets/models/Bistro/Bistro.glb", "assets/binary/Bistro/Bistro.bmodel", false);
 #else           
                     asset_manager->load_model(manifesto);
 #endif                
@@ -210,6 +210,25 @@ namespace foundation {
             };
 #if COOK_ASSETS
             AssetProcessor::convert_gltf_to_binary("assets/models/AnimatedCube/glTF/AnimatedCube.gltf", "assets/binary/AnimatedCube/AnimatedCube.bmodel", true);
+#else
+            asset_manager->load_model(manifesto);
+#endif
+        }
+
+
+        {
+            auto entity = scene->create_entity("animated morph cube");
+            entity.get_handle().add<RootEntityTag>();
+            entity.add_component<TransformComponent>();
+            entity.set_local_position({-10, 20, -10});
+
+            LoadManifestInfo manifesto {
+                .parent = entity,
+                .path = "assets/binary/AnimatedMorphCube/AnimatedMorphCube.bmodel",
+            };
+
+#if COOK_ASSETS
+            AssetProcessor::convert_gltf_to_binary("assets/models/AnimatedMorphCube/glTF/AnimatedMorphCube.gltf", "assets/binary/AnimatedMorphCube/AnimatedMorphCube.bmodel", true);
 #else
             asset_manager->load_model(manifesto);
 #endif
