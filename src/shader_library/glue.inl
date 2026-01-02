@@ -143,6 +143,18 @@ func AtomicMaxU32(__ref u32 dest, u32 value) -> u32 {
     return original_value;
 }
 
+[__readNone]
+[ForceInline]
+func AtomicMinU32(__ref u32 dest, u32 value) -> u32 {
+    u32 original_value;
+    spirv_asm {
+        OpCapability Int64Atomics;
+        %origin:$$u32 = OpAtomicUMin &dest Device None $value;
+        OpStore &original_value %origin
+    };
+    return original_value;
+}
+
 [ForceInline]
 [ForceInline]
 func AtomicAddU64(__ref uint64_t dest, uint64_t value) -> uint64_t {

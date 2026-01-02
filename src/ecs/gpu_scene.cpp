@@ -82,6 +82,36 @@ namespace foundation {
             .name = "meshlets data merged transparent"
         });
 
+        gpu_weights = make_task_buffer(context, {
+            .size = sizeof(f32),
+            .allocate_info = daxa::MemoryFlagBits::NONE,
+            .name = "weights"
+        });
+
+        gpu_animated_mesh_count = make_task_buffer(context, {
+            .size = sizeof(u32),
+            .allocate_info = daxa::MemoryFlagBits::NONE,
+            .name = "animated mesh count"
+        });
+
+        gpu_animated_meshes = make_task_buffer(context, {
+            .size = sizeof(AnimatedMesh),
+            .allocate_info = daxa::MemoryFlagBits::NONE,
+            .name = "animated meshes"
+        });
+
+        gpu_animated_mesh_vertices_prefix_sum_work_expansion = make_task_buffer(context, {
+            sizeof(PrefixSumWorkExpansion),
+            daxa::MemoryFlagBits::NONE,
+            "animated mesh vertices prefix sum work expansion"
+        });
+
+        gpu_animated_mesh_meshlets_prefix_sum_work_expansion = make_task_buffer(context, {
+            sizeof(PrefixSumWorkExpansion),
+            daxa::MemoryFlagBits::NONE,
+            "animated mesh meshlets prefix sum work expansion"
+        });
+
         gpu_tlas = daxa::TaskTlas{{ .name = "tlas" }};
 
         sun_light_buffer = make_task_buffer(context, daxa::BufferInfo {
@@ -139,6 +169,12 @@ namespace foundation {
         context->device.destroy_buffer(gpu_meshlets_data_merged_masked.get_state().buffers[0]);
         context->device.destroy_buffer(gpu_meshlets_data_merged_transparent.get_state().buffers[0]);
 
+        context->device.destroy_buffer(gpu_weights.get_state().buffers[0]);
+        context->device.destroy_buffer(gpu_animated_mesh_count.get_state().buffers[0]);
+        context->device.destroy_buffer(gpu_animated_meshes.get_state().buffers[0]);
+        context->device.destroy_buffer(gpu_animated_mesh_vertices_prefix_sum_work_expansion.get_state().buffers[0]);
+        context->device.destroy_buffer(gpu_animated_mesh_meshlets_prefix_sum_work_expansion.get_state().buffers[0]);
+
         context->device.destroy_tlas(gpu_tlas.get_state().tlas[0]);
 
         context->device.destroy_buffer(sun_light_buffer.get_state().buffers[0]);
@@ -148,6 +184,12 @@ namespace foundation {
         context->device.destroy_buffer(tile_frustums_buffer.get_state().buffers[0]);
         context->device.destroy_buffer(tile_data_buffer.get_state().buffers[0]);
         context->device.destroy_buffer(tile_indices_buffer.get_state().buffers[0]);
+
+        for(AnimatedMeshInfo& animated_mesh_info : animated_meshes) {
+            if(context->device.is_buffer_id_valid(animated_mesh_info.buffer)) {
+                context->device.destroy_buffer(animated_mesh_info.buffer);
+            }
+        }
     }
 
     auto GPUScene::update(const UpdateInfo& info) -> daxa::ExecutableCommandList {
@@ -170,6 +212,7 @@ namespace foundation {
         std::vector<MeshGroupToMeshesMapping> dirty_mesh_groups = {};
 
         usize old_mesh_group_count = total_mesh_group_count;
+        usize old_animated_mesh_count = animated_meshes.size();
         scene->world->each([&](flecs::entity e, MeshComponent& mesh_component, GPUMeshDirty) {
             MeshGroupData& mesh_group = mesh_group_data[mesh_component.mesh_group_manifest_entry_index.value()];
             mesh_group.entites.push_back(e);
@@ -187,11 +230,23 @@ namespace foundation {
             for(u32 mesh_index = 0; mesh_index < mesh_group.meshes.size(); mesh_index++) {
                 MeshData& mesh = mesh_group.meshes[mesh_index];
 
+                u32 animated_mesh_index = INVALID_ID;
+                if(e.has<AnimationComponent>()) {
+                    animated_mesh_index = s_cast<u32>(animated_meshes.size());
+                    animated_meshes.push_back({
+                        .entity = e,
+                        .buffer = {},
+                        .weight_offset = s_cast<u32>(total_weight_count),
+                    });
+                    total_weight_count += e.get<AnimationComponent>()->weights.size();
+                }
+
                 u32 gpu_mesh_index = s_cast<u32>(total_mesh_count++);
                 dirty_meshes.push_back(gpu_mesh_index);
                 mesh.gpu_indices.push_back({
                     .mesh_group_index = gpu_mesh_group_index,
                     .mesh_index = gpu_mesh_index,
+                    .animated_mesh_index = animated_mesh_index,
                 });
 
                 BinaryAlphaMode alpha_mode = s_cast<BinaryAlphaMode>(mesh.mesh_geometry_data.material_type);
@@ -234,8 +289,8 @@ namespace foundation {
         }
 
     {
-        static bool first_time = true;
-        if(old_mesh_group_count != total_mesh_group_count || first_time) {
+        static bool mesh_group_first_time = true;
+        if(old_mesh_group_count != total_mesh_group_count || mesh_group_first_time) {
             daxa::BufferId staging_buffer = context->device.create_buffer({
                 .size = sizeof(u32),
                 .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
@@ -250,7 +305,27 @@ namespace foundation {
                 .size = sizeof(u32)
             });
             
-            first_time = false;
+            mesh_group_first_time = false;
+        }
+
+        static bool animated_mesh_first_time = true;
+        if(old_animated_mesh_count != animated_meshes.size() || animated_mesh_first_time) {
+            daxa::BufferId staging_buffer = context->device.create_buffer({
+                .size = sizeof(u32),
+                .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
+                .name = "animated mesh count staging buffer",
+            });
+            cmd_recorder.destroy_buffer_deferred(staging_buffer);
+
+            u32 count = s_cast<u32>(animated_meshes.size());
+            std::memcpy(context->device.buffer_host_address(staging_buffer).value(), &count, sizeof(u32));
+            cmd_recorder.copy_buffer_to_buffer(daxa::BufferCopyInfo {
+                .src_buffer = staging_buffer,
+                .dst_buffer = gpu_animated_mesh_count.get_state().buffers[0],
+                .size = sizeof(u32)
+            });
+            
+            animated_mesh_first_time = false;
         }
     }
 
@@ -379,6 +454,31 @@ namespace foundation {
             }
         }
 
+        usize total_animated_mesh_count = animated_meshes.size();
+        reallocate_buffer(context, cmd_recorder, gpu_animated_meshes, s_cast<u32>(animated_meshes.size() * sizeof(AnimatedMesh)));
+        reallocate_buffer(context, cmd_recorder, gpu_weights, s_cast<u32>(total_weight_count * sizeof(f32)));
+        reallocate_buffer<PrefixSumWorkExpansion>(context, cmd_recorder, gpu_animated_mesh_vertices_prefix_sum_work_expansion, total_animated_mesh_count * sizeof(u32) * 3 + sizeof(PrefixSumWorkExpansion), [&](const daxa::BufferId& buffer) -> PrefixSumWorkExpansion {
+            return PrefixSumWorkExpansion {
+                .merged_expansion_count_thread_count = 0,
+                .expansions_max = s_cast<u32>(total_animated_mesh_count),
+                .workgroup_count = 0,
+                .expansions_inclusive_prefix_sum = context->device.buffer_device_address(buffer).value() + sizeof(PrefixSumWorkExpansion) + total_animated_mesh_count * sizeof(u32) * 0,
+                .expansions_src_work_item = context->device.buffer_device_address(buffer).value() + sizeof(PrefixSumWorkExpansion) + total_animated_mesh_count * sizeof(u32) * 1,
+                .expansions_expansion_factor = context->device.buffer_device_address(buffer).value() + sizeof(PrefixSumWorkExpansion) + total_animated_mesh_count * sizeof(u32) * 2
+            };
+        });
+
+        reallocate_buffer<PrefixSumWorkExpansion>(context, cmd_recorder, gpu_animated_mesh_meshlets_prefix_sum_work_expansion, total_animated_mesh_count * sizeof(u32) * 3 + sizeof(PrefixSumWorkExpansion), [&](const daxa::BufferId& buffer) -> PrefixSumWorkExpansion {
+            return PrefixSumWorkExpansion {
+                .merged_expansion_count_thread_count = 0,
+                .expansions_max = s_cast<u32>(total_animated_mesh_count),
+                .workgroup_count = 0,
+                .expansions_inclusive_prefix_sum = context->device.buffer_device_address(buffer).value() + sizeof(PrefixSumWorkExpansion) + total_animated_mesh_count * sizeof(u32) * 0,
+                .expansions_src_work_item = context->device.buffer_device_address(buffer).value() + sizeof(PrefixSumWorkExpansion) + total_animated_mesh_count * sizeof(u32) * 1,
+                .expansions_expansion_factor = context->device.buffer_device_address(buffer).value() + sizeof(PrefixSumWorkExpansion) + total_animated_mesh_count * sizeof(u32) * 2
+            };
+        });
+
         if(!dirty_mesh_groups.empty()) {
             std::vector<MeshGroup> mesh_groups = {};
             std::vector<u32> meshes = {};
@@ -439,11 +539,15 @@ namespace foundation {
 
         if(!info.update_meshes.empty()) {
             u32 total_gpu_mesh_count = {};
+            u32 total_gpu_animated_mesh_count = {};
             for(const UpdateMesh& update_mesh_info : info.update_meshes) {
                 MeshGroupData& mesh_group = mesh_group_data[update_mesh_info.mesh_group_index];
                 MeshData& mesh_data = mesh_group.meshes[update_mesh_info.mesh_index];
 
                 total_gpu_mesh_count += mesh_data.gpu_indices.size();
+                if(mesh_data.mesh_geometry_data.is_animated) {
+                    total_gpu_animated_mesh_count += mesh_data.gpu_indices.size();
+                }
             }
 
             daxa::BufferId staging_buffer = context->device.create_buffer({
@@ -453,15 +557,96 @@ namespace foundation {
             });
 
             cmd_recorder.destroy_buffer_deferred(staging_buffer);
-            Mesh* staging_ptr = context->device.buffer_host_address_as<Mesh>(staging_buffer).value();
+            Mesh* mesh_staging_ptr = context->device.buffer_host_address_as<Mesh>(staging_buffer).value();
+            daxa::DeviceAddress calculated_weights = context->device.buffer_device_address(gpu_weights.get_state().buffers[0]).value();
+
+            daxa::BufferId staging_animated_mesh_buffer = {};
+            AnimatedMesh* staging_animated_mesh_ptr = {};
+            if(total_gpu_animated_mesh_count != 0) {
+                staging_animated_mesh_buffer = context->device.create_buffer({
+                    .size = total_gpu_animated_mesh_count * sizeof(AnimatedMesh),
+                    .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
+                    .name = "animated mesh manifest upload staging buffer",
+                });
+                cmd_recorder.destroy_buffer_deferred(staging_animated_mesh_buffer);
+                staging_animated_mesh_ptr = context->device.buffer_host_address_as<AnimatedMesh>(staging_animated_mesh_buffer).value();
+            }
 
             u32 gpu_mesh_index_iter = 0;
+            u32 gpu_animated_mesh_index_iter = 0;
             for(const UpdateMesh& update_mesh_info : info.update_meshes) {
                 const MeshGroupData& mesh_group = mesh_group_data[update_mesh_info.mesh_group_index];
                 const MeshData& mesh_data = mesh_group.meshes[update_mesh_info.mesh_index];
                 const MeshGeometryData& mesh_geometry_data = update_mesh_info.mesh_geometry_data;
  
-                for(auto [gpu_mesh_group_index, gpu_mesh_index] : mesh_data.gpu_indices) {
+                for(const auto& [gpu_mesh_group_index, gpu_mesh_index, animated_mesh_index] : mesh_data.gpu_indices) {
+                    daxa::DeviceAddress aabbs = mesh_geometry_data.meshlet_aabbs;
+                    daxa::DeviceAddress bounding_spheres = mesh_geometry_data.bounding_spheres;
+                    daxa::DeviceAddress positions = mesh_geometry_data.vertex_positions;
+                    daxa::DeviceAddress normals = mesh_geometry_data.vertex_normals;
+                    daxa::DeviceAddress uvs = mesh_geometry_data.vertex_uvs;
+
+                    if(mesh_geometry_data.is_animated) {
+                        AnimatedMeshInfo& animated_mesh_info = animated_meshes[animated_mesh_index];
+                        if(mesh_geometry_data.mesh_buffer.is_empty() && context->device.is_buffer_id_valid(animated_mesh_info.buffer)) {
+                            cmd_recorder.destroy_buffer_deferred(animated_mesh_info.buffer);
+                        } else {
+                            usize total_size = 0;
+                            total_size += mesh_geometry_data.meshlet_count * sizeof(AABB);
+                            total_size += mesh_geometry_data.meshlet_count * sizeof(MeshletBoundingSpheres);
+                            total_size += mesh_geometry_data.vertex_count * sizeof(f32vec3);
+                            total_size += mesh_geometry_data.vertex_count * sizeof(u32);
+                            total_size += mesh_geometry_data.vertex_count * sizeof(u32);
+    
+                            animated_mesh_info.buffer = context->device.create_buffer(daxa::BufferInfo {
+                                .size = total_size,
+                                .name = fmt::format("{} animated buffer", context->device.buffer_info(mesh_geometry_data.mesh_buffer).value().name.c_str().data()).substr(0, 59)
+                            });
+
+                            aabbs = context->device.buffer_device_address(animated_mesh_info.buffer).value();
+                            bounding_spheres = aabbs + mesh_geometry_data.meshlet_count * sizeof(AABB);
+                            positions = bounding_spheres + mesh_geometry_data.meshlet_count * sizeof(MeshletBoundingSpheres);
+                            normals = positions + mesh_geometry_data.vertex_count * sizeof(f32vec3);
+                            uvs = normals + mesh_geometry_data.vertex_count * sizeof(u32);
+   
+                            AnimatedMesh animated_mesh = {
+                                .meshlet_count = mesh_geometry_data.meshlet_count,
+                                .vertex_count = mesh_geometry_data.vertex_count,
+                                .aabb = mesh_geometry_data.aabb,
+                                .meshlets = mesh_geometry_data.meshlets,
+                                .bounding_spheres = bounding_spheres,
+                                .simplification_errors = mesh_geometry_data.simplification_errors,
+                                .meshlet_aabbs = aabbs,
+                                .micro_indices = mesh_geometry_data.micro_indices,
+                                .indirect_vertices = mesh_geometry_data.indirect_vertices,
+                                .indices = mesh_geometry_data.indices,
+                                .original_vertex_positions = mesh_geometry_data.vertex_positions,
+                                .original_vertex_normals = mesh_geometry_data.vertex_normals,
+                                .original_vertex_uvs = mesh_geometry_data.vertex_uvs,
+                                .morph_target_position_count = mesh_geometry_data.morph_target_position_count,
+                                .morph_target_normal_count = mesh_geometry_data.morph_target_normal_count,
+                                .morph_target_uv_count = mesh_geometry_data.morph_target_uv_count,
+                                .morph_target_positions = mesh_geometry_data.morph_target_positions,
+                                .morph_target_normals = mesh_geometry_data.morph_target_normals,
+                                .morph_target_uvs = mesh_geometry_data.morph_target_uvs,
+                                .calculated_weights = calculated_weights + animated_mesh_info.weight_offset * sizeof(f32),
+                                .vertex_positions = positions,
+                                .vertex_normals = normals,
+                                .vertex_uvs = uvs,
+                            };
+
+                            std::memcpy(staging_animated_mesh_ptr + gpu_animated_mesh_index_iter, &animated_mesh, sizeof(AnimatedMesh));
+                            cmd_recorder.copy_buffer_to_buffer({
+                                .src_buffer = staging_animated_mesh_buffer,
+                                .dst_buffer = gpu_animated_meshes.get_state().buffers[0],
+                                .src_offset = gpu_animated_mesh_index_iter * sizeof(AnimatedMesh),
+                                .dst_offset = animated_mesh_index * sizeof(AnimatedMesh),
+                                .size = sizeof(AnimatedMesh),
+                            });
+                            gpu_animated_mesh_index_iter++;
+                        }
+                    }
+
                     Mesh mesh = {
                         .mesh_group_index = gpu_mesh_group_index,
                         .manifest_index = mesh_geometry_data.manifest_index,
@@ -470,16 +655,16 @@ namespace foundation {
                         .vertex_count = mesh_geometry_data.vertex_count,
                         .aabb = mesh_geometry_data.aabb,
                         .meshlets = mesh_geometry_data.meshlets,
-                        .bounding_spheres = mesh_geometry_data.bounding_spheres,
+                        .bounding_spheres = bounding_spheres,
                         .simplification_errors = mesh_geometry_data.simplification_errors,
-                        .meshlet_aabbs = mesh_geometry_data.meshlet_aabbs,
+                        .meshlet_aabbs = aabbs,
                         .micro_indices = mesh_geometry_data.micro_indices,
                         .indirect_vertices = mesh_geometry_data.indirect_vertices,
-                        .vertex_positions = mesh_geometry_data.vertex_positions,
-                        .vertex_normals = mesh_geometry_data.vertex_normals,
-                        .vertex_uvs = mesh_geometry_data.vertex_uvs,
+                        .vertex_positions = positions,
+                        .vertex_normals = normals,
+                        .vertex_uvs = uvs,
                     };
-                    std::memcpy(staging_ptr + gpu_mesh_index_iter, &mesh, sizeof(Mesh));
+                    std::memcpy(mesh_staging_ptr + gpu_mesh_index_iter, &mesh, sizeof(Mesh));
 
                     cmd_recorder.copy_buffer_to_buffer({
                         .src_buffer = staging_buffer,
@@ -491,6 +676,29 @@ namespace foundation {
 
                     gpu_mesh_index_iter++;
                 }
+            }
+        }
+
+        if(!animated_meshes.empty()) {
+            daxa::BufferId staging_buffer = context->device.create_buffer({
+                .size = total_weight_count * sizeof(f32),
+                .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
+                .name = "weights staging buffer",
+            });
+            cmd_recorder.destroy_buffer_deferred(staging_buffer);
+            f32* staging_ptr = context->device.buffer_host_address_as<f32>(staging_buffer).value();
+
+            for(const AnimatedMeshInfo& animated_mesh_info : animated_meshes) {
+                const AnimationComponent* animation_component = animated_mesh_info.entity.get<AnimationComponent>();
+
+                std::memcpy(staging_ptr + animated_mesh_info.weight_offset, animation_component->weights.data(), animation_component->weights.size() * sizeof(f32));
+                cmd_recorder.copy_buffer_to_buffer({
+                    .src_buffer = staging_buffer,
+                    .dst_buffer = gpu_weights.get_state().buffers[0],
+                    .src_offset = animated_mesh_info.weight_offset * sizeof(f32),
+                    .dst_offset = animated_mesh_info.weight_offset * sizeof(f32),
+                    .size = animation_component->weights.size() * sizeof(f32),
+                });
             }
         }
 

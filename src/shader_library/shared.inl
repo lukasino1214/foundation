@@ -206,6 +206,14 @@ struct MeshGeometryData {
     daxa_BufferPtr(u32) vertex_normals;
     daxa_BufferPtr(u32) vertex_uvs;
     daxa_BufferPtr(u32) indices;
+
+    bool is_animated;
+    u32 morph_target_position_count;
+    u32 morph_target_normal_count;
+    u32 morph_target_uv_count;
+    daxa_BufferPtr(f32vec3) morph_target_positions;
+    daxa_BufferPtr(u32) morph_target_normals;
+    daxa_BufferPtr(u32) morph_target_uvs;
 };
 
 DAXA_DECL_BUFFER_PTR_ALIGN(MeshGeometryData, 8)
@@ -229,6 +237,37 @@ struct Mesh {
 };
 
 DAXA_DECL_BUFFER_PTR_ALIGN(Mesh, 8)
+
+struct AnimatedMesh {
+    u32 meshlet_count;
+    u32 vertex_count;
+    AABB aabb;
+    daxa_BufferPtr(Meshlet) meshlets;
+    daxa_BufferPtr(MeshletBoundingSpheres) bounding_spheres;
+    daxa_BufferPtr(MeshletSimplificationError) simplification_errors;
+    daxa_BufferPtr(AABB) meshlet_aabbs;
+    daxa_BufferPtr(u32) micro_indices;
+    daxa_BufferPtr(u32) indirect_vertices;
+    daxa_BufferPtr(u32) indices;
+
+    daxa_BufferPtr(f32vec3) original_vertex_positions;
+    daxa_BufferPtr(u32) original_vertex_normals;
+    daxa_BufferPtr(u32) original_vertex_uvs;
+
+    u32 morph_target_position_count;
+    u32 morph_target_normal_count;
+    u32 morph_target_uv_count;
+
+    daxa_BufferPtr(f32vec3) morph_target_positions;
+    daxa_BufferPtr(u32) morph_target_normals;
+    daxa_BufferPtr(u32) morph_target_uvs;
+    daxa_BufferPtr(f32) calculated_weights;
+
+    daxa_BufferPtr(f32vec3) vertex_positions;
+    daxa_BufferPtr(u32) vertex_normals;
+    daxa_BufferPtr(u32) vertex_uvs;
+};
+DAXA_DECL_BUFFER_PTR_ALIGN(AnimatedMesh, 8)
 
 struct MeshletInstanceData {
     u32 mesh_index;

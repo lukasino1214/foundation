@@ -62,4 +62,8 @@ namespace foundation {
     };
     
     struct GPULightDirty {};
+
+    struct AnimationComponent {
+        std::vector<f32> weights = {};
+    };
 }

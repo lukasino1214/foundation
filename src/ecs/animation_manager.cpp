@@ -29,6 +29,11 @@ namespace foundation {
                     for(const auto& channel : binary_animation.channels) {
                         const auto& sampler = binary_animation.samplers[channel.sampler];
                         Entity entity(entity_data.node_index_to_entity[channel.node], scene);
+                        AnimationComponent* animation_component = {};
+                        if(entity.has_component<AnimationComponent>()) {
+                            animation_component = entity.get_component<AnimationComponent>();
+                        }
+
                         const f32* f32_values = r_cast<const f32*>(sampler.values.data());
                         const f32vec3* f32vec3_values = r_cast<const f32vec3*>(sampler.values.data());
                         const f32vec4* f32vec4_values = r_cast<const f32vec4*>(sampler.values.data());
@@ -64,7 +69,16 @@ namespace foundation {
                                                 break;
                                             }
                                             case BinaryAnimation::PathType::Weights: {
-                                                // throw std::runtime_error("something went wrong");
+                                                const u32 morph_target_offset = s_cast<u32>(animation_component->weights.size());
+                                                for(u32 morph_target = 0; morph_target < animation_component->weights.size(); morph_target++) {
+                                                    f32 weight = glm::mix(
+                                                        f32_values[morph_target_offset * i + morph_target], 
+                                                        f32_values[morph_target_offset * (i + 1) + morph_target], 
+                                                        alpha
+                                                    );
+                                                    
+                                                    animation_component->weights[morph_target] = weight;
+                                                }
                                                 break;
                                             }
                                         }
@@ -88,7 +102,10 @@ namespace foundation {
                                                 break;
                                             }
                                             case BinaryAnimation::PathType::Weights: {
-                                                // throw std::runtime_error("something went wrong");
+                                                const u32 morph_target_offset = s_cast<u32>(animation_component->weights.size());
+                                                for(u32 morph_target = 0; morph_target < animation_component->weights.size(); morph_target++) {
+                                                    animation_component->weights[morph_target] = f32_values[morph_target_offset * i + morph_target];
+                                                }
                                                 break;
                                             }
                                         }

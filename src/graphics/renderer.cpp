@@ -24,6 +24,7 @@
 #include <graphics/post_processing/tasks/calculate_frustums.inl>
 #include <graphics/post_processing/tasks/cull_lights.inl>
 #include <graphics/virtual_geometry/tasks/ray_tracing.inl>
+#include <graphics/virtual_geometry/tasks/skin_animated_meshes.inl>
 #include <ImGuizmo.h>
 
 namespace foundation {
@@ -290,6 +291,20 @@ namespace foundation {
 
         context->gpu_metrics[RayTraceTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
 
+        context->gpu_metrics[CalculateFrustumsTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
+        context->gpu_metrics[CullLightsTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
+        context->gpu_metrics[CalculateFrustumsTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
+        context->gpu_metrics[CullLightsTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
+        context->gpu_metrics[CalculateFrustumsTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
+        context->gpu_metrics[CullLightsTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
+
+        context->gpu_metrics[AddAnimatedMeshesToPrefixSumWriteCommandTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
+        context->gpu_metrics[AddAnimatedMeshesToPrefixSumTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
+        context->gpu_metrics[SkinAnimatedMeshesWriteCommandTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
+        context->gpu_metrics[SkinAnimatedMeshesTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
+        context->gpu_metrics[CalculateBoundsAnimatedMeshesWriteCommandTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
+        context->gpu_metrics[CalculateBoundsAnimatedMeshesTask::name()] = std::make_shared<GPUMetric>(context->gpu_metric_pool.get());
+
         rebuild_task_graph();
 
         context->shader_globals.samplers = {
@@ -340,6 +355,17 @@ namespace foundation {
         };
 
         std::vector<PerfomanceCategory> virtual_geometry_performance_metrics = {
+            PerfomanceCategory {
+                .name = "skin animated meshes",
+                .counters = {
+                    {AddAnimatedMeshesToPrefixSumWriteCommandTask::name(), "add animated meshes to prefix sum write"},
+                    {AddAnimatedMeshesToPrefixSumTask::name(), "add animated meshes to prefix sum"},
+                    {SkinAnimatedMeshesWriteCommandTask::name(), "skin animated meshes write"},
+                    {SkinAnimatedMeshesTask::name(), "skin animated meshes"},
+                    {CalculateBoundsAnimatedMeshesWriteCommandTask::name(), "calculate bounds animated meshes write"},
+                    {CalculateBoundsAnimatedMeshesTask::name(), "calculate bounds animated meshes"},
+                }
+            },
             PerfomanceCategory {
                 .name = "early pass",
                 .counters = {
@@ -581,6 +607,13 @@ namespace foundation {
             {GenerateSSAOTask::name(), GenerateSSAOTask::pipeline_config_info()},
             {CalculateFrustumsTask::name(), CalculateFrustumsTask::pipeline_config_info()},
             {CullLightsTask::name(), CullLightsTask::pipeline_config_info()},
+
+            {AddAnimatedMeshesToPrefixSumWriteCommandTask::name(), AddAnimatedMeshesToPrefixSumWriteCommandTask::pipeline_config_info()},
+            {AddAnimatedMeshesToPrefixSumTask::name(), AddAnimatedMeshesToPrefixSumTask::pipeline_config_info()},
+            {SkinAnimatedMeshesWriteCommandTask::name(), SkinAnimatedMeshesWriteCommandTask::pipeline_config_info()},
+            {SkinAnimatedMeshesTask::name(), SkinAnimatedMeshesTask::pipeline_config_info()},
+            {CalculateBoundsAnimatedMeshesWriteCommandTask::name(), CalculateBoundsAnimatedMeshesWriteCommandTask::pipeline_config_info()},
+            {CalculateBoundsAnimatedMeshesTask::name(), CalculateBoundsAnimatedMeshesTask::pipeline_config_info()},
         };
 
         for (auto [name, info] : computes) {
@@ -674,6 +707,12 @@ namespace foundation {
         render_task_graph.use_persistent_buffer(gpu_scene->point_light_buffer);
         render_task_graph.use_persistent_buffer(gpu_scene->spot_light_buffer);
 
+        render_task_graph.use_persistent_buffer(gpu_scene->gpu_weights);
+        render_task_graph.use_persistent_buffer(gpu_scene->gpu_animated_mesh_count);
+        render_task_graph.use_persistent_buffer(gpu_scene->gpu_animated_meshes);
+        render_task_graph.use_persistent_buffer(gpu_scene->gpu_animated_mesh_vertices_prefix_sum_work_expansion);
+        render_task_graph.use_persistent_buffer(gpu_scene->gpu_animated_mesh_meshlets_prefix_sum_work_expansion);
+
         render_task_graph.add_task(
             daxa::InlineTask::Transfer(MiscellaneousTasks::UPDATE_GLOBALS)
             .writes(shader_globals_buffer)
@@ -720,6 +759,60 @@ namespace foundation {
         auto u_command = render_task_graph.create_transient_buffer(daxa::TaskTransientBufferInfo {
             .size = s_cast<u32>(glm::max(sizeof(DispatchIndirectStruct), sizeof(DrawIndirectStruct))),
             .name = "command",
+        });
+
+        render_task_graph.add_task(AddAnimatedMeshesToPrefixSumWriteCommandTask {
+            .views = AddAnimatedMeshesToPrefixSumWriteCommandTask::Views {
+                .u_animated_mesh_count = gpu_scene->gpu_animated_mesh_count.view(),
+                .u_animated_meshes = gpu_scene->gpu_animated_meshes.view(),
+                .u_command = u_command
+            },
+            .context = context,
+        });
+
+        render_task_graph.add_task(AddAnimatedMeshesToPrefixSumTask {
+            .views = AddAnimatedMeshesToPrefixSumTask::Views {
+                .u_animated_mesh_count = gpu_scene->gpu_animated_mesh_count.view(),
+                .u_animated_meshes = gpu_scene->gpu_animated_meshes.view(),
+                .u_animated_mesh_vertices_prefix_sum_work_expansion = gpu_scene->gpu_animated_mesh_vertices_prefix_sum_work_expansion.view(),
+                .u_animated_mesh_meshlets_prefix_sum_work_expansion = gpu_scene->gpu_animated_mesh_meshlets_prefix_sum_work_expansion.view(),
+                .u_command = u_command
+            },
+            .context = context,
+        });
+
+        render_task_graph.add_task(SkinAnimatedMeshesWriteCommandTask {
+            .views = SkinAnimatedMeshesWriteCommandTask::Views {
+                .u_animated_mesh_vertices_prefix_sum_work_expansion = gpu_scene->gpu_animated_mesh_vertices_prefix_sum_work_expansion.view(),
+                .u_command = u_command
+            },
+            .context = context,
+        });
+
+        render_task_graph.add_task(SkinAnimatedMeshesTask {
+            .views = SkinAnimatedMeshesTask::Views {
+                .u_animated_meshes = gpu_scene->gpu_animated_meshes.view(),
+                .u_animated_mesh_vertices_prefix_sum_work_expansion = gpu_scene->gpu_animated_mesh_vertices_prefix_sum_work_expansion.view(),
+                .u_command = u_command
+            },
+            .context = context,
+        });
+
+        render_task_graph.add_task(CalculateBoundsAnimatedMeshesWriteCommandTask {
+            .views = CalculateBoundsAnimatedMeshesWriteCommandTask::Views {
+                .u_animated_mesh_meshlets_prefix_sum_work_expansion = gpu_scene->gpu_animated_mesh_meshlets_prefix_sum_work_expansion.view(),
+                .u_command = u_command
+            },
+            .context = context,
+        });
+
+        render_task_graph.add_task(CalculateBoundsAnimatedMeshesTask {
+            .views = CalculateBoundsAnimatedMeshesTask::Views {
+                .u_animated_meshes = gpu_scene->gpu_animated_meshes.view(),
+                .u_animated_mesh_meshlets_prefix_sum_work_expansion = gpu_scene->gpu_animated_mesh_meshlets_prefix_sum_work_expansion.view(),
+                .u_command = u_command,
+            },
+            .context = context,
         });
 
         render_task_graph.add_task(

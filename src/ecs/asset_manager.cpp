@@ -239,6 +239,7 @@ namespace foundation {
                         .material_type = material_type,
                         .material_index = material_index,
                         .meshlet_count = binary_mesh.meshlet_count,
+                        .is_animated = mesh_group.has_morph_targets,
                     };
 
                     update_meshes.push_back({
@@ -277,6 +278,12 @@ namespace foundation {
             if(node.mesh_index.has_value()) {
                 auto* mesh_component = parent_entity.add_component<MeshComponent>();
                 mesh_component->mesh_group_manifest_entry_index = asset_manifest->mesh_group_manifest_offset + node.mesh_index.value();
+                
+                const BinaryMeshGroup& mesh_group = asset->mesh_groups[node.mesh_index.value()];
+                if(mesh_group.has_morph_targets) {
+                    auto* animation_component = parent_entity.add_component<AnimationComponent>();
+                    animation_component->weights = mesh_group.weights;
+                }
             }
 
             glm::vec3 position = {};

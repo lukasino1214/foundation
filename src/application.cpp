@@ -124,7 +124,7 @@ namespace foundation {
 #if COOK_ASSETS
         u32 bistro_count = 1;
 #else
-        u32 bistro_count = 5;
+        u32 bistro_count = 1;
 #endif
         for(u32 x = 0; x < bistro_count; x++) {
             for(u32 y = 0; y < bistro_count; y++) {
@@ -221,6 +221,24 @@ namespace foundation {
             entity.get_handle().add<RootEntityTag>();
             entity.add_component<TransformComponent>();
             entity.set_local_position({-10, 20, -10});
+
+            LoadManifestInfo manifesto {
+                .parent = entity,
+                .path = "assets/binary/AnimatedMorphCube/AnimatedMorphCube.bmodel",
+            };
+
+#if COOK_ASSETS
+            AssetProcessor::convert_gltf_to_binary("assets/models/AnimatedMorphCube/glTF/AnimatedMorphCube.gltf", "assets/binary/AnimatedMorphCube/AnimatedMorphCube.bmodel", true);
+#else
+            asset_manager->load_model(manifesto);
+#endif
+        }
+
+        {
+            auto entity = scene->create_entity("animated morph cube 2");
+            entity.get_handle().add<RootEntityTag>();
+            entity.add_component<TransformComponent>();
+            entity.set_local_position({-20, 20, -10});
 
             LoadManifestInfo manifesto {
                 .parent = entity,
@@ -369,18 +387,24 @@ namespace foundation {
             ImGui::End();
         }
 
-        ImGui::Begin("Asset Manager Statistics");
-        // ImGui::Text("Unique Mesh Count: %u", s_cast<u32>(asset_manager->total_unique_mesh_count));
-        // ImGui::Text("Opaque Mesh Count: %u", s_cast<u32>(asset_manager->total_opaque_mesh_count));
-        // ImGui::Text("Masked Mesh Count: %u", s_cast<u32>(asset_manager->total_masked_mesh_count));
-        // ImGui::Text("Transparent Mesh Count: %zu", asset_manager->total_transparent_mesh_count);
-        // ImGui::Text("Mesh Count: %u", s_cast<u32>(asset_manager->total_mesh_count));
-        // ImGui::Text("Meshlet Count: %zu", asset_manager->total_meshlet_count);
-        // ImGui::Text("Opaque Meshlet Count: %zu", asset_manager->total_opaque_meshlet_count);
-        // ImGui::Text("Masked Meshlet Count: %zu", asset_manager->total_masked_meshlet_count);
-        // ImGui::Text("Transparent Meshlet Count: %zu", asset_manager->total_transparent_meshlet_count);
+        ImGui::Begin("GPU Scene Statistics");
+        ImGui::Text("Unique Mesh Group Count: %u", s_cast<u32>(gpu_scene->mesh_group_data.size()));
+        ImGui::Separator();
+        ImGui::Text("Mesh Count: %zu", gpu_scene->total_mesh_count);
+        ImGui::Text("Opaque Mesh Count: %zu", gpu_scene->total_opaque_mesh_count);
+        ImGui::Text("Masked Mesh Count: %zu", gpu_scene->total_masked_mesh_count);
+        ImGui::Text("Transparent Mesh Count: %zu", gpu_scene->total_transparent_mesh_count);
+        ImGui::Text("Animated Mesh Count: %zu", gpu_scene->animated_meshes.size());
+        ImGui::Separator();
+        ImGui::Text("Meshlet Count: %zu", gpu_scene->total_meshlet_count);
+        ImGui::Text("Opaque Meshlet Count: %zu", gpu_scene->total_opaque_meshlet_count);
+        ImGui::Text("Masked Meshlet Count: %zu", gpu_scene->total_masked_meshlet_count);
+        ImGui::Text("Transparent Meshlet Count: %zu", gpu_scene->total_transparent_meshlet_count);
+        ImGui::Separator();
         // ImGui::Text("Triangle Count: %zu", asset_manager->total_triangle_count);
         // ImGui::Text("Vertex Count: %zu", asset_manager->total_vertex_count);
+        ImGui::Text("Point Light Count: %zu", gpu_scene->total_point_light_count);
+        ImGui::Text("Spot Light Count: %zu", gpu_scene->total_spot_light_count);
         ImGui::End();
 
         scene_hierarchy_panel.draw();

@@ -16,6 +16,7 @@ namespace foundation {
     struct GPUMeshGroupToMeshMapping {
         u32 mesh_group_index = {};
         u32 mesh_index = {};
+        u32 animated_mesh_index = INVALID_ID;
     };
 
     struct MeshData {
@@ -37,6 +38,12 @@ namespace foundation {
         u32 mesh_group_index = {};
         u32 mesh_index = {};
         MeshGeometryData mesh_geometry_data = {};
+    };
+
+    struct AnimatedMeshInfo {
+        flecs::entity entity = {};
+        daxa::BufferId buffer = {};
+        u32 weight_offset = {};
     };
 
     struct GPUScene {
@@ -83,6 +90,15 @@ namespace foundation {
         daxa::TaskBuffer gpu_meshlets_data_merged_opaque = {};
         daxa::TaskBuffer gpu_meshlets_data_merged_masked = {};
         daxa::TaskBuffer gpu_meshlets_data_merged_transparent = {};
+
+        std::vector<AnimatedMeshInfo> animated_meshes = {};
+        usize total_weight_count = {};
+
+        daxa::TaskBuffer gpu_weights = {};
+        daxa::TaskBuffer gpu_animated_mesh_count = {};
+        daxa::TaskBuffer gpu_animated_meshes = {};
+        daxa::TaskBuffer gpu_animated_mesh_vertices_prefix_sum_work_expansion = {};
+        daxa::TaskBuffer gpu_animated_mesh_meshlets_prefix_sum_work_expansion = {};
 
         daxa::TaskTlas gpu_tlas = {};
 
