@@ -4,13 +4,13 @@
 
 groupshared u32 opaque_point_light_count;
 groupshared u32 opaque_spot_light_count;
-groupshared u32 bitmask_opaque_point_light_indices[MAX_POINT_LIGHT_BITMASK_SIZE];
-groupshared u32 bitmask_opaque_spot_light_indices[MAX_SPOT_LIGHT_BITMASK_SIZE];
+groupshared u32 opaque_point_light_indices[MAX_POINT_LIGHTS_PER_TILE];
+groupshared u32 opaque_spot_light_indices[MAX_SPOT_LIGHTS_PER_TILE];
 
 groupshared u32 transparent_point_light_count;
 groupshared u32 transparent_spot_light_count;
-groupshared u32 bitmask_transparent_point_light_indices[MAX_POINT_LIGHT_BITMASK_SIZE];
-groupshared u32 bitmask_transparent_spot_light_indices[MAX_SPOT_LIGHT_BITMASK_SIZE];
+groupshared u32 transparent_point_light_indices[MAX_POINT_LIGHTS_PER_TILE];
+groupshared u32 transparent_spot_light_indices[MAX_SPOT_LIGHTS_PER_TILE];
 
 groupshared u32 shared_min_depth;
 groupshared u32 shared_max_depth;
@@ -74,11 +74,14 @@ void cull_lights(u32vec2 pixel : SV_DispatchThreadID, u32vec2 tile_index : SV_Gr
         depth_mask = 0;
     }
 
-    for(u32 i = local_index; i < MAX_POINT_LIGHT_BITMASK_SIZE; i += 16 * 16) {
-        bitmask_transparent_point_light_indices[i] = 0;
-        bitmask_opaque_point_light_indices[i] = 0;
-        bitmask_transparent_spot_light_indices[i] = 0;
-        bitmask_opaque_spot_light_indices[i] = 0;
+    for(u32 i = local_index; i < MAX_POINT_LIGHTS_PER_TILE; i += 16 * 16) {
+        transparent_point_light_indices[i] = 0;
+        opaque_point_light_indices[i] = 0;
+    }
+
+    for(u32 i = local_index; i < MAX_SPOT_LIGHTS_PER_TILE; i += 16 * 16) {
+        transparent_spot_light_indices[i] = 0;
+        opaque_spot_light_indices[i] = 0;
     }
 
     GroupMemoryBarrierWithGroupSync();
@@ -117,8 +120,8 @@ void cull_lights(u32vec2 pixel : SV_DispatchThreadID, u32vec2 tile_index : SV_Gr
             u32 transparent_index;
             InterlockedAdd(transparent_point_light_count, 1, transparent_index);
 
-            if(transparent_index < MAX_POINT_LIGHTS) {
-                InterlockedOr(bitmask_transparent_point_light_indices[i / 32u], 1u << (i % 32u));
+            if(transparent_index < MAX_POINT_LIGHTS_PER_TILE) {
+                transparent_point_light_indices[transparent_index] = i;
             }
 
 
@@ -126,8 +129,8 @@ void cull_lights(u32vec2 pixel : SV_DispatchThreadID, u32vec2 tile_index : SV_Gr
                 u32 opaque_index;
                 InterlockedAdd(opaque_point_light_count, 1, opaque_index);
 
-                if(opaque_index < MAX_POINT_LIGHTS) {
-                    InterlockedOr(bitmask_opaque_point_light_indices[i / 32u], 1u << (i % 32u));
+                if(opaque_index < MAX_POINT_LIGHTS_PER_TILE) {
+                    opaque_point_light_indices[opaque_index] = i;
                 }
             }
         }
@@ -147,8 +150,8 @@ void cull_lights(u32vec2 pixel : SV_DispatchThreadID, u32vec2 tile_index : SV_Gr
             u32 transparent_index;
             InterlockedAdd(transparent_spot_light_count, 1, transparent_index);
 
-            if(transparent_index < MAX_SPOT_LIGHTS) {
-                InterlockedOr(bitmask_transparent_spot_light_indices[i / 32u], 1u << (i % 32u));
+            if(transparent_index < MAX_SPOT_LIGHTS_PER_TILE) {
+                transparent_spot_light_indices[transparent_index] = i;
             }
 
 
@@ -156,8 +159,8 @@ void cull_lights(u32vec2 pixel : SV_DispatchThreadID, u32vec2 tile_index : SV_Gr
                 u32 opaque_index;
                 InterlockedAdd(opaque_spot_light_count, 1, opaque_index);
 
-                if(opaque_index < MAX_SPOT_LIGHTS) {
-                    InterlockedOr(bitmask_opaque_spot_light_indices[i / 32u], 1u << (i % 32u));
+                if(opaque_index < MAX_SPOT_LIGHTS_PER_TILE) {
+                    opaque_spot_light_indices[opaque_index] = i;
                 }
             }
         }
@@ -165,9 +168,6 @@ void cull_lights(u32vec2 pixel : SV_DispatchThreadID, u32vec2 tile_index : SV_Gr
 
 
     GroupMemoryBarrierWithGroupSync();
-
-    // InterlockedAdd(push.uses.u_overdraw_image.get()[u32vec2(pixel.xy)], point_light_count);
-    // InterlockedAdd(push.uses.u_overdraw_image.get()[u32vec2(pixel.xy)], spot_light_count);
 
     u32 flattened_tile_index = tile_index.y * tile_frustums.x + tile_index.x;
     TileData* tile_data = push.uses.u_tile_data + flattened_tile_index;
@@ -184,13 +184,23 @@ void cull_lights(u32vec2 pixel : SV_DispatchThreadID, u32vec2 tile_index : SV_Gr
     u32* bitmask_transparent_spot_light_indices_ptr = push.uses.u_tile_indices + 2 * flattened_tile_index * combined_bitmask_size + combined_bitmask_size;
     u32* bitmask_opaque_spot_light_indices_ptr = push.uses.u_tile_indices + 2 * flattened_tile_index * combined_bitmask_size + combined_bitmask_size + push.uses.u_point_lights.bitmask_size;
 
-    for(u32 i = local_index; i < push.uses.u_point_lights.bitmask_size; i += 16 * 16) {
-        bitmask_transparent_point_light_indices_ptr[i] = bitmask_transparent_point_light_indices[i];
-        bitmask_opaque_point_light_indices_ptr[i] = bitmask_opaque_point_light_indices[i];
+    for(u32 i = local_index; i < opaque_point_light_count; i += 16 * 16) {
+        u32 light_index = opaque_point_light_indices[i];
+        InterlockedOr(bitmask_opaque_point_light_indices_ptr[light_index / 32u], 1u << (light_index % 32u));
     }
 
-    for(u32 i = local_index; i < push.uses.u_spot_lights.bitmask_size; i += 16 * 16) {
-        bitmask_transparent_spot_light_indices_ptr[i] = bitmask_transparent_spot_light_indices[i];
-        bitmask_opaque_spot_light_indices_ptr[i] = bitmask_opaque_spot_light_indices[i];
+    for(u32 i = local_index; i < transparent_point_light_count; i += 16 * 16) {
+        u32 light_index = transparent_point_light_indices[i];
+        InterlockedOr(bitmask_transparent_point_light_indices_ptr[light_index / 32u], 1u << (light_index % 32u));
+    }
+
+    for(u32 i = local_index; i < opaque_spot_light_count; i += 16 * 16) {
+        u32 light_index = opaque_spot_light_indices[i];
+        InterlockedOr(bitmask_opaque_spot_light_indices_ptr[light_index / 32u], 1u << (light_index % 32u));
+    }
+
+    for(u32 i = local_index; i < transparent_spot_light_count; i += 16 * 16) {
+        u32 light_index = transparent_spot_light_indices[i];
+        InterlockedOr(bitmask_transparent_spot_light_indices_ptr[light_index / 32u], 1u << (light_index % 32u));
     }
 }
