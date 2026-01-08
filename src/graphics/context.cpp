@@ -6,7 +6,6 @@ namespace foundation {
     ShaderDebugDrawContext::ShaderDebugDrawContext(Context* _context) : context{_context} {
         PROFILE_SCOPE;
         usize size = sizeof(ShaderDebugBufferHead);
-        size += sizeof(ShaderDebugEntityOOBDraw) * entity_oob_draws.max_draws;
         size += sizeof(ShaderDebugAABBDraw) * aabb_draws.max_draws;
         size += sizeof(ShaderDebugCircleDraw) * circle_draws.max_draws;
         size += sizeof(ShaderDebugLineDraw) * line_draws.max_draws;
@@ -40,7 +39,6 @@ namespace foundation {
             buffer_ptr = device.buffer_device_address(buffer).value() + offset;
         };
 
-        updade_draws(head.entity_oob_draw_indirect_info, entity_oob_draws, head.entity_oob_draws);
         updade_draws(head.aabb_draw_indirect_info, aabb_draws, head.aabb_draws);
         updade_draws(head.circle_draw_indirect_info, circle_draws, head.circle_draws);
         updade_draws(head.line_draw_indirect_info, line_draws, head.line_draws);
@@ -71,13 +69,12 @@ namespace foundation {
             }
         };
 
-        upload_draws(head.entity_oob_draw_indirect_info, entity_oob_draws, head.entity_oob_draws);
         upload_draws(head.aabb_draw_indirect_info, aabb_draws, head.aabb_draws);
         upload_draws(head.circle_draw_indirect_info, circle_draws, head.circle_draws);
         upload_draws(head.line_draw_indirect_info, line_draws, head.line_draws);
     }
 
-    Context::Context(const NativeWIndow &window)
+    Context::Context(const NativeWindow &window)
         : instance{daxa::create_instance({})},
             device{[&](){
                 daxa::ImplicitFeatureFlags required_implicit = 
@@ -122,8 +119,8 @@ namespace foundation {
                             .size = s_cast<u32>(sizeof(ShaderGlobals)),
                             .name = "globals",
                         })},
-            gpu_metric_pool{std::make_unique<GPUMetricPool>(device)},
             shader_debug_draw_context{this} {
+                PROFILE_SCOPE;
         shader_globals.debug = device.buffer_device_address(shader_debug_draw_context.buffer).value();
     }
 
@@ -158,19 +155,6 @@ namespace foundation {
         shader_globals.render_target_size_inv = {
             1.0f / s_cast<f32>(shader_globals.render_target_size.x),
             1.0f / s_cast<f32>(shader_globals.render_target_size.y),
-        };
-
-        shader_globals.render_target_half_size = { round_up_div(size.x, 2), round_up_div(size.y, 2) };
-        shader_globals.render_target_half_size_inv = {
-            1.0f / s_cast<f32>(shader_globals.render_target_half_size.x),
-            1.0f / s_cast<f32>(shader_globals.render_target_half_size.y),
-        };
-
-        shader_globals.next_lower_po2_render_target_size.x = find_next_lower_po2(shader_globals.render_target_size.x);
-        shader_globals.next_lower_po2_render_target_size.y = find_next_lower_po2(shader_globals.render_target_size.y);
-        shader_globals.next_lower_po2_render_target_size_inv = {
-            1.0f / s_cast<f32>(shader_globals.next_lower_po2_render_target_size.x),
-            1.0f / s_cast<f32>(shader_globals.next_lower_po2_render_target_size.y),
         };
 
         auto set_camera_info = [&](ControlledCamera3D& camera) -> CameraInfo {

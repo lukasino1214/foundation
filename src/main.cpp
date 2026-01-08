@@ -19,7 +19,9 @@ auto main() -> i32 {
 #endif
     // Logger::init();
 
+    PROFILE_ZONE_NAMED(app_init);
     Application app;
+    PROFILE_ZONE_NAMED(app_run);
     app.run();
 
 #if defined(LPP_ENABLED)

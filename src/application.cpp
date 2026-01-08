@@ -1,33 +1,23 @@
 #include <application.hpp>
 #include <imgui.h>
-#include "ecs/components.hpp"
-#include <ecs/entity.hpp>
 
 namespace foundation {
     Application::Application() : 
         window{1280, 720, "Foundation"},
         context{this->window},
-        scene{std::make_shared<Scene>("scene", &context, &window)},
-        animation_manager{std::make_unique<AnimationManager>(scene.get())},
-        gpu_scene{std::make_unique<GPUScene>(&context, scene.get())},
-        asset_processor{std::make_unique<AssetProcessor>(&context)},
         thread_pool{std::make_unique<ThreadPool>(std::thread::hardware_concurrency() - 1)},
-        asset_manager{std::make_unique<AssetManager>(&context, scene.get(), thread_pool.get(), asset_processor.get(), animation_manager.get())},
-        scene_hierarchy_panel{scene.get()} {
+        renderer{ std::make_unique<Renderer>(&window, &context)} {
         PROFILE_SCOPE;
-
-        scene->update(delta_time);
-        context.update_shader_globals(main_camera, observer_camera, { 720, 480 });
-        renderer = std::make_unique<Renderer>(&window, &context, scene.get(), asset_manager.get(), gpu_scene.get());
-        renderer->recreate_framebuffer({ 720, 480 });
 
         struct CompilePipelinesTask : Task {
             Renderer* renderer = {};
-            explicit CompilePipelinesTask(Renderer* renderer)
-                : renderer{renderer} { chunk_count = 1; }
+            explicit CompilePipelinesTask(Renderer* renderer) : renderer{renderer} { chunk_count = 1; }
 
             void callback(u32 /*chunk_index*/, u32 /*thread_index*/) override {
+                std::this_thread::sleep_for(std::chrono::milliseconds(800));
                 renderer->compile_pipelines();
+                renderer->pipelines_compiled = true;
+                renderer->rebuild_task_graph();
             }
         };
 
@@ -37,257 +27,6 @@ namespace foundation {
         last_time_point = std::chrono::steady_clock::now();
         main_camera.camera.resize(s_cast<i32>(window.get_width()), s_cast<i32>(window.get_height()));
         observer_camera.camera.resize(s_cast<i32>(window.get_width()), s_cast<i32>(window.get_height()));
-
-        ui_windows.push_back(std::make_unique<FileBrowser>(std::filesystem::current_path()));
-
-        for(u32 x = 0; x < 16; x++) {
-            for(u32 y = 0; y < 16; y++) {
-                auto entity = scene->create_entity(fmt::format("point light {} {}", x, y));
-                entity.get_handle().add<RootEntityTag>();
-                auto* p = entity.add_component<PointLightComponent>();
-                p->position = { x, 1, y };
-                p->color = { 1.0f, 1.0f, 1.0f };
-                p->intensity = 1.0f;
-                p->range = 1.0f;
-            }
-        }
-
-        for(u32 x = 0; x < 16; x++) {
-            for(u32 y = 0; y < 16; y++) {
-                auto entity = scene->create_entity(fmt::format("spot light {} {}", x, y));
-                entity.get_handle().add<RootEntityTag>();
-                auto* s = entity.add_component<SpotLightComponent>();
-                s->position = { x, 1, y };
-                s->direction = { 0, -1, 0 };
-                s->color = { 1.0f, 0.0f, 0.0f };
-                s->intensity = 1.0f;
-                s->range = 1.0f;
-                s->inner_cone_angle = 0.0f;
-                s->outer_cone_angle = std::numbers::pi_v<f32> / 4.0f;
-            }
-        }
-
-#define COOK_ASSETS 0
-
-//         {
-//             auto entity = scene->create_entity("sponza");
-//             entity.get_handle().add<RootEntityTag>();
-//             entity.add_component<TransformComponent>();
-
-//             LoadManifestInfo manifesto {
-//                 .parent = entity,
-//                 .path = "assets/binary/Sponza/Sponza.bmodel",
-//             };
-// #if COOK_ASSETS
-//             AssetProcessor::convert_gltf_to_binary("assets/models/Sponza/glTF/Sponza.gltf", "assets/binary/Sponza/Sponza.bmodel", false);
-// #else
-//             asset_manager->load_model(manifesto);
-// #endif
-//         }
-
-        {
-            auto entity = scene->create_entity("damaged helmet");
-            entity.get_handle().add<RootEntityTag>();
-            entity.add_component<TransformComponent>();
-            entity.set_local_position({-10, 5, 0});
-            entity.set_local_rotation({0, 90, 0});
-
-            LoadManifestInfo manifesto {
-                .parent = entity,
-                .path = "assets/binary/DamagedHelmet/DamagedHelmet.bmodel",
-            };
-#if COOK_ASSETS
-            AssetProcessor::convert_gltf_to_binary("assets/models/DamagedHelmet/glTF/DamagedHelmet.gltf", "assets/binary/DamagedHelmet/DamagedHelmet.bmodel", false);
-#else
-            asset_manager->load_model(manifesto);
-#endif
-        }
-
-
-        {
-            auto entity = scene->create_entity("cubes");
-            entity.get_handle().add<RootEntityTag>();
-            entity.add_component<TransformComponent>();
-            entity.set_local_position({-10, 10, 0});
-
-            LoadManifestInfo manifesto {
-                .parent = entity,
-                .path = "assets/binary/Cubes/Cubes.bmodel",
-            };
-#if COOK_ASSETS
-            AssetProcessor::convert_gltf_to_binary("assets/models/Cubes/Cubes.gltf", "assets/binary/Cubes/Cubes.bmodel", false);
-#else
-            asset_manager->load_model(manifesto);
-#endif
-        }
-
-#if COOK_ASSETS
-        u32 bistro_count = 1;
-#else
-        u32 bistro_count = 1;
-#endif
-        for(u32 x = 0; x < bistro_count; x++) {
-            for(u32 y = 0; y < bistro_count; y++) {
-                for(u32 z = 0; z < bistro_count; z++) {
-                    auto entity = scene->create_entity(std::format("bistro {} {} {}", x, y, z));
-                    entity.get_handle().add<RootEntityTag>();
-                    entity.add_component<TransformComponent>();
-                    entity.set_local_position({200.0f * s_cast<f32>(x), 100.0f * s_cast<f32>(y), 200.0f * s_cast<f32>(z)});
-
-                    LoadManifestInfo manifesto {
-                        .parent = entity,
-                        .path = "assets/binary/Bistro/Bistro.bmodel",
-                    };
-#if COOK_ASSETS
-                    AssetProcessor::convert_gltf_to_binary("assets/models/Bistro/Bistro.glb", "assets/binary/Bistro/Bistro.bmodel", false);
-#else           
-                    asset_manager->load_model(manifesto);
-#endif                
-                }
-            }
-        }
-
-{
-            auto entity = scene->create_entity("box animated");
-            entity.get_handle().add<RootEntityTag>();
-            entity.add_component<TransformComponent>();
-            entity.set_local_position({-10, 20, 10});
-
-            LoadManifestInfo manifesto {
-                .parent = entity,
-                .path = "assets/binary/BoxAnimated/BoxAnimated.bmodel",
-            };
-#if COOK_ASSETS
-            AssetProcessor::convert_gltf_to_binary("assets/models/BoxAnimated/glTF/BoxAnimated.gltf", "assets/binary/BoxAnimated/BoxAnimated.bmodel", true);
-#else
-            asset_manager->load_model(manifesto);
-#endif
-        }
-
-        {
-            auto entity = scene->create_entity("box animated 2");
-            entity.get_handle().add<RootEntityTag>();
-            entity.add_component<TransformComponent>();
-            entity.set_local_position({-20, 20, 10});
-
-            LoadManifestInfo manifesto {
-                .parent = entity,
-                .path = "assets/binary/BoxAnimated/BoxAnimated.bmodel",
-            };
-#if COOK_ASSETS
-            AssetProcessor::convert_gltf_to_binary("assets/models/BoxAnimated/glTF/BoxAnimated.gltf", "assets/binary/BoxAnimated/BoxAnimated.bmodel", true);
-#else
-            asset_manager->load_model(manifesto);
-#endif
-        }
-
-        {
-            auto entity = scene->create_entity("animated cube");
-            entity.get_handle().add<RootEntityTag>();
-            entity.add_component<TransformComponent>();
-            entity.set_local_position({-10, 20, 0});
-
-            LoadManifestInfo manifesto {
-                .parent = entity,
-                .path = "assets/binary/AnimatedCube/AnimatedCube.bmodel",
-            };
-#if COOK_ASSETS
-            AssetProcessor::convert_gltf_to_binary("assets/models/AnimatedCube/glTF/AnimatedCube.gltf", "assets/binary/AnimatedCube/AnimatedCube.bmodel", true);
-#else
-            asset_manager->load_model(manifesto);
-#endif
-        }
-
-        {
-            auto entity = scene->create_entity("animated cube 2 ");
-            entity.get_handle().add<RootEntityTag>();
-            entity.add_component<TransformComponent>();
-            entity.set_local_position({-20, 20, 0});
-
-            LoadManifestInfo manifesto {
-                .parent = entity,
-                .path = "assets/binary/AnimatedCube/AnimatedCube.bmodel",
-            };
-#if COOK_ASSETS
-            AssetProcessor::convert_gltf_to_binary("assets/models/AnimatedCube/glTF/AnimatedCube.gltf", "assets/binary/AnimatedCube/AnimatedCube.bmodel", true);
-#else
-            asset_manager->load_model(manifesto);
-#endif
-        }
-
-
-        {
-            auto entity = scene->create_entity("animated morph cube");
-            entity.get_handle().add<RootEntityTag>();
-            entity.add_component<TransformComponent>();
-            entity.set_local_position({-10, 20, -10});
-
-            LoadManifestInfo manifesto {
-                .parent = entity,
-                .path = "assets/binary/AnimatedMorphCube/AnimatedMorphCube.bmodel",
-            };
-
-#if COOK_ASSETS
-            AssetProcessor::convert_gltf_to_binary("assets/models/AnimatedMorphCube/glTF/AnimatedMorphCube.gltf", "assets/binary/AnimatedMorphCube/AnimatedMorphCube.bmodel", true);
-#else
-            asset_manager->load_model(manifesto);
-#endif
-        }
-
-        {
-            auto entity = scene->create_entity("animated morph cube 2");
-            entity.get_handle().add<RootEntityTag>();
-            entity.add_component<TransformComponent>();
-            entity.set_local_position({-20, 20, -10});
-
-            LoadManifestInfo manifesto {
-                .parent = entity,
-                .path = "assets/binary/AnimatedMorphCube/AnimatedMorphCube.bmodel",
-            };
-
-#if COOK_ASSETS
-            AssetProcessor::convert_gltf_to_binary("assets/models/AnimatedMorphCube/glTF/AnimatedMorphCube.gltf", "assets/binary/AnimatedMorphCube/AnimatedMorphCube.bmodel", true);
-#else
-            asset_manager->load_model(manifesto);
-#endif
-        }
-
-//         {
-//             auto entity = scene->create_entity("small city");
-//             entity.get_handle().add<RootEntityTag>();
-//             add_transform(entity);
-
-//             LoadManifestInfo manifesto {
-//                 .parent = entity,
-//                 .path = "assets/binary/small_city/small_city.bmodel",
-//             };
-// #if COOK_ASSETS
-//                     AssetProcessor::convert_gltf_to_binary("assets/models/small_city/small_city.gltf", "assets/binary/small_city/small_city.bmodel");
-// #else           
-//                     asset_manager->load_model(manifesto);
-// #endif      
-//         }
-
-        // {
-        //     Entity parent = {};
-        //     for(u32 index = 0; index < 16; index++) {
-        //         Entity entity = scene->create_entity(std::string{"cube "} + std::to_string(index));
-        //         entity.add_component<TransformComponent>();
-        //         if(index == 0) { entity.get_handle().add<RootEntityTag>(); entity.set_local_scale({10.0f, 10.0, 10.0f}); }
-        //         if(index != 0) { parent.set_child(entity); }
-        //         entity.set_local_position({0.0f, 0.0, 0.0f});
-        //         if(index != 0) { entity.set_local_position({0.0f, 5, 0.0f}); entity.set_local_scale({0.5f, 0.5f, 0.5f}); }
-        //         entity.add_component<OOBComponent>();
-        //         auto* script = entity.add_component<ScriptComponent>();
-        //         script->path = "assets/scripts/test.lua";
-        //         file_watcher.watch("assets/scripts/test.lua");
-        //         scripting_engine.init_script(script, entity, "assets/scripts/test.lua");
-        //         parent = entity;
-        //     }
-        // }
-
-        viewport_panel = ViewportPanel(&context, &window, &renderer->imgui_renderer, [&](const glm::uvec2& size){ renderer->recreate_framebuffer(size); });
-        thread_pool->block_on(compile_pipelines_task);
     }
 
     Application::~Application() = default;
@@ -304,32 +43,6 @@ namespace foundation {
             if(window.window_state->resize_requested) {
                 renderer->window_resized();
                 window.window_state->resize_requested = false;
-            }
-
-            {
-                PROFILE_ZONE_NAMED(update_textures);
-                asset_manager->stream_textures();
-                PROFILE_ZONE_NAMED(update_meshes);
-                asset_manager->stream_meshes();
-                PROFILE_ZONE_NAMED(record_gpu_load_processing_commands);
-                auto commands = asset_processor->record_gpu_load_processing_commands();
-                PROFILE_ZONE_NAMED(record_manifest_update);
-                auto update_info = asset_manager->record_manifest_update(AssetManager::RecordManifestUpdateInfo {
-                    .uploaded_meshes = commands.uploaded_meshes,
-                    .uploaded_textures = commands.uploaded_textures
-                });
-
-                animation_manager->update(delta_time);
-
-                auto gpu_scene_cmd_list = gpu_scene->update(GPUScene::UpdateInfo {
-                    .update_mesh_groups = update_info.update_mesh_groups,
-                    .update_meshes = update_info.update_meshes,
-                });
-
-                auto cmd_lists = std::array{std::move(commands.upload_commands), std::move(update_info.command_list), std::move(gpu_scene_cmd_list)};
-                context.device.submit_commands(daxa::CommandSubmitInfo {
-                    .command_lists = cmd_lists
-                });
             }
 
             update();
@@ -363,63 +76,10 @@ namespace foundation {
 
         {
             PROFILE_ZONE_NAMED(scene_update);
-            scene->update(delta_time);
         }
     }
 
     void Application::ui_update() {
-        {
-            ImGuiDockNodeFlags dockspace_flags = ImGuiDockNodeFlags_PassthruCentralNode;
-            ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_NoBackground;
-            const ImGuiViewport *viewport = ImGui::GetMainViewport();
-            ImGui::SetNextWindowPos(viewport->WorkPos);
-            ImGui::SetNextWindowSize(viewport->WorkSize);
-            ImGui::SetNextWindowViewport(viewport->ID);
-            ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
-            ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
-            ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
-            window_flags |= ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove;
-            window_flags |= ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus;
-            ImGuiID dockspace_id = ImGui::GetID("dockspace");
-            ImGui::Begin("dockSpace", nullptr, window_flags);
-            ImGui::PopStyleVar(3);
-            ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), dockspace_flags);
-            ImGui::End();
-        }
-
-        ImGui::Begin("GPU Scene Statistics");
-        ImGui::Text("Unique Mesh Group Count: %u", s_cast<u32>(gpu_scene->mesh_group_data.size()));
-        ImGui::Separator();
-        ImGui::Text("Mesh Count: %zu", gpu_scene->total_mesh_count);
-        ImGui::Text("Opaque Mesh Count: %zu", gpu_scene->total_opaque_mesh_count);
-        ImGui::Text("Masked Mesh Count: %zu", gpu_scene->total_masked_mesh_count);
-        ImGui::Text("Transparent Mesh Count: %zu", gpu_scene->total_transparent_mesh_count);
-        ImGui::Text("Animated Mesh Count: %zu", gpu_scene->animated_meshes.size());
-        ImGui::Separator();
-        ImGui::Text("Meshlet Count: %zu", gpu_scene->total_meshlet_count);
-        ImGui::Text("Opaque Meshlet Count: %zu", gpu_scene->total_opaque_meshlet_count);
-        ImGui::Text("Masked Meshlet Count: %zu", gpu_scene->total_masked_meshlet_count);
-        ImGui::Text("Transparent Meshlet Count: %zu", gpu_scene->total_transparent_meshlet_count);
-        ImGui::Separator();
-        // ImGui::Text("Triangle Count: %zu", asset_manager->total_triangle_count);
-        // ImGui::Text("Vertex Count: %zu", asset_manager->total_vertex_count);
-        ImGui::Text("Point Light Count: %zu", gpu_scene->total_point_light_count);
-        ImGui::Text("Spot Light Count: %zu", gpu_scene->total_spot_light_count);
-        ImGui::End();
-
-        scene_hierarchy_panel.draw();
         renderer->ui_update();
-        viewport_panel.selected_entity = scene_hierarchy_panel.selected_entity;
-        if(context.shader_globals.render_as_observer != 0u) {
-            viewport_panel.draw(observer_camera, delta_time, renderer->render_image);
-        } else {
-            viewport_panel.draw(main_camera, delta_time, renderer->render_image);
-        }
-
-        for(auto& ui_window : ui_windows) {
-            ui_window->draw();
-        }
-
-        ui_windows.erase(std::remove_if(ui_windows.begin(), ui_windows.end(), [](std::unique_ptr<UIWindow>& ui_window){ return ui_window->should_close(); }), ui_windows.end());
     }
 }

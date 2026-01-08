@@ -1,15 +1,12 @@
 #pragma once
 
-#include "ecs/asset_manager.hpp"
-#include "ecs/scene.hpp"
 #include <graphics/window.hpp>
 #include <graphics/context.hpp>
 #include <daxa/utils/imgui.hpp>
-#include <utils/performace_metrics.hpp>
 
 namespace foundation {
     struct Renderer {
-        Renderer(NativeWIndow* _window, Context* _context, Scene* _scene, AssetManager* _asset_manager, GPUScene* _gpu_scene);
+        Renderer(NativeWindow* _window, Context* _context);
         ~Renderer();
 
         void render();
@@ -18,50 +15,29 @@ namespace foundation {
         void ui_update();
         void ui_render_end();
 
-        void window_resized() const;
+        void window_resized();
 
-        void recreate_framebuffer(const glm::uvec2& size);
+        void recreate_frame_buffer(const glm::uvec2& size);
         void compile_pipelines();
         void rebuild_task_graph();
 
-        NativeWIndow* window = {};
+        NativeWindow* window = {};
         Context* context = {};
-        Scene* scene = {};
-        AssetManager* asset_manager = {};
-        GPUScene* gpu_scene = {};
+
+        std::atomic<bool> pipelines_compiled = false;
 
         daxa::TaskImage swapchain_image = {};
         daxa::TaskImage render_image = {};
-        daxa::TaskImage visibility_image = {};
-        daxa::TaskImage depth_image_d32 = {};
-        daxa::TaskImage depth_image_u32 = {};
-        daxa::TaskImage depth_image_f32 = {};
-
-        daxa::TaskImage overdraw_image = {};
-
-        daxa::TaskImage wboit_accumulation_image = {};
-        daxa::TaskImage wboit_reveal_image = {};
-
-        daxa::TaskImage normal_image = {};
-        daxa::TaskImage normal_half_res_image = {};
-        daxa::TaskImage normal_detail_image = {};
-        daxa::TaskImage normal_detail_half_res_image = {};
-        daxa::TaskImage depth_half_res_image = {};
-
-        daxa::TaskImage ssao_image = {};
-        // daxa::TaskImage ssao_blur_image = {};
-        // daxa::TaskImage ssao_upsample_image = {};
 
         std::vector<daxa::TaskImage> images = {};
         std::vector<std::pair<daxa::ImageInfo, daxa::TaskImage>> frame_buffer_images = {};
 
         std::vector<daxa::TaskBuffer> buffers = {};
 
+        mutable std::mutex task_graph_mutex;
         daxa::TaskGraph render_task_graph = {};
 
         daxa::ImGuiRenderer imgui_renderer = {};
-
-        std::vector<PerfomanceCategory> performace_metrics = {};
 
         bool startup = true;
         glm::vec2 viewport_size = { 0, 0 };

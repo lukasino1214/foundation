@@ -29,12 +29,6 @@ struct DispatchIndirectStruct {
 };
 DAXA_DECL_BUFFER_PTR(DispatchIndirectStruct)
 
-struct ShaderDebugEntityOOBDraw {
-    f32vec3 color;
-    u32 transform_index;
-};
-DAXA_DECL_BUFFER_PTR(ShaderDebugEntityOOBDraw)
-
 struct ShaderDebugAABBDraw {
     f32vec3 color;
     f32vec3 position;
@@ -57,26 +51,14 @@ struct ShaderDebugLineDraw {
 DAXA_DECL_BUFFER_PTR(ShaderDebugLineDraw)
 
 struct ShaderDebugBufferHead {
-    DrawIndirectStruct entity_oob_draw_indirect_info;
     DrawIndirectStruct aabb_draw_indirect_info;
     DrawIndirectStruct circle_draw_indirect_info;
     DrawIndirectStruct line_draw_indirect_info;
-    daxa_RWBufferPtr(ShaderDebugEntityOOBDraw) entity_oob_draws;
     daxa_RWBufferPtr(ShaderDebugAABBDraw) aabb_draws;
     daxa_RWBufferPtr(ShaderDebugCircleDraw) circle_draws;
     daxa_RWBufferPtr(ShaderDebugLineDraw) line_draws;
 };
 DAXA_DECL_BUFFER_PTR(ShaderDebugBufferHead)
-
-struct Samplers {
-    daxa_SamplerId linear_clamp;
-    daxa_SamplerId linear_repeat;
-    daxa_SamplerId nearest_repeat;
-    daxa_SamplerId nearest_clamp;
-    daxa_SamplerId linear_repeat_anisotropy;
-    daxa_SamplerId nearest_repeat_anisotropy;
-};
-DAXA_DECL_BUFFER_PTR(Samplers)
 
 struct CameraInfo {
     f32mat4x4 projection_matrix;
@@ -90,284 +72,15 @@ struct CameraInfo {
 };
 DAXA_DECL_BUFFER_PTR(CameraInfo)
 
-struct MouseSelectionReadback {
-    u32vec2 mouse_position;
-    u32 state;
-    u32 id;
-};
-DAXA_DECL_BUFFER_PTR(MouseSelectionReadback)
-
 struct ShaderGlobals {
     CameraInfo main_camera;
     CameraInfo observer_camera;
     b32 render_as_observer;
     u32vec2 render_target_size;
     f32vec2 render_target_size_inv;
-    u32vec2 render_target_half_size;
-    f32vec2 render_target_half_size_inv;
-    u32vec2 next_lower_po2_render_target_size;
-    f32vec2 next_lower_po2_render_target_size_inv;
-    Samplers samplers;
     daxa_BufferPtr(ShaderDebugBufferHead) debug;
 };
 DAXA_DECL_BUFFER_PTR(ShaderGlobals)
-
-struct TransformInfo {
-    f32mat4x3 model_matrix;
-};
-
-DAXA_DECL_BUFFER_PTR(TransformInfo)
-
-struct Material {
-    daxa_ImageViewId albedo_image_id;
-    daxa_SamplerId albedo_sampler_id;
-    daxa_ImageViewId alpha_mask_image_id;
-    daxa_SamplerId alpha_mask_sampler_id;
-    daxa_ImageViewId normal_image_id;
-    daxa_SamplerId normal_sampler_id;
-    daxa_ImageViewId roughness_image_id;
-    daxa_SamplerId roughness_sampler_id;
-    daxa_ImageViewId metalness_image_id;
-    daxa_SamplerId metalness_sampler_id;
-    daxa_ImageViewId emissive_image_id;
-    daxa_SamplerId emissive_sampler_id;
-    f32vec4 albedo_factor;
-    f32 metallic_factor;
-    f32 roughness_factor;
-    f32vec3 emissive_factor;
-    u32 alpha_mode;
-    f32 alpha_cutoff;
-    b32 double_sided;
-};
-
-DAXA_DECL_BUFFER_PTR(Material)
-
-struct MeshGroup {
-    daxa_BufferPtr(u32) mesh_indices;
-    u32 count;
-    u32 padding;
-};
-
-DAXA_DECL_BUFFER_PTR_ALIGN(MeshGroup, 8)
-
-#define MAX_VERTICES_PER_MESHLET (64)
-#define MAX_TRIANGLES_PER_MESHLET (64)
-
-struct Meshlet {
-    u32 indirect_vertex_offset;
-    u32 micro_indices_offset;
-    u32 vertex_count;
-    u32 triangle_count;
-};
-DAXA_DECL_BUFFER_PTR(Meshlet)
-
-struct BoundingSphere {
-    f32vec3 center;
-    f32 radius;
-};
-DAXA_DECL_BUFFER_PTR(BoundingSphere)
-
-struct MeshletBoundingSpheres {
-    BoundingSphere culling_sphere;
-    BoundingSphere lod_group_sphere;
-    BoundingSphere lod_parent_group_sphere;
-};
-DAXA_DECL_BUFFER_PTR(MeshletBoundingSpheres)
-
-struct AABB {
-    f32vec3 center;
-    f32vec3 extent;
-};
-DAXA_DECL_BUFFER_PTR(AABB)
-
-struct MeshletSimplificationError {
-    f32 group_error;
-    f32 parent_group_error;
-};
-DAXA_DECL_BUFFER_PTR(MeshletSimplificationError)
-
-struct MeshGeometryData {
-    daxa_BufferId mesh_buffer;
-    daxa_BlasId blas;
-    u32 material_type;
-    u32 manifest_index;
-    u32 material_index;
-    u32 meshlet_count;
-    u32 vertex_count;
-    u32 index_count;
-    AABB aabb;
-    daxa_BufferPtr(Meshlet) meshlets;
-    daxa_BufferPtr(MeshletBoundingSpheres) bounding_spheres;
-    daxa_BufferPtr(MeshletSimplificationError) simplification_errors;
-    daxa_BufferPtr(AABB) meshlet_aabbs;
-    daxa_BufferPtr(u32) micro_indices;
-    daxa_BufferPtr(u32) indirect_vertices;
-    daxa_BufferPtr(f32vec3) vertex_positions;
-    daxa_BufferPtr(u32) vertex_normals;
-    daxa_BufferPtr(u32) vertex_uvs;
-    daxa_BufferPtr(u32) indices;
-
-    bool is_animated;
-    u32 morph_target_position_count;
-    u32 morph_target_normal_count;
-    u32 morph_target_uv_count;
-    daxa_BufferPtr(f32vec3) morph_target_positions;
-    daxa_BufferPtr(u32) morph_target_normals;
-    daxa_BufferPtr(u32) morph_target_uvs;
-};
-
-DAXA_DECL_BUFFER_PTR_ALIGN(MeshGeometryData, 8)
-
-struct Mesh {
-    u32 mesh_group_index;
-    u32 manifest_index;
-    u32 material_index;
-    u32 meshlet_count;
-    u32 vertex_count;
-    AABB aabb;
-    daxa_BufferPtr(Meshlet) meshlets;
-    daxa_BufferPtr(MeshletBoundingSpheres) bounding_spheres;
-    daxa_BufferPtr(MeshletSimplificationError) simplification_errors;
-    daxa_BufferPtr(AABB) meshlet_aabbs;
-    daxa_BufferPtr(u32) micro_indices;
-    daxa_BufferPtr(u32) indirect_vertices;
-    daxa_BufferPtr(f32vec3) vertex_positions;
-    daxa_BufferPtr(u32) vertex_normals;
-    daxa_BufferPtr(u32) vertex_uvs;
-};
-
-DAXA_DECL_BUFFER_PTR_ALIGN(Mesh, 8)
-
-struct AnimatedMesh {
-    u32 meshlet_count;
-    u32 vertex_count;
-    AABB aabb;
-    daxa_BufferPtr(Meshlet) meshlets;
-    daxa_BufferPtr(MeshletBoundingSpheres) bounding_spheres;
-    daxa_BufferPtr(MeshletSimplificationError) simplification_errors;
-    daxa_BufferPtr(AABB) meshlet_aabbs;
-    daxa_BufferPtr(u32) micro_indices;
-    daxa_BufferPtr(u32) indirect_vertices;
-    daxa_BufferPtr(u32) indices;
-
-    daxa_BufferPtr(f32vec3) original_vertex_positions;
-    daxa_BufferPtr(u32) original_vertex_normals;
-    daxa_BufferPtr(u32) original_vertex_uvs;
-
-    u32 morph_target_position_count;
-    u32 morph_target_normal_count;
-    u32 morph_target_uv_count;
-
-    daxa_BufferPtr(f32vec3) morph_target_positions;
-    daxa_BufferPtr(u32) morph_target_normals;
-    daxa_BufferPtr(u32) morph_target_uvs;
-    daxa_BufferPtr(f32) calculated_weights;
-
-    daxa_BufferPtr(f32vec3) vertex_positions;
-    daxa_BufferPtr(u32) vertex_normals;
-    daxa_BufferPtr(u32) vertex_uvs;
-};
-DAXA_DECL_BUFFER_PTR_ALIGN(AnimatedMesh, 8)
-
-struct MeshletInstanceData {
-    u32 mesh_index;
-    u32 meshlet_index;
-};
-DAXA_DECL_BUFFER_PTR(MeshletInstanceData)
-
-struct MeshData {
-    u32 global_mesh_index;
-};
-DAXA_DECL_BUFFER_PTR(MeshData)
-
-struct MeshesData {
-    u32 count;
-    daxa_BufferPtr(MeshData) meshes;
-};
-DAXA_DECL_BUFFER_PTR(MeshesData)
-
-struct MeshletsDataMerged {
-    u32 hw_count;
-    u32 sw_count;
-    u32 hw_offset;
-    u32 sw_offset;
-    daxa_BufferPtr(MeshletInstanceData) hw_meshlet_data;
-    daxa_BufferPtr(MeshletInstanceData) sw_meshlet_data;
-};
-DAXA_DECL_BUFFER_PTR(MeshletsDataMerged)
-
-struct PrefixSumWorkExpansion {
-    u64 merged_expansion_count_thread_count;
-    u32 expansions_max;
-    u32 workgroup_count;
-    daxa_BufferPtr(u32) expansions_inclusive_prefix_sum;
-    daxa_BufferPtr(u32) expansions_src_work_item;
-    daxa_BufferPtr(u32) expansions_expansion_factor;
-};
-DAXA_DECL_BUFFER_PTR(PrefixSumWorkExpansion)
-
-struct SunLight {
-    f32vec3 direction;
-    f32vec3 color;
-    f32 intensity;
-};
-DAXA_DECL_BUFFER_PTR(SunLight)
-
-struct PointLight {
-    f32vec3 position;
-    f32vec3 color;
-    f32 intensity;
-    f32 range;
-};
-DAXA_DECL_BUFFER_PTR(PointLight)
-
-struct SpotLight {
-    f32vec3 position;
-    f32vec3 direction;
-    f32vec3 color;
-    f32 intensity;
-    f32 range;
-    f32 inner_cone_angle;
-    f32 outer_cone_angle;
-};
-DAXA_DECL_BUFFER_PTR(SpotLight)
-
-struct PointLightsData {
-    u32 count;
-    u32 bitmask_size;
-    daxa_BufferPtr(PointLight) point_lights;
-};
-DAXA_DECL_BUFFER_PTR(PointLightsData)
-
-struct SpotLightsData {
-    u32 count;
-    u32 bitmask_size;
-    daxa_BufferPtr(SpotLight) spot_lights;
-};
-DAXA_DECL_BUFFER_PTR(SpotLightsData)
-
-#define PIXELS_PER_FRUSTUM 16
-struct Plane {
-    f32vec3 normal;
-    f32 distance;
-};
-DAXA_DECL_BUFFER_PTR(Plane)
-
-struct TileFrustum {
-    Plane planes[4];
-};
-DAXA_DECL_BUFFER_PTR(TileFrustum)
-
-struct TileData {
-    u32 opaque_point_light_count;
-    u32 opaque_spot_light_count;
-    u32 transparent_point_light_count;
-    u32 transparent_spot_light_count;
-};
-DAXA_DECL_BUFFER_PTR(TileData)
-
-#define MAX_POINT_LIGHTS_PER_TILE 256
-#define MAX_SPOT_LIGHTS_PER_TILE 256
 
 #if defined(__cplusplus)
 #define SHARED_FUNCTION inline
@@ -402,5 +115,3 @@ SHARED_FUNCTION f32mat4x4 mat_4x3_to_4x4(f32mat4x3 mat) {
 #endif
     return ret;
 }
-
-#define OVERDRAW_DEBUG 0

@@ -2,7 +2,6 @@
 
 #include <graphics/window.hpp>
 #include <graphics/camera.hpp>
-#include <graphics/utils/gpu_metric.hpp>
 
 namespace foundation {
     struct Context;
@@ -21,7 +20,6 @@ namespace foundation {
     };
 
     struct ShaderDebugDrawContext {
-        CPUDebugDraws<ShaderDebugEntityOOBDraw> entity_oob_draws = { .max_draws = 128'000, .vertices = 24 };
         CPUDebugDraws<ShaderDebugAABBDraw> aabb_draws = { .max_draws = 128'000, .vertices = 24 };
         CPUDebugDraws<ShaderDebugCircleDraw> circle_draws = { .max_draws = 128'000, .vertices = 32 };
         CPUDebugDraws<ShaderDebugLineDraw> line_draws = { .max_draws = 128'000, .vertices = 2 };
@@ -85,7 +83,7 @@ namespace foundation {
     };
 
     struct Context {
-        Context(const NativeWIndow& window);
+        Context(const NativeWindow& window);
         ~Context();
         
         daxa::Instance instance = {};
@@ -102,9 +100,6 @@ namespace foundation {
         ankerl::unordered_dense::map<std::string_view, std::shared_ptr<daxa::RasterPipeline>> raster_pipelines = {};
         ankerl::unordered_dense::map<std::string_view, std::shared_ptr<daxa::ComputePipeline>> compute_pipelines = {};
         ankerl::unordered_dense::map<std::string_view, std::shared_ptr<RayTracingPipelineInfo>> ray_tracing_pipelines = {};
-
-        std::unique_ptr<GPUMetricPool> gpu_metric_pool = {};
-        ankerl::unordered_dense::map<std::string_view, std::shared_ptr<GPUMetric>> gpu_metrics = {};
 
         ankerl::unordered_dense::map<daxa::SamplerInfo, daxa::SamplerId, SamplerInfoHasher, SamplerInfoEquality> samplers = {};
 

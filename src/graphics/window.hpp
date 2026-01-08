@@ -154,9 +154,9 @@ namespace foundation {
         i32 cursor_change_y = {};
     };
 
-    struct NativeWIndow {
-        NativeWIndow(i32 width, i32 height, std::string_view _name);
-        ~NativeWIndow();
+    struct NativeWindow {
+        NativeWindow(i32 width, i32 height, std::string_view _name);
+        ~NativeWindow();
 
         auto create_swapchain(daxa::Device& device) const -> daxa::Swapchain;
 
