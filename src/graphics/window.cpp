@@ -10,11 +10,8 @@
 #define GLFW_EXPOSE_NATIVE_WIN32
 #include <GLFW/glfw3native.h>
 
-#define STB_IMAGE_IMPLEMENTATION
-#include <stb_image.h>
-
 namespace foundation {
-    NativeWindow::NativeWindow(i32 width, i32 height, std::string_view _name)
+    NativeWindow::NativeWindow(std::string_view _name, i32 width, i32 height)
         : window_state{std::make_unique<WindowState>()},
         name{_name},
         glfw_handle{[&]() {
@@ -22,7 +19,6 @@ namespace foundation {
                 glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
                 return glfwCreateWindow(width, height, name.data(), nullptr, nullptr);
             }()} {
-        PROFILE_SCOPE;
         glfwSetWindowUserPointer(this->glfw_handle, window_state.get());
 
         glfwSetWindowCloseCallback(this->glfw_handle, [](GLFWwindow* window_ptr) {
@@ -57,21 +53,6 @@ namespace foundation {
             state->focused = (focused != 0); 
         });
 
-        {
-            i32 x = 0;
-            i32 y = 0;
-            auto *const pixels = stbi_load("assets/icons/froge.png", &x, &y, nullptr, 4);
-            if (pixels != nullptr) {
-                const auto image = GLFWimage{
-                    .width  = x,
-                    .height = y,
-                    .pixels = pixels,
-                };
-                glfwSetWindowIcon(glfw_handle, 1, &image);
-                stbi_image_free(pixels);
-            }
-        }
-
     #if defined(_WIN32)
         {
             auto* hwnd = s_cast<HWND>(glfwGetWin32Window(glfw_handle));
@@ -89,14 +70,15 @@ namespace foundation {
                         fn_RtlGetVersion = reinterpret_cast<Fn_RtlGetVersion>(proc);
                     }
 #pragma clang diagnostic pop
+                    auto version_info = OSVERSIONINFOEX{};
+                    version_info.dwOSVersionInfoSize = sizeof(OSVERSIONINFOEX);
+                    if (fn_RtlGetVersion) {
+                        fn_RtlGetVersion(&version_info);
+                    }
+                    FreeLibrary(ntdll_dll);
+                    return version_info.dwMajorVersion >= 10 && version_info.dwMinorVersion >= 0 && version_info.dwBuildNumber >= 22000;
                 }
-                auto version_info = OSVERSIONINFOEX{};
-                version_info.dwOSVersionInfoSize = sizeof(OSVERSIONINFOEX);
-                if (fn_RtlGetVersion) {
-                    fn_RtlGetVersion(&version_info);
-                }
-                FreeLibrary(ntdll_dll);
-                return version_info.dwMajorVersion >= 10 && version_info.dwMinorVersion >= 0 && version_info.dwBuildNumber >= 22000;
+                return false;
             };
 
             if (!is_windows11_or_greater()) {
@@ -151,7 +133,7 @@ namespace foundation {
         return device.create_swapchain(daxa::SwapchainInfo {
             .native_window = get_native_handle(),
             .native_window_platform = get_native_platform(),
-            .surface_format_selector = [](daxa::Format format) -> i32 {
+            .surface_format_selector = [](daxa::Format format, daxa::ColorSpace) -> i32 {
                 switch (format) {
                     // case daxa::Format::B8G8R8A8_UNORM: return 90;
                     // case daxa::Format::R8G8B8A8_UNORM: return 80;

@@ -1,64 +1,8 @@
 #pragma once
-#define DAXA_RAY_TRACING 1
 #include <daxa/daxa.inl>
 #include "glue.inl"
 
 #define INVALID_ID (~(0u))
-
-struct DrawIndexedIndirectStruct {
-    u32 index_count;
-    u32 instance_count;
-    u32 first_index;
-    u32 vertex_offset;
-    u32 first_instance;
-};
-DAXA_DECL_BUFFER_PTR(DrawIndexedIndirectStruct)
-
-struct DrawIndirectStruct {
-    u32 vertex_count;
-    u32 instance_count;
-    u32 first_vertex;
-    u32 first_instance;
-};
-DAXA_DECL_BUFFER_PTR(DrawIndirectStruct)
-
-struct DispatchIndirectStruct {
-    u32 x;
-    u32 y;
-    u32 z;
-};
-DAXA_DECL_BUFFER_PTR(DispatchIndirectStruct)
-
-struct ShaderDebugAABBDraw {
-    f32vec3 color;
-    f32vec3 position;
-    f32vec3 extent;
-};
-DAXA_DECL_BUFFER_PTR(ShaderDebugAABBDraw)
-
-struct ShaderDebugCircleDraw {
-    f32vec3 color;
-    f32vec3 position;
-    f32 radius;
-};
-DAXA_DECL_BUFFER_PTR(ShaderDebugCircleDraw)
-
-struct ShaderDebugLineDraw {
-    f32vec3 color;
-    f32vec3 start;
-    f32vec3 end;
-};
-DAXA_DECL_BUFFER_PTR(ShaderDebugLineDraw)
-
-struct ShaderDebugBufferHead {
-    DrawIndirectStruct aabb_draw_indirect_info;
-    DrawIndirectStruct circle_draw_indirect_info;
-    DrawIndirectStruct line_draw_indirect_info;
-    daxa_RWBufferPtr(ShaderDebugAABBDraw) aabb_draws;
-    daxa_RWBufferPtr(ShaderDebugCircleDraw) circle_draws;
-    daxa_RWBufferPtr(ShaderDebugLineDraw) line_draws;
-};
-DAXA_DECL_BUFFER_PTR(ShaderDebugBufferHead)
 
 struct CameraInfo {
     f32mat4x4 projection_matrix;
@@ -74,13 +18,46 @@ DAXA_DECL_BUFFER_PTR(CameraInfo)
 
 struct ShaderGlobals {
     CameraInfo main_camera;
-    CameraInfo observer_camera;
-    b32 render_as_observer;
     u32vec2 render_target_size;
     f32vec2 render_target_size_inv;
-    daxa_BufferPtr(ShaderDebugBufferHead) debug;
 };
 DAXA_DECL_BUFFER_PTR(ShaderGlobals)
+
+struct MeshGeometryData {
+    daxa_BufferPtr(f32vec3) positions;
+    daxa_BufferPtr(f32vec3) normals;
+    daxa_BufferPtr(f32vec2) uvs;
+    u32 material_index;
+    u32 vertex_count;
+};
+
+DAXA_DECL_BUFFER_PTR(MeshGeometryData)
+
+struct GPUMaterial {
+    daxa_ImageViewId albedo_image_id;
+    daxa_SamplerId albedo_sampler_id;
+    // daxa_ImageViewId alpha_mask_image_id;
+    // daxa_SamplerId alpha_mask_sampler_id;
+    daxa_ImageViewId normal_image_id;
+    daxa_SamplerId normal_sampler_id;
+    daxa_ImageViewId roughness_metalness_image_id;
+    daxa_SamplerId roughness_metalness_sampler_id;
+    // daxa_ImageViewId roughness_image_id;
+    // daxa_SamplerId roughness_sampler_id;
+    // daxa_ImageViewId metalness_image_id;
+    // daxa_SamplerId metalness_sampler_id;
+    daxa_ImageViewId emissive_image_id;
+    daxa_SamplerId emissive_sampler_id;
+    f32vec4 albedo_factor;
+    f32 metallic_factor;
+    f32 roughness_factor;
+    f32vec3 emissive_factor;
+    u32 alpha_mode;
+    f32 alpha_cutoff;
+    b32 double_sided;
+};
+
+DAXA_DECL_BUFFER_PTR(GPUMaterial)
 
 #if defined(__cplusplus)
 #define SHARED_FUNCTION inline
@@ -98,7 +75,6 @@ SHARED_FUNCTION u32 round_up_div(u32 value, u32 div) {
     return (value + div - 1) / div;
 }
 
-// cringe(note: glsl is column major and slang/hlsl is row major for indexing but multiplication is column major, dont ask why)
 SHARED_FUNCTION f32mat4x4 mat_4x3_to_4x4(f32mat4x3 mat) {
 #if DAXA_LANGUAGE == DAXA_LANGUAGE_SLANG
     f32mat4x4 ret = daxa_f32mat4x4(

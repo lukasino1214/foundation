@@ -30,19 +30,14 @@
 #include <glm/gtc/constants.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/rotate_vector.hpp>
+#include <glm/gtc/quaternion.hpp>
+
+#include <fmt/format.h>
+#include <ankerl/unordered_dense.h>
 
 #define s_cast static_cast
 #define d_cast dynamic_cast
 #define r_cast reinterpret_cast
-
-template<typename T>
-auto yeet_cast(auto&& value) {
-    return *r_cast<T*>(&value);
-}
-
-#define y_cast yeet_cast
-
-#include <tracy/Tracy.hpp>
 
 namespace foundation {
     inline namespace types {
@@ -67,36 +62,3 @@ namespace foundation {
 }
 
 #include <shader_library/shared.inl>
-
-inline constexpr auto find_msb(daxa::u32 v) -> daxa::u32 {
-    daxa::u32 index = 0;
-    while (v != 0) {
-        v = v >> 1;
-        index = index + 1;
-    }
-    return index;
-}
-
-inline constexpr auto find_next_lower_po2(daxa::u32 v) -> daxa::u32 {
-    auto const msb = find_msb(v);
-    return 1u << ((msb == 0 ? 1 : msb) - 1);
-}
-
-#define PROFILE_ON
-#if defined(PROFILE_ON)
-#define PROFILE_FRAME_START(name) FrameMarkStart(name)
-#define PROFILE_FRAME_END(name) FrameMarkEnd(name)
-#define PROFILE_SCOPE ZoneScoped
-#define PROFILE_SCOPE_NAMED(name) ZoneNamedN(name, #name, true)
-#define PROFILE_ZONE_NAMED(name) ZoneTransientN(name, #name, true)
-#else
-#define PROFILE_FRAME_START(name)
-#define PROFILE_FRAME_END(name)
-#define PROFILE_SCOPE
-#define PROFILE_SCOPE_NAMED(name)
-#define PROFILE_ZONE_NAMED(name)
-#endif
-
-#include <libassert/assert.hpp>
-#include <fmt/format.h>
-#include <ankerl/unordered_dense.h>

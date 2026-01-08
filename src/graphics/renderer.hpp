@@ -1,14 +1,16 @@
 #pragma once
 
-#include <graphics/window.hpp>
-#include <graphics/context.hpp>
 #include <daxa/utils/imgui.hpp>
+#include <asset/asset_manager.hpp>
 
 namespace foundation {
-    struct Renderer {
-        Renderer(NativeWindow* _window, Context* _context);
-        ~Renderer();
+    struct NativeWindow;
+    struct GPUContext;
 
+    struct Renderer {
+        Renderer(NativeWindow* _window, GPUContext* _gpu_context);
+        ~Renderer();
+    
         void render();
 
         void ui_render_start();
@@ -22,25 +24,20 @@ namespace foundation {
         void rebuild_task_graph();
 
         NativeWindow* window = {};
-        Context* context = {};
-
-        std::atomic<bool> pipelines_compiled = false;
+        GPUContext* gpu_context = {};
 
         daxa::TaskImage swapchain_image = {};
         daxa::TaskImage render_image = {};
+        daxa::TaskImage depth_image = {};
+
+        daxa::TaskGraph render_task_graph = {};
+
+        ModelData model_data = {};
 
         std::vector<daxa::TaskImage> images = {};
         std::vector<std::pair<daxa::ImageInfo, daxa::TaskImage>> frame_buffer_images = {};
-
         std::vector<daxa::TaskBuffer> buffers = {};
 
-        mutable std::mutex task_graph_mutex;
-        daxa::TaskGraph render_task_graph = {};
-
         daxa::ImGuiRenderer imgui_renderer = {};
-
-        bool startup = true;
-        glm::vec2 viewport_size = { 0, 0 };
-        i32 gizmo_type = 0;
     };
 }

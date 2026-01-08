@@ -10,7 +10,6 @@
             "name": "defaults",
             "hidden": true,
             "binaryDir": "${sourceDir}/build/${presetName}",
-            "toolchainFile": "C:/dev/vcpkg/scripts/buildsystems/vcpkg.cmake",
             "generator": "Ninja Multi-Config"
         },
         {

@@ -46,10 +46,6 @@ constexpr auto min(const T& a, const T& b) -> T {
 
 #elif DAXA_LANGUAGE == DAXA_LANGUAGE_SLANG
 
-struct daxa_BlasId {
-    uint64_t value;
-};
-
 typedef daxa_f32mat4x4 f32mat4x4;
 typedef daxa_f32mat4x3 f32mat4x3;
 typedef daxa_f32mat3x4 f32mat3x4;
@@ -143,18 +139,6 @@ func AtomicMaxU32(__ref u32 dest, u32 value) -> u32 {
     return original_value;
 }
 
-[__readNone]
-[ForceInline]
-func AtomicMinU32(__ref u32 dest, u32 value) -> u32 {
-    u32 original_value;
-    spirv_asm {
-        OpCapability Int64Atomics;
-        %origin:$$u32 = OpAtomicUMin &dest Device None $value;
-        OpStore &original_value %origin
-    };
-    return original_value;
-}
-
 [ForceInline]
 [ForceInline]
 func AtomicAddU64(__ref uint64_t dest, uint64_t value) -> uint64_t {
@@ -169,10 +153,6 @@ func AtomicAddU64(__ref uint64_t dest, uint64_t value) -> uint64_t {
 }
 
 #elif DAXA_LANGUAGE == DAXA_LANGUAGE_GLSL
-
-struct daxa_BlasId {
-    uint64_t value;
-};
 
 #define f32mat4x4 daxa_f32mat4x4
 #define f32mat4x3 daxa_f32mat4x3

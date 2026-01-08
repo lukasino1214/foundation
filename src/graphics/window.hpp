@@ -155,7 +155,7 @@ namespace foundation {
     };
 
     struct NativeWindow {
-        NativeWindow(i32 width, i32 height, std::string_view _name);
+        NativeWindow(std::string_view _name, i32 width, i32 height);
         ~NativeWindow();
 
         auto create_swapchain(daxa::Device& device) const -> daxa::Swapchain;

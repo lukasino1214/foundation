@@ -1,20 +1,20 @@
 #pragma once
 
-#include <graphics/context.hpp>
+#include <graphics/gpu_context.hpp>
 
 namespace foundation {
-    void assign_blob(auto & arr, const auto& span) {
+    void assign_blob(auto & arr, auto const & span) {
         std::memcpy(arr.value.data(), span.data(), span.size());
     }
 
     template <daxa::StringLiteral T_NAME, typename T_USES_BASE, typename T_PUSH, daxa::StringLiteral T_FILE_PATH, daxa::StringLiteral T_ENTRY_POINT>
     struct WriteIndirectComputeDispatchTask : T_USES_BASE {
         T_USES_BASE::AttachmentViews views = {};
-        Context* context = {};
+        GPUContext* context = {};
         T_PUSH push = {};
 
-        static auto name() -> std::string_view {
-            return std::string_view(T_NAME.value, T_NAME.SIZE);
+        static auto name() -> std::string {
+            return std::string(T_NAME.value, T_NAME.SIZE);
         }
 
         static auto pipeline_config_info() -> daxa::ComputePipelineCompileInfo2 {
@@ -42,11 +42,11 @@ namespace foundation {
     template <daxa::StringLiteral T_NAME, typename T_USES_BASE, typename T_PUSH, daxa::StringLiteral T_FILE_PATH, daxa::StringLiteral T_ENTRY_POINT>
     struct IndirectComputeDispatchTask : T_USES_BASE {
         T_USES_BASE::AttachmentViews views = {};
-        Context* context = {};
+        GPUContext* context = {};
         T_PUSH push = {};
 
-        static auto name() -> std::string_view {
-            return std::string_view(T_NAME.value, T_NAME.SIZE);
+        static auto name() -> std::string {
+            return std::string(T_NAME.value, T_NAME.SIZE);
         }
 
         static auto pipeline_config_info() -> daxa::ComputePipelineCompileInfo2 {
@@ -76,12 +76,12 @@ namespace foundation {
     template <daxa::StringLiteral T_NAME, typename T_USES_BASE, typename T_PUSH, daxa::StringLiteral T_FILE_PATH, daxa::StringLiteral T_ENTRY_POINT>
     struct ComputeDispatchTask : T_USES_BASE {
         T_USES_BASE::AttachmentViews views = {};
-        Context* context = {};
+        GPUContext* context = {};
         T_PUSH push = {};
         std::function<daxa::DispatchInfo(void)> dispatch_callback = {};
 
-        static auto name() -> std::string_view {
-            return std::string_view(T_NAME.value, T_NAME.SIZE);
+        static auto name() -> std::string {
+            return std::string(T_NAME.value, T_NAME.SIZE);
         }
 
         static auto pipeline_config_info() -> daxa::ComputePipelineCompileInfo2 {

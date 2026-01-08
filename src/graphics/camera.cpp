@@ -24,6 +24,13 @@ namespace foundation {
     }
 
     void ControlledCamera3D::update(NativeWindow& window, f32 dt) {
+         if (window.is_focused()) {
+            if (window.key_just_pressed(Key::Escape)) {
+                if (window.is_cursor_captured()) { window.release_cursor(); }
+                else { window.capture_cursor(); }
+            }
+        } else if (window.is_cursor_captured()) { window.release_cursor(); }
+
         if(window.is_cursor_captured()) {
             rotation.x += s_cast<f32>(window.get_cursor_change_x()) * mouse_sens * 0.0001f * camera.fov;
             rotation.y += s_cast<f32>(window.get_cursor_change_y()) * mouse_sens * 0.0001f * camera.fov;

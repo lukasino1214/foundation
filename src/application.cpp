@@ -1,85 +1,115 @@
-#include <application.hpp>
-#include <imgui.h>
+#include "application.hpp"
 
 namespace foundation {
-    Application::Application() : 
-        window{1280, 720, "Foundation"},
-        context{this->window},
-        thread_pool{std::make_unique<ThreadPool>(std::thread::hardware_concurrency() - 1)},
-        renderer{ std::make_unique<Renderer>(&window, &context)} {
-        PROFILE_SCOPE;
-
-        struct CompilePipelinesTask : Task {
-            Renderer* renderer = {};
-            explicit CompilePipelinesTask(Renderer* renderer) : renderer{renderer} { chunk_count = 1; }
-
-            void callback(u32 /*chunk_index*/, u32 /*thread_index*/) override {
-                std::this_thread::sleep_for(std::chrono::milliseconds(800));
-                renderer->compile_pipelines();
-                renderer->pipelines_compiled = true;
-                renderer->rebuild_task_graph();
-            }
-        };
-
-        auto compile_pipelines_task = std::make_shared<CompilePipelinesTask>(renderer.get());
-        thread_pool->async_dispatch(compile_pipelines_task);
-    
-        last_time_point = std::chrono::steady_clock::now();
-        main_camera.camera.resize(s_cast<i32>(window.get_width()), s_cast<i32>(window.get_height()));
-        observer_camera.camera.resize(s_cast<i32>(window.get_width()), s_cast<i32>(window.get_height()));
+    Application::Application() :
+        window("foundation", 1280, 720),
+        gpu_context(&window),
+        renderer{&window, &gpu_context} {
     }
 
-    Application::~Application() = default;
+    Application::~Application() {}
 
     auto Application::run() -> i32 {
         while(!window.window_state->close_requested) {
-            PROFILE_FRAME_START("App Run");
-            PROFILE_SCOPE;
             auto new_time_point = std::chrono::steady_clock::now();
-            this->delta_time = std::chrono::duration_cast<std::chrono::duration<f32, std::chrono::milliseconds::period>>(new_time_point - this->last_time_point).count() * 0.001f;
-            this->last_time_point = new_time_point;
+            delta_time = std::chrono::duration_cast<std::chrono::duration<f64, std::chrono::milliseconds::period>>(new_time_point - this->last_time_point).count() * 0.001;
+            last_time_point = new_time_point;
+
             window.update();
 
             if(window.window_state->resize_requested) {
-                renderer->window_resized();
+                renderer.window_resized();
                 window.window_state->resize_requested = false;
             }
 
             update();
-            renderer->render();
-            PROFILE_FRAME_END("App Run");
+            renderer.render();
         }
 
         return 0;
     }
 
     void Application::update() {
-        PROFILE_SCOPE;
+        renderer.ui_render_start();
+
         {
-            PROFILE_ZONE_NAMED(ui_render_start);
-            renderer->ui_render_start();
+            ImGuiDockNodeFlags dockspace_flags = ImGuiDockNodeFlags_PassthruCentralNode;
+            ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoDocking | ImGuiWindowFlags_NoBackground;
+            const ImGuiViewport *viewport = ImGui::GetMainViewport();
+            ImGui::SetNextWindowPos(viewport->WorkPos);
+            ImGui::SetNextWindowSize(viewport->WorkSize);
+            ImGui::SetNextWindowViewport(viewport->ID);
+            ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
+            ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+            ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+            window_flags |= ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove;
+            window_flags |= ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus;
+            ImGuiID dockspace_id = ImGui::GetID("dockspace");
+            ImGui::Begin("dockSpace", nullptr, window_flags);
+            ImGui::PopStyleVar(3);
+            ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), dockspace_flags);
+            ImGui::End();
         }
-        {
-            PROFILE_ZONE_NAMED(ui_update_);
-            ui_update();
-        }
-        {
-            PROFILE_ZONE_NAMED(ui_render_end);
-            renderer->ui_render_end();
+
+        auto create_window = [](std::string_view name) {
+            ImGui::Begin(name.data());
+            ImGui::Text(name.data());
+            ImGui::End();
+        };
+
+        if(!window.is_cursor_captured()) {
+            create_window("Console");
+            // create_window("Viewport Panel");
+            create_window("Performance Statistics");
+            create_window("GPU Scene Statistic");
+            create_window("File Browser");
+            create_window("Scene Hierarchy");
+            create_window("Entity Inspector");
+            create_window("Renderer settings");
         }
         
-        {
-            PROFILE_ZONE_NAMED(record_manifest_update);
-            auto size = context.device.image_info(renderer->render_image.get_state().images[0]).value().size;
-            context.update_shader_globals(main_camera, observer_camera, {size.x, size.y});
-        }
+        renderer.ui_update();
+        renderer.ui_render_end();
 
-        {
-            PROFILE_ZONE_NAMED(scene_update);
-        }
-    }
+        main_camera.update(window, s_cast<f32>(delta_time));
 
-    void Application::ui_update() {
-        renderer->ui_update();
+        auto set_camera_info = [&](ControlledCamera3D& camera) -> CameraInfo {
+            camera.camera.resize(s_cast<i32>(window.get_width()), s_cast<i32>(window.get_height()));
+            CameraInfo camera_info {};
+            glm::mat4 inverse_projection_matrix = glm::inverse(camera.camera.proj_mat);
+            glm::mat4 inverse_view_matrix = glm::inverse(camera.camera.view_mat);
+            glm::mat4 projection_view_matrix = camera.camera.proj_mat * camera.camera.view_mat;
+            glm::mat4 inverse_projection_view = inverse_projection_matrix * inverse_view_matrix;
+
+            camera_info.projection_matrix =  camera.camera.proj_mat;
+            camera_info.inverse_projection_matrix = inverse_projection_matrix;
+            camera_info.view_matrix = camera.camera.view_mat;
+            camera_info.inverse_view_matrix = inverse_view_matrix;
+            camera_info.projection_view_matrix = projection_view_matrix;
+            camera_info.inverse_projection_view_matrix = inverse_projection_view;
+            camera_info.position = camera.position;
+
+            std::array<glm::vec4, 6> planes = {};
+            for (i32 i = 0; i < 4; ++i) { planes[0][i] = projection_view_matrix[i][3] + projection_view_matrix[i][0]; }
+            for (i32 i = 0; i < 4; ++i) { planes[1][i] = projection_view_matrix[i][3] - projection_view_matrix[i][0]; }
+            for (i32 i = 0; i < 4; ++i) { planes[2][i] = projection_view_matrix[i][3] + projection_view_matrix[i][1]; }
+            for (i32 i = 0; i < 4; ++i) { planes[3][i] = projection_view_matrix[i][3] - projection_view_matrix[i][1]; }
+            for (i32 i = 0; i < 4; ++i) { planes[4][i] = projection_view_matrix[i][3] + projection_view_matrix[i][2]; }
+            for (i32 i = 0; i < 4; ++i) { planes[5][i] = projection_view_matrix[i][3] - projection_view_matrix[i][2]; }
+            for (u32 i = 0; i < 6; ++i) {
+                planes[i] /= glm::length(glm::vec3(planes[i]));
+                planes[i].w = -planes[i].w;
+                camera_info.frustum_planes[i] = planes[i];
+            }
+
+            return camera_info;
+        };
+
+        gpu_context.shader_globals.main_camera = set_camera_info(main_camera);
+        gpu_context.shader_globals.render_target_size = { window.get_width(), window.get_height() };
+        gpu_context.shader_globals.render_target_size_inv = {
+            1.0f / s_cast<f32>(gpu_context.shader_globals.render_target_size.x),
+            1.0f / s_cast<f32>(gpu_context.shader_globals.render_target_size.y),
+        };
     }
 }
