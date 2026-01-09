@@ -15,8 +15,6 @@
 #include <span>
 #include <type_traits>
 #include <utility>
-#include <thread>
-#include <mutex>
 #include <numbers>
 
 #include <daxa/daxa.hpp>

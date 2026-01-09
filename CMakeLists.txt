@@ -1,4 +1,4 @@
-cmake_minimum_required (VERSION 3.21)
+cmake_minimum_required (VERSION 3.31)
 project(foundation)
 
 include(cmake/warnings.cmake)
@@ -28,6 +28,7 @@ add_executable(${PROJECT_NAME}
     "src/graphics/renderer.cpp"
     "src/graphics/camera.cpp"
     "src/graphics/helper.cpp"
+    "src/utils/thread_pool.cpp"
 )
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
@@ -50,6 +51,8 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     glm::glm
     unordered_dense::unordered_dense
     dds_image::dds_image
+    wuffs::wuffs
+    meshoptimizer::meshoptimizer
 )
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Windows")

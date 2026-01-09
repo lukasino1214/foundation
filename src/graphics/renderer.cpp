@@ -23,6 +23,10 @@ namespace foundation {
 
         AssetManager asset_manager = {};
         model_data = asset_manager.load("assets/models/bistro-full/bistro.gltf", gpu_context);
+        // model_data = asset_manager.load("assets/models/Bistro/Bistro.glb", gpu_context);
+        // model_data = asset_manager.load("assets/models/Sponza/glTF/Sponza.gltf", gpu_context);
+        // model_data = asset_manager.load("assets/models/main_sponza/NewSponza_Main_glTF_003.gltf", gpu_context);
+        // model_data = asset_manager.load("assets/models/zorah/zorah_main_public.gltf", gpu_context);
 
         images = {
             render_image,
@@ -48,7 +52,6 @@ namespace foundation {
             },
         };
 
-        compile_pipelines();
         recreate_frame_buffer({ window->get_width(), window->get_height() });
         rebuild_task_graph();
     }
@@ -128,7 +131,7 @@ namespace foundation {
             } else {
                 fmt::println("FAILED to compile pipeline {} with message \n {}", name, compilation_result.message());
             }
-            
+
             gpu_context->compute_pipelines[name] = compilation_result.value();
         }
 
@@ -152,6 +155,7 @@ namespace foundation {
     }
 
     void Renderer::rebuild_task_graph() {
+        std::lock_guard<std::mutex> lock(task_graph_mutex);
         render_task_graph = daxa::TaskGraph({
             .device = gpu_context->device,
             .swapchain = gpu_context->swapchain,
@@ -163,15 +167,46 @@ namespace foundation {
         render_task_graph.use_persistent_image(depth_image);
         render_task_graph.use_persistent_buffer(gpu_context->shader_globals_buffer);
 
-        // render_task_graph.add_task(daxa::InlineTask::Transfer("clear image")
-        //     .writes(render_image)
-        //     .executes([&](daxa::TaskInterface const &ti) {
-        //         ti.recorder.clear_image(daxa::ImageClearInfo{
-        //             .clear_value = std::array<f32, 4>{1, 0, 0, 0},
-        //             .dst_image = ti.get(render_image).ids[0]
-        //         });
-        //     })
-        // );
+        if(!pipelines_compiled) {
+            render_task_graph.add_task(daxa::InlineTask::Transfer("clear image")
+                .writes(render_image)
+                .executes([&](daxa::TaskInterface const &ti) {
+                    ti.recorder.clear_image(daxa::ImageClearInfo{
+                        .clear_value = std::array<f32, 4>{1, 0, 0, 0},
+                        .dst_image = ti.get(render_image).ids[0]
+                    });
+                })
+            );
+
+            render_task_graph.add_task(daxa::InlineTask::Transfer("blit image to swapchain")
+                .reads(render_image)
+                .writes(swapchain_image)
+                .executes([&](daxa::TaskInterface const &ti) {
+                    auto size_x = ti.device.image_info(ti.get(render_image).ids[0]).value().size.x;
+                    auto size_y = ti.device.image_info(ti.get(render_image).ids[0]).value().size.y;
+                    ti.recorder.blit_image_to_image(daxa::ImageBlitInfo {
+                        .src_image = ti.get(render_image).ids[0],
+                        .dst_image = ti.get(swapchain_image).ids[0],
+                        .src_offsets = {{{0, 0, 0}, {static_cast<i32>(size_x), static_cast<i32>(size_y), 1}}},
+                        .dst_offsets = {{{0, 0, 0}, {static_cast<i32>(size_x), static_cast<i32>(size_y), 1}}},
+                        .filter = daxa::Filter::NEAREST,
+                    });
+                })
+            );
+            
+            render_task_graph.add_task(
+                daxa::InlineTask{"imgui draw"}
+                .color_attachment.reads_writes(swapchain_image)
+                .executes([&](daxa::TaskInterface const &ti) {
+                    auto size = ti.device.image_info(ti.get(daxa::TaskImageAttachmentIndex(0)).ids[0]).value().size;
+                    imgui_renderer.record_commands(ImGui::GetDrawData(), ti.recorder, ti.get(daxa::TaskImageAttachmentIndex(0)).ids[0], size.x, size.y);
+            }));
+
+            render_task_graph.submit({});
+            render_task_graph.present({});
+            render_task_graph.complete({});
+            return;
+        }
 
         render_task_graph.add_task(
             daxa::InlineTask::Transfer("update globals")
@@ -241,7 +276,10 @@ namespace foundation {
         if(image.is_empty()) { return; }
         swapchain_image.set_images({.images = std::span{&image, 1}});
         
-        render_task_graph.execute({});
+        {
+            std::lock_guard<std::mutex> lock(task_graph_mutex);
+            render_task_graph.execute({});
+        }
         gpu_context->device.collect_garbage();
     }
 

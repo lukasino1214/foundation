@@ -30,6 +30,9 @@ namespace foundation {
         daxa::TaskImage render_image = {};
         daxa::TaskImage depth_image = {};
 
+        std::atomic<bool> pipelines_compiled = false;
+        
+        mutable std::mutex task_graph_mutex;
         daxa::TaskGraph render_task_graph = {};
 
         ModelData model_data = {};

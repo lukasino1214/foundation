@@ -2,9 +2,23 @@
 
 namespace foundation {
     Application::Application() :
+        thread_pool(std::thread::hardware_concurrency() - 1),
         window("foundation", 1280, 720),
         gpu_context(&window),
         renderer{&window, &gpu_context} {
+        struct CompilePipelinesTask : Task {
+            Renderer* renderer = {};
+            explicit CompilePipelinesTask(Renderer* renderer) : renderer{renderer} { chunk_count = 1; }
+
+            void callback(u32 /*chunk_index*/, u32 /*thread_index*/) override {
+                renderer->compile_pipelines();
+                renderer->pipelines_compiled = true;
+                renderer->rebuild_task_graph();
+            }
+        };
+
+        auto compile_pipelines_task = std::make_shared<CompilePipelinesTask>(&renderer);
+        thread_pool.async_dispatch(compile_pipelines_task);
     }
 
     Application::~Application() {}
@@ -60,13 +74,20 @@ namespace foundation {
         if(!window.is_cursor_captured()) {
             create_window("Console");
             // create_window("Viewport Panel");
-            create_window("Performance Statistics");
+            // create_window("Performance Statistics");
             create_window("GPU Scene Statistic");
             create_window("File Browser");
             create_window("Scene Hierarchy");
             create_window("Entity Inspector");
             create_window("Renderer settings");
+
+            if(ImGui::Begin("Performance Statistics")) {
+                ImGui::Text("delta time: %f", delta_time);
+            }
         }
+
+
+        ImGui::End();
         
         renderer.ui_update();
         renderer.ui_render_end();
