@@ -28,6 +28,7 @@ struct DrawMeshPush {
 #include <glm/ext/quaternion_geometric.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/quaternion.hpp>
+#include <ecs/entity.hpp>
 
 using namespace foundation;
 struct DrawMeshTask : DrawMesh::Task {
@@ -35,6 +36,7 @@ struct DrawMeshTask : DrawMesh::Task {
     GPUContext* context = {};
     DrawMeshPush push = {};
     ModelData* model_data = {};
+    Scene* scene = {};
 
     void assign_blob(auto & arr, auto const & span) {
         std::memcpy(arr.value.data(), span.data(), span.size());
@@ -102,36 +104,19 @@ struct DrawMeshTask : DrawMesh::Task {
 
         assign_blob(push.uses, ti.attachment_shader_blob);
 
-        auto traverse = [&](this auto&& self, const foundation::Node& node, glm::mat4 parentMatrix) -> void {
-            glm::mat4 currentMatrix = node.transform;
+        scene->world->each([&](MeshComponent& mesh_component, GlobalMatrix& matrix) {
+            for (auto& mesh : model_data->mesh_groups[mesh_component.mesh_group_manifest_entry_index].meshes) {
+                push.mesh = mesh.mesh;
+                push.materials = context->device.buffer_device_address(model_data->materials_buffer).value();
+                push.material_index = mesh.material_index.value_or(INVALID_ID);
+                push.matrix = matrix.matrix;
 
-            glm::mat4 matrix = parentMatrix * currentMatrix;
-            if (node.mesh_group_index.has_value()) {
-                u32 meshIndex = node.mesh_group_index.value();
-
-                for (auto& mesh : model_data->mesh_groups[meshIndex].meshes) {
-                    push.mesh = mesh.mesh;
-                    push.materials = context->device.buffer_device_address(model_data->materials_buffer).value();
-                    push.material_index = mesh.material_index.value_or(INVALID_ID);
-                    push.matrix = currentMatrix;
-                    render_cmd.push_constant(push);
-                    render_cmd.set_index_buffer({ .id = mesh.index_buffer, .index_type = daxa::IndexType::uint32 });
-                    render_cmd.push_constant(push);
-                    render_cmd.draw_indexed({ .index_count = mesh.index_count });
-                }
+                render_cmd.push_constant(push);
+                render_cmd.set_index_buffer({ .id = mesh.index_buffer, .index_type = daxa::IndexType::uint32 });
+                render_cmd.push_constant(push);
+                render_cmd.draw_indexed({ .index_count = mesh.index_count });
             }
-
-            for (u32 child : node.children) {
-                self(model_data->nodes[child], matrix);
-            }
-        };
-
-        glm::mat4 model = glm::mat4{ 1.0f };
-        for (const foundation::Scene& scene : model_data->scenes) {
-            for (u32 root_node : scene.node_indices) {
-                traverse(model_data->nodes[root_node], model);
-            }
-        }
+        });
 
         ti.recorder = std::move(render_cmd).end_renderpass();
     }

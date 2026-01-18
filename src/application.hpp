@@ -5,6 +5,7 @@
 #include <graphics/window.hpp>
 #include <graphics/gpu_context.hpp>
 #include <graphics/renderer.hpp>
+#include <ecs/scene.hpp>
 
 namespace foundation {
     struct Application {
@@ -16,7 +17,8 @@ namespace foundation {
     
         ThreadPool thread_pool;
         NativeWindow window;
-        GPUContext gpu_context; 
+        GPUContext gpu_context;
+        std::shared_ptr<Scene> scene = {};
         Renderer renderer;
         ControlledCamera3D main_camera = {};
 

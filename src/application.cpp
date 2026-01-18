@@ -5,7 +5,8 @@ namespace foundation {
         thread_pool(std::thread::hardware_concurrency() - 1),
         window("foundation", 1280, 720),
         gpu_context(&window),
-        renderer{&window, &gpu_context} {
+        scene{std::make_shared<Scene>("default scene")},
+        renderer{&window, &gpu_context, scene.get()} {
         struct CompilePipelinesTask : Task {
             Renderer* renderer = {};
             explicit CompilePipelinesTask(Renderer* renderer) : renderer{renderer} { chunk_count = 1; }
@@ -67,7 +68,7 @@ namespace foundation {
 
         auto create_window = [](std::string_view name) {
             ImGui::Begin(name.data());
-            ImGui::Text(name.data());
+            ImGui::Text("%s", name.data());
             ImGui::End();
         };
 
@@ -86,11 +87,12 @@ namespace foundation {
             }
         }
 
-
         ImGui::End();
         
         renderer.ui_update();
         renderer.ui_render_end();
+
+        scene->update(s_cast<f32>(delta_time));
 
         main_camera.update(window, s_cast<f32>(delta_time));
 

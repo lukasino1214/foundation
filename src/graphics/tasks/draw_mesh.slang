@@ -29,9 +29,11 @@ f32vec3 hsv_to_rgb(in f32vec3 hsv) {
 [shader("fragment")]
 f32vec4 fragment_main(u32 primitive_id : SV_PrimitiveID, in VertexStageOutput input) : SV_Target {
     if(push.material_index != INVALID_ID) {
-        f32vec4 color = Texture2D<f32vec4>::get(push.materials[push.material_index].albedo_image_id).Sample(SamplerState::get(push.materials[push.material_index].albedo_sampler_id), input.uv);
-        if(color.a < 0.5) { discard; }
-        return f32vec4(pow(color.rgb, 2.2), 1.0);
+        if(!push.materials[push.material_index].albedo_image_id.is_empty()) {
+            f32vec4 color = Texture2D<f32vec4>::get(push.materials[push.material_index].albedo_image_id).Sample(SamplerState::get(push.materials[push.material_index].albedo_sampler_id), input.uv);
+            if(color.a < 0.5) { discard; }
+            return f32vec4(pow(color.rgb, 2.2), 1.0);
+        }
     }
 
     return f32vec4(hsv_to_rgb(f32vec3(f32(primitive_id) / 128 * M_GOLDEN_CONJ, 0.875, 0.85)), 1.0);

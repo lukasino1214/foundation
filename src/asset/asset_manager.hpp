@@ -1,9 +1,11 @@
 #pragma once
 
+#include <ecs/entity.hpp>
+
 namespace foundation {
     struct GPUContext;
 
-    struct Scene {
+    struct IScene {
         std::vector<u32> node_indices = {};
         std::string name = {};
     };
@@ -44,7 +46,7 @@ namespace foundation {
 
     struct ModelData {
         std::filesystem::path file_path = {};
-        std::vector<Scene> scenes = {};
+        std::vector<IScene> scenes = {};
         std::vector<Node> nodes = {};
         std::vector<MeshGroup> mesh_groups = {};
         std::vector<Image> images = {};
@@ -53,6 +55,6 @@ namespace foundation {
     };
 
     struct AssetManager {
-        auto load(const std::filesystem::path& file_path, GPUContext* gpu_context) -> ModelData;
+        auto load(const std::filesystem::path& file_path, GPUContext* gpu_context, Scene* scene, Entity root_entity) -> ModelData;
     };
 }

@@ -23,12 +23,15 @@ add_executable(${PROJECT_NAME}
     "src/main.cpp"
     "src/application.cpp"
     "src/asset/asset_manager.cpp"
+    "src/ecs/entity.cpp"
+    "src/ecs/scene.cpp"
     "src/graphics/window.cpp"
     "src/graphics/gpu_context.cpp"
     "src/graphics/renderer.cpp"
     "src/graphics/camera.cpp"
     "src/graphics/helper.cpp"
     "src/utils/thread_pool.cpp"
+    "src/math/math.cpp"
 )
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Windows")
@@ -53,6 +56,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     dds_image::dds_image
     wuffs::wuffs
     meshoptimizer::meshoptimizer
+    flecs::flecs_static
 )
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Windows")

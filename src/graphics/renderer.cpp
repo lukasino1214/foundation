@@ -6,7 +6,7 @@
 #include "tasks/draw_mesh.inl"
 
 namespace foundation {
-    Renderer::Renderer(NativeWindow* _window, GPUContext* _gpu_context) : window{_window}, gpu_context{_gpu_context} {
+    Renderer::Renderer(NativeWindow* _window, GPUContext* _gpu_context, Scene* _scene) : window{_window}, gpu_context{_gpu_context}, scene{_scene} {
         ImGui::CreateContext();
         ImGui_ImplGlfw_InitForVulkan(window->glfw_handle, true);
         imgui_renderer =  daxa::ImGuiRenderer({
@@ -21,10 +21,14 @@ namespace foundation {
         render_image = daxa::TaskImage{{ .name = "render image" }};
         depth_image = daxa::TaskImage{{ .name = "depth image" }};
 
+        root_entity = scene->create_entity("root entity");
+        root_entity.add_component<TransformComponent>();
+        root_entity.set_local_position({10, -2, 0});
+
         AssetManager asset_manager = {};
-        model_data = asset_manager.load("assets/models/bistro-full/bistro.gltf", gpu_context);
+        // model_data = asset_manager.load("assets/models/bistro-full/bistro.gltf", gpu_context, scene, root_entity);
         // model_data = asset_manager.load("assets/models/Bistro/Bistro.glb", gpu_context);
-        // model_data = asset_manager.load("assets/models/Sponza/glTF/Sponza.gltf", gpu_context);
+        model_data = asset_manager.load("assets/models/Sponza/glTF/Sponza.gltf", gpu_context, scene, root_entity);
         // model_data = asset_manager.load("assets/models/main_sponza/NewSponza_Main_glTF_003.gltf", gpu_context);
         // model_data = asset_manager.load("assets/models/zorah/zorah_main_public.gltf", gpu_context);
 
@@ -232,6 +236,7 @@ namespace foundation {
             },
             .context = gpu_context,
             .model_data = &model_data,
+            .scene = scene,
         });
 
         render_task_graph.add_task(daxa::InlineTask::Transfer("blit image to swapchain")

@@ -151,3 +151,15 @@ if(NOT TARGET meshoptimizer::meshoptimizer)
 
     add_library(meshoptimizer::meshoptimizer ALIAS meshoptimizer)
 endif()
+
+if(NOT TARGET flecs::flecs_static)
+    FetchContent_Declare(
+        flecs
+        GIT_REPOSITORY https://github.com/SanderMertens/flecs
+        GIT_TAG        dcbaf278d15379aadea10421bbcbd3c4ead529a3
+        GIT_SHALLOW    ON
+        GIT_PROGRESS TRUE
+    )
+
+    FetchContent_MakeAvailable(flecs)
+endif()

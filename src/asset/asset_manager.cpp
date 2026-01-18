@@ -20,6 +20,11 @@
 
 #include <meshoptimizer.h>
 
+#include <ecs/entity.hpp>
+#include <ecs/scene.hpp>
+
+#include <math/math.hpp>
+
 namespace foundation {
     auto dds_format_to_daxa_format(DXGI_FORMAT format, bool alpha_flag) -> daxa::Format {
        switch(format) {
@@ -254,7 +259,7 @@ namespace foundation {
         return ret;
     }
 
-    auto AssetManager::load(const std::filesystem::path& file_path, GPUContext* gpu_context) -> ModelData {
+    auto AssetManager::load(const std::filesystem::path& file_path, GPUContext* gpu_context, Scene* scene, Entity root_entity) -> ModelData {
         if(!std::filesystem::exists(file_path)) {
             throw std::runtime_error(fmt::format("File does not exist with path: {}", file_path.string()));
         }
@@ -293,7 +298,7 @@ namespace foundation {
 
         model_data.scenes.reserve(asset->scenes.size());
         for (const fastgltf::Scene& gltf_scene : asset->scenes) {
-            Scene scene = {};
+            IScene scene = {};
             scene.name = gltf_scene.name.c_str();
 
             scene.node_indices.reserve(gltf_scene.nodeIndices.size());
@@ -304,32 +309,58 @@ namespace foundation {
             model_data.scenes.push_back(scene);
         }
 
-        model_data.nodes.reserve(asset->nodes.size());
-        for (fastgltf::Node& gltf_node : asset->nodes) {
-            Node node = {};
-            node.name = gltf_node.name.c_str();
+        std::vector<flecs::entity> node_index_to_entity = {};
+        for(u32 node_index = 0; node_index < s_cast<u32>(asset->nodes.size()); node_index++) {
+            Entity e = scene->create_entity(std::format("asset {} {} {}", asset->nodes[node_index].name, root_entity.get_name().data(), node_index));
+            node_index_to_entity.push_back(e.get_handle());
+        }
 
-            node.mesh_group_index = gltf_node.meshIndex.has_value() ? std::make_optional(s_cast<u32>(gltf_node.meshIndex.value())) : std::nullopt;
-
-            for (usize value : gltf_node.children) {
-                node.children.push_back(s_cast<u32>(value));
+        for(u32 node_index = 0; node_index < s_cast<u32>(asset->nodes.size()); node_index++) {
+            const auto& node = asset->nodes[node_index];
+            Entity parent_entity(node_index_to_entity[node_index], scene);
+            if(node.meshIndex.has_value()) {
+                parent_entity.add_component<MeshComponent>();
+                auto& mesh_component = parent_entity.get_component<MeshComponent>();
+                mesh_component.mesh_group_manifest_entry_index = s_cast<u32>(node.meshIndex.value());
             }
 
-            if(const auto* trs = std::get_if<fastgltf::TRS>(&gltf_node.transform)) {
+            glm::mat4 transform = {};
+            if(const auto* trs = std::get_if<fastgltf::TRS>(&node.transform)) {
                 glm::quat quat;
                 quat.x = trs->rotation[0];
                 quat.y = trs->rotation[1];
                 quat.z = trs->rotation[2];
                 quat.w = trs->rotation[3];
                 
-                node.transform = glm::translate(glm::mat4(1.0f), { trs->translation[0], trs->translation[1], trs->translation[2]}) 
+                transform = glm::translate(glm::mat4(1.0f), { trs->translation[0], trs->translation[1], trs->translation[2]}) 
                     * glm::toMat4(quat) 
                     * glm::scale(glm::mat4(1.0f), { trs->scale[0], trs->scale[1], trs->scale[2]});
-            } else if(const auto* transform_matrix = std::get_if<fastgltf::math::fmat4x4>(&gltf_node.transform)) {
-                node.transform = *r_cast<const glm::mat4*>(transform_matrix);
+            } else if(const auto* transform_matrix = std::get_if<fastgltf::math::fmat4x4>(&node.transform)) {
+                transform = *r_cast<const glm::mat4*>(transform_matrix);
             }
 
-            model_data.nodes.push_back(node);
+            glm::vec3 position = {};
+            glm::vec3 rotation = {};
+            glm::vec3 scale = {};
+            math::decompose_transform(transform, position, rotation, scale);
+
+            parent_entity.add_component<TransformComponent>();
+            parent_entity.set_local_position(position);
+            parent_entity.set_local_rotation(rotation);
+            parent_entity.set_local_scale(scale);
+
+            for(u32 children_index : node.children) {
+                Entity child_entity(node_index_to_entity[children_index], scene);
+                parent_entity.set_child(child_entity);
+            }
+        }
+
+        for(u32 node_index = 0; node_index < s_cast<u32>(asset->nodes.size()); node_index++) {
+            Entity entity(node_index_to_entity[node_index], scene);
+
+            if(!entity.has_parent()) {
+                root_entity.set_child(entity);
+            }
         }
 
         daxa::CommandRecorder cmd_recorder = gpu_context->device.create_command_recorder({ .name = "upload" });
@@ -436,24 +467,28 @@ namespace foundation {
             Image image = {};
             image.name = gltf_image.name.c_str();
 
-            auto* uri = std::get_if<fastgltf::sources::URI>(&gltf_image.data);
+            const auto* uri = std::get_if<fastgltf::sources::URI>(&gltf_image.data);
             if(uri == nullptr) { throw std::runtime_error("huh"); }
+            std::filesystem::path full_path = file_path.parent_path() / uri->uri.fspath();
+            if(full_path.extension() != ".dds") {
+                fmt::println("Couldnt load image: {}", (file_path.parent_path() / uri->uri.fspath()).string());
+                model_data.images.push_back(image);
+                continue; 
+            }
 
             dds::Image dds_image = {};
-            dds::ReadResult result =dds::readFile((file_path.parent_path() / uri->uri.fspath()).string(), &dds_image);
+            dds::ReadResult result =dds::readFile(full_path.string(), &dds_image);
             if (result != dds::ReadResult::Success) {
                 throw std::runtime_error("huh");
             }
 
             daxa::Format daxa_format = dds_format_to_daxa_format(dds_image.format, dds_image.supportsAlpha);
-            
-            // Calculate total size of all mipmaps
+        
             usize total_mipmap_size = 0;
             for(const auto& mipmap : dds_image.mipmaps) {
                 total_mipmap_size += mipmap.size();
             }
 
-            // Create staging buffer for all mipmap data
             daxa::BufferId staging_image_buffer = gpu_context->device.create_buffer({
                 .size = total_mipmap_size,
                 .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
