@@ -10,189 +10,15 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/quaternion.hpp>
 
-#include <dds.hpp>
-
-#define WUFFS_IMPLEMENTATION
-#define WUFFS_CONFIG__MODULE__AUX__IMAGE
-#define WUFFS_CONFIG__MODULE__JPEG
-#define WUFFS_CONFIG__MODULE__PNG
-#include <wuffs-v0.4.c>
-
 #include <meshoptimizer.h>
 
 #include <ecs/entity.hpp>
 #include <ecs/scene.hpp>
 
 #include <math/math.hpp>
+#include "asset_processor.hpp"
 
 namespace foundation {
-    auto dds_format_to_daxa_format(DXGI_FORMAT format, bool alpha_flag) -> daxa::Format {
-       switch(format) {
-            case DXGI_FORMAT_BC1_UNORM: {
-                if (alpha_flag) {
-                    return daxa::Format::BC1_RGBA_UNORM_BLOCK;
-                } else {
-                    return daxa::Format::BC1_RGB_UNORM_BLOCK;
-                }
-            }
-            case DXGI_FORMAT_BC1_UNORM_SRGB: {
-                if (alpha_flag) {
-                    return daxa::Format::BC1_RGBA_SRGB_BLOCK;
-                } else {
-                    return daxa::Format::BC1_RGB_SRGB_BLOCK;
-                }
-            }
-
-            case DXGI_FORMAT_BC2_UNORM:
-                return daxa::Format::BC2_UNORM_BLOCK;
-            case DXGI_FORMAT_BC2_UNORM_SRGB:
-                return daxa::Format::BC2_SRGB_BLOCK;
-            case DXGI_FORMAT_BC3_UNORM:
-                return daxa::Format::BC3_UNORM_BLOCK;
-            case DXGI_FORMAT_BC3_UNORM_SRGB:
-                return daxa::Format::BC3_SRGB_BLOCK;
-            case DXGI_FORMAT_BC4_UNORM:
-                return daxa::Format::BC4_UNORM_BLOCK;
-            case DXGI_FORMAT_BC4_SNORM:
-                return daxa::Format::BC4_SNORM_BLOCK;
-            case DXGI_FORMAT_BC5_UNORM:
-                return daxa::Format::BC5_UNORM_BLOCK;
-            case DXGI_FORMAT_BC5_SNORM:
-                return daxa::Format::BC5_SNORM_BLOCK;
-			case DXGI_FORMAT_BC7_UNORM:
-				return daxa::Format::BC7_UNORM_BLOCK;
-			case DXGI_FORMAT_BC7_UNORM_SRGB:
-				return daxa::Format::BC7_SRGB_BLOCK;
-
-			// 8-bit wide formats
-			case DXGI_FORMAT_R8_UNORM:
-                return daxa::Format::R8_UNORM;
-			case DXGI_FORMAT_R8_UINT:
-                return daxa::Format::R8_UINT;
-			case DXGI_FORMAT_R8_SNORM:
-                return daxa::Format::R8_SNORM;
-			case DXGI_FORMAT_R8_SINT:
-                return daxa::Format::R8_SINT;
-#if defined(VK_KHR_maintenance5)
-			case DXGI_FORMAT_A8_UNORM:
-                return daxa::Format::A8_UNORM_KHR;
-#endif
-
-			// 16-bit wide formats
-            case DXGI_FORMAT_R8G8_UNORM:
-                return daxa::Format::R8G8_UNORM;
-            case DXGI_FORMAT_R8G8_UINT:
-                return daxa::Format::R8G8_SINT;
-            case DXGI_FORMAT_R8G8_SNORM:
-                return daxa::Format::R8G8_SNORM;
-            case DXGI_FORMAT_R8G8_SINT:
-                return daxa::Format::R8G8_SINT;
-
-            case DXGI_FORMAT_R16_FLOAT:
-                return daxa::Format::R16_SFLOAT;
-            case DXGI_FORMAT_R16_UNORM:
-                return daxa::Format::R16_UNORM;
-            case DXGI_FORMAT_R16_UINT:
-                return daxa::Format::R16_UINT;
-            case DXGI_FORMAT_R16_SNORM:
-                return daxa::Format::R16_SNORM;
-            case DXGI_FORMAT_R16_SINT:
-                return daxa::Format::R16_SINT;
-
-			case DXGI_FORMAT_B5G5R5A1_UNORM:
-				return daxa::Format::B5G5R5A1_UNORM_PACK16;
-			case DXGI_FORMAT_B5G6R5_UNORM:
-				return daxa::Format::B5G6R5_UNORM_PACK16;
-			case DXGI_FORMAT_B4G4R4A4_UNORM:
-				return daxa::Format::B4G4R4A4_UNORM_PACK16;
-
-			// 32-bit wide formats
-            case DXGI_FORMAT_R8G8B8A8_UNORM:
-                return daxa::Format::R8G8B8A8_UNORM;
-            case DXGI_FORMAT_R8G8B8A8_UNORM_SRGB:
-                return daxa::Format::R8G8B8A8_SRGB;
-            case DXGI_FORMAT_R8G8B8A8_UINT:
-                return daxa::Format::R8G8B8A8_UINT;
-            case DXGI_FORMAT_R8G8B8A8_SNORM:
-                return daxa::Format::R8G8B8A8_SNORM;
-            case DXGI_FORMAT_R8G8B8A8_SINT:
-                return daxa::Format::R8G8B8A8_SINT;
-            case DXGI_FORMAT_B8G8R8A8_UNORM:
-                return daxa::Format::B8G8R8A8_UNORM;
-            case DXGI_FORMAT_B8G8R8A8_UNORM_SRGB:
-                return daxa::Format::B8G8R8A8_SRGB;
-
-            case DXGI_FORMAT_R16G16_FLOAT:
-                return daxa::Format::R16G16_SFLOAT;
-			case DXGI_FORMAT_R16G16_UNORM:
-				return daxa::Format::R16G16_UNORM;
-			case DXGI_FORMAT_R16G16_UINT:
-				return daxa::Format::R16G16_UINT;
-			case DXGI_FORMAT_R16G16_SNORM:
-				return daxa::Format::R16G16_SNORM;
-			case DXGI_FORMAT_R16G16_SINT:
-				return daxa::Format::R16G16_SINT;
-
-			case DXGI_FORMAT_R32_FLOAT:
-				return daxa::Format::R32_SFLOAT;
-			case DXGI_FORMAT_R32_UINT:
-				return daxa::Format::R32_UINT;
-			case DXGI_FORMAT_R32_SINT:
-				return daxa::Format::R32_SINT;
-
-			case DXGI_FORMAT_R9G9B9E5_SHAREDEXP:
-				return daxa::Format::E5B9G9R9_UFLOAT_PACK32;
-			case DXGI_FORMAT_R10G10B10A2_UNORM:
-				return daxa::Format::A2B10G10R10_UNORM_PACK32;
-			case DXGI_FORMAT_R10G10B10A2_UINT:
-				return daxa::Format::A2B10G10R10_UINT_PACK32;
-			case DXGI_FORMAT_R11G11B10_FLOAT:
-				return daxa::Format::B10G11R11_UFLOAT_PACK32;
-
-			// 64-bit wide formats
-            case DXGI_FORMAT_R16G16B16A16_FLOAT:
-                return daxa::Format::R16G16B16A16_SFLOAT;
-            case DXGI_FORMAT_R16G16B16A16_SINT:
-                return daxa::Format::R16G16B16A16_SINT;
-            case DXGI_FORMAT_R16G16B16A16_UINT:
-                return daxa::Format::R16G16B16A16_UINT;
-            case DXGI_FORMAT_R16G16B16A16_UNORM:
-                return daxa::Format::R16G16B16A16_UNORM;
-            case DXGI_FORMAT_R16G16B16A16_SNORM:
-                return daxa::Format::R16G16B16A16_SNORM;
-
-            case DXGI_FORMAT_R32G32_FLOAT:
-                return daxa::Format::R32G32_SFLOAT;
-			case DXGI_FORMAT_R32G32_UINT:
-				return daxa::Format::R32G32_UINT;
-			case DXGI_FORMAT_R32G32_SINT:
-				return daxa::Format::R32G32_SINT;
-
-			// 96-bit wide formats
-			case DXGI_FORMAT_R32G32B32_FLOAT:
-				return daxa::Format::R32G32B32_SFLOAT;
-			case DXGI_FORMAT_R32G32B32_UINT:
-				return daxa::Format::R32G32B32_UINT;
-			case DXGI_FORMAT_R32G32B32_SINT:
-				return daxa::Format::R32G32B32_SINT;
-
-			// 128-bit wide formats
-			case DXGI_FORMAT_R32G32B32A32_FLOAT:
-				return daxa::Format::R32G32B32A32_SFLOAT;
-			case DXGI_FORMAT_R32G32B32A32_UINT:
-				return daxa::Format::R32G32B32A32_UINT;
-			case DXGI_FORMAT_R32G32B32A32_SINT:
-				return daxa::Format::R32G32B32A32_SINT;
-
-            case DXGI_FORMAT_R8G8_B8G8_UNORM:
-            case DXGI_FORMAT_G8R8_G8B8_UNORM:
-            case DXGI_FORMAT_YUY2:
-            default:
-                return daxa::Format::UNDEFINED;
-       }
-
-    }
-
     template <typename ElemT, bool IS_INDEX_BUFFER>
     auto load_accessor_data_from_file(
         std::filesystem::path const & root_path,
@@ -205,39 +31,29 @@ namespace foundation {
         fastgltf::Buffer const & gltf_buffer = gltf_asset.buffers.at(gltf_buffer_view.bufferIndex);
         if (!std::holds_alternative<fastgltf::sources::URI>(gltf_buffer.data))
         {
-            // return AssetProcessor::AssetLoadResultCode::ERROR_FAULTY_BUFFER_VIEW;
         }
         fastgltf::sources::URI uri = std::get<fastgltf::sources::URI>(gltf_buffer.data);
 
-        /// NOTE: load the section of the file containing the buffer for the mesh index buffer.
         std::filesystem::path const full_buffer_path = root_path / uri.uri.fspath();
         std::ifstream ifs{full_buffer_path, std::ios::binary};
         if (!ifs)
         {
-            // return AssetProcessor::AssetLoadResultCode::ERROR_COULD_NOT_OPEN_GLTF;
         }
-        /// NOTE: Only load the relevant part of the file containing the view of the buffer we actually need.
         ifs.seekg(gltf_buffer_view.byteOffset + accesor.byteOffset + uri.fileByteOffset);
         std::vector<u16> raw = {};
         size_t const elem_byte_size = fastgltf::getElementByteSize(accesor.type, accesor.componentType);
         raw.resize((accesor.count * elem_byte_size) / 2);
-        /// NOTE: Only load the relevant part of the file containing the view of the buffer we actually need.
         if (!ifs.read(r_cast<char *>(raw.data()), accesor.count * elem_byte_size))
         {
-            // return AssetProcessor::AssetLoadResultCode::ERROR_COULD_NOT_READ_BUFFER_IN_GLTF;
         }
         auto buffer_adapter = [&](fastgltf::Asset const & asset, u32 asset_index) -> fastgltf::span<std::byte const>
         {
-            /// NOTE:   We only have a ptr to the loaded data to the accessors section of the buffer.
-            ///         Fastgltf expects a ptr to the begin of the buffer VIEW, so we just subtract the offsets.
-            ///         Fastgltf adds these on in the accessor tool, so in the end it gets the right ptr.
             return fastgltf::span<std::byte const>(reinterpret_cast<std::byte const *>(raw.data()) - accesor.byteOffset, accesor.count * elem_byte_size);
         };
 
         std::vector<ElemT> ret(accesor.count);
         if constexpr (IS_INDEX_BUFFER)
         {
-            /// NOTE: Transform the loaded file section into a 32 bit index buffer.
             if (accesor.componentType == fastgltf::ComponentType::UnsignedShort)
             {
                 std::vector<u16> u16_index_buffer(accesor.count);
@@ -469,43 +285,22 @@ namespace foundation {
 
             const auto* uri = std::get_if<fastgltf::sources::URI>(&gltf_image.data);
             if(uri == nullptr) { throw std::runtime_error("huh"); }
-            std::filesystem::path full_path = file_path.parent_path() / uri->uri.fspath();
-            if(full_path.extension() != ".dds") {
-                fmt::println("Couldnt load image: {}", (file_path.parent_path() / uri->uri.fspath()).string());
-                model_data.images.push_back(image);
-                continue; 
-            }
-
-            dds::Image dds_image = {};
-            dds::ReadResult result =dds::readFile(full_path.string(), &dds_image);
-            if (result != dds::ReadResult::Success) {
-                throw std::runtime_error("huh");
-            }
-
-            daxa::Format daxa_format = dds_format_to_daxa_format(dds_image.format, dds_image.supportsAlpha);
-        
-            usize total_mipmap_size = 0;
-            for(const auto& mipmap : dds_image.mipmaps) {
-                total_mipmap_size += mipmap.size();
-            }
+            LoadedImage loaded_image = AssetProcessor::load_image(file_path.parent_path() / uri->uri.fspath());
 
             daxa::BufferId staging_image_buffer = gpu_context->device.create_buffer({
-                .size = total_mipmap_size,
+                .size = loaded_image.data.size(),
                 .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
                 .name = fmt::format("staging_texture_{}", image.name),
             });
+            cmd_recorder.destroy_buffer_deferred(staging_image_buffer);
 
-            std::byte* staging_ptr = gpu_context->device.buffer_host_address(staging_image_buffer).value();
-            usize staging_offset = 0;
-            for(const auto& mipmap : dds_image.mipmaps) {
-                std::memcpy(staging_ptr + staging_offset, mipmap.data(), mipmap.size());
-                staging_offset += mipmap.size();
-            }
+            std::memcpy(gpu_context->device.buffer_host_address(staging_image_buffer).value(), loaded_image.data.data(), loaded_image.data.size());
 
+            u32 mip_level_count = loaded_image.mipmaps.empty() ? s_cast<u32>(std::floor(std::log2(std::max(loaded_image.width, loaded_image.height)))) + 1 : s_cast<u32>(loaded_image.mipmaps.size());
             image.image = gpu_context->device.create_image({
-                .format = daxa_format,
-                .size = {dds_image.width, dds_image.height, dds_image.depth},
-                .mip_level_count = s_cast<u32>(dds_image.mipmaps.size()),
+                .format = loaded_image.format,
+                .size = { loaded_image.width, loaded_image.height, loaded_image.depth },
+                .mip_level_count = mip_level_count,
                 .array_layer_count = 1,
                 .usage = daxa::ImageUsageFlagBits::TRANSFER_DST | daxa::ImageUsageFlagBits::SHADER_SAMPLED,
                 .name = image.name,
@@ -524,7 +319,7 @@ namespace foundation {
                 .enable_compare = false,
                 .compare_op = daxa::CompareOp::ALWAYS,
                 .min_lod = 0.0f,
-                .max_lod = s_cast<f32>(dds_image.mipmaps.size()),
+                .max_lod = s_cast<f32>(mip_level_count),
                 .enable_unnormalized_coordinates = false,
             });
 
@@ -533,31 +328,79 @@ namespace foundation {
                 .layout_operation = daxa::ImageLayoutOperation::TO_GENERAL,
             });
            
-            staging_offset = 0;
-            for(u32 mip_level = 0; mip_level < dds_image.mipmaps.size(); ++mip_level) {
-                const auto& mipmap = dds_image.mipmaps[mip_level];
-                
+            if(loaded_image.mipmaps.empty()) {
                 cmd_recorder.copy_buffer_to_image({
                     .buffer = staging_image_buffer,
-                    .buffer_offset = staging_offset,
+                    .buffer_offset = 0,
                     .image = image.image,
                     .image_slice = {
-                        .mip_level = mip_level,
+                        .mip_level = 0,
                         .base_array_layer = 0,
                         .layer_count = 1,
                     },
-                    .image_offset = {0, 0, 0},
-                    .image_extent = {
-                        std::max(1u, dds_image.width >> mip_level),
-                        std::max(1u, dds_image.height >> mip_level),
-                        std::max(1u, dds_image.depth >> mip_level),
-                    },
+                    .image_offset = { 0, 0, 0 },
+                    .image_extent = { loaded_image.width, loaded_image.height, loaded_image.depth }
                 });
 
-                staging_offset += mipmap.size();
+                std::array<i32, 3> mip_size = {
+                    s_cast<i32>(loaded_image.width),
+                    s_cast<i32>(loaded_image.height),
+                    s_cast<i32>(loaded_image.depth),
+                };
+
+                for(u32 i = 1; i < mip_level_count; i++) {
+                    std::array<i32, 3> next_mip_size = {
+                        std::max<i32>(1, mip_size[0] / 2),
+                        std::max<i32>(1, mip_size[1] / 2),
+                        std::max<i32>(1, mip_size[2] / 2),
+                    };
+
+                    cmd_recorder.blit_image_to_image({
+                        .src_image = image.image,
+                        .dst_image = image.image,
+                        .src_slice = {
+                            .mip_level = i - 1,
+                            .base_array_layer = 0,
+                            .layer_count = 1,
+                        },
+                        .src_offsets = {{{0, 0, 0}, {mip_size[0], mip_size[1], mip_size[2]}}},
+                        .dst_slice = {
+                            .mip_level = i,
+                            .base_array_layer = 0,
+                            .layer_count = 1,
+                        },
+                        .dst_offsets = {{{0, 0, 0}, {next_mip_size[0], next_mip_size[1], next_mip_size[2]}}},
+                        .filter = daxa::Filter::LINEAR,
+                    });
+                    
+                    mip_size = next_mip_size;
+                }
+            } else {
+                usize staging_offset = 0;
+                for(u32 mip_level = 0; mip_level < loaded_image.mipmaps.size(); ++mip_level) {
+                    const auto& mipmap = loaded_image.mipmaps[mip_level];
+                    
+                    cmd_recorder.copy_buffer_to_image({
+                        .buffer = staging_image_buffer,
+                        .buffer_offset = staging_offset,
+                        .image = image.image,
+                        .image_slice = {
+                            .mip_level = mip_level,
+                            .base_array_layer = 0,
+                            .layer_count = 1,
+                        },
+                        .image_offset = {0, 0, 0},
+                        .image_extent = {
+                            std::max(1u, loaded_image.width >> mip_level),
+                            std::max(1u, loaded_image.height >> mip_level),
+                            std::max(1u, loaded_image.depth >> mip_level),
+                        },
+                    });
+
+                    staging_offset += mipmap.size();
+                }
             }
 
-            cmd_recorder.destroy_buffer_deferred(staging_image_buffer);
             model_data.images.push_back(image);
         }
 

@@ -10,7 +10,7 @@ namespace foundation {
     static constexpr u32 NO_MORE_CHUNKS_CODE = std::numeric_limits<u32>::max();
     static constexpr u32 EXTERNAL_THREAD_INDEX = std::numeric_limits<u32>::max();
 
-    enum struct TaskPriority {
+    enum struct TaskPriority : u8 {
         LOW,
         HIGH
     };

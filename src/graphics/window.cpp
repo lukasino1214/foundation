@@ -225,6 +225,8 @@ namespace foundation {
     }
 
     auto NativeWindow::update() const -> bool {
+        PROFILE_SCOPE;
+
         this->window_state->key_down_old = this->window_state->key_down;
         this->window_state->mouse_button_down_old = this->window_state->mouse_button_down;
         this->window_state->old_cursor_pos_x = this->get_cursor_x();

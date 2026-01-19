@@ -17,6 +17,7 @@ if (NOT TARGET fmt::fmt)
         GIT_TAG        407c905e45ad75fc29bf0f9bb7c5c2fd3475976f
         GIT_SHALLOW    ON
         GIT_PROGRESS TRUE
+        EXCLUDE_FROM_ALL
     )
     FetchContent_MakeAvailable(fmt)
 endif()
@@ -28,6 +29,7 @@ if (NOT TARGET fastgltf::fastgltf)
         GIT_TAG        0d1b67a28c4950ea2deb796702006dcbe31e02b3
         GIT_SHALLOW    ON
         GIT_PROGRESS TRUE
+        EXCLUDE_FROM_ALL
     )
     FetchContent_MakeAvailable(fastgltf)
 endif()
@@ -39,6 +41,7 @@ if (NOT TARGET glm::glm)
         GIT_TAG        8d1fd52e5ab5590e2c81768ace50c72bae28f2ed
         GIT_SHALLOW    ON
         GIT_PROGRESS TRUE
+        EXCLUDE_FROM_ALL
     )
     FetchContent_MakeAvailable(glm)
 endif()
@@ -54,6 +57,7 @@ if (NOT TARGET glfw)
         GIT_TAG        7b6aead9fb88b3623e3b3725ebb42670cbe4c579
         GIT_SHALLOW    ON
         GIT_PROGRESS TRUE
+        EXCLUDE_FROM_ALL
     )
     FetchContent_MakeAvailable(glfw)
 endif()
@@ -65,6 +69,7 @@ if (NOT TARGET unordered_dense::unordered_dense)
         GIT_TAG        3234af2c03549bc85656bfd3a86993bf1cd8aef1
         GIT_SHALLOW    ON
         GIT_PROGRESS TRUE
+        EXCLUDE_FROM_ALL
     )
     FetchContent_MakeAvailable(unordered_dense)
 endif()
@@ -74,8 +79,9 @@ if (NOT TARGET imgui::imgui)
         imgui
         GIT_REPOSITORY https://github.com/ocornut/imgui
         GIT_TAG        fdc084f532189fda8474079f79e74fa5e3541c9f
-        GIT_SHALLOW    ON
+        GIT_SHALLOW    ON # docking branch cope
         GIT_PROGRESS TRUE
+        EXCLUDE_FROM_ALL
     )
 
     FetchContent_GetProperties(imgui)
@@ -111,6 +117,7 @@ if(NOT TARGET dds_image::dds_image)
         GIT_TAG        84a7bd47293a87214d454992deb8fdf3cba91c48
         GIT_SHALLOW    ON
         GIT_PROGRESS TRUE
+        EXCLUDE_FROM_ALL
     )
 
     FetchContent_MakeAvailable(dds_image)
@@ -128,6 +135,7 @@ if(NOT TARGET wuffs::wuffs)
         GIT_TAG        072595ae7df55544874caf5096cd9ef4ecf1bdbb
         GIT_SHALLOW    ON
         GIT_PROGRESS TRUE
+        EXCLUDE_FROM_ALL
     )
 
     FetchContent_MakeAvailable(wuffs)
@@ -145,6 +153,7 @@ if(NOT TARGET meshoptimizer::meshoptimizer)
         GIT_TAG        73583c335e541c139821d0de2bf5f12960a04941
         GIT_SHALLOW    ON
         GIT_PROGRESS TRUE
+        EXCLUDE_FROM_ALL
     )
 
     FetchContent_MakeAvailable(meshoptimizer)
@@ -159,7 +168,21 @@ if(NOT TARGET flecs::flecs_static)
         GIT_TAG        dcbaf278d15379aadea10421bbcbd3c4ead529a3
         GIT_SHALLOW    ON
         GIT_PROGRESS TRUE
+        EXCLUDE_FROM_ALL
     )
 
     FetchContent_MakeAvailable(flecs)
+endif()
+
+if(NOT TARGET Tracy::TracyClient)
+    FetchContent_Declare(
+        tracy
+        GIT_REPOSITORY https://github.com/wolfpld/tracy
+        GIT_TAG        05cceee0df3b8d7c6fa87e9638af311dbabc63cb
+        GIT_SHALLOW    ON
+        GIT_PROGRESS TRUE
+        EXCLUDE_FROM_ALL
+    )
+
+    FetchContent_MakeAvailable(tracy)
 endif()

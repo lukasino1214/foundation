@@ -25,10 +25,6 @@ struct DrawMeshPush {
 #if __cplusplus
 #include "graphics/gpu_context.hpp"
 #include "asset/asset_manager.hpp"
-#include <glm/ext/quaternion_geometric.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtx/quaternion.hpp>
-#include <ecs/entity.hpp>
 
 using namespace foundation;
 struct DrawMeshTask : DrawMesh::Task {

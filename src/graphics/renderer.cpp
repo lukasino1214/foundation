@@ -26,9 +26,9 @@ namespace foundation {
         root_entity.set_local_position({10, -2, 0});
 
         AssetManager asset_manager = {};
-        // model_data = asset_manager.load("assets/models/bistro-full/bistro.gltf", gpu_context, scene, root_entity);
+        model_data = asset_manager.load("assets/models/bistro-full/bistro.gltf", gpu_context, scene, root_entity);
+        // model_data = asset_manager.load("assets/models/Sponza/glTF/Sponza.gltf", gpu_context, scene, root_entity);
         // model_data = asset_manager.load("assets/models/Bistro/Bistro.glb", gpu_context);
-        model_data = asset_manager.load("assets/models/Sponza/glTF/Sponza.gltf", gpu_context, scene, root_entity);
         // model_data = asset_manager.load("assets/models/main_sponza/NewSponza_Main_glTF_003.gltf", gpu_context);
         // model_data = asset_manager.load("assets/models/zorah/zorah_main_public.gltf", gpu_context);
 
@@ -269,12 +269,17 @@ namespace foundation {
     }
     
     void Renderer::render() {
-        auto reloaded_result = gpu_context->pipeline_manager.reload_all();
-        if (auto* reload_err = daxa::get_if<daxa::PipelineReloadError>(&reloaded_result)) {
-            fmt::println("Failed to reload {}", reload_err->message);
-        }
-        if (daxa::get_if<daxa::PipelineReloadSuccess>(&reloaded_result) != nullptr) {
-            fmt::println("Successfully reloaded!");
+        PROFILE_SCOPE;
+
+        {
+            PROFILE_ZONE_NAMED(pipelines);
+            auto reloaded_result = gpu_context->pipeline_manager.reload_all();
+            if (auto* reload_err = daxa::get_if<daxa::PipelineReloadError>(&reloaded_result)) {
+                fmt::println("Failed to reload {}", reload_err->message);
+            }
+            if (daxa::get_if<daxa::PipelineReloadSuccess>(&reloaded_result) != nullptr) {
+                fmt::println("Successfully reloaded!");
+            }
         }
 
         auto image = gpu_context->swapchain.acquire_next_image();
@@ -282,10 +287,15 @@ namespace foundation {
         swapchain_image.set_images({.images = std::span{&image, 1}});
         
         {
+            PROFILE_ZONE_NAMED(rendergraph_execute);
             std::lock_guard<std::mutex> lock(task_graph_mutex);
             render_task_graph.execute({});
         }
-        gpu_context->device.collect_garbage();
+
+        {
+            PROFILE_ZONE_NAMED(garbage);
+            gpu_context->device.collect_garbage();
+        }
     }
 
     void Renderer::ui_render_start() {

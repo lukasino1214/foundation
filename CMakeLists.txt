@@ -23,6 +23,7 @@ add_executable(${PROJECT_NAME}
     "src/main.cpp"
     "src/application.cpp"
     "src/asset/asset_manager.cpp"
+    "src/asset/asset_processor.cpp"
     "src/ecs/entity.cpp"
     "src/ecs/scene.cpp"
     "src/graphics/window.cpp"
@@ -31,6 +32,7 @@ add_executable(${PROJECT_NAME}
     "src/graphics/camera.cpp"
     "src/graphics/helper.cpp"
     "src/utils/thread_pool.cpp"
+    "src/utils/io.cpp"
     "src/math/math.cpp"
 )
 
@@ -57,6 +59,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     wuffs::wuffs
     meshoptimizer::meshoptimizer
     flecs::flecs_static
+    Tracy::TracyClient
 )
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Windows")

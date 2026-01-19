@@ -24,6 +24,8 @@ namespace foundation {
     }
 
     void Scene::update(f32 /* delta_time */) {
+        PROFILE_SCOPE;
+
         world->get_world().defer_begin();
         std::vector<flecs::entity> queue = {};
         query_transforms.each([&](flecs::entity entity, GlobalPosition& global_position, GlobalRotation& global_rotation, GlobalScale& global_scale, GlobalMatrix& global_matrix, LocalPosition& local_position, LocalRotation& local_rotation, LocalScale& local_scale, LocalMatrix& local_matrix, GlobalMatrix* parent_global_matrix, TransformDirty) {

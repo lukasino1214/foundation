@@ -7,6 +7,8 @@ namespace foundation {
         gpu_context(&window),
         scene{std::make_shared<Scene>("default scene")},
         renderer{&window, &gpu_context, scene.get()} {
+        PROFILE_SCOPE;
+
         struct CompilePipelinesTask : Task {
             Renderer* renderer = {};
             explicit CompilePipelinesTask(Renderer* renderer) : renderer{renderer} { chunk_count = 1; }
@@ -26,6 +28,9 @@ namespace foundation {
 
     auto Application::run() -> i32 {
         while(!window.window_state->close_requested) {
+            PROFILE_FRAME_START("App Run");
+            PROFILE_SCOPE;
+
             auto new_time_point = std::chrono::steady_clock::now();
             delta_time = std::chrono::duration_cast<std::chrono::duration<f64, std::chrono::milliseconds::period>>(new_time_point - this->last_time_point).count() * 0.001;
             last_time_point = new_time_point;
@@ -39,12 +44,16 @@ namespace foundation {
 
             update();
             renderer.render();
+
+            PROFILE_FRAME_END("App Run");
         }
 
         return 0;
     }
 
     void Application::update() {
+        PROFILE_SCOPE;
+
         renderer.ui_render_start();
 
         {
