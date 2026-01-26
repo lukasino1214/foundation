@@ -17,7 +17,6 @@ DAXA_DECL_TASK_HEAD_END
 struct DrawMeshPush {
     DAXA_TH_BLOB(DrawMesh, uses)
     daxa_BufferPtr(GPUMaterial) materials;
-    u32 material_index;
     MeshGeometryData mesh;
     f32mat4x3 matrix;
 };
@@ -31,7 +30,7 @@ struct DrawMeshTask : DrawMesh::Task {
     DrawMeshTask::Task::AttachmentViews views = {};
     GPUContext* context = {};
     DrawMeshPush push = {};
-    ModelData* model_data = {};
+    AssetManager* asset_manager = {};
     Scene* scene = {};
 
     void assign_blob(auto & arr, auto const & span) {
@@ -101,16 +100,20 @@ struct DrawMeshTask : DrawMesh::Task {
         assign_blob(push.uses, ti.attachment_shader_blob);
 
         scene->world->each([&](MeshComponent& mesh_component, GlobalMatrix& matrix) {
-            for (auto& mesh : model_data->mesh_groups[mesh_component.mesh_group_manifest_entry_index].meshes) {
-                push.mesh = mesh.mesh;
-                push.materials = context->device.buffer_device_address(model_data->materials_buffer).value();
-                push.material_index = mesh.material_index.value_or(INVALID_ID);
+            const MeshGroupManifest& mesh_group_manifest = asset_manager->mesh_group_manifests[mesh_component.mesh_group_manifest_entry_index]; 
+            const AssetManifest& asset_manifest = asset_manager->asset_manifests[mesh_group_manifest.asset_manifest_index];
+
+            for(u32 mesh_index = 0; mesh_index < mesh_group_manifest.mesh_count; mesh_index++) {
+                const MeshManifest& mesh_manifest = asset_manager->mesh_manifests[asset_manifest.mesh_manifest_offset + mesh_group_manifest.asset_local_mesh_manifest_indices_offset + mesh_index];
+
+                push.mesh = mesh_manifest.render_info->mesh;
+                push.materials = context->device.buffer_device_address(asset_manager->materials_buffer).value();
                 push.matrix = matrix.matrix;
 
                 render_cmd.push_constant(push);
-                render_cmd.set_index_buffer({ .id = mesh.index_buffer, .index_type = daxa::IndexType::uint32 });
+                render_cmd.set_index_buffer({ .id = mesh_manifest.render_info->index_buffer, .index_type = daxa::IndexType::uint32 });
                 render_cmd.push_constant(push);
-                render_cmd.draw_indexed({ .index_count = mesh.index_count });
+                render_cmd.draw_indexed({ .index_count = mesh_manifest.render_info->index_count });
             }
         });
 

@@ -8,7 +8,7 @@ namespace foundation {
     struct GPUContext;
 
     struct Renderer {
-        Renderer(NativeWindow* _window, GPUContext* _gpu_context, Scene* _scene);
+        Renderer(NativeWindow* _window, GPUContext* _gpu_context, AssetManager* _asset_manager, Scene* _scene);
         ~Renderer();
     
         void render();
@@ -25,6 +25,7 @@ namespace foundation {
 
         NativeWindow* window = {};
         GPUContext* gpu_context = {};
+        AssetManager* asset_manager = {};
         Scene* scene = {};
 
         daxa::TaskImage swapchain_image = {};
@@ -35,9 +36,6 @@ namespace foundation {
         
         mutable std::mutex task_graph_mutex;
         daxa::TaskGraph render_task_graph = {};
-
-        Entity root_entity = {};
-        ModelData model_data = {};
 
         std::vector<daxa::TaskImage> images = {};
         std::vector<std::pair<daxa::ImageInfo, daxa::TaskImage>> frame_buffer_images = {};

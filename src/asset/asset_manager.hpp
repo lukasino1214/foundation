@@ -2,59 +2,121 @@
 
 #include <ecs/entity.hpp>
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wsign-conversion"
+#include <fastgltf/types.hpp>
+#pragma clang diagnostic pop
+
 namespace foundation {
     struct GPUContext;
 
-    struct IScene {
-        std::vector<u32> node_indices = {};
+    enum struct MaterialType : u32 {
+        GltfAlbedo,
+        GltfNormal,
+        GltfRoughnessMetallic, // roughness stored in blue channel and metallic stored in green channel
+        GltfEmissive,
+        None,
+    };
+
+    struct AssetManifest {
+        u32 texture_manifest_offset = {};
+        u32 material_manifest_offset = {};
+        u32 mesh_manifest_offset = {};
+        u32 mesh_group_manifest_offset = {};
+
+        u32 texture_manifest_size = {};
+        u32 material_manifest_size = {};
+        u32 mesh_manifest_size = {};
+        u32 mesh_group_manifest_size = {};
+
+        std::unique_ptr<fastgltf::Asset> asset = {};
+    };
+
+    struct TextureManifest {
+        struct MaterialManifestIndex {
+            MaterialType material_type = MaterialType::None;
+            u32 asset_local_material_index = {};
+        };
+
+        struct RenderInfo {
+            daxa::ImageId image_id = {};
+            daxa::SamplerId sampler_id = {};
+        };
+
+        u32 asset_manifest_index = {};
+        u32 asset_local_texture_index = {};
+        std::string name = {};
+        std::vector<MaterialManifestIndex> material_manifest_indices = {};
+        std::optional<RenderInfo> render_info = {};
+    };
+
+    struct MaterialManifest {
+        struct TextureInfo {
+            u32 asset_local_texture_index;
+            u32 sampler_index;
+        };
+
+        u32 asset_manifest_index = {};
+        u32 asset_material_local_index = {};
+
+        std::optional<TextureInfo> albedo_info = {};
+        std::optional<TextureInfo> normal_info = {};
+        std::optional<TextureInfo> roughness_metalness_info = {};
+        std::optional<TextureInfo> emissive_info = {};
+        glm::vec4 albedo_factor = { 1.0f, 1.0f, 1.0f, 1.0f };
+        f32 metallic_factor;
+        f32 roughness_factor;
+        glm::vec3 emissive_factor = { 0.0f, 0.0f, 0.0f };
+        u32 alpha_mode;
+        f32 alpha_cutoff;
+        bool double_sided;
         std::string name = {};
     };
 
-    struct Node {
-        std::optional<u32> mesh_group_index = {};
+    struct MeshManifest {
+        struct RenderInfo {
+            daxa::BufferId mesh_buffer = {};
+            daxa::BufferId index_buffer = {};
+            MeshGeometryData mesh = {};
+            u32 vertex_count = {};
+            u32 index_count = {};
+        };
 
-        glm::mat4 transform = {1.0f};
+        u32 asset_manifest_index = {};
+        u32 asset_local_mesh_group_index = {};
+        u32 asset_local_mesh_index = {};
+        std::optional<u32> asset_local_material_index = {};
+        std::optional<RenderInfo> render_info = {};
+    };
 
-        std::vector<u32> children = {};
+    struct MeshGroupManifest {
+        u32 asset_manifest_index = {};
+        u32 asset_local_mesh_group_index = {};
+        u32 asset_local_mesh_manifest_indices_offset = {};
+
+        u32 mesh_count = {};
         std::string name = {};
-    };
-
-    struct Mesh {
-        std::optional<u32> material_index = {};
-        
-        daxa::BufferId mesh_buffer = {};
-        daxa::BufferId index_buffer = {};
-        MeshGeometryData mesh = {};
-        u32 vertex_count = {};
-        u32 index_count = {};
-    };
-
-    struct MeshGroup {
-        std::vector<Mesh> meshes = {};
-        std::string name = {};
-    };
-
-    struct Material {
-
-    };
-
-    struct Image {
-        daxa::ImageId image;
-        daxa::SamplerId sampler;
-        std::string name = {};
-    };
-
-    struct ModelData {
-        std::filesystem::path file_path = {};
-        std::vector<IScene> scenes = {};
-        std::vector<Node> nodes = {};
-        std::vector<MeshGroup> mesh_groups = {};
-        std::vector<Image> images = {};
-        std::vector<Material> materials = {};
-        daxa::BufferId materials_buffer = {};
     };
 
     struct AssetManager {
-        auto load(const std::filesystem::path& file_path, GPUContext* gpu_context, Scene* scene, Entity root_entity) -> ModelData;
+        explicit AssetManager(GPUContext* _gpu_context, Scene* _scene);
+        ~AssetManager();
+
+        void load_asset(const std::filesystem::path& file_path, Entity root_entity);
+
+        void unload_asset(const std::filesystem::path& file_path);
+        void unload_asset(u32 asset_index);
+
+        GPUContext* gpu_context = {};
+        Scene* scene = {};
+
+        ankerl::unordered_dense::map<std::filesystem::path, u32> asset_lookup = {};
+        std::vector<AssetManifest> asset_manifests = {};
+        std::vector<TextureManifest> texture_manifests = {};
+        std::vector<MaterialManifest> material_manifests = {};
+        std::vector<MeshManifest> mesh_manifests = {};
+        std::vector<MeshGroupManifest> mesh_group_manifests = {};
+
+        daxa::BufferId materials_buffer = {};
     };
 }

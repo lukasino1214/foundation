@@ -6,8 +6,42 @@ namespace foundation {
         window("foundation", 1280, 720),
         gpu_context(&window),
         scene{std::make_shared<Scene>("default scene")},
-        renderer{&window, &gpu_context, scene.get()} {
+        asset_manager{&gpu_context, scene.get()},
+        renderer{&window, &gpu_context, &asset_manager, scene.get()} {
         PROFILE_SCOPE;
+
+        {
+            Entity root_entity = scene->create_entity("root entity");
+            root_entity.add_component<TransformComponent>();
+            root_entity.set_local_position({10, -2, 0});
+            asset_manager.load_asset("assets/models/bistro-full/bistro.gltf", root_entity);
+        }
+
+        {
+            Entity root_entity = scene->create_entity("root entity 2");
+            root_entity.add_component<TransformComponent>();
+            root_entity.set_local_position({100, -2, 0});
+            asset_manager.load_asset("assets/models/bistro-full/bistro.gltf", root_entity);
+        }
+
+        {
+            Entity root_entity = scene->create_entity("root entity 3");
+            root_entity.add_component<TransformComponent>();
+            root_entity.set_local_position({0, 50, 0});
+            asset_manager.load_asset("assets/models/Sponza/glTF/Sponza.gltf", root_entity);
+        }
+
+        // {
+        //     Entity root_entity = scene->create_entity("root entity 4");
+        //     root_entity.add_component<TransformComponent>();
+        //     root_entity.set_local_position({50, 50, 0});
+        //     asset_manager.load_asset("assets/models/main_sponza/NewSponza_Main_glTF_003.gltf", root_entity);
+        //     asset_manager.load_asset("assets/models/pkg_a_curtains/NewSponza_Curtains_glTF.gltf", root_entity);
+        //     asset_manager.load_asset("assets/models/pkg_b_ivy/NewSponza_IvyGrowth_glTF.gltf", root_entity);
+        // }
+
+        // model_data = asset_manager.load_asset("assets/models/Bistro/Bistro.glb", gpu_context);
+        // model_data = asset_manager.load_asset("assets/models/zorah/zorah_main_public.gltf", gpu_context);
 
         struct CompilePipelinesTask : Task {
             Renderer* renderer = {};
@@ -94,9 +128,8 @@ namespace foundation {
             if(ImGui::Begin("Performance Statistics")) {
                 ImGui::Text("delta time: %f", delta_time);
             }
+            ImGui::End();
         }
-
-        ImGui::End();
         
         renderer.ui_update();
         renderer.ui_render_end();

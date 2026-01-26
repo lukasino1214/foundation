@@ -19,6 +19,7 @@ namespace foundation {
         NativeWindow window;
         GPUContext gpu_context;
         std::shared_ptr<Scene> scene = {};
+        AssetManager asset_manager;
         Renderer renderer;
         ControlledCamera3D main_camera = {};
 

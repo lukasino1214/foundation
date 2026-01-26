@@ -6,7 +6,7 @@
 #include "tasks/draw_mesh.inl"
 
 namespace foundation {
-    Renderer::Renderer(NativeWindow* _window, GPUContext* _gpu_context, Scene* _scene) : window{_window}, gpu_context{_gpu_context}, scene{_scene} {
+    Renderer::Renderer(NativeWindow* _window, GPUContext* _gpu_context, AssetManager* _asset_manager, Scene* _scene) : window{_window}, gpu_context{_gpu_context}, asset_manager{_asset_manager}, scene{_scene} {
         ImGui::CreateContext();
         ImGui_ImplGlfw_InitForVulkan(window->glfw_handle, true);
         imgui_renderer =  daxa::ImGuiRenderer({
@@ -20,17 +20,6 @@ namespace foundation {
         swapchain_image = daxa::TaskImage{{.swapchain_image = true, .name = "swapchain image"}};
         render_image = daxa::TaskImage{{ .name = "render image" }};
         depth_image = daxa::TaskImage{{ .name = "depth image" }};
-
-        root_entity = scene->create_entity("root entity");
-        root_entity.add_component<TransformComponent>();
-        root_entity.set_local_position({10, -2, 0});
-
-        AssetManager asset_manager = {};
-        // model_data = asset_manager.load("assets/models/bistro-full/bistro.gltf", gpu_context, scene, root_entity);
-        // model_data = asset_manager.load("assets/models/Sponza/glTF/Sponza.gltf", gpu_context, scene, root_entity);
-        // model_data = asset_manager.load("assets/models/Bistro/Bistro.glb", gpu_context);
-        model_data = asset_manager.load("assets/models/main_sponza/NewSponza_Main_glTF_003.gltf", gpu_context, scene, root_entity);
-        // model_data = asset_manager.load("assets/models/zorah/zorah_main_public.gltf", gpu_context);
 
         images = {
             render_image,
@@ -61,20 +50,6 @@ namespace foundation {
     }
 
     Renderer::~Renderer() {
-        for(auto& mesh_group : model_data.mesh_groups) {
-            for(auto& mesh : mesh_group.meshes) {
-                gpu_context->device.destroy_buffer(mesh.mesh_buffer);
-                gpu_context->device.destroy_buffer(mesh.index_buffer);
-            }
-        }
-
-        for(auto& image : model_data.images) {
-            gpu_context->device.destroy_image(image.image);
-            gpu_context->device.destroy_sampler(image.sampler);
-        }
-
-        gpu_context->device.destroy_buffer(model_data.materials_buffer);
-
         for(auto& task_image : images) {
             for(auto image : task_image.get_state().images) {
                 gpu_context->device.destroy_image(image);
@@ -235,7 +210,7 @@ namespace foundation {
                 .u_depth_image = depth_image.view(),
             },
             .context = gpu_context,
-            .model_data = &model_data,
+            .asset_manager = asset_manager,
             .scene = scene,
         });
 
