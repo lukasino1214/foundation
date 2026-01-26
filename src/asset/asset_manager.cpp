@@ -187,33 +187,23 @@ namespace foundation {
         daxa::CommandRecorder cmd_recorder = gpu_context->device.create_command_recorder({ .name = "upload" });
 
         model_data.mesh_groups.reserve(asset->meshes.size());
-        for (const fastgltf::Mesh& gltf_mesh : asset->meshes) {
+        for (u32 mesh_group_index = 0; mesh_group_index < asset->meshes.size(); mesh_group_index++) {
+            const fastgltf::Mesh& gltf_mesh = asset->meshes[mesh_group_index];
             MeshGroup mesh_group = {};
             mesh_group.name = gltf_mesh.name.c_str();
 
             mesh_group.meshes.reserve(gltf_mesh.primitives.size());
-            for (const fastgltf::Primitive& primitive : gltf_mesh.primitives) {
+            for (u32 mesh_index = 0; mesh_index < gltf_mesh.primitives.size(); mesh_index++) {
+                const fastgltf::Primitive& gltf_primitive = gltf_mesh.primitives[mesh_index];
 
                 Mesh mesh = {};
-                mesh.material_index = primitive.materialIndex.has_value() ? std::make_optional(s_cast<u32>(primitive.materialIndex.value())) : std::nullopt;
+                mesh.material_index = gltf_primitive.materialIndex.has_value() ? std::make_optional(s_cast<u32>(gltf_primitive.materialIndex.value())) : std::nullopt;
 
-                std::vector<glm::vec3> positions = {};
-                const fastgltf::Attribute* position_attribute_iter = primitive.findAttribute("POSITION");
-                if(position_attribute_iter != primitive.attributes.end()) {
-                    positions = load_accessor_data_from_file<glm::vec3, false>(file_path.parent_path(), *asset, asset->accessors[position_attribute_iter->accessorIndex]);
-                }
-
-                std::vector<glm::vec3> normals = {};
-                const fastgltf::Attribute* normal_attribute_iter = primitive.findAttribute("NORMAL");
-                if(normal_attribute_iter != primitive.attributes.end()) {
-                    normals = load_accessor_data_from_file<glm::vec3, false>(file_path.parent_path(), *asset, asset->accessors[normal_attribute_iter->accessorIndex]);
-                }
-
-                std::vector<glm::vec2> uvs = {};
-                const fastgltf::Attribute* uv_attribute_iter = primitive.findAttribute("TEXCOORD_0");
-                if(uv_attribute_iter != primitive.attributes.end()) {
-                    uvs = load_accessor_data_from_file<glm::vec2, false>(file_path.parent_path(), *asset, asset->accessors[uv_attribute_iter->accessorIndex]);
-                }
+                LoadedMesh loaded_mesh = AssetProcessor::load_mesh(asset.get(), file_path, mesh_group_index, mesh_index);
+                auto& positions = loaded_mesh.positions;
+                auto& normals = loaded_mesh.normals;
+                auto& uvs = loaded_mesh.uvs;
+                auto& indices = loaded_mesh.indices;
 
                 usize mesh_buffer_size = (positions.size() * sizeof(glm::vec3)) + (normals.size() * sizeof(glm::vec3)) + (uvs.size() * sizeof(glm::vec2));
 
@@ -243,11 +233,6 @@ namespace foundation {
                 });
                 cmd_recorder.destroy_buffer_deferred(staging_mesh_buffer);
                 
-                std::vector<u32> indices = {};
-                if(primitive.indicesAccessor.has_value()) {
-                    indices = load_accessor_data_from_file<u32, true>(file_path.parent_path(), *asset, asset->accessors[primitive.indicesAccessor.value()]);
-                }
-                
                 daxa::BufferId staging_index_buffer = gpu_context->device.create_buffer({
                     .size = sizeof(u32) * indices.size(),
                     .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
@@ -272,7 +257,7 @@ namespace foundation {
                 mesh.mesh.uvs = mesh.mesh.normals + (normals.size() * sizeof(glm::vec3));
 
                 mesh.mesh.vertex_count = s_cast<u32>(positions.size());
-                mesh.mesh.material_index = s_cast<u32>(primitive.materialIndex.value_or(INVALID_ID));
+                mesh.mesh.material_index = s_cast<u32>(gltf_primitive.materialIndex.value_or(INVALID_ID));
 
                 mesh.vertex_count = s_cast<u32>(positions.size());
                 mesh.index_count = s_cast<u32>(indices.size());
