@@ -80,6 +80,10 @@ namespace foundation {
     auto AssetProcessor::load_mesh(fastgltf::Asset* asset, const std::filesystem::path& file_path, u32 mesh_group_index, u32 mesh_index) -> LoadedMesh {
         const fastgltf::Mesh& gltf_mesh = asset->meshes[mesh_group_index];
         const fastgltf::Primitive& gltf_primitive = gltf_mesh.primitives[mesh_index];
+        if(gltf_primitive.type != fastgltf::PrimitiveType::Triangles) {
+            throw std::runtime_error("expecting primitive type of triangles");
+        }
+
         LoadedMesh loaded_mesh = {};
 
         const fastgltf::Attribute* position_attribute_iter = gltf_primitive.findAttribute("POSITION");

@@ -56,7 +56,7 @@ namespace foundation {
         handle.add<TransformDirty>();
     }
 
-    void Entity::set_local_rotation(const glm::vec3& value) {
+    void Entity::set_local_rotation(const glm::quat& value) {
         handle.get_mut<LocalRotation>().rotation = value;
         handle.add<TransformDirty>();
     }
@@ -70,7 +70,7 @@ namespace foundation {
         return handle.get<LocalPosition>().position;
     }
 
-    auto Entity::get_local_rotation() const -> glm::vec3 {
+    auto Entity::get_local_rotation() const -> glm::quat {
         return handle.get<LocalRotation>().rotation;
     }
 
@@ -82,7 +82,7 @@ namespace foundation {
         return handle.get<GlobalPosition>().position;
     }
 
-    auto Entity::get_global_rotation() const -> glm::vec3 {
+    auto Entity::get_global_rotation() const -> glm::quat {
         return handle.get<GlobalRotation>().rotation;
     }
 

@@ -145,25 +145,31 @@ namespace foundation {
                 mesh_component.mesh_group_manifest_entry_index = s_cast<u32>(node.meshIndex.value());
             }
 
-            glm::mat4 transform = {};
-            if(const auto* trs = std::get_if<fastgltf::TRS>(&node.transform)) {
-                glm::quat quat;
-                quat.x = trs->rotation[0];
-                quat.y = trs->rotation[1];
-                quat.z = trs->rotation[2];
-                quat.w = trs->rotation[3];
-                
-                transform = glm::translate(glm::mat4(1.0f), { trs->translation[0], trs->translation[1], trs->translation[2]}) 
-                    * glm::toMat4(quat) 
-                    * glm::scale(glm::mat4(1.0f), { trs->scale[0], trs->scale[1], trs->scale[2]});
-            } else if(const auto* transform_matrix = std::get_if<fastgltf::math::fmat4x4>(&node.transform)) {
-                transform = *r_cast<const glm::mat4*>(transform_matrix);
-            }
-
             glm::vec3 position = {};
-            glm::vec3 rotation = {};
+            glm::quat rotation = {};
             glm::vec3 scale = {};
-            math::decompose_transform(transform, position, rotation, scale);
+            if(const auto* trs = std::get_if<fastgltf::TRS>(&node.transform)) {
+                rotation.x = trs->rotation.x();
+                rotation.y = trs->rotation.y();
+                rotation.z = trs->rotation.z();
+                rotation.w = trs->rotation.w();
+
+                position = *r_cast<const glm::vec3*>(&trs->translation);
+                scale = *r_cast<const glm::vec3*>(&trs->scale);
+            } else if(const auto* transform_matrix = std::get_if<fastgltf::math::fmat4x4>(&node.transform)) {
+                fastgltf::math::fvec3 fastgltf_position;
+                fastgltf::math::fquat fastgltf_rotation;
+                fastgltf::math::fvec3 fastgltf_scale;
+                fastgltf::math::decomposeTransformMatrix(*transform_matrix, fastgltf_scale, fastgltf_rotation, fastgltf_position);
+
+                rotation.x = fastgltf_rotation.x();
+                rotation.y = fastgltf_rotation.y();
+                rotation.z = fastgltf_rotation.z();
+                rotation.w = fastgltf_rotation.w();
+
+                position = *r_cast<glm::vec3*>(&fastgltf_position);
+                scale = *r_cast<glm::vec3*>(&fastgltf_scale);
+            }
 
             parent_entity.add_component<TransformComponent>();
             parent_entity.set_local_position(position);

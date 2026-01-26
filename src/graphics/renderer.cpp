@@ -26,10 +26,10 @@ namespace foundation {
         root_entity.set_local_position({10, -2, 0});
 
         AssetManager asset_manager = {};
-        model_data = asset_manager.load("assets/models/bistro-full/bistro.gltf", gpu_context, scene, root_entity);
+        // model_data = asset_manager.load("assets/models/bistro-full/bistro.gltf", gpu_context, scene, root_entity);
         // model_data = asset_manager.load("assets/models/Sponza/glTF/Sponza.gltf", gpu_context, scene, root_entity);
         // model_data = asset_manager.load("assets/models/Bistro/Bistro.glb", gpu_context);
-        // model_data = asset_manager.load("assets/models/main_sponza/NewSponza_Main_glTF_003.gltf", gpu_context);
+        model_data = asset_manager.load("assets/models/main_sponza/NewSponza_Main_glTF_003.gltf", gpu_context, scene, root_entity);
         // model_data = asset_manager.load("assets/models/zorah/zorah_main_public.gltf", gpu_context);
 
         images = {
