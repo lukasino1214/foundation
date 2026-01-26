@@ -1,16 +1,21 @@
 #include "asset_manager.hpp"
 #include "graphics/gpu_context.hpp"
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wconversion"
+#pragma clang diagnostic ignored "-Wsign-conversion"
+#pragma clang diagnostic ignored "-Wmaybe-uninitialized"
+
 #include <fastgltf/core.hpp>
 #include <fastgltf/tools.hpp>
 #include <fastgltf/glm_element_traits.hpp>
 #include <fastgltf/types.hpp>
 
+#pragma clang diagnostic pop
+
 #include <glm/ext/quaternion_geometric.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/quaternion.hpp>
-
-#include <meshoptimizer.h>
 
 #include <ecs/entity.hpp>
 #include <ecs/scene.hpp>
@@ -39,14 +44,14 @@ namespace foundation {
         if (!ifs)
         {
         }
-        ifs.seekg(gltf_buffer_view.byteOffset + accesor.byteOffset + uri.fileByteOffset);
+        ifs.seekg(s_cast<std::streamsize>(gltf_buffer_view.byteOffset + accesor.byteOffset + uri.fileByteOffset));
         std::vector<u16> raw = {};
         size_t const elem_byte_size = fastgltf::getElementByteSize(accesor.type, accesor.componentType);
         raw.resize((accesor.count * elem_byte_size) / 2);
-        if (!ifs.read(r_cast<char *>(raw.data()), accesor.count * elem_byte_size))
+        if (!ifs.read(r_cast<char *>(raw.data()), s_cast<std::streamsize>(accesor.count * elem_byte_size)))
         {
         }
-        auto buffer_adapter = [&](fastgltf::Asset const & asset, u32 asset_index) -> fastgltf::span<std::byte const>
+        auto buffer_adapter = [&](fastgltf::Asset const & /* asset */, u32 /* asset_index */) -> fastgltf::span<std::byte const>
         {
             return fastgltf::span<std::byte const>(reinterpret_cast<std::byte const *>(raw.data()) - accesor.byteOffset, accesor.count * elem_byte_size);
         };
@@ -114,15 +119,15 @@ namespace foundation {
 
         model_data.scenes.reserve(asset->scenes.size());
         for (const fastgltf::Scene& gltf_scene : asset->scenes) {
-            IScene scene = {};
-            scene.name = gltf_scene.name.c_str();
+            IScene scene_ = {};
+            scene_.name = gltf_scene.name.c_str();
 
-            scene.node_indices.reserve(gltf_scene.nodeIndices.size());
+            scene_.node_indices.reserve(gltf_scene.nodeIndices.size());
             for (usize value : gltf_scene.nodeIndices) {
-                scene.node_indices.push_back(s_cast<u32>(value));
+                scene_.node_indices.push_back(s_cast<u32>(value));
             }
 
-            model_data.scenes.push_back(scene);
+            model_data.scenes.push_back(scene_);
         }
 
         std::vector<flecs::entity> node_index_to_entity = {};
@@ -165,7 +170,7 @@ namespace foundation {
             parent_entity.set_local_rotation(rotation);
             parent_entity.set_local_scale(scale);
 
-            for(u32 children_index : node.children) {
+            for(usize children_index : node.children) {
                 Entity child_entity(node_index_to_entity[children_index], scene);
                 parent_entity.set_child(child_entity);
             }
