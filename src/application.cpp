@@ -6,9 +6,24 @@ namespace foundation {
         window("foundation", 1280, 720),
         gpu_context(&window),
         scene{std::make_shared<Scene>("default scene")},
-        asset_manager{&gpu_context, scene.get()},
+        asset_processor{&gpu_context},
+        asset_manager{&gpu_context, &asset_processor, &thread_pool, scene.get()},
         renderer{&window, &gpu_context, &asset_manager, scene.get()} {
         PROFILE_SCOPE;
+
+        struct CompilePipelinesTask : Task {
+            Renderer* renderer = {};
+            explicit CompilePipelinesTask(Renderer* renderer) : renderer{renderer} { chunk_count = 1; }
+
+            void callback(u32 /*chunk_index*/, u32 /*thread_index*/) override {
+                renderer->compile_pipelines();
+                renderer->pipelines_compiled = true;
+                renderer->rebuild_task_graph();
+            }
+        };
+
+        auto compile_pipelines_task = std::make_shared<CompilePipelinesTask>(&renderer);
+        thread_pool.async_dispatch(compile_pipelines_task);
 
         {
             Entity root_entity = scene->create_entity("root entity");
@@ -42,20 +57,6 @@ namespace foundation {
 
         // model_data = asset_manager.load_asset("assets/models/Bistro/Bistro.glb", gpu_context);
         // model_data = asset_manager.load_asset("assets/models/zorah/zorah_main_public.gltf", gpu_context);
-
-        struct CompilePipelinesTask : Task {
-            Renderer* renderer = {};
-            explicit CompilePipelinesTask(Renderer* renderer) : renderer{renderer} { chunk_count = 1; }
-
-            void callback(u32 /*chunk_index*/, u32 /*thread_index*/) override {
-                renderer->compile_pipelines();
-                renderer->pipelines_compiled = true;
-                renderer->rebuild_task_graph();
-            }
-        };
-
-        auto compile_pipelines_task = std::make_shared<CompilePipelinesTask>(&renderer);
-        thread_pool.async_dispatch(compile_pipelines_task);
     }
 
     Application::~Application() {}
@@ -77,6 +78,15 @@ namespace foundation {
             }
 
             update();
+
+            {
+                PROFILE_SCOPE_NAMED(uploading_resources);
+                daxa::CommandRecorder cmd_recorder = gpu_context.device.create_command_recorder({ .name = "upload cmd recorder" });
+                auto upload_infos = asset_processor.upload_resources(cmd_recorder);
+                asset_manager.update(cmd_recorder, upload_infos);
+                gpu_context.device.submit_commands({ .command_lists = std::to_array({cmd_recorder.complete_current_commands()}) });
+            }
+
             renderer.render();
 
             PROFILE_FRAME_END("App Run");

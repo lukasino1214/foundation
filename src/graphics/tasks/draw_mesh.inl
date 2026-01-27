@@ -17,8 +17,8 @@ DAXA_DECL_TASK_HEAD_END
 struct DrawMeshPush {
     DAXA_TH_BLOB(DrawMesh, uses)
     daxa_BufferPtr(GPUMaterial) materials;
-    MeshGeometryData mesh;
     f32mat4x3 matrix;
+    MeshGeometryData mesh;
 };
 
 #if __cplusplus
@@ -97,18 +97,18 @@ struct DrawMeshTask : DrawMesh::Task {
 
         render_cmd.set_pipeline(*context->raster_pipelines.at(DrawMeshTask::name()));
 
-        assign_blob(push.uses, ti.attachment_shader_blob);
-
         scene->world->each([&](MeshComponent& mesh_component, GlobalMatrix& matrix) {
             const MeshGroupManifest& mesh_group_manifest = asset_manager->mesh_group_manifests[mesh_component.mesh_group_manifest_entry_index]; 
             const AssetManifest& asset_manifest = asset_manager->asset_manifests[mesh_group_manifest.asset_manifest_index];
 
             for(u32 mesh_index = 0; mesh_index < mesh_group_manifest.mesh_count; mesh_index++) {
                 const MeshManifest& mesh_manifest = asset_manager->mesh_manifests[asset_manifest.mesh_manifest_offset + mesh_group_manifest.asset_local_mesh_manifest_indices_offset + mesh_index];
+                if(!mesh_manifest.render_info.has_value()) { continue; }
 
-                push.mesh = mesh_manifest.render_info->mesh;
+                assign_blob(push.uses, ti.attachment_shader_blob);
                 push.materials = context->device.buffer_device_address(asset_manager->materials_buffer).value();
                 push.matrix = matrix.matrix;
+                push.mesh = mesh_manifest.render_info->mesh;
 
                 render_cmd.push_constant(push);
                 render_cmd.set_index_buffer({ .id = mesh_manifest.render_info->index_buffer, .index_type = daxa::IndexType::uint32 });

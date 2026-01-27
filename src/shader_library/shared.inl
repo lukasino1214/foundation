@@ -29,6 +29,7 @@ struct MeshGeometryData {
     daxa_BufferPtr(f32vec2) uvs;
     u32 material_index;
     u32 vertex_count;
+    u32 index_count;
 };
 
 DAXA_DECL_BUFFER_PTR(MeshGeometryData)

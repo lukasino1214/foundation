@@ -1,6 +1,7 @@
 #include "asset_processor.hpp"
 
 #include <utils/io.hpp>
+#include <graphics/gpu_context.hpp>
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wmicrosoft-enum-value"
@@ -76,6 +77,9 @@ namespace foundation {
         }
         return ret;
     }
+
+    AssetProcessor::AssetProcessor(GPUContext* _gpu_context) : gpu_context{_gpu_context} {}
+    AssetProcessor::~AssetProcessor() {}
 
     auto AssetProcessor::load_mesh(fastgltf::Asset* asset, const std::filesystem::path& file_path, u32 mesh_group_index, u32 mesh_index) -> LoadedMesh {
         const fastgltf::Mesh& gltf_mesh = asset->meshes[mesh_group_index];
@@ -211,7 +215,7 @@ namespace foundation {
             case DXGI_FORMAT_R8G8_UNORM:
                 return daxa::Format::R8G8_UNORM;
             case DXGI_FORMAT_R8G8_UINT:
-                return daxa::Format::R8G8_SINT;
+                return daxa::Format::R8G8_UINT;
             case DXGI_FORMAT_R8G8_SNORM:
                 return daxa::Format::R8G8_SNORM;
             case DXGI_FORMAT_R8G8_SINT:
@@ -601,5 +605,270 @@ namespace foundation {
         }
 
         return loaded_image;
+    }
+
+    void AssetProcessor::process_mesh_load(const LoadMeshInfo& info) {
+        LoadedMesh loaded_mesh = AssetProcessor::load_mesh(info.asset, info.asset_path, info.asset_local_mesh_group_index, info.asset_local_mesh_index);
+
+        auto& positions = loaded_mesh.positions;
+        auto& normals = loaded_mesh.normals;
+        auto& uvs = loaded_mesh.uvs;
+        auto& indices = loaded_mesh.indices;
+        
+        MeshGeometryData mesh_geometry_info = {};
+        mesh_geometry_info.vertex_count = s_cast<u32>(positions.size());
+        mesh_geometry_info.index_count = s_cast<u32>(indices.size());
+        
+        usize total_mesh_size = positions.size() * sizeof(glm::vec3) + normals.size() * sizeof(glm::vec3) + uvs.size() * sizeof(glm::vec2);
+        
+        const fastgltf::Mesh& gltf_mesh = info.asset->meshes[info.asset_local_mesh_group_index];
+        std::string mesh_name = fmt::format("mesh {}", gltf_mesh.name.empty() ? fmt::format("{}_{}", info.asset_manifest_index, info.mesh_manifest_index).c_str() : gltf_mesh.name.c_str());
+
+        daxa::BufferId staging_mesh_buffer = gpu_context->device.create_buffer(daxa::BufferInfo {
+            .size = total_mesh_size,
+            .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
+            .name = mesh_name.c_str()
+        });
+
+        daxa::BufferId mesh_buffer = gpu_context->device.create_buffer(daxa::BufferInfo {
+            .size = total_mesh_size,
+            .name = mesh_name.c_str()
+        });
+
+        std::byte* mapped_ptr = gpu_context->device.buffer_host_address(staging_mesh_buffer).value();
+        daxa::DeviceAddress bda = gpu_context->device.buffer_device_address(mesh_buffer).value();
+
+        std::memcpy(mapped_ptr, positions.data(), positions.size() * sizeof(glm::vec3));
+        mapped_ptr += positions.size() * sizeof(glm::vec3);
+        mesh_geometry_info.positions = bda;
+        bda += positions.size() * sizeof(glm::vec3);
+
+        std::memcpy(mapped_ptr, normals.data(), normals.size() * sizeof(glm::vec3));
+        mapped_ptr += normals.size() * sizeof(glm::vec3);
+        mesh_geometry_info.normals = bda;
+        bda += normals.size() * sizeof(glm::vec3);
+
+        std::memcpy(mapped_ptr, uvs.data(), uvs.size() * sizeof(glm::vec2));
+        mapped_ptr += uvs.size() * sizeof(glm::vec2);
+        mesh_geometry_info.uvs = bda;
+        bda += uvs.size() * sizeof(glm::vec2);
+
+        daxa::BufferId staging_index_buffer = gpu_context->device.create_buffer(daxa::BufferInfo {
+            .size = indices.size() * sizeof(u32),
+            .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
+            .name = mesh_name.c_str()
+        });
+
+        daxa::BufferId index_buffer = gpu_context->device.create_buffer(daxa::BufferInfo {
+            .size = indices.size() * sizeof(u32),
+            .name = mesh_name.c_str()
+        });
+
+        std::memcpy(gpu_context->device.buffer_host_address(staging_index_buffer).value(), indices.data(), sizeof(u32) * indices.size());
+
+        {
+            std::lock_guard<std::mutex> lock{*mesh_upload_mutex};
+            mesh_upload_queue.push_back(MeshUploadInfo {
+                .staging_mesh_buffer = staging_mesh_buffer,
+                .mesh_buffer = mesh_buffer,
+                .staging_index_buffer = staging_index_buffer,
+                .index_buffer = index_buffer,
+                .mesh_geometry_info = mesh_geometry_info,
+                .asset_manifest_index = info.asset_manifest_index,
+                .mesh_manifest_index = info.mesh_manifest_index,
+            });
+        }
+    }
+
+    void AssetProcessor::process_texture_load(const LoadTextureInfo& info) {
+        const fastgltf::Image& gltf_image = info.asset->images[info.texture_manifest_index];
+        const auto* uri = std::get_if<fastgltf::sources::URI>(&gltf_image.data);
+        if(uri == nullptr) { throw std::runtime_error("huh"); }
+        LoadedImage loaded_image = AssetProcessor::load_image(info.asset_path.parent_path() / uri->uri.fspath());
+
+        if(info.load_as_srgb) {
+            switch(loaded_image.format) {
+                case daxa::Format::R8G8B8A8_UNORM: {
+                    loaded_image.format = daxa::Format::R8G8B8A8_SRGB;
+                    break;
+                }
+                case daxa::Format::BC1_RGB_UNORM_BLOCK: {
+                    loaded_image.format = daxa::Format::BC1_RGB_SRGB_BLOCK;
+                    break;
+                }
+                case daxa::Format::BC1_RGBA_UNORM_BLOCK: {
+                    loaded_image.format = daxa::Format::BC1_RGBA_SRGB_BLOCK;
+                    break;
+                }
+                default: {
+                    // throw std::runtime_error("Unsupported format");
+                    break;
+                }
+            }
+        }
+
+        daxa::BufferId staging_image_buffer = gpu_context->device.create_buffer({
+            .size = loaded_image.data.size(),
+            .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
+            .name = fmt::format("staging_texture_{}", gltf_image.name),
+        });
+        std::memcpy(gpu_context->device.buffer_host_address(staging_image_buffer).value(), loaded_image.data.data(), loaded_image.data.size());
+
+        u32 mip_level_count = loaded_image.mipmaps.empty() ? s_cast<u32>(std::floor(std::log2(std::max(loaded_image.width, loaded_image.height)))) + 1 : s_cast<u32>(loaded_image.mipmaps.size());
+        daxa::ImageId image = gpu_context->device.create_image({
+            .format = loaded_image.format,
+            .size = { loaded_image.width, loaded_image.height, loaded_image.depth },
+            .mip_level_count = mip_level_count,
+            .array_layer_count = 1,
+            .usage = daxa::ImageUsageFlagBits::TRANSFER_DST | daxa::ImageUsageFlagBits::SHADER_SAMPLED,
+            .name = gltf_image.name.c_str(),
+        });
+
+        daxa::SamplerId sampler = gpu_context->device.create_sampler(daxa::SamplerInfo{
+            .magnification_filter = daxa::Filter::LINEAR,
+            .minification_filter = daxa::Filter::LINEAR,
+            .mipmap_filter = daxa::Filter::LINEAR,
+            .address_mode_u = daxa::SamplerAddressMode::REPEAT,
+            .address_mode_v = daxa::SamplerAddressMode::REPEAT,
+            .address_mode_w = daxa::SamplerAddressMode::REPEAT,
+            .mip_lod_bias = 0.0f,
+            .enable_anisotropy = true,
+            .max_anisotropy = 16.0f,
+            .enable_compare = false,
+            .compare_op = daxa::CompareOp::ALWAYS,
+            .min_lod = 0.0f,
+            .max_lod = s_cast<f32>(mip_level_count),
+            .enable_unnormalized_coordinates = false,
+            .name = gltf_image.name.c_str(),
+        });
+
+        std::vector<std::pair<u32, u32>> mipmaps = {};
+        mipmaps.reserve(loaded_image.mipmaps.size());
+        usize current_offset = 0;
+        for(u32 i = 0; i < loaded_image.mipmaps.size(); ++i) {
+            mipmaps.emplace_back(s_cast<u32>(current_offset), s_cast<u32>(loaded_image.mipmaps[i].size()));
+            current_offset += loaded_image.mipmaps[i].size();
+        }
+
+        {
+            std::lock_guard<std::mutex> lock{*texture_upload_mutex};
+            texture_upload_queue.push_back(TextureUploadInfo {
+                .staging_image_buffer = staging_image_buffer,
+                .image = image,
+                .sampler = sampler,
+                .mipmaps = mipmaps,
+                .asset_manifest_index = info.asset_manifest_index,
+                .texture_manifest_index = info.texture_manifest_index,
+            });
+        }
+    }
+    
+    auto AssetProcessor::upload_resources(daxa::CommandRecorder& cmd_recorder) -> ResourceUploadInfos {
+        ResourceUploadInfos ret = {};
+
+        {
+            std::lock_guard<std::mutex> lock{*mesh_upload_mutex};
+            ret.meshes = std::move(mesh_upload_queue);
+            mesh_upload_queue = {};
+        }
+
+        for(const MeshUploadInfo& mesh_upload_info : ret.meshes) {
+            cmd_recorder.copy_buffer_to_buffer({
+                .src_buffer = mesh_upload_info.staging_mesh_buffer,
+                .dst_buffer = mesh_upload_info.mesh_buffer,
+                .size = gpu_context->device.buffer_info(mesh_upload_info.staging_mesh_buffer).value().size,
+            });
+            cmd_recorder.destroy_buffer_deferred(mesh_upload_info.staging_mesh_buffer);
+
+            cmd_recorder.copy_buffer_to_buffer({
+                .src_buffer = mesh_upload_info.staging_index_buffer,
+                .dst_buffer = mesh_upload_info.index_buffer,
+                .size = gpu_context->device.buffer_info(mesh_upload_info.staging_index_buffer).value().size,
+            });
+            cmd_recorder.destroy_buffer_deferred(mesh_upload_info.staging_index_buffer);
+        }
+
+        {
+            std::lock_guard<std::mutex> lock{*texture_upload_mutex};
+            ret.textures = std::move(texture_upload_queue);
+            texture_upload_queue = {};
+        }
+
+        for(const TextureUploadInfo& texture_upload_info : ret.textures) {
+            cmd_recorder.destroy_buffer_deferred(texture_upload_info.staging_image_buffer);
+
+            if(texture_upload_info.mipmaps.empty()) {
+                daxa::Extent3D mip_size = gpu_context->device.image_info(texture_upload_info.image).value().size;
+                u32 mip_level_count = gpu_context->device.image_info(texture_upload_info.image).value().mip_level_count;
+
+                cmd_recorder.copy_buffer_to_image({
+                    .buffer = texture_upload_info.staging_image_buffer,
+                    .buffer_offset = 0,
+                    .image = texture_upload_info.image,
+                    .image_slice = {
+                        .mip_level = 0,
+                        .base_array_layer = 0,
+                        .layer_count = 1,
+                    },
+                    .image_offset = { 0, 0, 0 },
+                    .image_extent = { mip_size.x, mip_size.y, mip_size.z }
+                });
+
+                for(u32 i = 1; i < mip_level_count; i++) {
+                    daxa::Extent3D next_mip_size = {
+                        std::max<u32>(1, mip_size.x / 2),
+                        std::max<u32>(1, mip_size.y / 2),
+                        std::max<u32>(1, mip_size.z / 2),
+                    };
+
+                    cmd_recorder.blit_image_to_image({
+                        .src_image = texture_upload_info.image,
+                        .dst_image = texture_upload_info.image,
+                        .src_slice = {
+                            .mip_level = i - 1,
+                            .base_array_layer = 0,
+                            .layer_count = 1,
+                        },
+                        .src_offsets = {{{0, 0, 0}, {s_cast<i32>(mip_size.x), s_cast<i32>(mip_size.y), s_cast<i32>(mip_size.z)}}},
+                        .dst_slice = {
+                            .mip_level = i,
+                            .base_array_layer = 0,
+                            .layer_count = 1,
+                        },
+                        .dst_offsets = {{{0, 0, 0}, {s_cast<i32>(next_mip_size.x), s_cast<i32>(next_mip_size.y), s_cast<i32>(next_mip_size.z)}}},
+                        .filter = daxa::Filter::LINEAR,
+                    });
+                    
+                    mip_size = next_mip_size;
+                }
+            } else {
+                usize staging_offset = 0;
+                for(u32 mip_level = 0; mip_level < texture_upload_info.mipmaps.size(); ++mip_level) {
+                    const auto& mipmap = texture_upload_info.mipmaps[mip_level];
+                    daxa::Extent3D mip_size = gpu_context->device.image_info(texture_upload_info.image).value().size;
+                    
+                    cmd_recorder.copy_buffer_to_image({
+                        .buffer = texture_upload_info.staging_image_buffer,
+                        .buffer_offset = staging_offset,
+                        .image = texture_upload_info.image,
+                        .image_slice = {
+                            .mip_level = mip_level,
+                            .base_array_layer = 0,
+                            .layer_count = 1,
+                        },
+                        .image_offset = {0, 0, 0},
+                        .image_extent = {
+                            std::max(1u, mip_size.x >> mip_level),
+                            std::max(1u, mip_size.y >> mip_level),
+                            std::max(1u, mip_size.z >> mip_level),
+                        },
+                    });
+
+                    staging_offset += mipmap.second;
+                }
+            }
+        }
+
+        return ret;
     }
 } // namespace foundation

@@ -32,9 +32,12 @@ f32vec4 fragment_main(u32 primitive_id : SV_PrimitiveID, in VertexStageOutput in
         if(!push.materials[push.mesh.material_index].albedo_image_id.is_empty()) {
             f32vec4 color = Texture2D<f32vec4>::get(push.materials[push.mesh.material_index].albedo_image_id).Sample(SamplerState::get(push.materials[push.mesh.material_index].albedo_sampler_id), input.uv);
             if(color.a < 0.5) { discard; }
-            return f32vec4(pow(color.rgb, 2.2), 1.0);
+            return f32vec4(color.rgb, 1.0);
         } else {
-            return f32vec4(push.materials[push.mesh.material_index].albedo_factor.xyz, 1.0f);
+            f32vec3 color = push.materials[push.mesh.material_index].albedo_factor.xyz;
+            if(all(color != f32vec3(1.0f))) {
+                return f32vec4(color, 1.0f);
+            }
         }
     }
 

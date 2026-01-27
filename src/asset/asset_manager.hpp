@@ -1,5 +1,6 @@
 #pragma once
 
+#include "asset_processor.hpp"
 #include <ecs/entity.hpp>
 
 #pragma clang diagnostic push
@@ -9,6 +10,7 @@
 
 namespace foundation {
     struct GPUContext;
+    struct ThreadPool;
 
     enum struct MaterialType : u32 {
         GltfAlbedo,
@@ -99,7 +101,7 @@ namespace foundation {
     };
 
     struct AssetManager {
-        explicit AssetManager(GPUContext* _gpu_context, Scene* _scene);
+        explicit AssetManager(GPUContext* _gpu_context, AssetProcessor* _asset_processor, ThreadPool* _thread_pool, Scene* _scene);
         ~AssetManager();
 
         void load_asset(const std::filesystem::path& file_path, Entity root_entity);
@@ -107,8 +109,14 @@ namespace foundation {
         void unload_asset(const std::filesystem::path& file_path);
         void unload_asset(u32 asset_index);
 
+        void update(daxa::CommandRecorder& cmd_recorder, const ResourceUploadInfos& upload_infos);
+
         GPUContext* gpu_context = {};
+        AssetProcessor* asset_processor = {};
+        ThreadPool* thread_pool = {};
         Scene* scene = {};
+
+        std::vector<u32> update_gpu_materials = {};
 
         ankerl::unordered_dense::map<std::filesystem::path, u32> asset_lookup = {};
         std::vector<AssetManifest> asset_manifests = {};

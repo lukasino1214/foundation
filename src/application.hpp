@@ -1,5 +1,6 @@
 #pragma once
 
+#include <asset/asset_processor.hpp>
 #include <utils/thread_pool.hpp>
 #include <graphics/camera.hpp>
 #include <graphics/window.hpp>
@@ -19,6 +20,7 @@ namespace foundation {
         NativeWindow window;
         GPUContext gpu_context;
         std::shared_ptr<Scene> scene = {};
+        AssetProcessor asset_processor;
         AssetManager asset_manager;
         Renderer renderer;
         ControlledCamera3D main_camera = {};
