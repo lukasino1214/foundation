@@ -14,7 +14,9 @@ VertexStageOutput vertex_main(u32 vertex_index: SV_VertexID) {
     VertexStageOutput output;
     output.sv_position = mul(push.uses.u_globals->main_camera.projection_view_matrix, mul(mat_4x3_to_4x4(push.matrix),  f32vec4(push.mesh.positions[vertex_index], 1.0f)));
     output.normal = push.mesh.normals[vertex_index];
-    output.uv = push.mesh.uvs[vertex_index];
+    if(push.mesh.uvs != 0) {
+        output.uv = push.mesh.uvs[vertex_index];
+    }
 
     return output;
 }
@@ -28,18 +30,20 @@ f32vec3 hsv_to_rgb(in f32vec3 hsv) {
 
 [shader("fragment")]
 f32vec4 fragment_main(u32 primitive_id : SV_PrimitiveID, in VertexStageOutput input) : SV_Target {
+    
+    f32vec4 color = f32vec4(hsv_to_rgb(f32vec3(f32(primitive_id) / 128 * M_GOLDEN_CONJ, 0.875, 0.85)), 1.0);
     if(push.mesh.material_index != INVALID_ID) {
         if(!push.materials[push.mesh.material_index].albedo_image_id.is_empty()) {
-            f32vec4 color = Texture2D<f32vec4>::get(push.materials[push.mesh.material_index].albedo_image_id).Sample(SamplerState::get(push.materials[push.mesh.material_index].albedo_sampler_id), input.uv);
-            if(color.a < 0.5) { discard; }
-            return f32vec4(color.rgb, 1.0);
+            color = Texture2D<f32vec4>::get(push.materials[push.mesh.material_index].albedo_image_id).Sample(SamplerState::get(push.materials[push.mesh.material_index].albedo_sampler_id), input.uv);
         } else {
-            f32vec3 color = push.materials[push.mesh.material_index].albedo_factor.xyz;
-            if(all(color != f32vec3(1.0f))) {
-                return f32vec4(color, 1.0f);
-            }
+            color = push.materials[push.mesh.material_index].albedo_factor;
+        }
+
+        if(!push.materials[push.mesh.material_index].emissive_image_id.is_empty()) {
+            color.rgb += Texture2D<f32vec4>::get(push.materials[push.mesh.material_index].emissive_image_id).Sample(SamplerState::get(push.materials[push.mesh.material_index].emissive_sampler_id), input.uv).rgb;
         }
     }
 
-    return f32vec4(hsv_to_rgb(f32vec3(f32(primitive_id) / 128 * M_GOLDEN_CONJ, 0.875, 0.85)), 1.0);
+    if(color.a < 0.5f) { discard; }
+    return f32vec4(color.rgb, 1.0f);
 }   

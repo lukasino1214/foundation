@@ -96,7 +96,6 @@ namespace foundation {
         for(auto& texture_manifest : texture_manifests) {
             if(texture_manifest.render_info.has_value()) {
                 gpu_context->device.destroy_image(texture_manifest.render_info->image_id);
-                gpu_context->device.destroy_sampler(texture_manifest.render_info->sampler_id);
             }
         }
     
@@ -105,6 +104,8 @@ namespace foundation {
     
 
     void AssetManager::load_asset(const std::filesystem::path& file_path, Entity root_entity) {
+        PROFILE_SCOPE;
+        
         if(!std::filesystem::exists(file_path)) {
             throw std::runtime_error(fmt::format("File does not exist with path: {}", file_path.string()));
         }
@@ -125,6 +126,7 @@ namespace foundation {
                 .material_manifest_offset = s_cast<u32>(material_manifests.size()),
                 .mesh_manifest_offset = s_cast<u32>(mesh_manifests.size()),
                 .mesh_group_manifest_offset = s_cast<u32>(mesh_group_manifests.size()),
+                .animation_manifest_offset = s_cast<u32>(animation_manifests.size()),
             });
             asset_manifest = &asset_manifests.back();
 
@@ -185,6 +187,42 @@ namespace foundation {
 
                 position = *r_cast<glm::vec3*>(&fastgltf_position);
                 scale = *r_cast<glm::vec3*>(&fastgltf_scale);
+            }
+
+            if(node.lightIndex.has_value()) {
+                const fastgltf::Light& light = asset->lights[node.lightIndex.value()];
+                
+                const f32 LUMENS_PER_WATT = 683.0f;
+                const f32 E_min = 1.0f;
+
+                if(light.type == fastgltf::LightType::Point) {
+                    parent_entity.add_component<PointLightComponent>();
+
+                    auto& point_light_component = parent_entity.get_component<PointLightComponent>();
+                    point_light_component.color = glm::vec3(light.color.x(), light.color.y(), light.color.z());
+                    point_light_component.intensity = light.intensity;
+
+                    f32 intensity = (light.intensity * 4.0f * glm::pi<f32>()) / LUMENS_PER_WATT;
+                    point_light_component.range = light.range.value_or(std::sqrt(intensity / E_min));
+                } else if(light.type == fastgltf::LightType::Spot) {
+                    parent_entity.add_component<SpotLightComponent>();
+
+                    auto& spot_light_component = parent_entity.get_component<SpotLightComponent>();
+                    spot_light_component.color = glm::vec3(light.color.x(), light.color.y(), light.color.z());
+                    spot_light_component.intensity = light.intensity;
+                    spot_light_component.inner_cone_angle = light.innerConeAngle.value_or(0.0f);
+                    spot_light_component.outer_cone_angle = light.outerConeAngle.value_or(std::numbers::pi_v<f32> / 4.0f);
+
+                    f32 intensity = (light.intensity * glm::pi<f32>()) / LUMENS_PER_WATT;
+                    spot_light_component.range = light.range.value_or(std::sqrt(intensity / E_min));
+                }
+            }
+
+            if(node.skinIndex.has_value()) {
+                parent_entity.add_component<AnimationComponent>();
+                auto& animation_component = parent_entity.get_component<AnimationComponent>();
+                animation_component.asset_manifest_index = asset_manifest_index;
+                animation_component.asset_local_animation_index = s_cast<u32>(node.skinIndex.value());
             }
 
             parent_entity.add_component<TransformComponent>();
@@ -348,10 +386,75 @@ namespace foundation {
             });
         }
 
+        animation_manifests.reserve(animation_manifests.size() + asset->animations.size());
+        for(u32 animation_index = 0; animation_index < asset->animations.size(); animation_index++) {
+            const fastgltf::Animation& gltf_animation = asset->animations[animation_index];
+
+            std::vector<AnimationChannel> channels = {};
+            channels.reserve(gltf_animation.channels.size());
+            for(const fastgltf::AnimationChannel& gltf_channel : gltf_animation.channels) {
+                AnimationChannel channel = {};
+                channel.sampler_index = s_cast<u32>(gltf_channel.samplerIndex);
+                channel.path = s_cast<AnimationPath>(s_cast<u8>(gltf_channel.path));
+                if (gltf_channel.nodeIndex.has_value()) {
+                    channel.node_index = s_cast<u32>(gltf_channel.nodeIndex.value());
+                }
+                channels.push_back(channel);
+            }
+
+            std::vector<AnimationSampler> samplers = {};
+            samplers.reserve(gltf_animation.samplers.size());
+            for(const fastgltf::AnimationSampler& gltf_sampler : gltf_animation.samplers) {
+                auto vec_to_floats = [&](usize accessor_index) -> std::vector<f32> {
+                    const auto& value_accessor = asset->accessors[accessor_index];
+                    std::vector<f32> values = {};
+                    switch (value_accessor.type) {
+                        case fastgltf::AccessorType::Vec3: {
+                            std::vector<glm::vec3> data = load_accessor_data_from_file<glm::vec3, false>(file_path.parent_path(), *asset, value_accessor);
+                            values.resize(3 * data.size());
+                            std::memcpy(values.data(), data.data(), 3 * data.size() * sizeof(f32));
+                            break;
+                        }
+                        case fastgltf::AccessorType::Vec4: {
+                            std::vector<glm::vec4> data = load_accessor_data_from_file<glm::vec4, false>(file_path.parent_path(), *asset, value_accessor);
+                            values.resize(4 * data.size());
+                            std::memcpy(values.data(), data.data(), 4 * data.size() * sizeof(f32));
+                            break;
+                        }
+                        case fastgltf::AccessorType::Scalar: {
+                            std::vector<f32> data = load_accessor_data_from_file<f32, false>(file_path.parent_path(), *asset, value_accessor);
+                            values.resize(data.size());
+                            std::memcpy(values.data(), data.data(), data.size() * sizeof(f32));
+                            break;
+                        }
+                        default: {
+                            throw std::runtime_error("something went wrong"); 
+                        }
+                    }
+                    return values;
+                };
+
+                AnimationSampler sampler = {};
+                sampler.timestamps = vec_to_floats(gltf_sampler.inputAccessor);
+                sampler.values = vec_to_floats(gltf_sampler.outputAccessor);
+                sampler.interpolation = static_cast<AnimationInterpolation>(s_cast<u8>(gltf_sampler.interpolation));
+                samplers.push_back(sampler);
+            }
+
+            animation_manifests.push_back(AnimationManifest {
+                .asset_manifest_index = asset_manifest_index,
+                .asset_local_animation_index = animation_index,
+                .channels = channels,
+                .samplers = samplers,
+                .name = gltf_animation.name.c_str(),
+            });
+        }
+
         asset_manifest->texture_manifest_size = s_cast<u32>(texture_manifests.size()) - asset_manifest->texture_manifest_offset;
         asset_manifest->material_manifest_size = s_cast<u32>(material_manifests.size()) - asset_manifest->material_manifest_offset;
         asset_manifest->mesh_manifest_size = s_cast<u32>(mesh_manifests.size()) - asset_manifest->mesh_manifest_offset;
         asset_manifest->mesh_group_manifest_size = s_cast<u32>(mesh_group_manifests.size()) - asset_manifest->mesh_group_manifest_offset;
+        asset_manifest->animation_manifest_size = s_cast<u32>(animation_manifests.size()) - asset_manifest->animation_manifest_offset;
 
         struct LoadMeshTask : Task {
             struct TaskInfo {
@@ -438,6 +541,7 @@ namespace foundation {
     }
 
     void AssetManager::update(daxa::CommandRecorder& cmd_recorder, const ResourceUploadInfos& upload_infos) {
+        PROFILE_SCOPE;
         for(const MeshUploadInfo& mesh_upload_info : upload_infos.meshes) {
             const AssetManifest& asset_manifest = asset_manifests[mesh_upload_info.asset_manifest_index];
             MeshManifest& mesh_manifest = mesh_manifests[asset_manifest.mesh_manifest_offset + mesh_upload_info.mesh_manifest_index];
@@ -539,10 +643,6 @@ namespace foundation {
                     if(texture_manifest.render_info.has_value()) {
                         gpu_material.emissive_image_id = texture_manifest.render_info.value().image_id.default_view();
                         gpu_material.emissive_sampler_id = texture_manifest.render_info.value().sampler_id;
-        
-                        // TODO: fix this
-                        gpu_material.albedo_image_id = texture_manifest.render_info.value().image_id.default_view();
-                        gpu_material.albedo_sampler_id = texture_manifest.render_info.value().sampler_id;
                     }
                 }
 

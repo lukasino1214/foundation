@@ -25,11 +25,13 @@ namespace foundation {
         u32 material_manifest_offset = {};
         u32 mesh_manifest_offset = {};
         u32 mesh_group_manifest_offset = {};
+        u32 animation_manifest_offset = {};
 
         u32 texture_manifest_size = {};
         u32 material_manifest_size = {};
         u32 mesh_manifest_size = {};
         u32 mesh_group_manifest_size = {};
+        u32 animation_manifest_size = {};
 
         std::unique_ptr<fastgltf::Asset> asset = {};
     };
@@ -47,6 +49,7 @@ namespace foundation {
 
         u32 asset_manifest_index = {};
         u32 asset_local_texture_index = {};
+
         std::string name = {};
         std::vector<MaterialManifestIndex> material_manifest_indices = {};
         std::optional<RenderInfo> render_info = {};
@@ -87,6 +90,7 @@ namespace foundation {
         u32 asset_manifest_index = {};
         u32 asset_local_mesh_group_index = {};
         u32 asset_local_mesh_index = {};
+
         std::optional<u32> asset_local_material_index = {};
         std::optional<RenderInfo> render_info = {};
     };
@@ -97,6 +101,40 @@ namespace foundation {
         u32 asset_local_mesh_manifest_indices_offset = {};
 
         u32 mesh_count = {};
+        std::string name = {};
+    };
+
+    enum struct AnimationPath : u8 {
+        Translation,
+        Rotation,
+        Scale,
+        Weights,
+    };
+
+    enum struct AnimationInterpolation : u8 {
+        Linear,
+        Step,
+        CubicSpline,
+    };
+
+    struct AnimationChannel {
+        std::optional<u32> node_index = {};
+        u32 sampler_index = {};
+        AnimationPath path = AnimationPath::Translation;
+    };
+
+    struct AnimationSampler {
+        std::vector<f32> timestamps = {};
+        std::vector<f32> values = {};
+        AnimationInterpolation interpolation = AnimationInterpolation::Linear;
+    };
+
+    struct AnimationManifest {
+        u32 asset_manifest_index = {};
+        u32 asset_local_animation_index = {};
+
+        std::vector<AnimationChannel> channels = {};
+        std::vector<AnimationSampler> samplers = {};
         std::string name = {};
     };
 
@@ -124,6 +162,7 @@ namespace foundation {
         std::vector<MaterialManifest> material_manifests = {};
         std::vector<MeshManifest> mesh_manifests = {};
         std::vector<MeshGroupManifest> mesh_group_manifests = {};
+        std::vector<AnimationManifest> animation_manifests = {};
 
         daxa::BufferId materials_buffer = {};
     };

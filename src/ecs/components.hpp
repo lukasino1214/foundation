@@ -18,7 +18,12 @@ namespace foundation {
     struct TransformComponent {};
 
     struct MeshComponent {
-        u32 mesh_group_manifest_entry_index;
+        u32 mesh_group_manifest_entry_index = {};
+    };
+
+    struct AnimationComponent {
+        u32 asset_manifest_index = {};
+        u32 asset_local_animation_index = {};
     };
 
     struct PointLightComponent {
@@ -28,7 +33,6 @@ namespace foundation {
     };
 
     struct SpotLightComponent {
-        f32vec3 position;
         f32vec3 direction;
         f32vec3 color;
         f32 intensity;

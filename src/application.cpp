@@ -46,6 +46,91 @@ namespace foundation {
             asset_manager.load_asset("assets/models/Sponza/glTF/Sponza.gltf", root_entity);
         }
 
+        {
+            Entity root_entity = scene->create_entity("root entity 4");
+            root_entity.add_component<TransformComponent>();
+            root_entity.set_local_position({-20, 50, 0});
+            root_entity.set_local_scale({5, 5, 5});
+            asset_manager.load_asset("assets/models/ABeautifulGame/glTF/ABeautifulGame.gltf", root_entity);
+        }
+
+        {
+            Entity root_entity = scene->create_entity("root entity 5");
+            root_entity.add_component<TransformComponent>();
+            root_entity.set_local_position({-30, 50, 0});
+            asset_manager.load_asset("assets/models/AnimatedCube/glTF/AnimatedCube.gltf", root_entity);
+        }
+
+        {
+            Entity root_entity = scene->create_entity("root entity 6");
+            root_entity.add_component<TransformComponent>();
+            root_entity.set_local_position({-40, 50, 0});
+            asset_manager.load_asset("assets/models/AnimatedMorphCube/glTF/AnimatedMorphCube.gltf", root_entity);
+        }
+
+        {
+            Entity root_entity = scene->create_entity("root entity 7");
+            root_entity.add_component<TransformComponent>();
+            root_entity.set_local_position({-50, 50, 0});
+            asset_manager.load_asset("assets/models/BoxAnimated/glTF/BoxAnimated.gltf", root_entity);
+        }
+
+        {
+            Entity root_entity = scene->create_entity("root entity 8");
+            root_entity.add_component<TransformComponent>();
+            root_entity.set_local_position({-60, 50, 0});
+            asset_manager.load_asset("assets/models/BrainStem/glTF/BrainStem.gltf", root_entity);
+        }
+
+        {
+            Entity root_entity = scene->create_entity("root entity 9");
+            root_entity.add_component<TransformComponent>();
+            root_entity.set_local_position({-70, 50, 0});
+            asset_manager.load_asset("assets/models/CesiumMan/glTF/CesiumMan.gltf", root_entity);
+        }
+
+        {
+            Entity root_entity = scene->create_entity("root entity 10");
+            root_entity.add_component<TransformComponent>();
+            root_entity.set_local_position({-80, 50, 0});
+            asset_manager.load_asset("assets/models/DamagedHelmet/glTF/DamagedHelmet.gltf", root_entity);
+        }
+
+        // {
+        //     Entity root_entity = scene->create_entity("root entity 11");
+        //     root_entity.add_component<TransformComponent>();
+        //     root_entity.set_local_position({-90, 50, 0});
+        //     asset_manager.load_asset("assets/models/InterpolationTest/glTF/InterpolationTest.gltf", root_entity);
+        // }
+
+        {
+            Entity root_entity = scene->create_entity("root entity 12");
+            root_entity.add_component<TransformComponent>();
+            root_entity.set_local_position({-100, 50, 0});
+            asset_manager.load_asset("assets/models/RiggedFigure/glTF/RiggedFigure.gltf", root_entity);
+        }
+
+        // {
+        //     Entity root_entity = scene->create_entity("root entity 13");
+        //     root_entity.add_component<TransformComponent>();
+        //     root_entity.set_local_position({-110, 50, 0});
+        //     asset_manager.load_asset("assets/models/RiggedSimple/glTF/RiggedSimple.gltf", root_entity);
+        // }
+
+        {
+            Entity root_entity = scene->create_entity("root entity 14");
+            root_entity.add_component<TransformComponent>();
+            root_entity.set_local_position({-120, 50, 0});
+            asset_manager.load_asset("assets/models/SciFiHelmet/glTF/SciFiHelmet.gltf", root_entity);
+        }
+
+        // {
+        //     Entity root_entity = scene->create_entity("root entity 15");
+        //     root_entity.add_component<TransformComponent>();
+        //     root_entity.set_local_position({-130, 50, 0});
+        //     asset_manager.load_asset("assets/models/SimpleSkin/glTF/SimpleSkin.gltf", root_entity);
+        // }
+
         // {
         //     Entity root_entity = scene->create_entity("root entity 4");
         //     root_entity.add_component<TransformComponent>();

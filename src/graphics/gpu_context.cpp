@@ -47,8 +47,33 @@ namespace foundation {
     }
 
     GPUContext::~GPUContext() {
+        {
+            std::unique_lock<std::shared_mutex> lock{sampler_mutex};
+            for (const auto& [info, sampler] : samplers) {
+                device.destroy_sampler(sampler);
+            }
+            samplers.clear();
+        }
         device.destroy_buffer(shader_globals_buffer.get_state().buffers[0]);
         device.wait_idle();
         device.collect_garbage();
+    }
+
+    auto GPUContext::get_sampler(const daxa::SamplerInfo& info) -> daxa::SamplerId {
+        {
+            std::shared_lock<std::shared_mutex> read_lock{sampler_mutex};
+            if (auto it = samplers.find(info); it != samplers.end()) {
+                return it->second;
+            }
+        }
+
+        std::unique_lock<std::shared_mutex> write_lock{sampler_mutex};
+        if (auto it = samplers.find(info); it != samplers.end()) {
+            return it->second;
+        }
+
+        auto sampler = device.create_sampler(info);
+        samplers.emplace(info, sampler);
+        return sampler;
     }
 }

@@ -82,6 +82,7 @@ namespace foundation {
     AssetProcessor::~AssetProcessor() {}
 
     auto AssetProcessor::load_mesh(fastgltf::Asset* asset, const std::filesystem::path& file_path, u32 mesh_group_index, u32 mesh_index) -> LoadedMesh {
+        PROFILE_SCOPE;
         const fastgltf::Mesh& gltf_mesh = asset->meshes[mesh_group_index];
         const fastgltf::Primitive& gltf_primitive = gltf_mesh.primitives[mesh_index];
         if(gltf_primitive.type != fastgltf::PrimitiveType::Triangles) {
@@ -113,6 +114,9 @@ namespace foundation {
         auto& normals = loaded_mesh.normals;
         auto& uvs = loaded_mesh.uvs;
         auto& indices = loaded_mesh.indices;
+
+        // if(normals.empty()) { fmt::println("mesh: {} has no normals", file_path.string()); }
+        // if(uvs.empty()) { fmt::println("mesh: {} has no uvs", file_path.string()); }
 
         if(loaded_mesh.indices.empty()) {
             fmt::println("generating index buffer");
@@ -326,6 +330,7 @@ namespace foundation {
     }
 
     auto AssetProcessor::load_image(const std::filesystem::path& file_path) -> LoadedImage {
+        PROFILE_SCOPE;
         if(!std::filesystem::exists(file_path)) {
             throw std::runtime_error(fmt::format("File does not exist with path: {}", file_path.string()));
         }
@@ -343,6 +348,7 @@ namespace foundation {
     }
 
     auto AssetProcessor::load_dds(const std::filesystem::path& file_path) -> LoadedImage {
+        PROFILE_SCOPE;
         dds::Image dds_image = {};
         dds::ReadResult result = dds::readFile(file_path.string(), &dds_image);
         if(result != dds::ReadResult::Success) {
@@ -375,6 +381,7 @@ namespace foundation {
 #define WORKBUF_STACK_SIZE 8192
 
     auto AssetProcessor::load_png(const std::filesystem::path& file_path) -> LoadedImage {
+        PROFILE_SCOPE;
         std::vector<std::byte> buffer = io::read_file(file_path);
         LoadedImage loaded_image = {};
 
@@ -495,6 +502,7 @@ namespace foundation {
     }
 
     auto AssetProcessor::load_jpeg(const std::filesystem::path& file_path) -> LoadedImage {
+        PROFILE_SCOPE;
         std::vector<std::byte> buffer = io::read_file(file_path);
         LoadedImage loaded_image = {};
 
@@ -608,6 +616,7 @@ namespace foundation {
     }
 
     void AssetProcessor::process_mesh_load(const LoadMeshInfo& info) {
+        PROFILE_SCOPE;
         LoadedMesh loaded_mesh = AssetProcessor::load_mesh(info.asset, info.asset_path, info.asset_local_mesh_group_index, info.asset_local_mesh_index);
 
         auto& positions = loaded_mesh.positions;
@@ -648,10 +657,14 @@ namespace foundation {
         mesh_geometry_info.normals = bda;
         bda += normals.size() * sizeof(glm::vec3);
 
-        std::memcpy(mapped_ptr, uvs.data(), uvs.size() * sizeof(glm::vec2));
-        mapped_ptr += uvs.size() * sizeof(glm::vec2);
-        mesh_geometry_info.uvs = bda;
-        bda += uvs.size() * sizeof(glm::vec2);
+        if(!uvs.empty()) {
+            std::memcpy(mapped_ptr, uvs.data(), uvs.size() * sizeof(glm::vec2));
+            mapped_ptr += uvs.size() * sizeof(glm::vec2);
+            mesh_geometry_info.uvs = bda;
+            bda += uvs.size() * sizeof(glm::vec2);
+        } else {
+            mesh_geometry_info.uvs = 0;
+        }
 
         daxa::BufferId staging_index_buffer = gpu_context->device.create_buffer(daxa::BufferInfo {
             .size = indices.size() * sizeof(u32),
@@ -681,6 +694,7 @@ namespace foundation {
     }
 
     void AssetProcessor::process_texture_load(const LoadTextureInfo& info) {
+        PROFILE_SCOPE;
         const fastgltf::Image& gltf_image = info.asset->images[info.texture_manifest_index];
         const auto* uri = std::get_if<fastgltf::sources::URI>(&gltf_image.data);
         if(uri == nullptr) { throw std::runtime_error("huh"); }
@@ -724,7 +738,7 @@ namespace foundation {
             .name = gltf_image.name.c_str(),
         });
 
-        daxa::SamplerId sampler = gpu_context->device.create_sampler(daxa::SamplerInfo{
+        daxa::SamplerId sampler = gpu_context->get_sampler(daxa::SamplerInfo {
             .magnification_filter = daxa::Filter::LINEAR,
             .minification_filter = daxa::Filter::LINEAR,
             .mipmap_filter = daxa::Filter::LINEAR,
@@ -764,6 +778,7 @@ namespace foundation {
     }
     
     auto AssetProcessor::upload_resources(daxa::CommandRecorder& cmd_recorder) -> ResourceUploadInfos {
+        PROFILE_SCOPE;
         ResourceUploadInfos ret = {};
 
         {
