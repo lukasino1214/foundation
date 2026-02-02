@@ -42,9 +42,11 @@ public:
                 handle.add<LocalMatrix>();
                 handle.add<TransformDirty>();
                 handle.add<TransformComponent>();
-            } else {
-                handle.set<T>(T{});
+
+                return;
             }
+
+            handle.set<T>(T{});
         }
 
         template<typename T>

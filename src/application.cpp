@@ -8,6 +8,7 @@ namespace foundation {
         scene{std::make_shared<Scene>("default scene")},
         asset_processor{&gpu_context},
         asset_manager{&gpu_context, &asset_processor, &thread_pool, scene.get()},
+        gpu_scene{scene.get(), &asset_manager},
         renderer{&window, &gpu_context, &asset_manager, scene.get()} {
         PROFILE_SCOPE;
 
@@ -169,6 +170,7 @@ namespace foundation {
                 daxa::CommandRecorder cmd_recorder = gpu_context.device.create_command_recorder({ .name = "upload cmd recorder" });
                 auto upload_infos = asset_processor.upload_resources(cmd_recorder);
                 asset_manager.update(cmd_recorder, upload_infos);
+                gpu_scene.update();
                 gpu_context.device.submit_commands({ .command_lists = std::to_array({cmd_recorder.complete_current_commands()}) });
             }
 
@@ -221,7 +223,7 @@ namespace foundation {
             create_window("Renderer settings");
 
             if(ImGui::Begin("Performance Statistics")) {
-                ImGui::Text("delta time: %f", delta_time);
+                ImGui::Text("delta time: %f ms", delta_time * 1000.0);
             }
             ImGui::End();
         }

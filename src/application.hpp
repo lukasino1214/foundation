@@ -7,6 +7,7 @@
 #include <graphics/gpu_context.hpp>
 #include <graphics/renderer.hpp>
 #include <ecs/scene.hpp>
+#include <graphics/gpu_scene.hpp>
 
 namespace foundation {
     struct Application {
@@ -22,6 +23,7 @@ namespace foundation {
         std::shared_ptr<Scene> scene = {};
         AssetProcessor asset_processor;
         AssetManager asset_manager;
+        GPUScene gpu_scene;
         Renderer renderer;
         ControlledCamera3D main_camera = {};
 

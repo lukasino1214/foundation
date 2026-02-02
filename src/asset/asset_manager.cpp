@@ -127,6 +127,7 @@ namespace foundation {
                 .mesh_manifest_offset = s_cast<u32>(mesh_manifests.size()),
                 .mesh_group_manifest_offset = s_cast<u32>(mesh_group_manifests.size()),
                 .animation_manifest_offset = s_cast<u32>(animation_manifests.size()),
+                .skeleton_manifest_offset = s_cast<u32>(skeleton_manifests.size()),
             });
             asset_manifest = &asset_manifests.back();
 
@@ -147,6 +148,10 @@ namespace foundation {
             asset_manifest->asset = std::make_unique<fastgltf::Asset>(std::move(fastgltf_asset.get()));
         }
         fastgltf::Asset* asset = asset_manifest->asset.get();
+
+        if(!already_loaded) { 
+            load_asset_to_manifests(asset, file_path, asset_manifest, asset_manifest_index);
+        }
 
         std::vector<flecs::entity> node_index_to_entity = {};
         for(u32 node_index = 0; node_index < s_cast<u32>(asset->nodes.size()); node_index++) {
@@ -218,13 +223,6 @@ namespace foundation {
                 }
             }
 
-            if(node.skinIndex.has_value()) {
-                parent_entity.add_component<AnimationComponent>();
-                auto& animation_component = parent_entity.get_component<AnimationComponent>();
-                animation_component.asset_manifest_index = asset_manifest_index;
-                animation_component.asset_local_animation_index = s_cast<u32>(node.skinIndex.value());
-            }
-
             parent_entity.add_component<TransformComponent>();
             parent_entity.set_local_position(position);
             parent_entity.set_local_rotation(rotation);
@@ -243,9 +241,9 @@ namespace foundation {
                 root_entity.set_child(entity);
             }
         }
+    }
 
-        if(already_loaded) { return; }
-
+    void AssetManager::load_asset_to_manifests(fastgltf::Asset* asset, const std::filesystem::path& file_path, AssetManifest* asset_manifest, u32 asset_manifest_index) {
         for (u32 image_index = 0; image_index < asset->images.size(); ++image_index) {
             const fastgltf::Image& gltf_image = asset->images[image_index];
 
@@ -395,12 +393,15 @@ namespace foundation {
             for(const fastgltf::AnimationChannel& gltf_channel : gltf_animation.channels) {
                 AnimationChannel channel = {};
                 channel.sampler_index = s_cast<u32>(gltf_channel.samplerIndex);
-                channel.path = s_cast<AnimationPath>(s_cast<u8>(gltf_channel.path));
+                channel.path = s_cast<AnimationPath>(s_cast<u8>(gltf_channel.path) - 1); // dont ask me why
                 if (gltf_channel.nodeIndex.has_value()) {
                     channel.node_index = s_cast<u32>(gltf_channel.nodeIndex.value());
                 }
                 channels.push_back(channel);
             }
+
+            f32 min_timestamp = std::numeric_limits<f32>::max();
+            f32 max_timestamp = std::numeric_limits<f32>::lowest();
 
             std::vector<AnimationSampler> samplers = {};
             samplers.reserve(gltf_animation.samplers.size());
@@ -438,6 +439,10 @@ namespace foundation {
                 sampler.timestamps = vec_to_floats(gltf_sampler.inputAccessor);
                 sampler.values = vec_to_floats(gltf_sampler.outputAccessor);
                 sampler.interpolation = static_cast<AnimationInterpolation>(s_cast<u8>(gltf_sampler.interpolation));
+                
+                min_timestamp = glm::min(min_timestamp, sampler.timestamps.front());
+                max_timestamp = glm::max(max_timestamp, sampler.timestamps.back());
+                
                 samplers.push_back(sampler);
             }
 
@@ -446,7 +451,34 @@ namespace foundation {
                 .asset_local_animation_index = animation_index,
                 .channels = channels,
                 .samplers = samplers,
+                .min_timestamp = min_timestamp,
+                .max_timestamp = max_timestamp,
                 .name = gltf_animation.name.c_str(),
+            });
+        }
+
+        skeleton_manifests.reserve(skeleton_manifests.size() + asset->skins.size());
+        for(u32 skin_index = 0; skin_index < asset->skins.size(); skin_index++) {
+            const fastgltf::Skin& gltf_skin = asset->skins[skin_index];
+
+            std::vector<u32> joint_node_indices = {};
+            joint_node_indices.reserve(gltf_skin.joints.size());
+            for(usize joint_node_index : gltf_skin.joints) {
+                joint_node_indices.push_back(s_cast<u32>(joint_node_index));
+            }
+
+            std::vector<glm::mat4> inverse_bind_matrices = {};
+            if(gltf_skin.inverseBindMatrices.has_value()) {
+                inverse_bind_matrices = load_accessor_data_from_file<glm::mat4, false>(file_path.parent_path(), *asset, asset->accessors[gltf_skin.inverseBindMatrices.value()]);
+            }
+
+            skeleton_manifests.push_back(SkeletonManifest {
+                .asset_manifest_index = asset_manifest_index,
+                .asset_local_skeleton_index = skin_index,
+                .inverse_bind_matrices = inverse_bind_matrices,
+                .root_node_index = gltf_skin.skeleton.has_value() ? std::make_optional(s_cast<u32>(gltf_skin.skeleton.value())) : std::nullopt,
+                .joint_node_indices = joint_node_indices,
+                .name = gltf_skin.name.c_str(),
             });
         }
 
@@ -455,6 +487,7 @@ namespace foundation {
         asset_manifest->mesh_manifest_size = s_cast<u32>(mesh_manifests.size()) - asset_manifest->mesh_manifest_offset;
         asset_manifest->mesh_group_manifest_size = s_cast<u32>(mesh_group_manifests.size()) - asset_manifest->mesh_group_manifest_offset;
         asset_manifest->animation_manifest_size = s_cast<u32>(animation_manifests.size()) - asset_manifest->animation_manifest_offset;
+        asset_manifest->skeleton_manifest_size = s_cast<u32>(skeleton_manifests.size()) - asset_manifest->skeleton_manifest_offset;
 
         struct LoadMeshTask : Task {
             struct TaskInfo {

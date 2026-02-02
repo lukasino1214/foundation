@@ -141,10 +141,7 @@ namespace foundation {
 
         auto fill = [](auto& vec, u32 required_size = 0) {
             if(vec.empty()) {
-                vec.resize(required_size);
-                for(u32 i = 0; i < required_size; i++) {
-                    vec[i] = {};
-                }
+                vec.resize(required_size, {});
             }
         };
 

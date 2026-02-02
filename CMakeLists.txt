@@ -31,6 +31,7 @@ add_executable(${PROJECT_NAME}
     "src/graphics/renderer.cpp"
     "src/graphics/camera.cpp"
     "src/graphics/helper.cpp"
+    "src/graphics/gpu_scene.cpp"
     "src/utils/thread_pool.cpp"
     "src/utils/io.cpp"
     "src/math/math.cpp"

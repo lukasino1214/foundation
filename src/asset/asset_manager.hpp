@@ -26,12 +26,14 @@ namespace foundation {
         u32 mesh_manifest_offset = {};
         u32 mesh_group_manifest_offset = {};
         u32 animation_manifest_offset = {};
+        u32 skeleton_manifest_offset = {};
 
         u32 texture_manifest_size = {};
         u32 material_manifest_size = {};
         u32 mesh_manifest_size = {};
         u32 mesh_group_manifest_size = {};
         u32 animation_manifest_size = {};
+        u32 skeleton_manifest_size = {};
 
         std::unique_ptr<fastgltf::Asset> asset = {};
     };
@@ -135,6 +137,21 @@ namespace foundation {
 
         std::vector<AnimationChannel> channels = {};
         std::vector<AnimationSampler> samplers = {};
+
+        f32 min_timestamp = {};
+        f32 max_timestamp = {};
+
+        std::string name = {};
+    };
+
+    struct SkeletonManifest {
+        u32 asset_manifest_index = {};
+        u32 asset_local_skeleton_index = {};
+
+        std::vector<glm::mat4> inverse_bind_matrices = {};
+        std::optional<u32> root_node_index = {};
+        std::vector<u32> joint_node_indices = {};
+
         std::string name = {};
     };
 
@@ -148,6 +165,11 @@ namespace foundation {
         void unload_asset(u32 asset_index);
 
         void update(daxa::CommandRecorder& cmd_recorder, const ResourceUploadInfos& upload_infos);
+    
+    private:
+        void load_asset_to_manifests(fastgltf::Asset* asset, const std::filesystem::path& file_path, AssetManifest* asset_manifest, u32 asset_manifest_index);
+
+    public:
 
         GPUContext* gpu_context = {};
         AssetProcessor* asset_processor = {};
@@ -163,6 +185,7 @@ namespace foundation {
         std::vector<MeshManifest> mesh_manifests = {};
         std::vector<MeshGroupManifest> mesh_group_manifests = {};
         std::vector<AnimationManifest> animation_manifests = {};
+        std::vector<SkeletonManifest> skeleton_manifests = {};
 
         daxa::BufferId materials_buffer = {};
     };

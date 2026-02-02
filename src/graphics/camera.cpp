@@ -37,8 +37,8 @@ namespace foundation {
         }
 
         constexpr auto MAX_ROT = 1.56825555556f;
-        if (rotation.y > MAX_ROT) { rotation.y = MAX_ROT; }
-        if (rotation.y < -MAX_ROT) { rotation.y = -MAX_ROT; }
+        rotation.y = std::min(rotation.y, MAX_ROT);
+        rotation.y = std::max(rotation.y, -MAX_ROT);
 
         glm::vec3 forward_direction = glm::normalize(glm::vec3{ glm::cos(rotation.x) * glm::cos(rotation.y), -glm::sin(rotation.y), glm::sin(rotation.x) * glm::cos(rotation.y) });
         glm::vec3 up_direction = glm::vec3{ 0.0f, 1.0f, 0.0f };
