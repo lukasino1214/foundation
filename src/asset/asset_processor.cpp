@@ -81,6 +81,56 @@ namespace foundation {
     AssetProcessor::AssetProcessor(GPUContext* _gpu_context) : gpu_context{_gpu_context} {}
     AssetProcessor::~AssetProcessor() {}
 
+    auto AssetProcessor::generate_index_buffer(const GenerateIndexBufferInfo& info) -> ProcessedIndexBufferInfo {
+        std::vector<meshopt_Stream> streams = {};
+        streams.push_back(meshopt_Stream { .data = info.unindexed_positions.data(), .size = info.unindexed_positions.size(), .stride = sizeof(f32vec3) });
+        streams.push_back(meshopt_Stream { .data = info.unindexed_normals.data(), .size = info.unindexed_normals.size(), .stride = sizeof(f32vec3) });
+        streams.push_back(meshopt_Stream { .data = info.unindexed_uvs.data(), .size = info.unindexed_uvs.size(), .stride = sizeof(f32vec2) });
+        
+        usize index_count = info.unindexed_positions.size();
+        usize unindexed_vertex_count = info.unindexed_positions.size();
+        
+        std::vector<u32> remap_table(unindexed_vertex_count);
+        usize unique_vertex_count = meshopt_generateVertexRemapMulti(remap_table.data(), nullptr, index_count, unindexed_vertex_count, streams.data(), streams.size());
+        
+        ProcessedIndexBufferInfo ret = {};
+        ret.positions.resize(unique_vertex_count);
+        ret.normals.resize(unique_vertex_count);
+        ret.uvs.resize(unique_vertex_count);
+        ret.indices.resize(index_count);
+
+        meshopt_remapVertexBuffer(ret.positions.data(), info.unindexed_positions.data(), unindexed_vertex_count, sizeof(f32vec3), remap_table.data());
+        meshopt_remapVertexBuffer(ret.normals.data(), info.unindexed_normals.data(), unindexed_vertex_count, sizeof(f32vec3), remap_table.data());
+        meshopt_remapVertexBuffer(ret.uvs.data(), info.unindexed_uvs.data(), unindexed_vertex_count, sizeof(f32vec2), remap_table.data());
+        meshopt_remapIndexBuffer(ret.indices.data(), nullptr, index_count, remap_table.data());
+
+        return ret;
+    }
+
+    auto AssetProcessor::optimize_vertex_cache(const std::vector<u32>& index_buffer, u32 vertex_count) -> std::vector<u32> {
+        std::vector<u32> optimized_index_buffer(index_buffer.size());
+        meshopt_optimizeVertexCache(optimized_index_buffer.data(), index_buffer.data(), index_buffer.size(), vertex_count);
+        return optimized_index_buffer;
+    }
+
+    auto AssetProcessor::optimize_vertex_fetch(const ProcessedIndexBufferInfo& info) -> ProcessedIndexBufferInfo {
+        std::vector<u32> remap_table(info.positions.size());
+        usize unique_vertex_count = meshopt_optimizeVertexFetchRemap(remap_table.data(), info.indices.data(), info.indices.size(), info.positions.size());
+        
+        ProcessedIndexBufferInfo ret = {};
+        ret.positions.resize(unique_vertex_count);
+        ret.normals.resize(unique_vertex_count);
+        ret.uvs.resize(unique_vertex_count);
+        ret.indices.resize(info.indices.size());
+
+        meshopt_remapVertexBuffer(ret.positions.data(), info.positions.data(), info.positions.size(), sizeof(f32vec3), remap_table.data());
+        meshopt_remapVertexBuffer(ret.normals.data(), info.normals.data(), info.normals.size(), sizeof(f32vec3), remap_table.data());
+        meshopt_remapVertexBuffer(ret.uvs.data(), info.uvs.data(), info.uvs.size(), sizeof(f32vec2), remap_table.data());
+        meshopt_remapIndexBuffer(ret.indices.data(), info.indices.data(), info.indices.size(), remap_table.data());
+
+        return ret;
+    }
+
     auto AssetProcessor::load_mesh(fastgltf::Asset* asset, const std::filesystem::path& file_path, u32 mesh_group_index, u32 mesh_index) -> LoadedMesh {
         PROFILE_SCOPE;
         const fastgltf::Mesh& gltf_mesh = asset->meshes[mesh_group_index];
@@ -89,6 +139,15 @@ namespace foundation {
             throw std::runtime_error("expecting primitive type of triangles");
         }
 
+        auto fill = [](auto& vec, u32 required_size = 0) {
+            if(vec.empty()) {
+                vec.resize(required_size);
+                for(u32 i = 0; i < required_size; i++) {
+                    vec[i] = {};
+                }
+            }
+        };
+
         LoadedMesh loaded_mesh = {};
 
         const fastgltf::Attribute* position_attribute_iter = gltf_primitive.findAttribute("POSITION");
@@ -96,14 +155,20 @@ namespace foundation {
             loaded_mesh.positions = load_accessor_data_from_file<glm::vec3, false>(file_path.parent_path(), *asset, asset->accessors[position_attribute_iter->accessorIndex]);
         }
 
+        u32 vertex_count = s_cast<u32>(loaded_mesh.positions.size());
+
         const fastgltf::Attribute* normal_attribute_iter = gltf_primitive.findAttribute("NORMAL");
         if(normal_attribute_iter != gltf_primitive.attributes.end()) {
             loaded_mesh.normals = load_accessor_data_from_file<glm::vec3, false>(file_path.parent_path(), *asset, asset->accessors[normal_attribute_iter->accessorIndex]);
+        } else {
+            fill(loaded_mesh.normals, vertex_count);
         }
 
         const fastgltf::Attribute* uv_attribute_iter = gltf_primitive.findAttribute("TEXCOORD_0");
         if(uv_attribute_iter != gltf_primitive.attributes.end()) {
             loaded_mesh.uvs = load_accessor_data_from_file<glm::vec2, false>(file_path.parent_path(), *asset, asset->accessors[uv_attribute_iter->accessorIndex]);
+        } else {
+            fill(loaded_mesh.uvs, vertex_count);
         }
 
         if(gltf_primitive.indicesAccessor.has_value()) {
@@ -115,50 +180,34 @@ namespace foundation {
         auto& uvs = loaded_mesh.uvs;
         auto& indices = loaded_mesh.indices;
 
-        // if(normals.empty()) { fmt::println("mesh: {} has no normals", file_path.string()); }
-        // if(uvs.empty()) { fmt::println("mesh: {} has no uvs", file_path.string()); }
-
         if(loaded_mesh.indices.empty()) {
-            fmt::println("generating index buffer");
+            ProcessedIndexBufferInfo ret = generate_index_buffer(GenerateIndexBufferInfo {
+                .unindexed_positions = positions,
+                .unindexed_normals = normals,
+                .unindexed_uvs = uvs
+            });
 
-            std::vector<meshopt_Stream> streams = {};
-            streams.push_back(meshopt_Stream { .data = positions.data(), .size = positions.size(), .stride = sizeof(glm::vec3) });
-            streams.push_back(meshopt_Stream { .data = normals.data(), .size = normals.size(), .stride = sizeof(glm::vec3) });
-            streams.push_back(meshopt_Stream { .data = uvs.data(), .size = uvs.size(), .stride = sizeof(glm::vec2) });
-
-            usize index_count = positions.size();
-            usize unindexed_vertex_count = positions.size();
-            
-            std::vector<u32> remap_table(unindexed_vertex_count);
-            usize unique_vertex_count = meshopt_generateVertexRemapMulti(remap_table.data(), nullptr, index_count, unindexed_vertex_count, streams.data(), streams.size());
-
-            meshopt_remapVertexBuffer(positions.data(), positions.data(), unique_vertex_count, sizeof(glm::vec3), remap_table.data());
-            meshopt_remapVertexBuffer(normals.data(), normals.data(), unique_vertex_count, sizeof(glm::vec3), remap_table.data());
-            meshopt_remapVertexBuffer(uvs.data(), uvs.data(), unique_vertex_count, sizeof(glm::vec2), remap_table.data());
-            positions.resize(unique_vertex_count);
-            normals.resize(unique_vertex_count);
-            uvs.resize(unique_vertex_count);
-
-            indices.resize(index_count);
-            meshopt_remapIndexBuffer(indices.data(), indices.data(), indices.size(), remap_table.data());
+            positions = ret.positions;
+            normals = ret.normals;
+            uvs = ret.uvs;
+            indices = ret.indices;
         }
 
-        meshopt_optimizeVertexCache(indices.data(), indices.data(), indices.size(), positions.size());
+        {
+            ProcessedIndexBufferInfo ret = optimize_vertex_fetch(ProcessedIndexBufferInfo {
+                .positions = positions,
+                .normals = normals,
+                .uvs = uvs,
+                .indices = indices
+            });
 
-        // this breaks on new sponza for some reason
-        // {
-        //     std::vector<u32> remap_table(positions.size());
-        //     usize optimized_vertex_count = meshopt_optimizeVertexFetchRemap(remap_table.data(), indices.data(), indices.size(), positions.size());
+            positions = ret.positions;
+            normals = ret.normals;
+            uvs = ret.uvs;
+            indices = ret.indices;
+        }
 
-        //     meshopt_remapVertexBuffer(positions.data(), positions.data(), optimized_vertex_count, sizeof(glm::vec3), remap_table.data());
-        //     meshopt_remapVertexBuffer(normals.data(), normals.data(), optimized_vertex_count, sizeof(glm::vec3), remap_table.data());
-        //     meshopt_remapVertexBuffer(uvs.data(), uvs.data(), optimized_vertex_count, sizeof(glm::vec2), remap_table.data());
-        //     meshopt_remapIndexBuffer(indices.data(), indices.data(), indices.size(), remap_table.data());
-
-        //     positions.resize(optimized_vertex_count);
-        //     normals.resize(optimized_vertex_count);
-        //     uvs.resize(optimized_vertex_count);
-        // }
+        indices = optimize_vertex_cache(indices, vertex_count);
 
         return loaded_mesh;
     }

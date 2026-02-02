@@ -132,7 +132,7 @@ namespace foundation {
         // }
 
         // {
-        //     Entity root_entity = scene->create_entity("root entity 4");
+        //     Entity root_entity = scene->create_entity("root entity 16");
         //     root_entity.add_component<TransformComponent>();
         //     root_entity.set_local_position({50, 50, 0});
         //     asset_manager.load_asset("assets/models/main_sponza/NewSponza_Main_glTF_003.gltf", root_entity);

@@ -72,12 +72,10 @@ namespace foundation {
         std::vector<TextureUploadInfo> textures = {};
     };
 
+
     struct AssetProcessor {
         explicit AssetProcessor(GPUContext* _gpu_context);
         ~AssetProcessor();
-
-        static auto load_mesh(fastgltf::Asset* asset, const std::filesystem::path& file_path, u32 mesh_group_index, u32 mesh_index) -> LoadedMesh;
-        static auto load_image(const std::filesystem::path& file_path) -> LoadedImage;
 
         void process_mesh_load(const LoadMeshInfo& info);
         void process_texture_load(const LoadTextureInfo& info);
@@ -85,9 +83,29 @@ namespace foundation {
         auto upload_resources(daxa::CommandRecorder& cmd_recorder) -> ResourceUploadInfos;
 
     private:
+        static auto load_mesh(fastgltf::Asset* asset, const std::filesystem::path& file_path, u32 mesh_group_index, u32 mesh_index) -> LoadedMesh;
+        static auto load_image(const std::filesystem::path& file_path) -> LoadedImage;
+
         static auto load_dds(const std::filesystem::path& file_path) -> LoadedImage;
         static auto load_png(const std::filesystem::path& file_path) -> LoadedImage;
         static auto load_jpeg(const std::filesystem::path& file_path) -> LoadedImage;
+
+        struct GenerateIndexBufferInfo {
+            std::vector<f32vec3> unindexed_positions = {};
+            std::vector<f32vec3> unindexed_normals = {};
+            std::vector<f32vec2> unindexed_uvs = {};
+        };
+
+        struct ProcessedIndexBufferInfo {
+            std::vector<f32vec3> positions = {};
+            std::vector<f32vec3> normals = {};
+            std::vector<f32vec2> uvs = {};
+            std::vector<u32> indices = {};
+        };
+
+        static auto generate_index_buffer(const GenerateIndexBufferInfo& info) -> ProcessedIndexBufferInfo;
+        static auto optimize_vertex_cache(const std::vector<u32>& index_buffer, u32 vertex_count) -> std::vector<u32>;
+        static auto optimize_vertex_fetch(const ProcessedIndexBufferInfo& info) -> ProcessedIndexBufferInfo;
 
         GPUContext* gpu_context = {};
 
