@@ -72,6 +72,7 @@ namespace foundation {
 //             auto entity = scene->create_entity("sponza");
 //             entity.get_handle().add<RootEntityTag>();
 //             entity.add_component<TransformComponent>();
+//             entity.set_local_position({0, 50, 0});
 
 //             LoadManifestInfo manifesto {
 //                 .parent = entity,
@@ -79,6 +80,23 @@ namespace foundation {
 //             };
 // #if COOK_ASSETS
 //             AssetProcessor::convert_gltf_to_binary("assets/models/Sponza/glTF/Sponza.gltf", "assets/binary/Sponza/Sponza.bmodel");
+// #else
+//             asset_manager->load_model(manifesto);
+// #endif
+//         }
+
+//         {
+//             auto entity = scene->create_entity("intel sponza");
+//             entity.get_handle().add<RootEntityTag>();
+//             entity.add_component<TransformComponent>();
+//             entity.set_local_position({0, 50, 0});
+
+//             LoadManifestInfo manifesto {
+//                 .parent = entity,
+//                 .path = "assets/binary/main_sponza/main_sponza.bmodel",
+//             };
+// #if COOK_ASSETS
+//             AssetProcessor::convert_gltf_to_binary("assets/models/main_sponza/NewSponza_Main_glTF_003.gltf", "assets/binary/main_sponza/main_sponza.bmodel");
 // #else
 //             asset_manager->load_model(manifesto);
 // #endif

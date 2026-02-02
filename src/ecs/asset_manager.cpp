@@ -288,7 +288,7 @@ namespace foundation {
             parent_entity.set_local_rotation(rotation);
             parent_entity.set_local_scale(scale);
 
-            for(u32 children_index = 0; children_index < node.children.size(); children_index++) {
+            for(u32 children_index : node.children) {
                 Entity& child_entity = node_index_to_entity[children_index];
                 parent_entity.set_child(child_entity);
             }

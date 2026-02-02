@@ -325,6 +325,12 @@ namespace foundation {
         for (u32 i = 0; i < s_cast<u32>(asset->images.size()); ++i) {
             const auto& binary_texture = binary_textures[i];
             std::vector<MaterialType> cached_material_types = {};
+
+            if (binary_texture.material_indices.empty()) {
+                fmt::println("Warning: Texture {} is not used by any material. Skipping compression.", i);
+                continue; 
+            }
+
             MaterialType preferred_material_type = MaterialType::None;
             for(const auto& material_index : binary_texture.material_indices) {
                 bool found = false;
