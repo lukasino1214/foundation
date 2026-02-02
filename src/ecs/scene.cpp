@@ -41,9 +41,7 @@ namespace foundation {
                 c.add<TransformDirty>();
             });
 
-            local_matrix.matrix = glm::translate(glm::mat4(1.0f), local_position.position) 
-                * glm::toMat4(glm::quat(glm::radians(local_rotation.rotation))) 
-                * glm::scale(glm::mat4(1.0f), local_scale.scale);
+            local_matrix.matrix = glm::translate(glm::identity<glm::mat4x4>(), local_position.position) * glm::toMat4(local_rotation.rotation) * glm::scale(glm::identity<glm::mat4x4>(), local_scale.scale);
 
             global_matrix.matrix = ((parent_global_matrix != nullptr) ? parent_global_matrix->matrix : glm::mat4{1.0f}) * local_matrix.matrix;
             math::decompose_transform(global_matrix.matrix, global_position.position, global_rotation.rotation, global_scale.scale);

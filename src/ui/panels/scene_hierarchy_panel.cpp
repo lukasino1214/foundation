@@ -45,15 +45,15 @@ namespace foundation {
                         {
                            glm::vec3 position = entity.get_local_position();
                             if(ImGui::DragFloat3("Local Position: ", &position[0])) { entity.set_local_position(position); }
-                            glm::vec3 rotation = entity.get_local_rotation();
-                            if(ImGui::DragFloat3("Local Rotation: ", &rotation[0])) { entity.set_local_rotation(rotation); }
+                            glm::vec3 rotation = glm::degrees(glm::eulerAngles(entity.get_local_rotation()));
+                            if(ImGui::DragFloat3("Local Rotation: ", &rotation[0])) { entity.set_local_rotation(glm::quat(glm::radians(rotation))); }
                             glm::vec3 scale = entity.get_local_scale();
                             if(ImGui::DragFloat3("Local Scale: ", &scale[0])) { entity.set_local_scale(scale); }
                         }
                         {
                            glm::vec3 position = entity.get_global_position();
                             if(ImGui::DragFloat3("Global Position: ", &position[0])) {}
-                            glm::vec3 rotation = entity.get_global_rotation();
+                            glm::vec3 rotation = glm::degrees(glm::eulerAngles(entity.get_global_rotation()));
                             if(ImGui::DragFloat3("Global Rotation: ", &rotation[0])) {}
                             glm::vec3 scale = entity.get_global_scale();
                             if(ImGui::DragFloat3("Global Scale: ", &scale[0])) {}

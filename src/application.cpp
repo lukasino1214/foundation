@@ -107,7 +107,7 @@ namespace foundation {
             entity.get_handle().add<RootEntityTag>();
             entity.add_component<TransformComponent>();
             entity.set_local_position({-10, 5, 0});
-            entity.set_local_rotation({0, 90, 0});
+            entity.set_local_rotation(glm::quat(glm::radians(glm::vec3{0, 90, 0})));
 
             LoadManifestInfo manifesto {
                 .parent = entity,

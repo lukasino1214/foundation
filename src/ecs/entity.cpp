@@ -52,17 +52,17 @@ namespace foundation {
     }
 
     void Entity::set_local_position(const glm::vec3& value) {
-        handle.set<LocalPosition>({ value });
+        handle.get_mut<LocalPosition>()->position = value;
         handle.add<TransformDirty>();
     }
 
-    void Entity::set_local_rotation(const glm::vec3& value) {
-        handle.set<LocalRotation>({ value });
+    void Entity::set_local_rotation(const glm::quat& value) {
+        handle.get_mut<LocalRotation>()->rotation = value;
         handle.add<TransformDirty>();
     }
 
     void Entity::set_local_scale(const glm::vec3& value) {
-        handle.set<LocalScale>({ value });
+        handle.get_mut<LocalScale>()->scale = value;
         handle.add<TransformDirty>();
     }
 
@@ -70,7 +70,7 @@ namespace foundation {
         return handle.get<LocalPosition>()->position;
     }
 
-    auto Entity::get_local_rotation() const -> glm::vec3 {
+    auto Entity::get_local_rotation() const -> glm::quat {
         return handle.get<LocalRotation>()->rotation;
     }
 
@@ -82,7 +82,7 @@ namespace foundation {
         return handle.get<GlobalPosition>()->position;
     }
 
-    auto Entity::get_global_rotation() const -> glm::vec3 {
+    auto Entity::get_global_rotation() const -> glm::quat {
         return handle.get<GlobalRotation>()->rotation;
     }
 

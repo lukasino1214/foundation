@@ -86,15 +86,15 @@ public:
         }
 
         void set_local_position(const glm::vec3& value);
-        void set_local_rotation(const glm::vec3& value);
+        void set_local_rotation(const glm::quat& value);
         void set_local_scale(const glm::vec3& value);
 
-        auto get_local_position() const -> glm::vec3;
-        auto get_local_rotation() const -> glm::vec3;
-        auto get_local_scale() const -> glm::vec3;
+        [[nodiscard]] auto get_local_position() const -> glm::vec3;
+        [[nodiscard]] auto get_local_rotation() const -> glm::quat;
+        [[nodiscard]] auto get_local_scale() const -> glm::vec3;
 
-        auto get_global_position() const -> glm::vec3;
-        auto get_global_rotation() const -> glm::vec3;
-        auto get_global_scale() const -> glm::vec3;
+        [[nodiscard]] auto get_global_position() const -> glm::vec3;
+        [[nodiscard]] auto get_global_rotation() const -> glm::quat;
+        [[nodiscard]] auto get_global_scale() const -> glm::vec3;
     };
 }

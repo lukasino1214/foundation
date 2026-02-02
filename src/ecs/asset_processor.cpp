@@ -93,10 +93,14 @@ namespace foundation {
                 quat.y = trs->rotation[1];
                 quat.z = trs->rotation[2];
                 quat.w = trs->rotation[3];
-                
-                transform = glm::translate(glm::mat4(1.0f), { trs->translation[0], trs->translation[1], trs->translation[2]}) 
-                    * glm::toMat4(quat) 
-                    * glm::scale(glm::mat4(1.0f), { trs->scale[0], trs->scale[1], trs->scale[2]});
+
+                const glm::mat4 scale = glm::scale(glm::identity<glm::mat4x4>(), glm::vec3(trs->scale[0], trs->scale[1], trs->scale[2]));
+                const glm::mat4 rotation = glm::toMat4(glm::quat(trs->rotation[3], trs->rotation[0], trs->rotation[1], trs->rotation[2]));
+                const glm::mat4 translation = glm::translate(glm::identity<glm::mat4x4>(), glm::vec3(trs->translation[0], trs->translation[1], trs->translation[2]));
+                const glm::mat4 rotated_scaled = rotation * scale;
+                const glm::mat4 translated_rotated_scaled = translation * rotated_scaled;
+
+                transform = translated_rotated_scaled;
             } else if(const auto* transform_matrix = std::get_if<fastgltf::math::fmat4x4>(&node.transform)) {
                 transform = *r_cast<const glm::mat4*>(transform_matrix);
             }

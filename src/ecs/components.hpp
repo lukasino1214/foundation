@@ -1,6 +1,5 @@
 #pragma once
 
-#include "graphics/utils/cpu_managed_gpu_pool.hpp"
 #include <flecs.h>
 
 struct Entity;
@@ -12,12 +11,12 @@ namespace foundation {
     struct RootEntityTag {};
 
     struct LocalPosition { glm::vec3 position{ 0.0f, 0.0f, 0.0f }; };
-    struct LocalRotation { glm::vec3 rotation{ 0.0f, 0.0f, 0.0f }; };
+    struct LocalRotation { glm::quat rotation{ 1.0f, 0.0f, 0.0f, 0.0f }; };
     struct LocalScale { glm::vec3 scale{ 1.0f, 1.0f, 1.0f }; };
     struct LocalMatrix { glm::mat4 matrix{1.0f}; };
 
     struct GlobalPosition { glm::vec3 position{ 0.0f, 0.0f, 0.0f }; };
-    struct GlobalRotation { glm::vec3 rotation{ 0.0f, 0.0f, 0.0f }; };
+    struct GlobalRotation { glm::quat rotation{ 1.0f, 0.0f, 0.0f, 0.0f }; };
     struct GlobalScale { glm::vec3 scale{ 1.0f, 1.0f, 1.0f }; };
     struct GlobalMatrix { glm::mat4 matrix{1.0f}; };
 
