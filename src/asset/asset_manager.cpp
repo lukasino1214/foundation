@@ -23,6 +23,7 @@
 
 #include <math/math.hpp>
 #include "asset_processor.hpp"
+#include <graphics/helper.hpp>
 
 namespace foundation {
     template <typename ElemT, bool IS_INDEX_BUFFER>
@@ -82,7 +83,16 @@ namespace foundation {
     }
 
     AssetManager::AssetManager(GPUContext* _gpu_context, AssetProcessor* _asset_processor, ThreadPool* _thread_pool, Scene* _scene) : gpu_context{_gpu_context}, asset_processor{_asset_processor}, thread_pool{_thread_pool}, scene{_scene} {
-
+        gpu_materials = make_task_buffer(gpu_context, {
+            sizeof(Material), 
+            daxa::MemoryFlagBits::NONE, 
+            "materials"
+        });
+        gpu_meshes = make_task_buffer(gpu_context, {
+            sizeof(MeshGeometryData), 
+            daxa::MemoryFlagBits::NONE, 
+            "meshes"
+        });
     }
 
     AssetManager::~AssetManager() {
@@ -99,7 +109,8 @@ namespace foundation {
             }
         }
     
-        gpu_context->device.destroy_buffer(materials_buffer);
+        gpu_context->device.destroy_buffer(gpu_materials.get_state().buffers[0]);
+        gpu_context->device.destroy_buffer(gpu_meshes.get_state().buffers[0]);
     }
     
 
@@ -263,10 +274,10 @@ namespace foundation {
         };
 
         material_manifests.reserve(material_manifests.size() + asset->materials.size());
-        update_gpu_materials.reserve(update_gpu_materials.size() + asset->materials.size());
+        dirty_materials.reserve(dirty_materials.size() + asset->materials.size());
         for (u32 material_index = 0; material_index < static_cast<u32>(asset->materials.size()); material_index++) {
             const auto& material = asset->materials[material_index];
-            update_gpu_materials.push_back(asset_manifest->material_manifest_offset + material_index);
+            dirty_materials.push_back(asset_manifest->material_manifest_offset + material_index);
 
             const bool has_normal_texture = material.normalTexture.has_value();
             const bool has_albedo_texture = material.pbrData.baseColorTexture.has_value();
@@ -569,15 +580,24 @@ namespace foundation {
         }
     }
 
-    void AssetManager::unload_asset(u32 asset_index) {
+    void AssetManager::unload_asset(u32 /* asset_index */) {
         
     }
 
     void AssetManager::update(daxa::CommandRecorder& cmd_recorder, const ResourceUploadInfos& upload_infos) {
         PROFILE_SCOPE;
+
+        reallocate_buffer(gpu_context, cmd_recorder, gpu_materials, s_cast<u32>(material_manifests.size() * sizeof(Material)));
+        reallocate_buffer(gpu_context, cmd_recorder, gpu_meshes, s_cast<u32>(mesh_manifests.size() * sizeof(MeshGeometryData)));
+
+        std::vector<MeshGeometryData> meshes = {};
+        std::vector<u32> mesh_indices = {};
+        meshes.reserve(upload_infos.meshes.size());
+        mesh_indices.reserve(upload_infos.meshes.size());
         for(const MeshUploadInfo& mesh_upload_info : upload_infos.meshes) {
             const AssetManifest& asset_manifest = asset_manifests[mesh_upload_info.asset_manifest_index];
-            MeshManifest& mesh_manifest = mesh_manifests[asset_manifest.mesh_manifest_offset + mesh_upload_info.mesh_manifest_index];
+            u32 mesh_manifest_manifest_index = asset_manifest.mesh_manifest_offset + mesh_upload_info.mesh_manifest_index;
+            MeshManifest& mesh_manifest = mesh_manifests[mesh_manifest_manifest_index];
             MeshGeometryData mesh_geometry_info = mesh_upload_info.mesh_geometry_info;
             mesh_geometry_info.material_index = mesh_manifest.asset_local_material_index.has_value() ? asset_manifest.material_manifest_offset + mesh_manifest.asset_local_material_index.value() : INVALID_ID;
 
@@ -588,6 +608,31 @@ namespace foundation {
                 .vertex_count = mesh_geometry_info.vertex_count,
                 .index_count = mesh_geometry_info.index_count,
             };
+
+            meshes.push_back(mesh_geometry_info);
+            mesh_indices.push_back(asset_manifest.mesh_manifest_offset + mesh_upload_info.mesh_manifest_index);
+        }
+
+        if(!meshes.empty()) {
+            daxa::BufferId staging_meshes_buffer = gpu_context->device.create_buffer({
+                .size = sizeof(MeshGeometryData) * meshes.size(),
+                .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
+                .name = "staging_meshes_buffer",
+            });
+            cmd_recorder.destroy_buffer_deferred(staging_meshes_buffer);
+
+            std::memcpy(gpu_context->device.buffer_host_address(staging_meshes_buffer).value(), meshes.data(), sizeof(MeshGeometryData) * meshes.size());
+
+            u32 mesh_upload_index = 0;
+            for(u32 gpu_mesh_index : mesh_indices) {
+                cmd_recorder.copy_buffer_to_buffer(daxa::BufferCopyInfo {
+                    .src_buffer = staging_meshes_buffer,
+                    .dst_buffer = gpu_meshes.get_state().buffers[0],
+                    .src_offset = sizeof(MeshGeometryData) * mesh_upload_index++,
+                    .dst_offset = sizeof(MeshGeometryData) * gpu_mesh_index,
+                    .size = sizeof(MeshGeometryData)
+                });
+            }
         }
 
         for(const TextureUploadInfo& texture_upload_info : upload_infos.textures) {
@@ -625,20 +670,21 @@ namespace foundation {
                     }
                 }
 
-                if (std::find(update_gpu_materials.begin(), update_gpu_materials.end(), material_using_texture_info.asset_local_material_index) == update_gpu_materials.end()) {
-                    update_gpu_materials.push_back(asset_manifest.material_manifest_offset + material_using_texture_info.asset_local_material_index);
+                if (std::find(dirty_materials.begin(), dirty_materials.end(), material_using_texture_info.asset_local_material_index) == dirty_materials.end()) {
+                    dirty_materials.push_back(asset_manifest.material_manifest_offset + material_using_texture_info.asset_local_material_index);
                 }
             }
         }
 
-        if(!update_gpu_materials.empty()) {
-            std::vector<GPUMaterial> gpu_materials = {};
-            gpu_materials.reserve(update_gpu_materials.size());
-            for(u32 material_index : update_gpu_materials) {
+        if(!dirty_materials.empty()) {
+            std::vector<Material> materials = {};
+            materials.reserve(dirty_materials.size());
+            materials.reserve(dirty_materials.size());
+            for(u32 material_index : dirty_materials) {
                 const MaterialManifest& material_manifest = material_manifests[material_index];
                 const AssetManifest& local_asset_manifest = asset_manifests[material_manifest.asset_manifest_index];
 
-                GPUMaterial gpu_material = {};
+                Material gpu_material = {};
                 gpu_material.albedo_factor = material_manifest.albedo_factor;
                 gpu_material.metallic_factor = material_manifest.metallic_factor;
                 gpu_material.roughness_factor = material_manifest.roughness_factor;
@@ -679,47 +725,29 @@ namespace foundation {
                     }
                 }
 
-                gpu_materials.push_back(gpu_material);
+                materials.push_back(gpu_material);
             }
 
-            daxa::BufferId new_materials_buffer = gpu_context->device.create_buffer({
-                .size = sizeof(GPUMaterial) * material_manifests.size(),
-                .name = "materials_buffer",
-            });
-
-            if(gpu_context->device.is_buffer_id_valid(materials_buffer)) {
-                cmd_recorder.destroy_buffer_deferred(materials_buffer);
-
-                cmd_recorder.copy_buffer_to_buffer(daxa::BufferCopyInfo {
-                    .src_buffer = materials_buffer,
-                    .dst_buffer = new_materials_buffer,
-                    .src_offset = {},
-                    .dst_offset = {},
-                    .size = gpu_context->device.buffer_info(materials_buffer).value().size
-                });
-            }
-            materials_buffer = new_materials_buffer;
-                
             daxa::BufferId staging_materials_buffer = gpu_context->device.create_buffer({
-                .size = sizeof(GPUMaterial) * gpu_materials.size(),
+                .size = sizeof(Material) * materials.size(),
                 .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
                 .name = "staging_materials_buffer",
             });
             cmd_recorder.destroy_buffer_deferred(staging_materials_buffer);
 
-            std::memcpy(gpu_context->device.buffer_host_address(staging_materials_buffer).value(), gpu_materials.data(), sizeof(GPUMaterial) * gpu_materials.size());
+            std::memcpy(gpu_context->device.buffer_host_address(staging_materials_buffer).value(), materials.data(), sizeof(Material) * materials.size());
 
             u32 material_upload_index = 0;
-            for(u32 gpu_material_index : update_gpu_materials) {
+            for(u32 gpu_material_index : dirty_materials) {
                 cmd_recorder.copy_buffer_to_buffer(daxa::BufferCopyInfo {
                     .src_buffer = staging_materials_buffer,
-                    .dst_buffer = materials_buffer,
-                    .src_offset = sizeof(GPUMaterial) * material_upload_index++,
-                    .dst_offset = sizeof(GPUMaterial) * gpu_material_index,
-                    .size = sizeof(GPUMaterial)
+                    .dst_buffer = gpu_materials.get_state().buffers[0],
+                    .src_offset = sizeof(Material) * material_upload_index++,
+                    .dst_offset = sizeof(Material) * gpu_material_index,
+                    .size = sizeof(Material)
                 });
             }
-            update_gpu_materials.clear();
+            dirty_materials.clear();
         }
     }
 }

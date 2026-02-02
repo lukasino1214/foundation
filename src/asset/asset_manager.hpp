@@ -176,7 +176,7 @@ namespace foundation {
         ThreadPool* thread_pool = {};
         Scene* scene = {};
 
-        std::vector<u32> update_gpu_materials = {};
+        std::vector<u32> dirty_materials = {};
 
         ankerl::unordered_dense::map<std::filesystem::path, u32> asset_lookup = {};
         std::vector<AssetManifest> asset_manifests = {};
@@ -187,6 +187,7 @@ namespace foundation {
         std::vector<AnimationManifest> animation_manifests = {};
         std::vector<SkeletonManifest> skeleton_manifests = {};
 
-        daxa::BufferId materials_buffer = {};
+        daxa::TaskBuffer gpu_materials = {};
+        daxa::TaskBuffer gpu_meshes = {};
     };
 }

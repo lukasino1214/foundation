@@ -34,7 +34,7 @@ struct MeshGeometryData {
 
 DAXA_DECL_BUFFER_PTR(MeshGeometryData)
 
-struct GPUMaterial {
+struct Material {
     daxa_ImageViewId albedo_image_id;
     daxa_SamplerId albedo_sampler_id;
     // daxa_ImageViewId alpha_mask_image_id;

@@ -146,6 +146,9 @@ namespace foundation {
         render_task_graph.use_persistent_image(depth_image);
         render_task_graph.use_persistent_buffer(gpu_context->shader_globals_buffer);
 
+        render_task_graph.use_persistent_buffer(asset_manager->gpu_meshes);
+        render_task_graph.use_persistent_buffer(asset_manager->gpu_materials);
+
         if(!pipelines_compiled) {
             render_task_graph.add_task(daxa::InlineTask::Transfer("clear image")
                 .writes(render_image)
@@ -206,6 +209,8 @@ namespace foundation {
         render_task_graph.add_task(DrawMeshTask {
             .views = DrawMeshTask::Views {
                 .u_globals = gpu_context->shader_globals_buffer.view(),
+                .u_meshes = asset_manager->gpu_meshes.view(),
+                .u_materials = asset_manager->gpu_materials.view(),
                 .u_render_image = render_image.view(),
                 .u_depth_image = depth_image.view(),
             },

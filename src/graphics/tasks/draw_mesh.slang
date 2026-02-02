@@ -11,11 +11,13 @@ struct VertexStageOutput {
 
 [shader("vertex")]
 VertexStageOutput vertex_main(u32 vertex_index: SV_VertexID) {
+    MeshGeometryData mesh = push.uses.u_meshes[push.mesh_index];
+
     VertexStageOutput output;
-    output.sv_position = mul(push.uses.u_globals->main_camera.projection_view_matrix, mul(mat_4x3_to_4x4(push.matrix),  f32vec4(push.mesh.positions[vertex_index], 1.0f)));
-    output.normal = push.mesh.normals[vertex_index];
-    if(push.mesh.uvs != 0) {
-        output.uv = push.mesh.uvs[vertex_index];
+    output.sv_position = mul(push.uses.u_globals->main_camera.projection_view_matrix, mul(mat_4x3_to_4x4(push.matrix),  f32vec4(mesh.positions[vertex_index], 1.0f)));
+    output.normal = mesh.normals[vertex_index];
+    if(mesh.uvs != 0) {
+        output.uv = mesh.uvs[vertex_index];
     }
 
     return output;
@@ -30,17 +32,20 @@ f32vec3 hsv_to_rgb(in f32vec3 hsv) {
 
 [shader("fragment")]
 f32vec4 fragment_main(u32 primitive_id : SV_PrimitiveID, in VertexStageOutput input) : SV_Target {
+    MeshGeometryData mesh = push.uses.u_meshes[push.mesh_index];
     
     f32vec4 color = f32vec4(hsv_to_rgb(f32vec3(f32(primitive_id) / 128 * M_GOLDEN_CONJ, 0.875, 0.85)), 1.0);
-    if(push.mesh.material_index != INVALID_ID) {
-        if(!push.materials[push.mesh.material_index].albedo_image_id.is_empty()) {
-            color = Texture2D<f32vec4>::get(push.materials[push.mesh.material_index].albedo_image_id).Sample(SamplerState::get(push.materials[push.mesh.material_index].albedo_sampler_id), input.uv);
+    if(mesh.material_index != INVALID_ID) {
+        Material material = push.uses.u_materials[mesh.material_index];
+
+        if(!material.albedo_image_id.is_empty()) {
+            color = Texture2D<f32vec4>::get(material.albedo_image_id).Sample(SamplerState::get(material.albedo_sampler_id), input.uv);
         } else {
-            color = push.materials[push.mesh.material_index].albedo_factor;
+            color = material.albedo_factor;
         }
 
-        if(!push.materials[push.mesh.material_index].emissive_image_id.is_empty()) {
-            color.rgb += Texture2D<f32vec4>::get(push.materials[push.mesh.material_index].emissive_image_id).Sample(SamplerState::get(push.materials[push.mesh.material_index].emissive_sampler_id), input.uv).rgb;
+        if(!material.emissive_image_id.is_empty()) {
+            color.rgb += Texture2D<f32vec4>::get(material.emissive_image_id).Sample(SamplerState::get(material.emissive_sampler_id), input.uv).rgb;
         }
     }
 
