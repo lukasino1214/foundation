@@ -84,6 +84,7 @@ namespace foundation {
         struct RenderInfo {
             daxa::BufferId mesh_buffer = {};
             daxa::BufferId index_buffer = {};
+            daxa::BlasId blas = {};
             MeshGeometryData mesh = {};
             u32 vertex_count = {};
             u32 index_count = {};

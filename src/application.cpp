@@ -1,5 +1,7 @@
 #include "application.hpp"
 
+#include <ecs/entity.hpp>
+
 namespace foundation {
     Application::Application() :
         thread_pool(std::thread::hardware_concurrency() - 1),
@@ -8,8 +10,8 @@ namespace foundation {
         scene{std::make_shared<Scene>("default scene")},
         asset_processor{&gpu_context},
         asset_manager{&gpu_context, &asset_processor, &thread_pool, scene.get()},
-        gpu_scene{scene.get(), &asset_manager},
-        renderer{&window, &gpu_context, &asset_manager, scene.get()} {
+        gpu_scene{&gpu_context, scene.get(), &asset_manager},
+        renderer{&window, &gpu_context, &gpu_scene, &asset_manager, scene.get()} {
         PROFILE_SCOPE;
 
         struct CompilePipelinesTask : Task {
@@ -170,7 +172,7 @@ namespace foundation {
                 daxa::CommandRecorder cmd_recorder = gpu_context.device.create_command_recorder({ .name = "upload cmd recorder" });
                 auto upload_infos = asset_processor.upload_resources(cmd_recorder);
                 asset_manager.update(cmd_recorder, upload_infos);
-                gpu_scene.update();
+                gpu_scene.update(cmd_recorder, upload_infos);
                 gpu_context.device.submit_commands({ .command_lists = std::to_array({cmd_recorder.complete_current_commands()}) });
             }
 
@@ -250,6 +252,7 @@ namespace foundation {
             camera_info.projection_view_matrix = projection_view_matrix;
             camera_info.inverse_projection_view_matrix = inverse_projection_view;
             camera_info.position = camera.position;
+            camera_info.vertical_fov = glm::radians(camera.camera.fov);
 
             std::array<glm::vec4, 6> planes = {};
             for (i32 i = 0; i < 4; ++i) { planes[0][i] = projection_view_matrix[i][3] + projection_view_matrix[i][0]; }

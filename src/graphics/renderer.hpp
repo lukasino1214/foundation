@@ -1,14 +1,16 @@
 #pragma once
 
 #include <daxa/utils/imgui.hpp>
-#include <asset/asset_manager.hpp>
 
 namespace foundation {
     struct NativeWindow;
     struct GPUContext;
+    struct GPUScene;
+    struct AssetManager;
+    struct Scene;
 
     struct Renderer {
-        Renderer(NativeWindow* _window, GPUContext* _gpu_context, AssetManager* _asset_manager, Scene* _scene);
+        Renderer(NativeWindow* _window, GPUContext* _gpu_context, GPUScene* _gpu_scene, AssetManager* _asset_manager, Scene* _scene);
         ~Renderer();
     
         void render();
@@ -27,6 +29,7 @@ namespace foundation {
         GPUContext* gpu_context = {};
         AssetManager* asset_manager = {};
         Scene* scene = {};
+        GPUScene* gpu_scene = {};
 
         daxa::TaskImage swapchain_image = {};
         daxa::TaskImage render_image = {};

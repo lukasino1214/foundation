@@ -13,6 +13,7 @@ struct CameraInfo {
     f32mat4x4 inverse_projection_view_matrix;
     f32vec4 frustum_planes[6];
     f32vec3 position;
+    f32 vertical_fov;
 };
 DAXA_DECL_BUFFER_PTR(CameraInfo)
 
@@ -27,6 +28,7 @@ struct MeshGeometryData {
     daxa_BufferPtr(f32vec3) positions;
     daxa_BufferPtr(f32vec3) normals;
     daxa_BufferPtr(f32vec2) uvs;
+    daxa_BufferPtr(u32) indices;
     u32 material_index;
     u32 vertex_count;
     u32 index_count;

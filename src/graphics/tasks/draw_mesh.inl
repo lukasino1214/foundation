@@ -29,7 +29,7 @@ struct DrawMeshPush {
 using namespace foundation;
 struct DrawMeshTask : DrawMesh::Task {
     DrawMeshTask::Task::AttachmentViews views = {};
-    GPUContext* context = {};
+    GPUContext* gpu_context = {};
     DrawMeshPush push = {};
     AssetManager* asset_manager = {};
     Scene* scene = {};
@@ -96,7 +96,7 @@ struct DrawMeshTask : DrawMesh::Task {
             .render_area = {.x = 0, .y = 0, .width = size_x, .height = size_y},
         });
 
-        render_cmd.set_pipeline(*context->raster_pipelines.at(DrawMeshTask::name()));
+        render_cmd.set_pipeline(*gpu_context->raster_pipelines.at(DrawMeshTask::name()));
 
         scene->world->each([&](MeshComponent& mesh_component, GlobalMatrix& matrix) {
             const MeshGroupManifest& mesh_group_manifest = asset_manager->mesh_group_manifests[mesh_component.mesh_group_manifest_entry_index]; 

@@ -670,9 +670,9 @@ namespace foundation {
         auto& uvs = loaded_mesh.uvs;
         auto& indices = loaded_mesh.indices;
         
-        MeshGeometryData mesh_geometry_info = {};
-        mesh_geometry_info.vertex_count = s_cast<u32>(positions.size());
-        mesh_geometry_info.index_count = s_cast<u32>(indices.size());
+        MeshGeometryData mesh_geometry_data = {};
+        mesh_geometry_data.vertex_count = s_cast<u32>(positions.size());
+        mesh_geometry_data.index_count = s_cast<u32>(indices.size());
         
         usize total_mesh_size = positions.size() * sizeof(glm::vec3) + normals.size() * sizeof(glm::vec3) + uvs.size() * sizeof(glm::vec2);
         
@@ -695,21 +695,21 @@ namespace foundation {
 
         std::memcpy(mapped_ptr, positions.data(), positions.size() * sizeof(glm::vec3));
         mapped_ptr += positions.size() * sizeof(glm::vec3);
-        mesh_geometry_info.positions = bda;
+        mesh_geometry_data.positions = bda;
         bda += positions.size() * sizeof(glm::vec3);
 
         std::memcpy(mapped_ptr, normals.data(), normals.size() * sizeof(glm::vec3));
         mapped_ptr += normals.size() * sizeof(glm::vec3);
-        mesh_geometry_info.normals = bda;
+        mesh_geometry_data.normals = bda;
         bda += normals.size() * sizeof(glm::vec3);
 
         if(!uvs.empty()) {
             std::memcpy(mapped_ptr, uvs.data(), uvs.size() * sizeof(glm::vec2));
             mapped_ptr += uvs.size() * sizeof(glm::vec2);
-            mesh_geometry_info.uvs = bda;
+            mesh_geometry_data.uvs = bda;
             bda += uvs.size() * sizeof(glm::vec2);
         } else {
-            mesh_geometry_info.uvs = 0;
+            mesh_geometry_data.uvs = 0;
         }
 
         daxa::BufferId staging_index_buffer = gpu_context->device.create_buffer(daxa::BufferInfo {
@@ -724,6 +724,7 @@ namespace foundation {
         });
 
         std::memcpy(gpu_context->device.buffer_host_address(staging_index_buffer).value(), indices.data(), sizeof(u32) * indices.size());
+        mesh_geometry_data.indices = gpu_context->device.buffer_device_address(index_buffer).value();
 
         {
             std::lock_guard<std::mutex> lock{*mesh_upload_mutex};
@@ -732,7 +733,7 @@ namespace foundation {
                 .mesh_buffer = mesh_buffer,
                 .staging_index_buffer = staging_index_buffer,
                 .index_buffer = index_buffer,
-                .mesh_geometry_info = mesh_geometry_info,
+                .mesh_geometry_data = mesh_geometry_data,
                 .asset_manifest_index = info.asset_manifest_index,
                 .mesh_manifest_index = info.mesh_manifest_index,
             });
@@ -833,20 +834,112 @@ namespace foundation {
             mesh_upload_queue = {};
         }
 
-        for(const MeshUploadInfo& mesh_upload_info : ret.meshes) {
-            cmd_recorder.copy_buffer_to_buffer({
-                .src_buffer = mesh_upload_info.staging_mesh_buffer,
-                .dst_buffer = mesh_upload_info.mesh_buffer,
-                .size = gpu_context->device.buffer_info(mesh_upload_info.staging_mesh_buffer).value().size,
+        if(!ret.meshes.empty()) {
+            daxa::BufferId staging_transform_buffer = gpu_context->device.create_buffer({
+                .size = sizeof(daxa_f32mat3x4),
+                .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
+                .name = "staging transform buffer",
             });
-            cmd_recorder.destroy_buffer_deferred(mesh_upload_info.staging_mesh_buffer);
+            cmd_recorder.destroy_buffer_deferred(staging_transform_buffer);
 
-            cmd_recorder.copy_buffer_to_buffer({
-                .src_buffer = mesh_upload_info.staging_index_buffer,
-                .dst_buffer = mesh_upload_info.index_buffer,
-                .size = gpu_context->device.buffer_info(mesh_upload_info.staging_index_buffer).value().size,
+            daxa::BufferId transform_buffer =  gpu_context->device.create_buffer({
+                .size = sizeof(daxa_f32mat3x4),
+                .name = "transform buffer",
             });
-            cmd_recorder.destroy_buffer_deferred(mesh_upload_info.staging_index_buffer);
+            cmd_recorder.destroy_buffer_deferred(transform_buffer);
+
+            *gpu_context->device.buffer_host_address_as<f32mat3x4>(staging_transform_buffer).value() = f32mat3x4{
+                {1, 0, 0, 0},
+                {0, 1, 0, 0},
+                {0, 0, 1, 0},
+            };
+
+            cmd_recorder.copy_buffer_to_buffer(daxa::BufferCopyInfo {
+                .src_buffer = staging_transform_buffer,
+                .dst_buffer = transform_buffer,
+                .size = sizeof(daxa_f32mat3x4)
+            });
+
+            cmd_recorder.pipeline_barrier(daxa::BarrierInfo {
+                .src_access = daxa::AccessConsts::TRANSFER_WRITE,
+                .dst_access = daxa::AccessConsts::READ,
+            });
+
+            const u32 ACCELERATION_STRUCTURE_BUILD_OFFSET_ALIGMENT = 256;
+            auto round_up_to_multiple = [](u32 value, u32 multiple_of) -> u32 {
+                return ((value + multiple_of - 1) / multiple_of) * multiple_of;
+            };
+
+            std::vector<daxa::BlasBuildInfo> blas_build_infos = {};
+            std::vector<daxa::BlasTriangleGeometryInfo> geometry_store = {};
+            geometry_store.reserve(ret.meshes.size());
+
+            u32 current_scratch_buffer_offset = 0;
+            for(MeshUploadInfo& mesh_upload_info : ret.meshes) {
+                cmd_recorder.copy_buffer_to_buffer({
+                    .src_buffer = mesh_upload_info.staging_mesh_buffer,
+                    .dst_buffer = mesh_upload_info.mesh_buffer,
+                    .size = gpu_context->device.buffer_info(mesh_upload_info.staging_mesh_buffer).value().size,
+                });
+                cmd_recorder.destroy_buffer_deferred(mesh_upload_info.staging_mesh_buffer);
+    
+                cmd_recorder.copy_buffer_to_buffer({
+                    .src_buffer = mesh_upload_info.staging_index_buffer,
+                    .dst_buffer = mesh_upload_info.index_buffer,
+                    .size = gpu_context->device.buffer_info(mesh_upload_info.staging_index_buffer).value().size,
+                });
+                cmd_recorder.destroy_buffer_deferred(mesh_upload_info.staging_index_buffer);
+
+                geometry_store.push_back(daxa::BlasTriangleGeometryInfo{
+                    .vertex_format = daxa::Format::R32G32B32_SFLOAT,
+                    .vertex_data = mesh_upload_info.mesh_geometry_data.positions,
+                    .vertex_stride = sizeof(daxa_f32vec3),
+                    .max_vertex = mesh_upload_info.mesh_geometry_data.vertex_count - 1,
+                    .index_type = daxa::IndexType::uint32,
+                    .index_data = mesh_upload_info.mesh_geometry_data.indices,
+                    .transform_data = gpu_context->device.buffer_device_address(transform_buffer).value(),
+                    .count = mesh_upload_info.mesh_geometry_data.index_count / 3,
+                    .flags = daxa::GeometryFlagBits::OPAQUE,
+                });
+
+                daxa::BlasBuildInfo blas_build_info = {
+                    .flags = daxa::AccelerationStructureBuildFlagBits::PREFER_FAST_TRACE | daxa::AccelerationStructureBuildFlagBits::ALLOW_DATA_ACCESS,
+                    .geometries = std::span(&geometry_store.back(), 1), 
+                    .scratch_data = {},
+                };
+                
+                daxa::AccelerationStructureBuildSizesInfo build_size_info = gpu_context->device.blas_build_sizes(blas_build_info);
+
+                mesh_upload_info.blas = gpu_context->device.create_blas({
+                    .size = round_up_to_multiple(s_cast<u32>(build_size_info.acceleration_structure_size), ACCELERATION_STRUCTURE_BUILD_OFFSET_ALIGMENT),
+                    .name = fmt::format("{} blas", gpu_context->device.buffer_info(mesh_upload_info.mesh_buffer).value().name.c_str())
+                });
+
+                u32 aligned_scratch_size = round_up_to_multiple(s_cast<u32>(build_size_info.build_scratch_size), ACCELERATION_STRUCTURE_BUILD_OFFSET_ALIGMENT);
+                blas_build_info.dst_blas = mesh_upload_info.blas;
+                blas_build_info.scratch_data = current_scratch_buffer_offset;
+                current_scratch_buffer_offset += aligned_scratch_size;
+
+                blas_build_infos.push_back(blas_build_info);
+            }
+
+            daxa::BufferId blas_scratch_buffer = gpu_context->device.create_buffer({
+                .size = current_scratch_buffer_offset,
+            });
+            cmd_recorder.destroy_buffer_deferred(blas_scratch_buffer);
+
+            for(auto& blas_build_info : blas_build_infos) {
+                blas_build_info.scratch_data += gpu_context->device.buffer_device_address(blas_scratch_buffer).value();
+            }
+
+            cmd_recorder.pipeline_barrier(daxa::BarrierInfo {
+                .src_access = daxa::AccessConsts::TRANSFER_WRITE,
+                .dst_access = daxa::AccessConsts::READ,
+            });
+
+            cmd_recorder.build_acceleration_structures({
+                .blas_build_infos = blas_build_infos,
+            });
         }
 
         {

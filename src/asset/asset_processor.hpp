@@ -41,7 +41,9 @@ namespace foundation {
         daxa::BufferId staging_index_buffer = {};
         daxa::BufferId index_buffer = {};
 
-        MeshGeometryData mesh_geometry_info = {};
+        daxa::BlasId blas = {};
+
+        MeshGeometryData mesh_geometry_data = {};
 
         u32 asset_manifest_index = {};
         u32 mesh_manifest_index = {};

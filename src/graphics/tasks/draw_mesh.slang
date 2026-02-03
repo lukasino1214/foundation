@@ -11,7 +11,7 @@ struct VertexStageOutput {
 
 [shader("vertex")]
 VertexStageOutput vertex_main(u32 vertex_index: SV_VertexID) {
-    MeshGeometryData mesh = push.uses.u_meshes[push.mesh_index];
+    const MeshGeometryData mesh = push.uses.u_meshes[push.mesh_index];
 
     VertexStageOutput output;
     output.sv_position = mul(push.uses.u_globals->main_camera.projection_view_matrix, mul(mat_4x3_to_4x4(push.matrix),  f32vec4(mesh.positions[vertex_index], 1.0f)));
@@ -32,11 +32,11 @@ f32vec3 hsv_to_rgb(in f32vec3 hsv) {
 
 [shader("fragment")]
 f32vec4 fragment_main(u32 primitive_id : SV_PrimitiveID, in VertexStageOutput input) : SV_Target {
-    MeshGeometryData mesh = push.uses.u_meshes[push.mesh_index];
-    
+    const MeshGeometryData mesh = push.uses.u_meshes[push.mesh_index];
+
     f32vec4 color = f32vec4(hsv_to_rgb(f32vec3(f32(primitive_id) / 128 * M_GOLDEN_CONJ, 0.875, 0.85)), 1.0);
     if(mesh.material_index != INVALID_ID) {
-        Material material = push.uses.u_materials[mesh.material_index];
+        const Material material = push.uses.u_materials[mesh.material_index];
 
         if(!material.albedo_image_id.is_empty()) {
             color = Texture2D<f32vec4>::get(material.albedo_image_id).Sample(SamplerState::get(material.albedo_sampler_id), input.uv);

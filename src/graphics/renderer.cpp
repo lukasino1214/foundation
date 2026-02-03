@@ -4,9 +4,11 @@
 #include <imgui_impl_glfw.h>
 
 #include "tasks/draw_mesh.inl"
+#include "tasks/ray_tracing.inl"
+#include "gpu_scene.hpp"
 
 namespace foundation {
-    Renderer::Renderer(NativeWindow* _window, GPUContext* _gpu_context, AssetManager* _asset_manager, Scene* _scene) : window{_window}, gpu_context{_gpu_context}, asset_manager{_asset_manager}, scene{_scene} {
+    Renderer::Renderer(NativeWindow* _window, GPUContext* _gpu_context, GPUScene* _gpu_scene, AssetManager* _asset_manager, Scene* _scene) : window{_window}, gpu_context{_gpu_context}, asset_manager{_asset_manager}, scene{_scene}, gpu_scene{_gpu_scene} {
         ImGui::CreateContext();
         ImGui_ImplGlfw_InitForVulkan(window->glfw_handle, true);
         imgui_renderer =  daxa::ImGuiRenderer({
@@ -115,6 +117,7 @@ namespace foundation {
         }
 
         std::vector<std::tuple<std::string, daxa::RayTracingPipelineCompileInfo2>> ray_traces = {
+            {RayTraceTask::name(), RayTraceTask::pipeline_config_info()},
         };
 
         for (auto [name, info] : ray_traces) {
@@ -148,6 +151,8 @@ namespace foundation {
 
         render_task_graph.use_persistent_buffer(asset_manager->gpu_meshes);
         render_task_graph.use_persistent_buffer(asset_manager->gpu_materials);
+
+        render_task_graph.use_persistent_tlas(gpu_scene->gpu_tlas);
 
         if(!pipelines_compiled) {
             render_task_graph.add_task(daxa::InlineTask::Transfer("clear image")
@@ -214,10 +219,21 @@ namespace foundation {
                 .u_render_image = render_image.view(),
                 .u_depth_image = depth_image.view(),
             },
-            .context = gpu_context,
+            .gpu_context = gpu_context,
             .asset_manager = asset_manager,
             .scene = scene,
         });
+
+        // render_task_graph.add_task(RayTraceTask {
+        //     .views = RayTraceTask::Views {
+        //         .u_globals = gpu_context->shader_globals_buffer.view(),
+        //         .u_meshes = asset_manager->gpu_meshes.view(),
+        //         .u_materials = asset_manager->gpu_materials.view(),
+        //         .u_tlas = gpu_scene->gpu_tlas.view(),
+        //         .u_image = render_image.view(),
+        //     },
+        //     .gpu_context = gpu_context,
+        // });
 
         render_task_graph.add_task(daxa::InlineTask::Transfer("blit image to swapchain")
             .reads(render_image)

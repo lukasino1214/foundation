@@ -8,6 +8,7 @@
 #include <graphics/renderer.hpp>
 #include <ecs/scene.hpp>
 #include <graphics/gpu_scene.hpp>
+#include <asset/asset_manager.hpp>
 
 namespace foundation {
     struct Application {

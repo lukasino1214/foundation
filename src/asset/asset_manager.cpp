@@ -100,6 +100,7 @@ namespace foundation {
             if(mesh_manifest.render_info.has_value()) {
                 gpu_context->device.destroy_buffer(mesh_manifest.render_info->mesh_buffer);
                 gpu_context->device.destroy_buffer(mesh_manifest.render_info->index_buffer);
+                gpu_context->device.destroy_blas(mesh_manifest.render_info->blas);
             }
         }
     
@@ -598,18 +599,19 @@ namespace foundation {
             const AssetManifest& asset_manifest = asset_manifests[mesh_upload_info.asset_manifest_index];
             u32 mesh_manifest_manifest_index = asset_manifest.mesh_manifest_offset + mesh_upload_info.mesh_manifest_index;
             MeshManifest& mesh_manifest = mesh_manifests[mesh_manifest_manifest_index];
-            MeshGeometryData mesh_geometry_info = mesh_upload_info.mesh_geometry_info;
-            mesh_geometry_info.material_index = mesh_manifest.asset_local_material_index.has_value() ? asset_manifest.material_manifest_offset + mesh_manifest.asset_local_material_index.value() : INVALID_ID;
+            MeshGeometryData mesh_geometry_data = mesh_upload_info.mesh_geometry_data;
+            mesh_geometry_data.material_index = mesh_manifest.asset_local_material_index.has_value() ? asset_manifest.material_manifest_offset + mesh_manifest.asset_local_material_index.value() : INVALID_ID;
 
             mesh_manifest.render_info = {
                 .mesh_buffer = mesh_upload_info.mesh_buffer,
                 .index_buffer = mesh_upload_info.index_buffer,
-                .mesh = mesh_geometry_info,
-                .vertex_count = mesh_geometry_info.vertex_count,
-                .index_count = mesh_geometry_info.index_count,
+                .blas = mesh_upload_info.blas,
+                .mesh = mesh_geometry_data,
+                .vertex_count = mesh_geometry_data.vertex_count,
+                .index_count = mesh_geometry_data.index_count,
             };
 
-            meshes.push_back(mesh_geometry_info);
+            meshes.push_back(mesh_geometry_data);
             mesh_indices.push_back(asset_manifest.mesh_manifest_offset + mesh_upload_info.mesh_manifest_index);
         }
 
