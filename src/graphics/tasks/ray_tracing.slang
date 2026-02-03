@@ -46,11 +46,6 @@ void ray_gen() {
     image[index.xy] = f32vec4(payload.color, 1.0f);
 }
 
-[shader("anyhit")]
-void any_hit() {
-    // IgnoreHit();
-}
-
 f32vec2 interpolate_vec2(f32vec3 barycentrics, f32vec2 v0, f32vec2 v1, f32vec2 v2) {
     return v0 * barycentrics.x + v1 * barycentrics.y + v2 * barycentrics.z;
 }
@@ -107,6 +102,74 @@ void compute_derivatives_using_ray_cones(
     
     f32vec2 uv_at_a2 = (1.0 - u2 - v2) * texcoords[0] + u2 * texcoords[1] + v2 * texcoords[2];
     tex_gradient_2 = uv_at_a2 - interpolated_uv;
+}
+
+[shader("anyhit")]
+void any_hit(inout RayPayload payload, in BuiltInTriangleIntersectionAttributes attr) {
+    const MeshGeometryData mesh = push.uses.u_meshes[InstanceID()];
+    const f32vec3 barycentrics = f32vec3(1.0f - (attr.barycentrics.x + attr.barycentrics.y), attr.barycentrics.x, attr.barycentrics.y);
+    
+    const f32 t = RayTCurrent();
+    const f32vec3 ray_dir = normalize(WorldRayDirection());
+    
+    const f32 current_cone_width = payload.cone_width + payload.cone_spread * (t - payload.hit_distance);
+    
+    const u32 primitive_index = PrimitiveIndex();
+    const u32vec3 vertex_indices = u32vec3(
+        mesh.indices[primitive_index * 3 + 0],
+        mesh.indices[primitive_index * 3 + 1],
+        mesh.indices[primitive_index * 3 + 2]
+    );
+
+    const f32vec3 p0 = mesh.positions[vertex_indices.x];
+    const f32vec3 p1 = mesh.positions[vertex_indices.y];
+    const f32vec3 p2 = mesh.positions[vertex_indices.z];
+    const f32vec2 uv0 = mesh.uvs[vertex_indices.x];
+    const f32vec2 uv1 = mesh.uvs[vertex_indices.y];
+    const f32vec2 uv2 = mesh.uvs[vertex_indices.z];
+
+    const f32vec2 uv = interpolate_vec2(barycentrics, uv0, uv1, uv2);
+    const f32vec3 hit_point = interpolate_vec3(barycentrics, p0, p1, p2);
+    const f32vec3 normal = normalize(cross(p1 - p0, p2 - p0));
+
+    f32vec3 positions[3] = {p0, p1, p2};
+    f32vec2 texcoords[3] = {uv0, uv1, uv2};
+
+    f32vec2 uv_ddx, uv_ddy;
+    compute_derivatives_using_ray_cones(
+        hit_point,
+        normal,
+        ray_dir,
+        current_cone_width,
+        positions,
+        texcoords,
+        uv,
+        uv_ddx,
+        uv_ddy
+    );
+
+    f32vec4 color = f32vec4(hsv_to_rgb(f32vec3(f32(primitive_index) / 128 * M_GOLDEN_CONJ, 0.875, 0.85)), 1.0);
+    if(mesh.material_index != INVALID_ID) {
+        Material material = push.uses.u_materials[mesh.material_index];
+
+        if(!material.albedo_image_id.is_empty()) {
+            color = Texture2D<f32vec4>::get(material.albedo_image_id).SampleGrad(SamplerState::get(material.albedo_sampler_id), uv, uv_ddx, uv_ddy);
+        } else {
+            color = material.albedo_factor;
+        }
+
+        if(!material.emissive_image_id.is_empty()) {
+            color.rgb += Texture2D<f32vec4>::get(material.emissive_image_id).SampleGrad(SamplerState::get(material.emissive_sampler_id), uv, uv_ddx, uv_ddy).rgb;
+        }
+    }
+
+    if(color.a < 0.5) {
+        IgnoreHit();
+    }
+
+    payload.color = color.rgb;
+    payload.hit_distance = t;
+    payload.cone_width = current_cone_width;
 }
 
 [shader("closesthit")]

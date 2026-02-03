@@ -509,7 +509,7 @@ namespace foundation {
             };
 
             TaskInfo info = {};
-            LoadMeshTask(const TaskInfo& info) : info{info} { chunk_count = 1; }
+            explicit LoadMeshTask(const TaskInfo& info) : info{info} { chunk_count = 1; }
 
             virtual void callback(u32, u32) override {
                 info.asset_processor->process_mesh_load(info.load_info);
@@ -520,7 +520,13 @@ namespace foundation {
             const auto& gltf_mesh = asset->meshes.at(mesh_index);
             const auto& mesh_group_manifest = mesh_group_manifests[asset_manifest->mesh_group_manifest_offset + mesh_index];
             for(u32 primitive_index = 0; primitive_index < gltf_mesh.primitives.size(); primitive_index++) {
-                thread_pool->async_dispatch(std::make_shared<LoadMeshTask>(LoadMeshTask::TaskInfo{
+                const fastgltf::Primitive& gltf_primitive = gltf_mesh.primitives[primitive_index];
+                bool has_alpha = false;
+                if(gltf_primitive.materialIndex.has_value()) {
+                    has_alpha = material_manifests[asset_manifest->material_manifest_offset + gltf_primitive.materialIndex.value()].alpha_mode != 0;
+                }
+
+                thread_pool->async_dispatch(std::make_shared<LoadMeshTask>(LoadMeshTask::TaskInfo {
                     .load_info = {
                         .asset = asset,
                         .asset_path = file_path,
@@ -528,6 +534,7 @@ namespace foundation {
                         .mesh_manifest_index = mesh_group_manifest.asset_local_mesh_manifest_indices_offset + primitive_index,
                         .asset_local_mesh_group_index = mesh_index,
                         .asset_local_mesh_index = primitive_index,
+                        .has_alpha = has_alpha,
                     },
                     .asset_processor = asset_processor,
                 }), TaskPriority::LOW);

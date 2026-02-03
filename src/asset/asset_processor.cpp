@@ -736,6 +736,7 @@ namespace foundation {
                 .mesh_geometry_data = mesh_geometry_data,
                 .asset_manifest_index = info.asset_manifest_index,
                 .mesh_manifest_index = info.mesh_manifest_index,
+                .has_alpha = info.has_alpha,
             });
         }
     }
@@ -890,7 +891,7 @@ namespace foundation {
                 });
                 cmd_recorder.destroy_buffer_deferred(mesh_upload_info.staging_index_buffer);
 
-                geometry_store.push_back(daxa::BlasTriangleGeometryInfo{
+                geometry_store.push_back(daxa::BlasTriangleGeometryInfo {
                     .vertex_format = daxa::Format::R32G32B32_SFLOAT,
                     .vertex_data = mesh_upload_info.mesh_geometry_data.positions,
                     .vertex_stride = sizeof(daxa_f32vec3),
@@ -899,7 +900,7 @@ namespace foundation {
                     .index_data = mesh_upload_info.mesh_geometry_data.indices,
                     .transform_data = gpu_context->device.buffer_device_address(transform_buffer).value(),
                     .count = mesh_upload_info.mesh_geometry_data.index_count / 3,
-                    .flags = daxa::GeometryFlagBits::OPAQUE,
+                    .flags = mesh_upload_info.has_alpha ? daxa::GeometryFlagBits::NONE : daxa::GeometryFlagBits::OPAQUE,
                 });
 
                 daxa::BlasBuildInfo blas_build_info = {

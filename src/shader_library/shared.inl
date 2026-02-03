@@ -60,7 +60,7 @@ struct Material {
     b32 double_sided;
 };
 
-DAXA_DECL_BUFFER_PTR(GPUMaterial)
+DAXA_DECL_BUFFER_PTR(Material)
 
 #if defined(__cplusplus)
 #define SHARED_FUNCTION inline

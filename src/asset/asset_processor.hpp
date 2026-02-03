@@ -32,6 +32,8 @@ namespace foundation {
 
         u32 asset_local_mesh_group_index = {};
         u32 asset_local_mesh_index = {};
+
+        bool has_alpha = false;
     };
 
     struct MeshUploadInfo {
@@ -47,6 +49,8 @@ namespace foundation {
 
         u32 asset_manifest_index = {};
         u32 mesh_manifest_index = {};
+
+        bool has_alpha = false;
     };
 
     struct LoadTextureInfo {

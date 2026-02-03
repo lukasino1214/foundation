@@ -18,7 +18,7 @@ namespace foundation {
         if(!upload_infos.meshes.empty() || scene->entites_moved) {
             std::vector<daxa_BlasInstanceData> blas_instances = {};
             scene->world->each([&](MeshComponent& mesh_component, GlobalMatrix& matrix) {
-                const MeshGroupManifest& mesh_group_manifest = asset_manager->mesh_group_manifests[mesh_component.mesh_group_manifest_entry_index]; 
+                const MeshGroupManifest& mesh_group_manifest = asset_manager->mesh_group_manifests[mesh_component.mesh_group_manifest_entry_index];
                 const AssetManifest& asset_manifest = asset_manager->asset_manifests[mesh_group_manifest.asset_manifest_index];
 
                 for(u32 mesh_index = 0; mesh_index < mesh_group_manifest.mesh_count; mesh_index++) {
@@ -26,13 +26,18 @@ namespace foundation {
                     const MeshManifest& mesh_manifest = asset_manager->mesh_manifests[mesh_manifest_index];
                     if(!mesh_manifest.render_info.has_value()) { continue; }
 
+                    bool has_alpha = false;
+                    if(mesh_manifest.asset_local_material_index.has_value()) {
+                        has_alpha = asset_manager->material_manifests[asset_manifest.material_manifest_offset + mesh_manifest.asset_local_material_index.value()].alpha_mode != 0;
+                    }
+
                     glm::mat3x4 new_matrix = glm::transpose(matrix.matrix);
-                    blas_instances.push_back(daxa_BlasInstanceData {
-                        .transform = *r_cast<daxa_f32mat3x4*>(&new_matrix),
+                    blas_instances.push_back(daxa_BlasInstanceData{
+                        .transform = *r_cast<daxa_f32mat3x4 *>(&new_matrix),
                         .instance_custom_index = mesh_manifest_index,
                         .mask = 0xFF,
-                        .instance_shader_binding_table_record_offset = 0,
-                        .flags = DAXA_GEOMETRY_INSTANCE_FORCE_OPAQUE,
+                        .instance_shader_binding_table_record_offset = has_alpha ? 1u : 0u,
+                        .flags = has_alpha ? daxa::GeometryFlagBits::NONE : daxa::GeometryFlagBits::OPAQUE,
                         .blas_device_address = gpu_context->device.blas_device_address(std::bit_cast<daxa::BlasId>(mesh_manifest.render_info->blas)).value(),
                     });
                 }
@@ -95,7 +100,7 @@ namespace foundation {
                 .src_access = daxa::AccessConsts::TRANSFER_WRITE,
                 .dst_access = daxa::AccessConsts::READ,
             });
-        
+
             cmd_recorder.build_acceleration_structures({
                 .tlas_build_infos = std::array{tlas_build_info},
             });
@@ -103,4 +108,4 @@ namespace foundation {
 
         scene->entites_moved = false;
     }
-}
+} // namespace foundation
