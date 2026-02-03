@@ -780,7 +780,7 @@ namespace foundation {
             .size = { loaded_image.width, loaded_image.height, loaded_image.depth },
             .mip_level_count = mip_level_count,
             .array_layer_count = 1,
-            .usage = daxa::ImageUsageFlagBits::TRANSFER_DST | daxa::ImageUsageFlagBits::SHADER_SAMPLED,
+            .usage = daxa::ImageUsageFlagBits::TRANSFER_SRC | daxa::ImageUsageFlagBits::TRANSFER_DST | daxa::ImageUsageFlagBits::SHADER_SAMPLED,
             .name = gltf_image.name.c_str(),
         });
 
@@ -858,6 +858,12 @@ namespace foundation {
         for(const TextureUploadInfo& texture_upload_info : ret.textures) {
             cmd_recorder.destroy_buffer_deferred(texture_upload_info.staging_image_buffer);
 
+            cmd_recorder.pipeline_image_barrier(daxa::ImageBarrierInfo {
+                .dst_access = daxa::AccessConsts::TRANSFER_WRITE,
+                .image_id = texture_upload_info.image,
+                .layout_operation = daxa::ImageLayoutOperation::TO_GENERAL,
+            });
+
             if(texture_upload_info.mipmaps.empty()) {
                 daxa::Extent3D mip_size = gpu_context->device.image_info(texture_upload_info.image).value().size;
                 u32 mip_level_count = gpu_context->device.image_info(texture_upload_info.image).value().mip_level_count;
@@ -873,6 +879,12 @@ namespace foundation {
                     },
                     .image_offset = { 0, 0, 0 },
                     .image_extent = { mip_size.x, mip_size.y, mip_size.z }
+                });
+
+                cmd_recorder.pipeline_image_barrier(daxa::ImageBarrierInfo{
+                    .src_access = daxa::AccessConsts::TRANSFER_WRITE,
+                    .dst_access = daxa::AccessConsts::BLIT_READ,
+                    .image_id = texture_upload_info.image,
                 });
 
                 for(u32 i = 1; i < mip_level_count; i++) {
@@ -898,6 +910,12 @@ namespace foundation {
                         },
                         .dst_offsets = {{{0, 0, 0}, {s_cast<i32>(next_mip_size.x), s_cast<i32>(next_mip_size.y), s_cast<i32>(next_mip_size.z)}}},
                         .filter = daxa::Filter::LINEAR,
+                    });
+
+                    cmd_recorder.pipeline_image_barrier(daxa::ImageBarrierInfo{
+                        .src_access = daxa::AccessConsts::BLIT_WRITE,
+                        .dst_access = daxa::AccessConsts::BLIT_READ,
+                        .image_id = texture_upload_info.image,
                     });
                     
                     mip_size = next_mip_size;

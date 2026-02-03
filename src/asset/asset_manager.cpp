@@ -623,6 +623,12 @@ namespace foundation {
 
             std::memcpy(gpu_context->device.buffer_host_address(staging_meshes_buffer).value(), meshes.data(), sizeof(MeshGeometryData) * meshes.size());
 
+            // why the hell is this necessary?
+            cmd_recorder.pipeline_barrier(daxa::BarrierInfo {
+                .src_access = daxa::AccessConsts::COPY_WRITE,
+                .dst_access = daxa::AccessConsts::COPY_WRITE,
+            });
+
             u32 mesh_upload_index = 0;
             for(u32 gpu_mesh_index : mesh_indices) {
                 cmd_recorder.copy_buffer_to_buffer(daxa::BufferCopyInfo {
@@ -631,6 +637,12 @@ namespace foundation {
                     .src_offset = sizeof(MeshGeometryData) * mesh_upload_index++,
                     .dst_offset = sizeof(MeshGeometryData) * gpu_mesh_index,
                     .size = sizeof(MeshGeometryData)
+                });
+
+                // why the hell is this necessary?
+                cmd_recorder.pipeline_barrier(daxa::BarrierInfo {
+                    .src_access = daxa::AccessConsts::COPY_WRITE,
+                    .dst_access = daxa::AccessConsts::COPY_WRITE,
                 });
             }
         }
@@ -737,6 +749,12 @@ namespace foundation {
 
             std::memcpy(gpu_context->device.buffer_host_address(staging_materials_buffer).value(), materials.data(), sizeof(Material) * materials.size());
 
+            // why the hell is this necessary?
+            cmd_recorder.pipeline_barrier(daxa::BarrierInfo {
+                .src_access = daxa::AccessConsts::COPY_WRITE,
+                .dst_access = daxa::AccessConsts::COPY_WRITE,
+            });
+
             u32 material_upload_index = 0;
             for(u32 gpu_material_index : dirty_materials) {
                 cmd_recorder.copy_buffer_to_buffer(daxa::BufferCopyInfo {
@@ -745,6 +763,12 @@ namespace foundation {
                     .src_offset = sizeof(Material) * material_upload_index++,
                     .dst_offset = sizeof(Material) * gpu_material_index,
                     .size = sizeof(Material)
+                });
+
+                // why the hell is this necessary?
+                cmd_recorder.pipeline_barrier(daxa::BarrierInfo {
+                    .src_access = daxa::AccessConsts::COPY_WRITE,
+                    .dst_access = daxa::AccessConsts::COPY_WRITE,
                 });
             }
             dirty_materials.clear();
