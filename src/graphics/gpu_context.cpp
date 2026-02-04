@@ -60,6 +60,8 @@ namespace foundation {
     }
 
     auto GPUContext::get_sampler(const daxa::SamplerInfo& info) -> daxa::SamplerId {
+        PROFILE_SCOPE;
+
         {
             std::shared_lock<std::shared_mutex> read_lock{sampler_mutex};
             if (auto it = samplers.find(info); it != samplers.end()) {

@@ -41,6 +41,8 @@
 namespace foundation {
     template <typename ElemT, bool IS_INDEX_BUFFER>
     auto load_accessor_data_from_file(const std::filesystem::path& root_path, const fastgltf::Asset& gltf_asset, const fastgltf::Accessor& accesor) -> std::vector<ElemT> {
+        PROFILE_SCOPE;
+        
         static_assert(!IS_INDEX_BUFFER || std::is_same_v<ElemT, u32>, "Index Buffer must be u32");
         fastgltf::BufferView const & gltf_buffer_view = gltf_asset.bufferViews.at(accesor.bufferViewIndex.value());
         fastgltf::Buffer const & gltf_buffer = gltf_asset.buffers.at(gltf_buffer_view.bufferIndex);
@@ -82,6 +84,8 @@ namespace foundation {
     AssetProcessor::~AssetProcessor() {}
 
     auto AssetProcessor::generate_index_buffer(const GenerateIndexBufferInfo& info) -> ProcessedIndexBufferInfo {
+        PROFILE_SCOPE;
+
         std::vector<meshopt_Stream> streams = {};
         streams.push_back(meshopt_Stream { .data = info.unindexed_positions.data(), .size = info.unindexed_positions.size(), .stride = sizeof(f32vec3) });
         streams.push_back(meshopt_Stream { .data = info.unindexed_normals.data(), .size = info.unindexed_normals.size(), .stride = sizeof(f32vec3) });
@@ -108,12 +112,16 @@ namespace foundation {
     }
 
     auto AssetProcessor::optimize_vertex_cache(const std::vector<u32>& index_buffer, u32 vertex_count) -> std::vector<u32> {
+        PROFILE_SCOPE;
+
         std::vector<u32> optimized_index_buffer(index_buffer.size());
         meshopt_optimizeVertexCache(optimized_index_buffer.data(), index_buffer.data(), index_buffer.size(), vertex_count);
         return optimized_index_buffer;
     }
 
     auto AssetProcessor::optimize_vertex_fetch(const ProcessedIndexBufferInfo& info) -> ProcessedIndexBufferInfo {
+        PROFILE_SCOPE;
+
         std::vector<u32> remap_table(info.positions.size());
         usize unique_vertex_count = meshopt_optimizeVertexFetchRemap(remap_table.data(), info.indices.data(), info.indices.size(), info.positions.size());
         
@@ -133,6 +141,7 @@ namespace foundation {
 
     auto AssetProcessor::load_mesh(fastgltf::Asset* asset, const std::filesystem::path& file_path, u32 mesh_group_index, u32 mesh_index) -> LoadedMesh {
         PROFILE_SCOPE;
+
         const fastgltf::Mesh& gltf_mesh = asset->meshes[mesh_group_index];
         const fastgltf::Primitive& gltf_primitive = gltf_mesh.primitives[mesh_index];
         if(gltf_primitive.type != fastgltf::PrimitiveType::Triangles) {
@@ -428,6 +437,7 @@ namespace foundation {
 
     auto AssetProcessor::load_png(const std::filesystem::path& file_path) -> LoadedImage {
         PROFILE_SCOPE;
+
         std::vector<std::byte> buffer = io::read_file(file_path);
         LoadedImage loaded_image = {};
 
@@ -549,6 +559,7 @@ namespace foundation {
 
     auto AssetProcessor::load_jpeg(const std::filesystem::path& file_path) -> LoadedImage {
         PROFILE_SCOPE;
+
         std::vector<std::byte> buffer = io::read_file(file_path);
         LoadedImage loaded_image = {};
 
@@ -663,6 +674,7 @@ namespace foundation {
 
     void AssetProcessor::process_mesh_load(const LoadMeshInfo& info) {
         PROFILE_SCOPE;
+
         LoadedMesh loaded_mesh = AssetProcessor::load_mesh(info.asset, info.asset_path, info.asset_local_mesh_group_index, info.asset_local_mesh_index);
 
         auto& positions = loaded_mesh.positions;
@@ -743,6 +755,7 @@ namespace foundation {
 
     void AssetProcessor::process_texture_load(const LoadTextureInfo& info) {
         PROFILE_SCOPE;
+
         const fastgltf::Image& gltf_image = info.asset->images[info.texture_manifest_index];
         const auto* uri = std::get_if<fastgltf::sources::URI>(&gltf_image.data);
         if(uri == nullptr) { throw std::runtime_error("huh"); }
@@ -827,6 +840,7 @@ namespace foundation {
     
     auto AssetProcessor::upload_resources(daxa::CommandRecorder& cmd_recorder) -> ResourceUploadInfos {
         PROFILE_SCOPE;
+
         ResourceUploadInfos ret = {};
 
         {

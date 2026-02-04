@@ -2,6 +2,8 @@
 
 namespace foundation {
     auto make_task_buffer(GPUContext* context, const daxa::BufferInfo& info) -> daxa::TaskBuffer {
+        PROFILE_SCOPE;
+
         return daxa::TaskBuffer{daxa::TaskBufferInfo{
             .initial_buffers = daxa::TrackedBuffers{ 
                 .buffers = std::array{
@@ -17,6 +19,8 @@ namespace foundation {
     }
 
     auto reallocate_buffer(GPUContext* context, daxa::CommandRecorder& cmd_recorder, daxa::TaskBuffer& task_buffer, usize new_size) -> bool {
+        PROFILE_SCOPE;
+
         daxa::BufferId buffer = task_buffer.get_state().buffers[0];
         auto info = context->device.buffer_info(buffer).value();
         if(info.size < new_size) {
@@ -33,9 +37,10 @@ namespace foundation {
                 .size = old_size,
             });
 
-            task_buffer.set_buffers({ .buffers=std::array{new_buffer} });
+            task_buffer.set_buffers({ .buffers=std::array{ new_buffer } });
             return true;
         }
+
         return false;
     }
 }

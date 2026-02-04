@@ -1,14 +1,14 @@
 #pragma once
 
-#include <asset/asset_processor.hpp>
-#include <utils/thread_pool.hpp>
-#include <graphics/camera.hpp>
-#include <graphics/window.hpp>
-#include <graphics/gpu_context.hpp>
-#include <graphics/renderer.hpp>
-#include <ecs/scene.hpp>
-#include <graphics/gpu_scene.hpp>
 #include <asset/asset_manager.hpp>
+#include <asset/asset_processor.hpp>
+#include <graphics/camera.hpp>
+#include <graphics/gpu_context.hpp>
+#include <graphics/gpu_scene.hpp>
+#include <graphics/renderer.hpp>
+#include <graphics/window.hpp>
+#include <ecs/scene.hpp>
+#include <utils/thread_pool.hpp>
 
 namespace foundation {
     struct Application {

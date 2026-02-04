@@ -5,6 +5,8 @@
 namespace foundation {
     namespace io {
         auto read_file(const std::filesystem::path& file_path) -> std::vector<std::byte> {
+            PROFILE_SCOPE;
+
             if(!std::filesystem::exists(file_path)) {
                 throw std::runtime_error("file hasnt been found: " + file_path.string());
             }

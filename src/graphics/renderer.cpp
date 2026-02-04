@@ -70,11 +70,15 @@ namespace foundation {
     }
 
     void Renderer::window_resized() {
+        PROFILE_SCOPE;
+
         gpu_context->swapchain.resize();
         recreate_frame_buffer({window->get_width(), window->get_height()});
     }
 
     void Renderer::recreate_frame_buffer(const glm::uvec2& size) {
+        PROFILE_SCOPE;
+
         fmt::println("resizing to {}x{}", size.x, size.y);
 
         for (auto& [info, timg] : frame_buffer_images) {
@@ -88,6 +92,8 @@ namespace foundation {
     }
 
     void Renderer::compile_pipelines() {
+        PROFILE_SCOPE;
+
         std::vector<std::tuple<std::string, daxa::RasterPipelineCompileInfo2>> rasters = {
             {DrawMeshTask::name(), DrawMeshTask::pipeline_config_info()},
         };
@@ -137,6 +143,8 @@ namespace foundation {
     }
 
     void Renderer::rebuild_task_graph() {
+        PROFILE_SCOPE;
+
         std::lock_guard<std::mutex> lock(task_graph_mutex);
         render_task_graph = daxa::TaskGraph({
             .device = gpu_context->device,
@@ -278,7 +286,7 @@ namespace foundation {
             }
         }
 
-        auto image = gpu_context->swapchain.acquire_next_image();
+        daxa::ImageId image = gpu_context->swapchain.acquire_next_image();
         if(image.is_empty()) { return; }
         swapchain_image.set_images({.images = std::span{&image, 1}});
         
@@ -295,14 +303,19 @@ namespace foundation {
     }
 
     void Renderer::ui_render_start() {
+        PROFILE_SCOPE;
+
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
     }
 
     void Renderer::ui_update() {
+        PROFILE_SCOPE;
     }
 
     void Renderer::ui_render_end() {
+        PROFILE_SCOPE;
+
         ImGui::Render();
     }
 }

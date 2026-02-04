@@ -2,10 +2,6 @@
 #include "scene.hpp"
 #include "components.hpp"
 
-#include <glm/ext/quaternion_geometric.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtx/quaternion.hpp>
-
 #include <math/math.hpp>
 
 namespace foundation {

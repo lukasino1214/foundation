@@ -1,5 +1,4 @@
 #include "camera.hpp"
-#include <glm/gtx/rotate_vector.hpp>
 
 namespace foundation {
     void Camera3D::resize(i32 size_x, i32 size_y) {

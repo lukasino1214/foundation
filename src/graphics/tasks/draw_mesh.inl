@@ -23,8 +23,7 @@ struct DrawMeshPush {
 };
 
 #if __cplusplus
-#include "graphics/gpu_context.hpp"
-#include "asset/asset_manager.hpp"
+#include <asset/asset_manager.hpp>
 
 using namespace foundation;
 struct DrawMeshTask : DrawMesh::Task {
@@ -73,6 +72,8 @@ struct DrawMeshTask : DrawMesh::Task {
     }
 
     void callback(daxa::TaskInterface ti) {
+        PROFILE_SCOPE_NAMED(draw_mesh_callback);
+
         u32 size_x = ti.device.image_info(ti.get(AT.u_render_image).ids[0]).value().size.x;
         u32 size_y = ti.device.image_info(ti.get(AT.u_render_image).ids[0]).value().size.y;
 

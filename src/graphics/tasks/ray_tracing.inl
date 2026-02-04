@@ -22,8 +22,6 @@ struct RayTracePush {
 };
 
 #if __cplusplus
-#include "graphics/gpu_context.hpp"
-
 struct RayTraceTask : RayTrace::Task {
     RayTraceTask::Task::AttachmentViews views = {};
     foundation::GPUContext* gpu_context = {};
