@@ -3,6 +3,7 @@
 #include "gpu_context.hpp"
 #include <imgui_impl_glfw.h>
 
+#include "tasks/depth_prepass.inl"
 #include "tasks/draw_mesh.inl"
 #include "tasks/ray_tracing.inl"
 #include "gpu_scene.hpp"
@@ -95,6 +96,7 @@ namespace foundation {
         PROFILE_SCOPE;
 
         std::vector<std::tuple<std::string, daxa::RasterPipelineCompileInfo2>> rasters = {
+            {DepthPrepassTask::name(), DepthPrepassTask::pipeline_config_info()},
             {DrawMeshTask::name(), DrawMeshTask::pipeline_config_info()},
         };
 
@@ -208,16 +210,26 @@ namespace foundation {
             .writes(gpu_context->shader_globals_buffer)
             .executes([&](daxa::TaskInterface const &ti) {
                 auto alloc = ti.allocator->allocate_fill(gpu_context->shader_globals);
-                if(alloc.has_value()) {
-                    ti.recorder.copy_buffer_to_buffer({
-                        .src_buffer = ti.allocator->buffer(),
-                        .dst_buffer = ti.get(gpu_context->shader_globals_buffer).ids[0],
-                        .src_offset = alloc->buffer_offset,
-                        .dst_offset = 0,
-                        .size = sizeof(ShaderGlobals),
-                    });
-                }
+                ti.recorder.copy_buffer_to_buffer({
+                    .src_buffer = ti.allocator->buffer(),
+                    .dst_buffer = ti.get(gpu_context->shader_globals_buffer).ids[0],
+                    .src_offset = alloc->buffer_offset,
+                    .dst_offset = 0,
+                    .size = sizeof(ShaderGlobals),
+                });
         }));
+
+        render_task_graph.add_task(DepthPrepassTask {
+            .views = DepthPrepassTask::Views {
+                .u_globals = gpu_context->shader_globals_buffer.view(),
+                .u_meshes = asset_manager->gpu_meshes.view(),
+                .u_materials = asset_manager->gpu_materials.view(),
+                .u_depth_image = depth_image.view(),
+            },
+            .gpu_context = gpu_context,
+            .asset_manager = asset_manager,
+            .scene = scene,
+        });
 
         render_task_graph.add_task(DrawMeshTask {
             .views = DrawMeshTask::Views {

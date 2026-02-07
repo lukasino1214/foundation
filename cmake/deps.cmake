@@ -79,7 +79,7 @@ if (NOT TARGET imgui::imgui)
         imgui
         GIT_REPOSITORY https://github.com/ocornut/imgui
         GIT_TAG        fdc084f532189fda8474079f79e74fa5e3541c9f
-        GIT_SHALLOW    ON # docking branch cope
+        GIT_SHALLOW    OFF # docking branch cope
         GIT_PROGRESS TRUE
         EXCLUDE_FROM_ALL
     )
