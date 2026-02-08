@@ -2,6 +2,7 @@
 
 namespace fastgltf {
     class Asset;
+    struct Accessor;
 }
 
 namespace foundation {
@@ -88,13 +89,16 @@ namespace foundation {
 
         auto upload_resources(daxa::CommandRecorder& cmd_recorder) -> ResourceUploadInfos;
 
+        template <typename ElemT, bool IS_INDEX_BUFFER>
+        static auto load_accessor_data_from_file(const std::filesystem::path& root_path, const fastgltf::Asset& gltf_asset, const fastgltf::Accessor& accesor) -> std::vector<ElemT>;
+    
     private:
         static auto load_mesh(fastgltf::Asset* asset, const std::filesystem::path& file_path, u32 mesh_group_index, u32 mesh_index) -> LoadedMesh;
         static auto load_image(const std::filesystem::path& file_path) -> LoadedImage;
 
-        static auto load_dds(const std::filesystem::path& file_path) -> LoadedImage;
-        static auto load_png(const std::filesystem::path& file_path) -> LoadedImage;
-        static auto load_jpeg(const std::filesystem::path& file_path) -> LoadedImage;
+        static auto load_dds(std::span<std::byte const> data) -> LoadedImage;
+        static auto load_png(std::span<std::byte const> data) -> LoadedImage;
+        static auto load_jpeg(std::span<std::byte const> data) -> LoadedImage;
 
         struct GenerateIndexBufferInfo {
             std::vector<f32vec3> unindexed_positions = {};

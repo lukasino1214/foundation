@@ -22,47 +22,6 @@
 #include <graphics/helper.hpp>
 
 namespace foundation {
-    template <typename ElemT, bool IS_INDEX_BUFFER>
-    auto load_accessor_data_from_file(const std::filesystem::path& root_path, const fastgltf::Asset& gltf_asset, const fastgltf::Accessor& accesor) -> std::vector<ElemT> {
-        PROFILE_SCOPE;
-        
-        static_assert(!IS_INDEX_BUFFER || std::is_same_v<ElemT, u32>, "Index Buffer must be u32");
-        fastgltf::BufferView const & gltf_buffer_view = gltf_asset.bufferViews.at(accesor.bufferViewIndex.value());
-        fastgltf::Buffer const & gltf_buffer = gltf_asset.buffers.at(gltf_buffer_view.bufferIndex);
-        if (!std::holds_alternative<fastgltf::sources::URI>(gltf_buffer.data)) {}
-
-        fastgltf::sources::URI uri = std::get<fastgltf::sources::URI>(gltf_buffer.data);
-        std::filesystem::path const full_buffer_path = root_path / uri.uri.fspath();
-        std::ifstream ifs{full_buffer_path, std::ios::binary};
-        if (!ifs) {}
-
-        ifs.seekg(s_cast<std::streamsize>(gltf_buffer_view.byteOffset + accesor.byteOffset + uri.fileByteOffset));
-        std::vector<u16> raw = {};
-        size_t const elem_byte_size = fastgltf::getElementByteSize(accesor.type, accesor.componentType);
-        raw.resize((accesor.count * elem_byte_size) / 2);
-        if (!ifs.read(r_cast<char *>(raw.data()), s_cast<std::streamsize>(accesor.count * elem_byte_size))) {}
-
-        auto buffer_adapter = [&](fastgltf::Asset const & /* asset */, u32 /* asset_index */) -> fastgltf::span<std::byte const> {
-            return fastgltf::span<std::byte const>(reinterpret_cast<std::byte const *>(raw.data()) - accesor.byteOffset, accesor.count * elem_byte_size);
-        };
-
-        std::vector<ElemT> ret(accesor.count);
-        if constexpr (IS_INDEX_BUFFER) {
-            if (accesor.componentType == fastgltf::ComponentType::UnsignedShort) {
-                std::vector<u16> u16_index_buffer(accesor.count);
-                fastgltf::copyFromAccessor<u16>(gltf_asset, accesor, u16_index_buffer.data(), buffer_adapter);
-                for (size_t i = 0; i < u16_index_buffer.size(); ++i) {
-                    ret[i] = s_cast<u32>(u16_index_buffer[i]);
-                }
-            } else {
-                fastgltf::copyFromAccessor<u32>(gltf_asset, accesor, ret.data(), buffer_adapter);
-            }
-        } else {
-            fastgltf::copyFromAccessor<ElemT>(gltf_asset, accesor, ret.data(), buffer_adapter);
-        }
-        return ret;
-    }
-
     AssetManager::AssetManager(GPUContext* _gpu_context, AssetProcessor* _asset_processor, ThreadPool* _thread_pool, Scene* _scene) : gpu_context{_gpu_context}, asset_processor{_asset_processor}, thread_pool{_thread_pool}, scene{_scene} {
         gpu_materials = make_task_buffer(gpu_context, {
             sizeof(Material), 
@@ -254,12 +213,12 @@ namespace foundation {
         auto gltf_texture_to_manifest_texture_index = [&](u32 const texture_index) -> std::optional<u32> {
             const bool gltf_texture_has_image_index = asset->textures.at(texture_index).imageIndex.has_value();
             if (!gltf_texture_has_image_index) { return std::nullopt; }
-            else { return static_cast<u32>(asset->textures[texture_index].imageIndex.value()); }
+            else { return s_cast<u32>(asset->textures[texture_index].imageIndex.value()); }
         };
 
         material_manifests.reserve(material_manifests.size() + asset->materials.size());
         dirty_materials.reserve(dirty_materials.size() + asset->materials.size());
-        for (u32 material_index = 0; material_index < static_cast<u32>(asset->materials.size()); material_index++) {
+        for (u32 material_index = 0; material_index < s_cast<u32>(asset->materials.size()); material_index++) {
             const auto& material = asset->materials[material_index];
             dirty_materials.push_back(asset_manifest->material_manifest_offset + material_index);
 
@@ -272,7 +231,7 @@ namespace foundation {
             std::optional<MaterialManifest::TextureInfo> roughnes_metalness_info = {};
             std::optional<MaterialManifest::TextureInfo> emissive_info = {};
             if(has_albedo_texture) {
-                const u32 texture_index = static_cast<u32>(material.pbrData.baseColorTexture.value().textureIndex);
+                const u32 texture_index = s_cast<u32>(material.pbrData.baseColorTexture.value().textureIndex);
                 const auto has_index = gltf_texture_to_manifest_texture_index(texture_index).has_value();
                 if (has_index) {
                     albedo_texture_info = MaterialManifest::TextureInfo {
@@ -281,14 +240,14 @@ namespace foundation {
                     };
 
                     texture_manifests[asset_manifest->texture_manifest_offset + albedo_texture_info->asset_local_texture_index].material_manifest_indices.push_back(TextureManifest::MaterialManifestIndex {
-                        .material_type = MaterialType::GltfAlbedo,
+                        .texture_type = TextureType::GltfAlbedo,
                         .asset_local_material_index = material_index,
                     });
                 }
             }
 
             if(has_normal_texture) {
-                const u32 texture_index = static_cast<u32>(material.normalTexture.value().textureIndex);
+                const u32 texture_index = s_cast<u32>(material.normalTexture.value().textureIndex);
                 const bool has_index = gltf_texture_to_manifest_texture_index(texture_index).has_value();
                 if(has_index) {
                     normal_texture_info = MaterialManifest::TextureInfo {
@@ -297,14 +256,14 @@ namespace foundation {
                     };
 
                     texture_manifests[asset_manifest->texture_manifest_offset + normal_texture_info->asset_local_texture_index].material_manifest_indices.push_back(TextureManifest::MaterialManifestIndex {
-                        .material_type = MaterialType::GltfNormal,
+                        .texture_type = TextureType::GltfNormal,
                         .asset_local_material_index = material_index,
                     });
                 }
             }
 
             if(has_roughness_metalness_texture) {
-                const u32 texture_index = static_cast<u32>(material.pbrData.metallicRoughnessTexture.value().textureIndex);
+                const u32 texture_index = s_cast<u32>(material.pbrData.metallicRoughnessTexture.value().textureIndex);
                 const bool has_index = gltf_texture_to_manifest_texture_index(texture_index).has_value();
                 if(has_index) {
                     roughnes_metalness_info = MaterialManifest::TextureInfo {
@@ -313,13 +272,13 @@ namespace foundation {
                     };
 
                     texture_manifests[asset_manifest->texture_manifest_offset + roughnes_metalness_info->asset_local_texture_index].material_manifest_indices.push_back(TextureManifest::MaterialManifestIndex {
-                        .material_type = MaterialType::GltfRoughnessMetallic,
+                        .texture_type = TextureType::GltfRoughnessMetallic,
                         .asset_local_material_index = material_index,
                     });
                 }
             }
             if(has_emissive_texture) {
-                const u32 texture_index = static_cast<u32>(material.emissiveTexture.value().textureIndex);
+                const u32 texture_index = s_cast<u32>(material.emissiveTexture.value().textureIndex);
                 const bool has_index = gltf_texture_to_manifest_texture_index(texture_index).has_value();
                 if(has_index) {
                     emissive_info = MaterialManifest::TextureInfo {
@@ -328,7 +287,7 @@ namespace foundation {
                     };
 
                     texture_manifests[asset_manifest->texture_manifest_offset + emissive_info->asset_local_texture_index].material_manifest_indices.push_back(TextureManifest::MaterialManifestIndex {
-                        .material_type = MaterialType::GltfEmissive,
+                        .texture_type = TextureType::GltfEmissive,
                         .asset_local_material_index = material_index,
                     });
                 }
@@ -344,7 +303,7 @@ namespace foundation {
                 .metallic_factor = material.pbrData.metallicFactor,
                 .roughness_factor = material.pbrData.roughnessFactor,
                 .emissive_factor = { material.emissiveFactor[0], material.emissiveFactor[1], material.emissiveFactor[2] },
-                .alpha_mode = s_cast<u32>(material.alphaMode),
+                .material_type = s_cast<MaterialType>(material.alphaMode),
                 .alpha_cutoff = material.alphaCutoff,
                 .double_sided = material.doubleSided,
                 .name = material.name.c_str(),
@@ -406,19 +365,19 @@ namespace foundation {
                     std::vector<f32> values = {};
                     switch (value_accessor.type) {
                         case fastgltf::AccessorType::Vec3: {
-                            std::vector<glm::vec3> data = load_accessor_data_from_file<glm::vec3, false>(file_path.parent_path(), *asset, value_accessor);
+                            std::vector<glm::vec3> data = AssetProcessor::load_accessor_data_from_file<glm::vec3, false>(file_path.parent_path(), *asset, value_accessor);
                             values.resize(3 * data.size());
                             std::memcpy(values.data(), data.data(), 3 * data.size() * sizeof(f32));
                             break;
                         }
                         case fastgltf::AccessorType::Vec4: {
-                            std::vector<glm::vec4> data = load_accessor_data_from_file<glm::vec4, false>(file_path.parent_path(), *asset, value_accessor);
+                            std::vector<glm::vec4> data = AssetProcessor::load_accessor_data_from_file<glm::vec4, false>(file_path.parent_path(), *asset, value_accessor);
                             values.resize(4 * data.size());
                             std::memcpy(values.data(), data.data(), 4 * data.size() * sizeof(f32));
                             break;
                         }
                         case fastgltf::AccessorType::Scalar: {
-                            std::vector<f32> data = load_accessor_data_from_file<f32, false>(file_path.parent_path(), *asset, value_accessor);
+                            std::vector<f32> data = AssetProcessor::load_accessor_data_from_file<f32, false>(file_path.parent_path(), *asset, value_accessor);
                             values.resize(data.size());
                             std::memcpy(values.data(), data.data(), data.size() * sizeof(f32));
                             break;
@@ -433,7 +392,7 @@ namespace foundation {
                 AnimationSampler sampler = {};
                 sampler.timestamps = vec_to_floats(gltf_sampler.inputAccessor);
                 sampler.values = vec_to_floats(gltf_sampler.outputAccessor);
-                sampler.interpolation = static_cast<AnimationInterpolation>(s_cast<u8>(gltf_sampler.interpolation));
+                sampler.interpolation = s_cast<AnimationInterpolation>(s_cast<u8>(gltf_sampler.interpolation));
                 
                 min_timestamp = glm::min(min_timestamp, sampler.timestamps.front());
                 max_timestamp = glm::max(max_timestamp, sampler.timestamps.back());
@@ -464,7 +423,7 @@ namespace foundation {
 
             std::vector<glm::mat4> inverse_bind_matrices = {};
             if(gltf_skin.inverseBindMatrices.has_value()) {
-                inverse_bind_matrices = load_accessor_data_from_file<glm::mat4, false>(file_path.parent_path(), *asset, asset->accessors[gltf_skin.inverseBindMatrices.value()]);
+                inverse_bind_matrices = AssetProcessor::load_accessor_data_from_file<glm::mat4, false>(file_path.parent_path(), *asset, asset->accessors[gltf_skin.inverseBindMatrices.value()]);
             }
 
             skeleton_manifests.push_back(SkeletonManifest {
@@ -506,7 +465,7 @@ namespace foundation {
                 const fastgltf::Primitive& gltf_primitive = gltf_mesh.primitives[primitive_index];
                 bool has_alpha = false;
                 if(gltf_primitive.materialIndex.has_value()) {
-                    has_alpha = material_manifests[asset_manifest->material_manifest_offset + gltf_primitive.materialIndex.value()].alpha_mode != 0;
+                    has_alpha = material_manifests[asset_manifest->material_manifest_offset + gltf_primitive.materialIndex.value()].material_type != MaterialType::Opaque;
                 }
 
                 thread_pool->async_dispatch(std::make_shared<LoadMeshTask>(LoadMeshTask::TaskInfo {
@@ -545,8 +504,8 @@ namespace foundation {
 
             bool used_as_albedo = false;
             for (const auto& material_manifest_index : texture_manifest_entry.material_manifest_indices) {
-                used_as_albedo |= material_manifest_index.material_type == MaterialType::GltfAlbedo;
-                used_as_albedo |= material_manifest_index.material_type == MaterialType::GltfEmissive;
+                used_as_albedo |= material_manifest_index.texture_type == TextureType::GltfAlbedo;
+                used_as_albedo |= material_manifest_index.texture_type == TextureType::GltfEmissive;
             }
 
             if (!texture_manifest_entry.material_manifest_indices.empty()) {
@@ -650,25 +609,25 @@ namespace foundation {
 
             for(auto& material_using_texture_info : texture_manifest.material_manifest_indices) {
                 MaterialManifest& material_manifest = material_manifests[asset_manifest.material_manifest_offset + material_using_texture_info.asset_local_material_index];
-                if (material_using_texture_info.material_type == MaterialType::GltfAlbedo) {
+                if (material_using_texture_info.texture_type == TextureType::GltfAlbedo) {
                     if (material_manifest.albedo_info.has_value()) {
                         material_manifest.albedo_info->asset_local_texture_index = texture_upload_info.texture_manifest_index;
                     }
                 }
 
-                if (material_using_texture_info.material_type == MaterialType::GltfNormal) {
+                if (material_using_texture_info.texture_type == TextureType::GltfNormal) {
                     if (material_manifest.normal_info.has_value()) {
                         material_manifest.normal_info->asset_local_texture_index = texture_upload_info.texture_manifest_index;
                     }
                 }
                 
-                if (material_using_texture_info.material_type == MaterialType::GltfRoughnessMetallic) {
+                if (material_using_texture_info.texture_type == TextureType::GltfRoughnessMetallic) {
                     if (material_manifest.roughness_metalness_info.has_value()) {
                         material_manifest.roughness_metalness_info->asset_local_texture_index = texture_upload_info.texture_manifest_index;
                     }
                 }
 
-                if (material_using_texture_info.material_type == MaterialType::GltfEmissive) {
+                if (material_using_texture_info.texture_type == TextureType::GltfEmissive) {
                     if (material_manifest.emissive_info.has_value()) {
                         material_manifest.emissive_info->asset_local_texture_index = texture_upload_info.texture_manifest_index;
                     }
@@ -693,9 +652,9 @@ namespace foundation {
                 gpu_material.metallic_factor = material_manifest.metallic_factor;
                 gpu_material.roughness_factor = material_manifest.roughness_factor;
                 gpu_material.emissive_factor = material_manifest.emissive_factor;
-                gpu_material.alpha_mode = material_manifest.alpha_mode;
+                gpu_material.alpha_mode = s_cast<u32>(material_manifest.material_type);
                 gpu_material.alpha_cutoff = material_manifest.alpha_cutoff;
-                gpu_material.double_sided = static_cast<b32>(material_manifest.double_sided);
+                gpu_material.double_sided = s_cast<b32>(material_manifest.double_sided);
 
                 if (material_manifest.albedo_info.has_value()) {
                     const TextureManifest& texture_manifest = texture_manifests[local_asset_manifest.texture_manifest_offset + material_manifest.albedo_info.value().asset_local_texture_index];

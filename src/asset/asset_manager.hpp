@@ -13,6 +13,12 @@ namespace foundation {
     struct ThreadPool;
 
     enum struct MaterialType : u32 {
+        Opaque,
+        Masked,
+        Blend,
+    };
+
+    enum struct TextureType : u32 {
         GltfAlbedo,
         GltfNormal,
         GltfRoughnessMetallic, // roughness stored in blue channel and metallic stored in green channel
@@ -40,7 +46,7 @@ namespace foundation {
 
     struct TextureManifest {
         struct MaterialManifestIndex {
-            MaterialType material_type = MaterialType::None;
+            TextureType texture_type = TextureType::None;
             u32 asset_local_material_index = {};
         };
 
@@ -74,7 +80,7 @@ namespace foundation {
         f32 metallic_factor;
         f32 roughness_factor;
         glm::vec3 emissive_factor = { 0.0f, 0.0f, 0.0f };
-        u32 alpha_mode;
+        MaterialType material_type;
         f32 alpha_cutoff;
         bool double_sided;
         std::string name = {};

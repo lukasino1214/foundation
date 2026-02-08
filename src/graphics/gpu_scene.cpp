@@ -28,7 +28,7 @@ namespace foundation {
 
                     bool has_alpha = false;
                     if(mesh_manifest.asset_local_material_index.has_value()) {
-                        has_alpha = asset_manager->material_manifests[asset_manifest.material_manifest_offset + mesh_manifest.asset_local_material_index.value()].alpha_mode != 0;
+                        has_alpha = asset_manager->material_manifests[asset_manifest.material_manifest_offset + mesh_manifest.asset_local_material_index.value()].material_type != MaterialType::Opaque;
                     }
 
                     glm::mat3x4 new_matrix = glm::transpose(matrix.matrix);
@@ -63,10 +63,7 @@ namespace foundation {
             });
             cmd_recorder.destroy_buffer_deferred(staging_blas_instances_buffer);
 
-            const daxa_u32 ACCELERATION_STRUCTURE_BUILD_OFFSET_ALIGMENT = 256;
-            auto round_up_to_multiple = [](daxa_u32 value, daxa_u32 multiple_of) -> daxa_u32 {
-                return ((value + multiple_of - 1) / multiple_of) * multiple_of;
-            };
+            const u32 ACCELERATION_STRUCTURE_BUILD_OFFSET_ALIGMENT = 256;
 
             auto tlas_blas_instances_infos = std::array{daxa::TlasInstanceInfo{
                 .data = gpu_context->device.buffer_device_address(blas_instances_buffer).value(),

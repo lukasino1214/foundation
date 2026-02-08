@@ -32,16 +32,16 @@ namespace foundation {
             Entity root_entity = scene->create_entity("root entity");
             root_entity.add_component<TransformComponent>();
             root_entity.set_local_position({10, -2, 0});
-            // asset_manager.load_asset("assets/models/bistro-full/bistro.gltf", root_entity);
-            asset_manager.load_asset("assets/models/Bistro/Bistro.glb", root_entity);
+            asset_manager.load_asset("assets/models/bistro-full/bistro.gltf", root_entity);
+            // asset_manager.load_asset("assets/models/Bistro/Bistro.glb", root_entity);
         }
 
         {
             Entity root_entity = scene->create_entity("root entity 2");
             root_entity.add_component<TransformComponent>();
             root_entity.set_local_position({100, -2, 0});
-            // asset_manager.load_asset("assets/models/bistro-full/bistro.gltf", root_entity);
-            asset_manager.load_asset("assets/models/Bistro/Bistro.glb", root_entity);
+            asset_manager.load_asset("assets/models/bistro-full/bistro.gltf", root_entity);
+            // asset_manager.load_asset("assets/models/Bistro/Bistro.glb", root_entity);
         }
 
         {
@@ -231,6 +231,130 @@ namespace foundation {
             }
             ImGui::End();
         }
+
+        if(ImGui::Begin("Memory Usage")) {
+            auto mem_report = gpu_context.device.device_memory_report_convenient();
+
+            {
+                bool open = (ImGui::CollapsingHeader("Total Buffer VRAM Use:        "));
+                ImGui::SameLine();
+                ImGui::Text("%s", fmt::format("{:>10.2f} mb", s_cast<f32>(mem_report.total_buffer_device_memory_use) / 1024.0f  / 1024.0f).c_str());
+                if (open) {
+                    std::stable_sort(mem_report.buffer_list.begin(), mem_report.buffer_list.end(), [](auto& a, auto& b){ return a.size > b.size; });
+                    usize const list_len_max = 30;
+                    usize const list_len = std::min(list_len_max, mem_report.buffer_list.size());
+                    if (ImGui::BeginTable("Buffer Mem Use", 3, ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg)) {
+                        ImGui::TableSetupColumn("Name", {});
+                        ImGui::TableSetupColumn("Size", {});
+                        ImGui::TableSetupColumn("Block Allocated?", {});
+                        ImGui::TableHeadersRow();
+                        for (usize i = 0; i < list_len; ++i) {
+                            auto buf = mem_report.buffer_list[i];
+                            char const * name = gpu_context.device.buffer_info(buf.id).value().name.data();
+    
+                            ImGui::TableNextRow();
+                            ImGui::TableSetColumnIndex(0);
+                            ImGui::Text("%s", name);
+                            ImGui::TableSetColumnIndex(1);
+                            ImGui::Text("%fmb", s_cast<f64>(buf.size) / 1024.0 / 1024.0);
+                            ImGui::TableSetColumnIndex(2);
+                            ImGui::Text(buf.block_allocated ? "Yes" : "No");
+                        }
+                    }
+                    ImGui::EndTable();
+                }
+            }
+            {
+                bool open = (ImGui::CollapsingHeader("Total Image VRAM Use:         "));
+                ImGui::SameLine();
+                ImGui::Text("%s", fmt::format("{:>10.2f} mb", s_cast<f32>(mem_report.total_image_device_memory_use) / 1024.0f  / 1024.0f).c_str());
+                if (open) {
+                    std::stable_sort(mem_report.image_list.begin(), mem_report.image_list.end(), [](auto& a, auto& b){ return a.size > b.size; });
+                    usize const list_len_max = 30;
+                    usize const list_len = std::min(list_len_max, mem_report.image_list.size());
+                    if (ImGui::BeginTable("Image Mem Use", 3, ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg)) {
+                        ImGui::TableSetupColumn("Name", {});
+                        ImGui::TableSetupColumn("Size", {});
+                        ImGui::TableSetupColumn("Block Allocated?", {});
+                        ImGui::TableHeadersRow();
+                        for (usize i = 0; i < list_len; ++i) {
+                            auto img = mem_report.image_list[i];
+                            char const * name = gpu_context.device.image_info(img.id).value().name.data();
+    
+                            ImGui::TableNextRow();
+                            ImGui::TableSetColumnIndex(0);
+                            ImGui::Text("%s", name);
+                            ImGui::TableSetColumnIndex(1);
+                            ImGui::Text("%fmb", s_cast<f64>(img.size) / 1024.0 / 1024.0);
+                            ImGui::TableSetColumnIndex(2);
+                            ImGui::Text(img.block_allocated ? "Yes" : "No");
+                        }
+                    }
+                    ImGui::EndTable();
+                }
+            }
+            {
+                bool open = (ImGui::CollapsingHeader("Total Aliased Tlas VRAM Use:   "));
+                ImGui::SameLine();
+                ImGui::Text("%s", fmt::format("{:>10.2f} mb", s_cast<f32>(mem_report.total_aliased_tlas_device_memory_use) / 1024.0f  / 1024.0f).c_str());
+                if (open) {
+                    std::stable_sort(mem_report.tlas_list.begin(), mem_report.tlas_list.end(), [](auto& a, auto& b){ return a.size > b.size; });
+                    usize const list_len_max = 30;
+                    usize const list_len = std::min(list_len_max, mem_report.tlas_list.size());
+                    if (ImGui::BeginTable("Tlas Aliased Mem Use", 3, ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg)) {
+                        ImGui::TableSetupColumn("Name", {});
+                        ImGui::TableSetupColumn("Size", {});
+                        ImGui::TableSetupColumn("Buffer Allocated?", {});
+                        ImGui::TableHeadersRow();
+                        for (usize i = 0; i < list_len; ++i) {
+                            auto tlas = mem_report.tlas_list[i];
+                            char const * name = gpu_context.device.tlas_info(tlas.id).value().name.data();
+    
+                            ImGui::TableNextRow();
+                            ImGui::TableSetColumnIndex(0);
+                            ImGui::Text("%s", name);
+                            ImGui::TableSetColumnIndex(1);
+                            ImGui::Text("%fmb", s_cast<f64>(tlas.size) / 1024.0 / 1024.0);
+                            ImGui::TableSetColumnIndex(2);
+                            ImGui::Text("Yes");
+                        }
+                    }
+                    ImGui::EndTable();
+                }
+            }
+            {
+                bool open = (ImGui::CollapsingHeader("Total Aliased Blas VRAM Use:   "));
+                ImGui::SameLine();
+                ImGui::Text("%s", fmt::format("{:>10.2f} mb", s_cast<f32>(mem_report.total_aliased_blas_device_memory_use) / 1024.0f  / 1024.0f).c_str());
+                if (open) {
+                    std::stable_sort(mem_report.blas_list.begin(), mem_report.blas_list.end(), [](auto& a, auto& b){ return a.size > b.size; });
+                    usize const list_len_max = 30;
+                    usize const list_len = std::min(list_len_max, mem_report.blas_list.size());
+                    if (ImGui::BeginTable("Blas Aliased Mem Use", 3, ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg)) {
+                        ImGui::TableSetupColumn("Name", {});
+                        ImGui::TableSetupColumn("Size", {});
+                        ImGui::TableSetupColumn("Buffer Allocated?", {});
+                        ImGui::TableHeadersRow();
+                        for (usize i = 0; i < list_len; ++i) {
+                            auto blas = mem_report.blas_list[i];
+                            char const * name = gpu_context.device.blas_info(blas.id).value().name.data();
+    
+                            ImGui::TableNextRow();
+                            ImGui::TableSetColumnIndex(0);
+                            ImGui::Text("%s", name);
+                            ImGui::TableSetColumnIndex(1);
+                            ImGui::Text("%fmb", s_cast<f64>(blas.size) / 1024.0 / 1024.0);
+                            ImGui::TableSetColumnIndex(2);
+                            ImGui::Text("Yes");
+                        }
+                    }
+                    ImGui::EndTable();
+                }
+            }
+            if (ImGui::CollapsingHeader(fmt::format("Total  Block VRAM Use:        {:>10.2f} mb", s_cast<f32>(mem_report.total_memory_block_device_memory_use) / 1024.0f / 1024.0f ).c_str())) {}
+            if (ImGui::CollapsingHeader(fmt::format("Total  VRAM Use:              {:>10.2f} mb", s_cast<f32>(mem_report.total_device_memory_use) / 1024.0f / 1024.0f ).c_str())) {}
+        }
+        ImGui::End();
         
         renderer.ui_update();
         renderer.ui_render_end();
