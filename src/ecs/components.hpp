@@ -21,12 +21,16 @@ namespace foundation {
         u32 mesh_group_manifest_entry_index = {};
     };
 
+    struct PointLightComponentDirty {};
     struct PointLightComponent {
         f32vec3 color;
         f32 intensity;
         f32 range;
+
+        std::optional<usize> gpu_point_light_index = std::nullopt;
     };
 
+    struct SpotLightComponentDirty {};
     struct SpotLightComponent {
         f32vec3 direction;
         f32vec3 color;
@@ -34,5 +38,7 @@ namespace foundation {
         f32 range;
         f32 inner_cone_angle;
         f32 outer_cone_angle;
+
+        std::optional<usize> gpu_spot_light_index = std::nullopt;
     };
 }

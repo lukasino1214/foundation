@@ -21,6 +21,7 @@ struct ShaderGlobals {
     CameraInfo main_camera;
     u32vec2 render_target_size;
     f32vec2 render_target_size_inv;
+    f32vec3 sun_direction;
 };
 DAXA_DECL_BUFFER_PTR(ShaderGlobals)
 
@@ -33,7 +34,6 @@ struct MeshGeometryData {
     u32 vertex_count;
     u32 index_count;
 };
-
 DAXA_DECL_BUFFER_PTR(MeshGeometryData)
 
 struct Material {
@@ -58,9 +58,40 @@ struct Material {
     u32 alpha_mode;
     f32 alpha_cutoff;
     b32 double_sided;
+    b32 normal_image_compressed;
 };
-
 DAXA_DECL_BUFFER_PTR(Material)
+
+struct PointLight {
+    f32vec3 position;
+    f32vec3 color;
+    f32 intensity;
+    f32 range;
+};
+DAXA_DECL_BUFFER_PTR(PointLight)
+
+struct SpotLight {
+    f32vec3 position;
+    f32vec3 direction;
+    f32vec3 color;
+    f32 intensity;
+    f32 range;
+    f32 inner_cone_angle;
+    f32 outer_cone_angle;
+};
+DAXA_DECL_BUFFER_PTR(SpotLight)
+
+struct PointLightsData {
+    u32 count;
+    daxa_BufferPtr(PointLight) point_lights;
+};
+DAXA_DECL_BUFFER_PTR(PointLightsData)
+
+struct SpotLightsData {
+    u32 count;
+    daxa_BufferPtr(SpotLight) spot_lights;
+};
+DAXA_DECL_BUFFER_PTR(SpotLightsData)
 
 #if defined(__cplusplus)
 #define SHARED_FUNCTION inline

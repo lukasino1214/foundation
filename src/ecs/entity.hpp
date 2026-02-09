@@ -46,6 +46,14 @@ public:
                 return;
             }
 
+            if constexpr (std::is_same_v<T, PointLightComponent>) {
+                handle.add<PointLightComponentDirty>();
+            }
+
+            if constexpr (std::is_same_v<T, SpotLightComponent>) {
+                handle.add<SpotLightComponentDirty>();
+            }
+
             handle.set<T>(T{});
         }
 

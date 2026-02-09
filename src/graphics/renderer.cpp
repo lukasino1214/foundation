@@ -161,6 +161,8 @@ namespace foundation {
 
         render_task_graph.use_persistent_buffer(asset_manager->gpu_meshes);
         render_task_graph.use_persistent_buffer(asset_manager->gpu_materials);
+        render_task_graph.use_persistent_buffer(gpu_scene->gpu_point_lights);
+        render_task_graph.use_persistent_buffer(gpu_scene->gpu_spot_lights);
 
         render_task_graph.use_persistent_tlas(gpu_scene->gpu_tlas);
 
@@ -236,6 +238,9 @@ namespace foundation {
                 .u_globals = gpu_context->shader_globals_buffer.view(),
                 .u_meshes = asset_manager->gpu_meshes.view(),
                 .u_materials = asset_manager->gpu_materials.view(),
+                .u_point_lights = gpu_scene->gpu_point_lights.view(),
+                .u_spot_lights = gpu_scene->gpu_spot_lights.view(),
+                .u_tlas = gpu_scene->gpu_tlas.view(),
                 .u_render_image = render_image.view(),
                 .u_depth_image = depth_image.view(),
             },

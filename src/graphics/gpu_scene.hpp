@@ -18,5 +18,11 @@ namespace foundation {
         AssetManager* asset_manager = {};
 
         daxa::TaskTlas gpu_tlas = {};
+
+        usize total_point_light_count = {};
+        usize total_spot_light_count = {};
+
+        daxa::TaskBuffer gpu_point_lights = {};
+        daxa::TaskBuffer gpu_spot_lights = {};
     };
 }

@@ -1,15 +1,28 @@
 #include "gpu_scene.hpp"
 
 #include "gpu_context.hpp"
+#include "helper.hpp"
 #include <ecs/scene.hpp>
 #include <asset/asset_manager.hpp>
 
 namespace foundation {
     GPUScene::GPUScene(GPUContext* _gpu_context, Scene* _scene, AssetManager* _asset_manager) : gpu_context{_gpu_context}, scene{_scene}, asset_manager{_asset_manager} {
         gpu_tlas = daxa::TaskTlas{{ .name = "tlas" }};
+
+        gpu_point_lights = make_task_buffer(gpu_context, daxa::BufferInfo {
+            .size = sizeof(PointLightsData),
+            .name = "point lights"
+        });
+
+        gpu_spot_lights = make_task_buffer(gpu_context, daxa::BufferInfo {
+            .size = sizeof(SpotLightsData),
+            .name = "spot lights"
+        });
     }
     GPUScene::~GPUScene() {
         gpu_context->device.destroy_tlas(gpu_tlas.get_state().tlas[0]);
+        gpu_context->device.destroy_buffer(gpu_point_lights.get_state().buffers[0]);
+        gpu_context->device.destroy_buffer(gpu_spot_lights.get_state().buffers[0]);
     }
 
     void GPUScene::update(daxa::CommandRecorder& cmd_recorder, const ResourceUploadInfos& upload_infos) {
@@ -102,6 +115,110 @@ namespace foundation {
                 .tlas_build_infos = std::array{tlas_build_info},
             });
         }
+
+        {
+            std::vector<flecs::entity> entities = {};
+            scene->world->each([&](flecs::entity e, PointLightComponent& point_light_component, PointLightComponentDirty) {
+                if(!point_light_component.gpu_point_light_index.has_value()) {
+                    point_light_component.gpu_point_light_index = total_point_light_count++;
+                }
+
+                entities.push_back(e);
+            });
+
+            reallocate_buffer<PointLightsData>(gpu_context, cmd_recorder, gpu_point_lights, s_cast<u32>(total_point_light_count * sizeof(PointLight) + sizeof(PointLightsData)), [&](const daxa::BufferId& buffer) -> PointLightsData {
+                return PointLightsData {
+                    .count = s_cast<u32>(total_point_light_count),
+                    .point_lights = gpu_context->device.buffer_device_address(buffer).value() + sizeof(PointLightsData)
+                };
+            });
+
+            if(!entities.empty()) {
+                daxa::BufferId staging_buffer = gpu_context->device.create_buffer({
+                    .size = entities.size() * sizeof(PointLight),
+                    .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
+                    .name = "point light staging buffer"
+                });
+                cmd_recorder.destroy_buffer_deferred(staging_buffer);
+
+                for(u32 i = 0; i < entities.size(); i++) {
+                    const PointLightComponent& p = entities[i].get<PointLightComponent>();
+                    PointLight light = {
+                        .position = entities[i].get<GlobalPosition>().position,
+                        .color = p.color,
+                        .intensity = p.intensity,
+                        .range = p.range,
+                    };
+
+                    std::memcpy(gpu_context->device.buffer_host_address(staging_buffer).value() + sizeof(PointLight) * i, &light, sizeof(PointLight));
+                    cmd_recorder.copy_buffer_to_buffer(daxa::BufferCopyInfo {
+                        .src_buffer = staging_buffer,
+                        .dst_buffer = gpu_point_lights.get_state().buffers[0],
+                        .src_offset = sizeof(PointLight) * i,
+                        .dst_offset = sizeof(PointLightsData) + sizeof(PointLight) * p.gpu_point_light_index.value(),
+                        .size = sizeof(PointLight)
+                    });
+                }
+            }
+
+            for(flecs::entity e : entities) {
+                e.remove<PointLightComponentDirty>();
+            }
+        }
+
+        {
+            std::vector<flecs::entity> entities = {};
+            scene->world->each([&](flecs::entity e, SpotLightComponent& spot_light_component, SpotLightComponentDirty) {
+                if(!spot_light_component.gpu_spot_light_index.has_value()) {
+                    spot_light_component.gpu_spot_light_index = total_spot_light_count++;
+                }
+
+                entities.push_back(e);
+            });
+
+            reallocate_buffer<SpotLightsData>(gpu_context, cmd_recorder, gpu_spot_lights, s_cast<u32>(total_spot_light_count * sizeof(SpotLight) + sizeof(SpotLightsData)), [&](const daxa::BufferId& buffer) -> SpotLightsData {
+                return SpotLightsData {
+                    .count = s_cast<u32>(total_spot_light_count),
+                    .spot_lights = gpu_context->device.buffer_device_address(buffer).value() + sizeof(SpotLightsData)
+                };
+            });
+
+            if(!entities.empty()) {
+                daxa::BufferId staging_buffer = gpu_context->device.create_buffer({
+                    .size = entities.size() * sizeof(SpotLight),
+                    .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
+                    .name = "spot light staging buffer"
+                });
+                cmd_recorder.destroy_buffer_deferred(staging_buffer);
+
+                for(u32 i = 0; i < entities.size(); i++) {
+                    const SpotLightComponent& s = entities[i].get<SpotLightComponent>();
+                    SpotLight light = {
+                        .position = entities[i].get<GlobalPosition>().position,
+                        .direction = s.direction,
+                        .color = s.color,
+                        .intensity = s.intensity,
+                        .range = s.range,
+                        .inner_cone_angle = s.inner_cone_angle,
+                        .outer_cone_angle = s.outer_cone_angle,
+                    };
+
+                    std::memcpy(gpu_context->device.buffer_host_address(staging_buffer).value() + sizeof(SpotLight) * i, &light, sizeof(SpotLight));
+                    cmd_recorder.copy_buffer_to_buffer(daxa::BufferCopyInfo {
+                        .src_buffer = staging_buffer,
+                        .dst_buffer = gpu_spot_lights.get_state().buffers[0],
+                        .src_offset = sizeof(SpotLight) * i,
+                        .dst_offset = sizeof(SpotLightsData) + sizeof(SpotLight) * s.gpu_spot_light_index.value(),
+                        .size = sizeof(SpotLight)
+                    });
+                }
+            }
+
+            for(flecs::entity e : entities) {
+                e.remove<SpotLightComponentDirty>();
+            }
+        }
+
 
         scene->entites_moved = false;
     }

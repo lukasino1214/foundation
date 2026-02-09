@@ -655,8 +655,9 @@ namespace foundation {
                 gpu_material.alpha_mode = s_cast<u32>(material_manifest.material_type);
                 gpu_material.alpha_cutoff = material_manifest.alpha_cutoff;
                 gpu_material.double_sided = s_cast<b32>(material_manifest.double_sided);
+                gpu_material.normal_image_compressed = 0;
 
-                if (material_manifest.albedo_info.has_value()) {
+                if(material_manifest.albedo_info.has_value()) {
                     const TextureManifest& texture_manifest = texture_manifests[local_asset_manifest.texture_manifest_offset + material_manifest.albedo_info.value().asset_local_texture_index];
                     if(texture_manifest.render_info.has_value()) {
                         gpu_material.albedo_image_id = texture_manifest.render_info.value().image_id.default_view();
@@ -664,15 +665,19 @@ namespace foundation {
                     }
                 }
 
-                if (material_manifest.normal_info.has_value()) {
+                if(material_manifest.normal_info.has_value()) {
                     const TextureManifest& texture_manifest = texture_manifests[local_asset_manifest.texture_manifest_offset + material_manifest.normal_info.value().asset_local_texture_index];
                     if(texture_manifest.render_info.has_value()) {
                         gpu_material.normal_image_id = texture_manifest.render_info.value().image_id.default_view();
                         gpu_material.normal_sampler_id = texture_manifest.render_info.value().sampler_id;
+                    
+                        if(gpu_context->device.image_info(texture_manifest.render_info.value().image_id).value().format != daxa::Format::R8G8B8A8_UNORM) {
+                            gpu_material.normal_image_compressed = 1;
+                        }
                     }
                 }
 
-                if (material_manifest.roughness_metalness_info.has_value()) {
+                if(material_manifest.roughness_metalness_info.has_value()) {
                     const TextureManifest& texture_manifest = texture_manifests[local_asset_manifest.texture_manifest_offset + material_manifest.roughness_metalness_info.value().asset_local_texture_index];
                     if(texture_manifest.render_info.has_value()) {
                         gpu_material.roughness_metalness_image_id = texture_manifest.render_info.value().image_id.default_view();
@@ -680,7 +685,7 @@ namespace foundation {
                     }
                 }
 
-                if (material_manifest.emissive_info.has_value()) {
+                if(material_manifest.emissive_info.has_value()) {
                     const TextureManifest& texture_manifest = texture_manifests[local_asset_manifest.texture_manifest_offset + material_manifest.emissive_info.value().asset_local_texture_index];
                     if(texture_manifest.render_info.has_value()) {
                         gpu_material.emissive_image_id = texture_manifest.render_info.value().image_id.default_view();

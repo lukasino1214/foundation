@@ -58,7 +58,6 @@ namespace foundation {
             [&](const std::monostate&) {
                 throw std::runtime_error("Buffer data is monostate (uninitialized)");
             },
-            
             [&](const fastgltf::sources::BufferView& view) {
                 const auto& src_buffer_view = gltf_asset.bufferViews[view.bufferViewIndex];
                 const auto& src_buffer = gltf_asset.buffers[src_buffer_view.bufferIndex];
@@ -82,7 +81,6 @@ namespace foundation {
                     }
                 }, src_buffer.data);
             },
-            
             [&](const fastgltf::sources::URI& uri) {
                 const std::filesystem::path full_path = root_path / uri.uri.fspath();
                 std::ifstream file(full_path, std::ios::binary);
@@ -100,26 +98,21 @@ namespace foundation {
 
                 ret.data_span = std::span<std::byte const>(ret.loaded_data.data(), total_bytes);
             },
-            
             [&](const fastgltf::sources::Array& arr) {
                 usize effective_size = total_bytes > 0 ? total_bytes : arr.bytes.size() - byte_offset;
                 ret.data_span = std::span<std::byte const>(reinterpret_cast<std::byte const*>(arr.bytes.data()) + byte_offset, effective_size);
             },
-            
             [&](const fastgltf::sources::Vector& vec) {
                 usize effective_size = total_bytes > 0 ? total_bytes : vec.bytes.size() - byte_offset;
                 ret.data_span = std::span<std::byte const>(vec.bytes.data() + byte_offset, effective_size);
             },
-            
             [&](const fastgltf::sources::CustomBuffer& /* custom */) {
                 throw std::runtime_error("Buffer data is custoom");
             },
-            
             [&](const fastgltf::sources::ByteView& view) {
                 usize effective_size = total_bytes > 0 ? total_bytes : view.bytes.size() - byte_offset;
                 ret.data_span = std::span<std::byte const>(view.bytes.data() + byte_offset, effective_size);
             },
-            
             [&](const fastgltf::sources::Fallback&) {
                 throw std::runtime_error("Fallback buffer source not supported");
             }
@@ -876,6 +869,8 @@ namespace foundation {
 
     void AssetProcessor::process_texture_load(const LoadTextureInfo& info) {
         PROFILE_SCOPE;
+
+        // std::this_thread::sleep_for(std::chrono::milliseconds(200));
 
         LoadedImage loaded_image = {};
         const fastgltf::Image& gltf_image = info.asset->images[info.texture_manifest_index];

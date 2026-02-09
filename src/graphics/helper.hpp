@@ -12,7 +12,7 @@ namespace foundation {
         auto info = context->device.buffer_info(buffer).value();
         if(info.size < new_size) {
             cmd_recorder.destroy_buffer_deferred(buffer);
-            LOG_INFO("{} buffer resized from {} bytes to {} bytes", info.name.c_str(), info.size, new_size);
+            fmt::println("{} buffer resized from {} bytes to {} bytes", info.name.c_str(), info.size, new_size);
             info.size = new_size;
             daxa::BufferId new_buffer = context->device.create_buffer(info);
 
