@@ -26,13 +26,13 @@ struct DepthPrepassPush {
 
 using namespace foundation;
 struct DepthPrepassTask : DepthPrepass::Task {
-    DepthPrepassTask::Task::AttachmentViews views = {};
+    AttachmentViews views = {};
     GPUContext* gpu_context = {};
     DepthPrepassPush push = {};
     AssetManager* asset_manager = {};
     Scene* scene = {};
 
-    void assign_blob(auto &arr, auto const &span) {
+    void assign_blob(auto& arr, const auto& span) {
         std::memcpy(arr.value.data(), span.data(), span.size());
     }
 

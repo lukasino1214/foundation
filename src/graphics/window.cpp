@@ -103,36 +103,31 @@ namespace foundation {
     }
 
     auto NativeWindow::create_swapchain(daxa::Device& device) const -> daxa::Swapchain {
-        auto get_native_platform = []() -> daxa::NativeWindowPlatform {
+        auto get_native_window_info = [&]() -> daxa::NativeWindowInfo {
             switch (glfwGetPlatform()) {
+#if defined(_WIN32)
                 case GLFW_PLATFORM_WIN32:
-                    return daxa::NativeWindowPlatform::WIN32_API;
+                    return daxa::NativeWindowInfoWin32 {
+                        .hwnd = glfwGetWin32Window(glfw_handle)
+                    };
+#elif defined(__linux__)
                 case GLFW_PLATFORM_X11:
-                    return daxa::NativeWindowPlatform::XLIB_API;
+                    return daxa::NativeWindowInfoXlib {
+                        .window = glfwGetX11Window(glfw_handle),
+                    };
                 case GLFW_PLATFORM_WAYLAND:
-                    return daxa::NativeWindowPlatform::WAYLAND_API;
+                    throw std::runtime_error("currently not handling wayland")
+                    // return daxa::NativeWindowInfoWayland {
+                    //     .display = glfwGetWaylandWindow(glfw_handle)
+                    // };
+#endif
                 default:
-                    return daxa::NativeWindowPlatform::UNKNOWN;
+                    throw std::runtime_error("unknown platform");
             }
         };
 
-        auto get_native_handle = [&]() -> daxa::NativeWindowHandle {
-            #if defined(_WIN32)
-                return glfwGetWin32Window(glfw_handle);
-            #elif defined(__linux__)
-                switch (get_native_platform()) {
-                    case daxa::NativeWindowPlatform::WAYLAND_API:
-                        return reinterpret_cast<daxa::NativeWindowHandle>(glfwGetWaylandWindow(glfw_handle));
-                    case daxa::NativeWindowPlatform::XLIB_API:
-                    default:
-                        return reinterpret_cast<daxa::NativeWindowHandle>(glfwGetX11Window(glfw_handle));
-                }
-            #endif
-        };
-
         return device.create_swapchain(daxa::SwapchainInfo {
-            .native_window = get_native_handle(),
-            .native_window_platform = get_native_platform(),
+            .native_window_info = get_native_window_info(),
             .surface_format_selector = [](daxa::Format format, daxa::ColorSpace) -> i32 {
                 switch (format) {
                     // case daxa::Format::B8G8R8A8_UNORM: return 90;

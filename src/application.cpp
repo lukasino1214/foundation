@@ -385,9 +385,10 @@ namespace foundation {
                 if (ImGui::CollapsingHeader(fmt::format("Total  VRAM Use:              {:>10.2f} mb", s_cast<f32>(mem_report.total_device_memory_use) / 1024.0f / 1024.0f ).c_str())) {}
             }
             ImGui::End();
+
+            renderer.ui_update();
         }
         
-        renderer.ui_update();
         renderer.ui_render_end();
 
         scene->update(s_cast<f32>(delta_time));

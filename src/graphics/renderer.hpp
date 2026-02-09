@@ -45,5 +45,6 @@ namespace foundation {
         std::vector<daxa::TaskBuffer> buffers = {};
 
         daxa::ImGuiRenderer imgui_renderer = {};
+        daxa::TaskGraphDebugUi task_graph_debug_ui = {};
     };
 }

@@ -30,13 +30,13 @@ struct DrawMeshPush {
 
 using namespace foundation;
 struct DrawMeshTask : DrawMesh::Task {
-    DrawMeshTask::Task::AttachmentViews views = {};
+    AttachmentViews views = {};
     GPUContext* gpu_context = {};
     DrawMeshPush push = {};
     AssetManager* asset_manager = {};
     Scene* scene = {};
 
-    void assign_blob(auto & arr, auto const & span) {
+    void assign_blob(auto& arr, const auto& span) {
         std::memcpy(arr.value.data(), span.data(), span.size());
     }
 

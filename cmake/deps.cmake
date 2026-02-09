@@ -110,6 +110,32 @@ if (NOT TARGET imgui::imgui)
     endif()
 endif()
 
+if (NOT TARGET implot::implot)
+    FetchContent_Declare(
+        implot
+        GIT_REPOSITORY https://github.com/epezent/implot
+        GIT_TAG        v0.17
+        GIT_SHALLOW    ON
+        GIT_PROGRESS TRUE
+        EXCLUDE_FROM_ALL
+    )
+
+    FetchContent_GetProperties(implot)
+    if(NOT implot_POPULATED)
+        FetchContent_MakeAvailable(implot)
+
+        add_library(lib_implot
+            ${implot_SOURCE_DIR}/implot.cpp
+            ${implot_SOURCE_DIR}/implot_items.cpp
+            ${implot_SOURCE_DIR}/implot_demo.cpp)
+
+        target_include_directories(lib_implot PUBLIC ${implot_SOURCE_DIR})
+        target_link_libraries(lib_implot PRIVATE imgui::imgui)
+
+        add_library(implot::implot ALIAS lib_implot)
+    endif()
+endif()
+
 if(NOT TARGET dds_image::dds_image)
     FetchContent_Declare(
         dds_image
@@ -133,7 +159,7 @@ if(NOT TARGET wuffs::wuffs)
         wuffs
         GIT_REPOSITORY https://github.com/google/wuffs
         GIT_TAG        072595ae7df55544874caf5096cd9ef4ecf1bdbb
-        GIT_SHALLOW    ON
+        GIT_SHALLOW    OFF
         GIT_PROGRESS TRUE
         EXCLUDE_FROM_ALL
     )

@@ -12,10 +12,14 @@ namespace foundation {
     Renderer::Renderer(NativeWindow* _window, GPUContext* _gpu_context, GPUScene* _gpu_scene, AssetManager* _asset_manager, Scene* _scene) : window{_window}, gpu_context{_gpu_context}, asset_manager{_asset_manager}, scene{_scene}, gpu_scene{_gpu_scene} {
         ImGui::CreateContext();
         ImGui_ImplGlfw_InitForVulkan(window->glfw_handle, true);
-        imgui_renderer =  daxa::ImGuiRenderer({
+        imgui_renderer =  daxa::ImGuiRenderer(daxa::ImGuiRendererInfo {
             .device = gpu_context->device,
             .format = gpu_context->swapchain.get_format(),
-            .context = ImGui::GetCurrentContext()
+            .imgui_context = ImGui::GetCurrentContext()
+        });
+        task_graph_debug_ui = daxa::TaskGraphDebugUi(daxa::TaskGraphDebugUiInfo {
+            .device = gpu_context->device,
+            .imgui_renderer = imgui_renderer,
         });
         ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_DockingEnable;
         ImGui::GetStyle().WindowMenuButtonPosition = ImGuiDir_None;
@@ -328,6 +332,7 @@ namespace foundation {
 
     void Renderer::ui_update() {
         PROFILE_SCOPE;
+        task_graph_debug_ui.update(render_task_graph);
     }
 
     void Renderer::ui_render_end() {
