@@ -1,5 +1,7 @@
 #pragma once
 
+#include "asset_manifests.hpp"
+
 namespace foundation {
     struct LoadedImage {
         daxa::Format format = daxa::Format::UNDEFINED;
@@ -9,14 +11,25 @@ namespace foundation {
         u32 height = 1;
         u32 depth = 1;
     };
-    
+
     struct ImageProcessor {
         static auto load_image(const std::filesystem::path& file_path) -> LoadedImage;
         static auto load_image(std::span<std::byte const> data) -> LoadedImage;
+
+        static auto compress_image(LoadedImage& image, TextureType texture_type) -> LoadedImage;
 
     private:
         static auto load_dds(std::span<std::byte const> data) -> LoadedImage;
         static auto load_png(std::span<std::byte const> data) -> LoadedImage;
         static auto load_jpeg(std::span<std::byte const> data) -> LoadedImage;
+
+        static void initialize_compressor();
+        static auto has_alpha_channel(const LoadedImage& image) -> bool;
+        static auto compress_to_bc1(LoadedImage& image, bool is_srgb) -> LoadedImage;
+        static auto compress_to_bc3(LoadedImage& image, bool is_srgb) -> LoadedImage;
+        static auto compress_to_bc5_rg(LoadedImage& image) -> LoadedImage;
+        static auto compress_to_bc5_normal(LoadedImage& image) -> LoadedImage;
+        static auto generate_mipmaps(LoadedImage& image) -> LoadedImage;
+        static void downsample_rgba8(const std::byte* src, std::byte* dst, u32 src_width, u32 src_height);
     };
-}
+} // namespace foundation

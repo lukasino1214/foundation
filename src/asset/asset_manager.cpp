@@ -33,21 +33,20 @@ namespace foundation {
                 gpu_context->device.destroy_blas(mesh_manifest.render_info->blas);
             }
         }
-    
+
         for(auto& texture_manifest : texture_manifests) {
             if(texture_manifest.render_info.has_value()) {
                 gpu_context->device.destroy_image(texture_manifest.render_info->image_id);
             }
         }
-    
+
         gpu_context->device.destroy_buffer(gpu_materials.get_state().buffers[0]);
         gpu_context->device.destroy_buffer(gpu_meshes.get_state().buffers[0]);
     }
-    
 
     void AssetManager::load_asset(const std::filesystem::path& file_path, Entity root_entity) {
         PROFILE_SCOPE;
-        
+
         if(!std::filesystem::exists(file_path)) {
             throw std::runtime_error(fmt::format("File does not exist with path: {}", file_path.string()));
         }
@@ -95,7 +94,7 @@ namespace foundation {
             struct LoadMeshTask : Task {
                 struct TaskInfo {
                     LoadMeshInfo load_info = {};
-                    AssetProcessor * asset_processor = {};
+                    AssetProcessor* asset_processor = {};
                     u32 manifest_index = {};
                 };
 
@@ -108,9 +107,9 @@ namespace foundation {
             };
 
             for(u32 mesh_group_index = 0; mesh_group_index < loaded_asset.mesh_group_manifests.size(); mesh_group_index++) {
-                const MeshGroupManifest& mesh_group_manifest = loaded_asset.mesh_group_manifests[mesh_group_index]; 
+                const MeshGroupManifest& mesh_group_manifest = loaded_asset.mesh_group_manifests[mesh_group_index];
                 for(u32 mesh_index = 0; mesh_index < mesh_group_manifest.mesh_count; mesh_index++) {
-                    const MeshManifest& mesh_manifest = loaded_asset.mesh_manifests[mesh_group_manifest.asset_local_mesh_manifest_indices_offset + mesh_index]; 
+                    const MeshManifest& mesh_manifest = loaded_asset.mesh_manifests[mesh_group_manifest.asset_local_mesh_manifest_indices_offset + mesh_index];
 
                     bool has_alpha = false;
                     if(mesh_manifest.asset_local_material_index.has_value()) {
@@ -135,34 +134,38 @@ namespace foundation {
             struct LoadTextureTask : Task {
                 struct TaskInfo {
                     LoadTextureInfo load_info = {};
-                    AssetProcessor * asset_processor = {};
+                    AssetProcessor* asset_processor = {};
                     u32 manifest_index = {};
                 };
 
                 TaskInfo info = {};
-                explicit LoadTextureTask(TaskInfo const & info) : info{info} { chunk_count = 1; }
+                explicit LoadTextureTask(const TaskInfo& info) : info{info} { chunk_count = 1; }
 
                 virtual void callback(u32, u32) override {
                     info.asset_processor->process_texture_load(info.load_info);
                 };
             };
 
-            for (u32 texture_index = 0; texture_index < loaded_asset.texture_manifests.size(); texture_index++) {
+            for(u32 texture_index = 0; texture_index < loaded_asset.texture_manifests.size(); texture_index++) {
                 const auto& texture_manifest_entry = loaded_asset.texture_manifests[texture_index];
 
                 bool used_as_albedo = false;
-                for (const auto& material_manifest_index : texture_manifest_entry.material_manifest_indices) {
+                TextureType texture_type = TextureType::None;
+                for(const auto& material_manifest_index : texture_manifest_entry.material_manifest_indices) {
                     used_as_albedo |= material_manifest_index.texture_type == TextureType::GltfAlbedo;
                     used_as_albedo |= material_manifest_index.texture_type == TextureType::GltfEmissive;
+                    if(texture_type == TextureType::None) {
+                        texture_type = material_manifest_index.texture_type;
+                    }
                 }
 
-                if (!texture_manifest_entry.material_manifest_indices.empty()) {
-                    thread_pool->async_dispatch(
-                    std::make_shared<LoadTextureTask>(LoadTextureTask::TaskInfo{
+                if(!texture_manifest_entry.material_manifest_indices.empty()) {
+                    thread_pool->async_dispatch(std::make_shared<LoadTextureTask>(LoadTextureTask::TaskInfo {
                         .load_info = {
                             .asset = asset_manifest->asset.get(),
                             .asset_path = file_path,
                             .load_as_srgb = used_as_albedo,
+                            .texture_type = texture_type,
                             .asset_manifest_index = asset_manifest_index,
                             .texture_manifest_index = texture_index,
                         },
@@ -171,7 +174,7 @@ namespace foundation {
                 }
             }
         }
-        
+
         asset_manifest->asset->load_entites(*asset_manifest, scene, root_entity);
     }
 
@@ -182,7 +185,6 @@ namespace foundation {
     }
 
     void AssetManager::unload_asset(u32 /* asset_index */) {
-        
     }
 
     void AssetManager::update(daxa::CommandRecorder& cmd_recorder, const ResourceUploadInfos& upload_infos) {
@@ -238,7 +240,7 @@ namespace foundation {
                     .dst_buffer = gpu_meshes.get_state().buffers[0],
                     .src_offset = sizeof(MeshGeometryData) * mesh_upload_index++,
                     .dst_offset = sizeof(MeshGeometryData) * gpu_mesh_index,
-                    .size = sizeof(MeshGeometryData)
+                    .size = sizeof(MeshGeometryData),
                 });
 
                 // why the hell is this necessary?
@@ -252,7 +254,7 @@ namespace foundation {
         for(const TextureUploadInfo& texture_upload_info : upload_infos.textures) {
             const AssetManifest& asset_manifest = asset_manifests[texture_upload_info.asset_manifest_index];
             TextureManifest& texture_manifest = texture_manifests[asset_manifest.texture_manifest_offset + texture_upload_info.texture_manifest_index];
-            
+
             texture_manifest.render_info = {
                 .image_id = texture_upload_info.image,
                 .sampler_id = texture_upload_info.sampler,
@@ -260,31 +262,31 @@ namespace foundation {
 
             for(auto& material_using_texture_info : texture_manifest.material_manifest_indices) {
                 MaterialManifest& material_manifest = material_manifests[asset_manifest.material_manifest_offset + material_using_texture_info.asset_local_material_index];
-                if (material_using_texture_info.texture_type == TextureType::GltfAlbedo) {
-                    if (material_manifest.albedo_info.has_value()) {
+                if(material_using_texture_info.texture_type == TextureType::GltfAlbedo) {
+                    if(material_manifest.albedo_info.has_value()) {
                         material_manifest.albedo_info->asset_local_texture_index = texture_upload_info.texture_manifest_index;
                     }
                 }
 
-                if (material_using_texture_info.texture_type == TextureType::GltfNormal) {
-                    if (material_manifest.normal_info.has_value()) {
+                if(material_using_texture_info.texture_type == TextureType::GltfNormal) {
+                    if(material_manifest.normal_info.has_value()) {
                         material_manifest.normal_info->asset_local_texture_index = texture_upload_info.texture_manifest_index;
                     }
                 }
-                
-                if (material_using_texture_info.texture_type == TextureType::GltfRoughnessMetallic) {
-                    if (material_manifest.roughness_metalness_info.has_value()) {
+
+                if(material_using_texture_info.texture_type == TextureType::GltfRoughnessMetallic) {
+                    if(material_manifest.roughness_metalness_info.has_value()) {
                         material_manifest.roughness_metalness_info->asset_local_texture_index = texture_upload_info.texture_manifest_index;
                     }
                 }
 
-                if (material_using_texture_info.texture_type == TextureType::GltfEmissive) {
-                    if (material_manifest.emissive_info.has_value()) {
+                if(material_using_texture_info.texture_type == TextureType::GltfEmissive) {
+                    if(material_manifest.emissive_info.has_value()) {
                         material_manifest.emissive_info->asset_local_texture_index = texture_upload_info.texture_manifest_index;
                     }
                 }
 
-                if (std::find(dirty_materials.begin(), dirty_materials.end(), material_using_texture_info.asset_local_material_index) == dirty_materials.end()) {
+                if(std::find(dirty_materials.begin(), dirty_materials.end(), material_using_texture_info.asset_local_material_index) == dirty_materials.end()) {
                     dirty_materials.push_back(asset_manifest.material_manifest_offset + material_using_texture_info.asset_local_material_index);
                 }
             }
@@ -321,7 +323,7 @@ namespace foundation {
                     if(texture_manifest.render_info.has_value()) {
                         gpu_material.normal_image_id = texture_manifest.render_info.value().image_id.default_view();
                         gpu_material.normal_sampler_id = texture_manifest.render_info.value().sampler_id;
-                    
+
                         if(gpu_context->device.image_info(texture_manifest.render_info.value().image_id).value().format != daxa::Format::R8G8B8A8_UNORM) {
                             gpu_material.normal_image_compressed = 1;
                         }
@@ -369,7 +371,7 @@ namespace foundation {
                     .dst_buffer = gpu_materials.get_state().buffers[0],
                     .src_offset = sizeof(Material) * material_upload_index++,
                     .dst_offset = sizeof(Material) * gpu_material_index,
-                    .size = sizeof(Material)
+                    .size = sizeof(Material),
                 });
 
                 // why the hell is this necessary?
@@ -381,4 +383,4 @@ namespace foundation {
             dirty_materials.clear();
         }
     }
-}
+} // namespace foundation

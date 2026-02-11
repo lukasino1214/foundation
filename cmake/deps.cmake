@@ -237,3 +237,41 @@ if(NOT TARGET ufbx::ufbx)
         add_library(ufbx::ufbx ALIAS lib_ufbx)
     endif()
 endif()
+
+if(NOT TARGET bc7enc_rdo::bc7enc_rdo)
+    FetchContent_Declare(
+        bc7enc_rdo
+        GIT_REPOSITORY https://github.com/richgel999/bc7enc_rdo
+        GIT_TAG        efca5c04451e2882a8ad9d234115ef49a9418a4f
+        GIT_SHALLOW    ON
+        GIT_PROGRESS   TRUE
+        EXCLUDE_FROM_ALL
+    )
+
+    option(SUPPORT_BC7E "Enable BC7E ISPC encoder in bc7enc_rdo" ON)
+
+    FetchContent_GetProperties(bc7enc_rdo)
+    if(NOT bc7enc_rdo_POPULATED)
+        FetchContent_MakeAvailable(bc7enc_rdo)
+
+        add_library(bc7enc_rdo_lib INTERFACE)
+        
+        target_sources(bc7enc_rdo_lib INTERFACE
+            ${bc7enc_rdo_SOURCE_DIR}/bc7enc.cpp
+            ${bc7enc_rdo_SOURCE_DIR}/rgbcx.cpp
+            ${bc7enc_rdo_SOURCE_DIR}/bc7decomp.cpp
+            ${bc7enc_rdo_SOURCE_DIR}/ert.cpp
+        )
+
+        target_include_directories(bc7enc_rdo_lib INTERFACE 
+            ${bc7enc_rdo_SOURCE_DIR}
+        )
+
+        find_package(OpenMP)
+        if(OpenMP_CXX_FOUND)
+            target_link_libraries(bc7enc_rdo_lib INTERFACE OpenMP::OpenMP_CXX)
+        endif()
+
+        add_library(bc7enc_rdo::bc7enc_rdo ALIAS bc7enc_rdo_lib)
+    endif()
+endif()

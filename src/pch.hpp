@@ -16,6 +16,7 @@
 #include <type_traits>
 #include <utility>
 #include <numbers>
+#include <variant>
 
 #include <daxa/daxa.hpp>
 #include <daxa/utils/task_graph.hpp>

@@ -27,3 +27,4 @@ BreakConstructorInitializers: AfterColon
 SpaceBeforeInheritanceColon: true
 ReferenceAlignment: Left
 SpaceBeforeParens: Never
+PointerAlignment: Left

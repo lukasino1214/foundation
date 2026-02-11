@@ -8,6 +8,9 @@
 #pragma clang diagnostic ignored "-Wconversion"
 #pragma clang diagnostic ignored "-Wsign-conversion"
 #pragma clang diagnostic ignored "-Wold-style-cast"
+#pragma clang diagnostic ignored "-Wdouble-promotion"
+#pragma clang diagnostic ignored "-Wgnu-anonymous-struct"
+#pragma clang diagnostic ignored "-Wnested-anon-types"
 
 #include <dds.hpp>
 
@@ -28,6 +31,9 @@
 
 #include <wuffs-v0.4.c>
 
+#include <bc7enc.h>
+#include <rgbcx.h>
+
 #pragma clang diagnostic pop
 
 namespace foundation {
@@ -46,7 +52,7 @@ namespace foundation {
         // PNG magic bytes: 89 50 4E 47 0D 0A 1A 0A
         constexpr std::array<std::byte, 8> png_magic = {
             std::byte{0x89}, std::byte{0x50}, std::byte{0x4E}, std::byte{0x47},
-            std::byte{0x0D}, std::byte{0x0A}, std::byte{0x1A}, std::byte{0x0A}
+            std::byte{0x0D}, std::byte{0x0A}, std::byte{0x1A}, std::byte{0x0A},
         };
         if(std::memcmp(data.data(), png_magic.data(), 8) == 0) {
             return ImageType::PNG;
@@ -256,7 +262,7 @@ namespace foundation {
             throw std::runtime_error(fmt::format("Unsupported image format: {}", file_path.string()));
         }
     }
-    
+
     auto ImageProcessor::load_image(std::span<std::byte const> data) -> LoadedImage {
         ImageType image_type = detect_image_type(data);
 
@@ -373,15 +379,15 @@ namespace foundation {
         }
 
         wuffs_base__pixel_config__set(&config.pixcfg, dst_pfmt, WUFFS_BASE__PIXEL_SUBSAMPLING__NONE, width, height);
-        size_t bytes_per_pixel = s_cast<size_t>(is_16bit ? (n + n) : n);
+        usize bytes_per_pixel = s_cast<usize>(is_16bit ? (n + n) : n);
 
         if(width == 0 || height == 0 || bytes_per_pixel == 0 ||
-           s_cast<size_t>(width) > SIZE_MAX / height ||
-           s_cast<size_t>(width * height) > SIZE_MAX / bytes_per_pixel) {
+           s_cast<usize>(width) > SIZE_MAX / height ||
+           s_cast<usize>(width * height) > SIZE_MAX / bytes_per_pixel) {
             throw std::runtime_error("something went wrong");
         }
 
-        size_t pixel_buf_size = s_cast<size_t>(width * height) * bytes_per_pixel;
+        usize pixel_buf_size = s_cast<usize>(width * height) * bytes_per_pixel;
         loaded_image.data.resize(pixel_buf_size);
 
         wuffs_base__range_ii_u64 workbuf_len_range = wuffs_png__decoder__workbuf_len(&dec);
@@ -390,12 +396,12 @@ namespace foundation {
         wuffs_base__slice_u8 workbuf = {};
 
         if(workbuf_len_range.max_incl > 0) {
-            size_t wb_len = s_cast<size_t>(workbuf_len_range.max_incl);
+            usize wb_len = s_cast<usize>(workbuf_len_range.max_incl);
             if(wb_len > SIZE_MAX) {
                 throw std::runtime_error("something went wrong");
             }
 
-            uint8_t workbuf_stack[WORKBUF_STACK_SIZE];
+            u8 workbuf_stack[WORKBUF_STACK_SIZE];
             if(wb_len <= WORKBUF_STACK_SIZE) {
                 workbuf.ptr = workbuf_stack;
                 workbuf.len = wb_len;
@@ -404,7 +410,7 @@ namespace foundation {
                 if(!workbuf_ptr) {
                     throw std::runtime_error("something went wrong");
                 }
-                workbuf.ptr = s_cast<uint8_t *>(workbuf_ptr);
+                workbuf.ptr = s_cast<u8*>(workbuf_ptr);
                 workbuf.len = wb_len;
             }
         }
@@ -418,10 +424,10 @@ namespace foundation {
             throw std::runtime_error("something went wrong");
         }
 
-        #pragma clang diagnostic push
-        #pragma clang diagnostic ignored "-Wold-style-cast"
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wold-style-cast"
         status = wuffs_png__decoder__decode_frame(&dec, &pb, &io_buf, WUFFS_BASE__PIXEL_BLEND__SRC, workbuf, NULL);
-        #pragma clang diagnostic pop
+#pragma clang diagnostic pop
 
         if(workbuf_ptr != nullptr) {
             free(workbuf_ptr);
@@ -480,23 +486,23 @@ namespace foundation {
         uint32_t dst_pfmt = 0;
 
         switch(n) {
-        case 1: dst_pfmt = WUFFS_BASE__PIXEL_FORMAT__Y; break;
-        case 2: dst_pfmt = WUFFS_BASE__PIXEL_FORMAT__YA_NONPREMUL; break;
-        case 3: dst_pfmt = WUFFS_BASE__PIXEL_FORMAT__RGB; break;
-        default: dst_pfmt = WUFFS_BASE__PIXEL_FORMAT__RGBA_NONPREMUL; break;
+            case 1: dst_pfmt = WUFFS_BASE__PIXEL_FORMAT__Y; break;
+            case 2: dst_pfmt = WUFFS_BASE__PIXEL_FORMAT__YA_NONPREMUL; break;
+            case 3: dst_pfmt = WUFFS_BASE__PIXEL_FORMAT__RGB; break;
+            default: dst_pfmt = WUFFS_BASE__PIXEL_FORMAT__RGBA_NONPREMUL; break;
         }
 
         wuffs_base__pixel_config__set(&config.pixcfg, dst_pfmt, WUFFS_BASE__PIXEL_SUBSAMPLING__NONE, width, height);
 
-        size_t bytes_per_pixel = s_cast<size_t>(n);
+        usize bytes_per_pixel = s_cast<usize>(n);
 
         if(width == 0 || height == 0 || bytes_per_pixel == 0 ||
-           s_cast<size_t>(width) > SIZE_MAX / height ||
-           s_cast<size_t>(width * height) > SIZE_MAX / bytes_per_pixel) {
+           s_cast<usize>(width) > SIZE_MAX / height ||
+           s_cast<usize>(width * height) > SIZE_MAX / bytes_per_pixel) {
             throw std::runtime_error("something went wrong");
         }
 
-        size_t pixel_buf_size = s_cast<size_t>(width * height) * bytes_per_pixel;
+        usize pixel_buf_size = s_cast<usize>(width * height) * bytes_per_pixel;
         loaded_image.data.resize(pixel_buf_size);
 
         wuffs_base__range_ii_u64 workbuf_len_range = wuffs_jpeg__decoder__workbuf_len(&dec);
@@ -505,12 +511,12 @@ namespace foundation {
         wuffs_base__slice_u8 workbuf = {};
 
         if(workbuf_len_range.max_incl > 0) {
-            size_t wb_len = s_cast<size_t>(workbuf_len_range.max_incl);
+            usize wb_len = s_cast<usize>(workbuf_len_range.max_incl);
             if(wb_len > SIZE_MAX) {
                 throw std::runtime_error("something went wrong");
             }
 
-            uint8_t workbuf_stack[WORKBUF_STACK_SIZE];
+            u8 workbuf_stack[WORKBUF_STACK_SIZE];
             if(wb_len <= WORKBUF_STACK_SIZE) {
                 workbuf.ptr = workbuf_stack;
                 workbuf.len = wb_len;
@@ -519,7 +525,7 @@ namespace foundation {
                 if(workbuf_ptr == nullptr) {
                     throw std::runtime_error("something went wrong");
                 }
-                workbuf.ptr = s_cast<uint8_t*>(workbuf_ptr);
+                workbuf.ptr = s_cast<u8*>(workbuf_ptr);
                 workbuf.len = wb_len;
             }
         }
@@ -532,10 +538,10 @@ namespace foundation {
             throw std::runtime_error("something went wrong");
         }
 
-        #pragma clang diagnostic push
-        #pragma clang diagnostic ignored "-Wold-style-cast"
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wold-style-cast"
         status = wuffs_jpeg__decoder__decode_frame(&dec, &pb, &io_buf, WUFFS_BASE__PIXEL_BLEND__SRC, workbuf, NULL);
-        #pragma clang diagnostic pop
+#pragma clang diagnostic pop
 
         if(workbuf_ptr != nullptr) {
             free(workbuf_ptr);
@@ -547,4 +553,412 @@ namespace foundation {
 
         return loaded_image;
     }
-}
+
+    void ImageProcessor::initialize_compressor() {
+        static bool compressor_initialized = false;
+        if(!compressor_initialized) {
+            bc7enc_compress_block_init();
+            rgbcx::init();
+            compressor_initialized = true;
+        }
+    }
+
+    auto ImageProcessor::has_alpha_channel(const LoadedImage& image) -> bool {
+        PROFILE_SCOPE;
+
+        for(usize i = 3; i < image.data.size(); i += 4) {
+            if(s_cast<u8>(image.data[i]) < 255) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    void ImageProcessor::downsample_rgba8(const std::byte *src, std::byte *dst, u32 src_width, u32 src_height) {
+        PROFILE_SCOPE;
+
+        u32 dst_width = std::max(1u, src_width / 2);
+        u32 dst_height = std::max(1u, src_height / 2);
+
+        for(u32 y = 0; y < dst_height; y++) {
+            for(u32 x = 0; x < dst_width; x++) {
+                u32 src_x = x * 2;
+                u32 src_y = y * 2;
+
+                u32 r = 0, g = 0, b = 0, a = 0;
+                for(u32 dy = 0; dy < 2 && (src_y + dy) < src_height; dy++) {
+                    for(u32 dx = 0; dx < 2 && (src_x + dx) < src_width; dx++) {
+                        u32 src_idx = ((src_y + dy) * src_width + (src_x + dx)) * 4;
+                        r += s_cast<u32>(src[src_idx + 0]);
+                        g += s_cast<u32>(src[src_idx + 1]);
+                        b += s_cast<u32>(src[src_idx + 2]);
+                        a += s_cast<u32>(src[src_idx + 3]);
+                    }
+                }
+
+                u32 dst_idx = (y * dst_width + x) * 4;
+                dst[dst_idx + 0] = s_cast<std::byte>(r / 4);
+                dst[dst_idx + 1] = s_cast<std::byte>(g / 4);
+                dst[dst_idx + 2] = s_cast<std::byte>(b / 4);
+                dst[dst_idx + 3] = s_cast<std::byte>(a / 4);
+            }
+        }
+    }
+
+    auto ImageProcessor::generate_mipmaps(LoadedImage& image) -> LoadedImage {
+        PROFILE_SCOPE;
+
+        u32 max_dim = std::max(image.width, image.height);
+        u32 mip_level_count = s_cast<u32>(std::floor(std::log2(max_dim))) + 1;
+
+        LoadedImage result = {};
+        result.format = image.format;
+        result.width = image.width;
+        result.height = image.height;
+        result.depth = image.depth;
+
+        result.mipmaps.emplace_back(image.data.data(), image.data.size());
+
+        u32 current_width = image.width;
+        u32 current_height = image.height;
+        std::vector<std::byte> prev_level = image.data;
+
+        for(u32 mip = 1; mip < mip_level_count; ++mip) {
+            u32 next_width = std::max(1u, current_width / 2);
+            u32 next_height = std::max(1u, current_height / 2);
+
+            std::vector<std::byte> next_level(next_width * next_height * 4);
+            downsample_rgba8(prev_level.data(), next_level.data(), current_width, current_height);
+
+            usize prev_size = result.data.size();
+            result.data.resize(prev_size + next_level.size());
+            std::memcpy(result.data.data() + prev_size, next_level.data(), next_level.size());
+            result.mipmaps.push_back(std::span<std::byte const>(result.data.data() + prev_size, next_level.size()));
+
+            prev_level = std::move(next_level);
+            current_width = next_width;
+            current_height = next_height;
+        }
+
+        if(result.data.empty()) {
+            result.data = image.data;
+        } else {
+            std::vector<std::byte> full_data;
+            full_data.reserve(image.data.size() + result.data.size());
+            full_data.insert(full_data.end(), image.data.begin(), image.data.end());
+            full_data.insert(full_data.end(), result.data.begin(), result.data.end());
+            result.data = std::move(full_data);
+
+            result.mipmaps.clear();
+            usize offset = 0;
+            current_width = image.width;
+            current_height = image.height;
+            for(u32 mip = 0; mip < mip_level_count; ++mip) {
+                usize mip_size = current_width * current_height * 4;
+                result.mipmaps.emplace_back(result.data.data() + offset, mip_size);
+                offset += mip_size;
+                current_width = std::max(1u, current_width / 2);
+                current_height = std::max(1u, current_height / 2);
+            }
+        }
+
+        return result;
+    }
+
+    auto ImageProcessor::compress_to_bc1(LoadedImage& image, bool is_srgb) -> LoadedImage {
+        PROFILE_SCOPE;
+
+        initialize_compressor();
+
+        LoadedImage result = {};
+        result.width = image.width;
+        result.height = image.height;
+        result.depth = image.depth;
+        result.format = is_srgb ? daxa::Format::BC1_RGBA_SRGB_BLOCK : daxa::Format::BC1_RGBA_UNORM_BLOCK;
+
+        u32 blocks_x = (image.width + 3) / 4;
+        u32 blocks_y = (image.height + 3) / 4;
+        usize block_count = blocks_x * blocks_y;
+        usize compressed_size = block_count * 8;
+
+        result.data.resize(compressed_size);
+        result.mipmaps.emplace_back(result.data.data(), compressed_size);
+
+        const std::byte *src = image.data.data();
+        std::byte *dst = result.data.data();
+
+        for(u32 by = 0; by < blocks_y; by++) {
+            for(u32 bx = 0; bx < blocks_x; bx++) {
+                u8 block_pixels[16 * 4];
+
+                for(u32 y = 0; y < 4; y++) {
+                    for(u32 x = 0; x < 4; x++) {
+                        u32 src_x = std::min(bx * 4 + x, image.width - 1);
+                        u32 src_y = std::min(by * 4 + y, image.height - 1);
+                        u32 src_idx = (src_y * image.width + src_x) * 4;
+                        u32 dst_idx = (y * 4 + x) * 4;
+
+                        block_pixels[dst_idx + 0] = s_cast<u8>(src[src_idx + 0]);
+                        block_pixels[dst_idx + 1] = s_cast<u8>(src[src_idx + 1]);
+                        block_pixels[dst_idx + 2] = s_cast<u8>(src[src_idx + 2]);
+                        block_pixels[dst_idx + 3] = s_cast<u8>(src[src_idx + 3]);
+                    }
+                }
+
+                usize block_offset = (by * blocks_x + bx) * 8;
+                rgbcx::encode_bc1(10, dst + block_offset, block_pixels, false, false);
+            }
+        }
+
+        return result;
+    }
+
+    auto ImageProcessor::compress_to_bc3(LoadedImage& image, bool is_srgb) -> LoadedImage {
+        PROFILE_SCOPE;
+
+        initialize_compressor();
+
+        LoadedImage result = {};
+        result.width = image.width;
+        result.height = image.height;
+        result.depth = image.depth;
+        result.format = is_srgb ? daxa::Format::BC3_SRGB_BLOCK : daxa::Format::BC3_UNORM_BLOCK;
+
+        u32 blocks_x = (image.width + 3) / 4;
+        u32 blocks_y = (image.height + 3) / 4;
+        usize block_count = blocks_x * blocks_y;
+        usize compressed_size = block_count * 16;
+
+        result.data.resize(compressed_size);
+        result.mipmaps.emplace_back(result.data.data(), compressed_size);
+
+        const std::byte* src = image.data.data();
+        std::byte* dst = result.data.data();
+
+        for(u32 by = 0; by < blocks_y; ++by) {
+            for(u32 bx = 0; bx < blocks_x; ++bx) {
+                u8 block_pixels[16 * 4];
+
+                for(u32 y = 0; y < 4; y++) {
+                    for(u32 x = 0; x < 4; x++) {
+                        u32 src_x = std::min(bx * 4 + x, image.width - 1);
+                        u32 src_y = std::min(by * 4 + y, image.height - 1);
+                        u32 src_idx = (src_y * image.width + src_x) * 4;
+                        u32 dst_idx = (y * 4 + x) * 4;
+
+                        block_pixels[dst_idx + 0] = s_cast<u8>(src[src_idx + 0]);
+                        block_pixels[dst_idx + 1] = s_cast<u8>(src[src_idx + 1]);
+                        block_pixels[dst_idx + 2] = s_cast<u8>(src[src_idx + 2]);
+                        block_pixels[dst_idx + 3] = s_cast<u8>(src[src_idx + 3]);
+                    }
+                }
+
+                usize block_offset = (by * blocks_x + bx) * 16;
+                rgbcx::encode_bc3(10, dst + block_offset, block_pixels);
+            }
+        }
+
+        return result;
+    }
+
+    auto ImageProcessor::compress_to_bc5_rg(LoadedImage& image) -> LoadedImage {
+        PROFILE_SCOPE;
+
+        initialize_compressor();
+
+        LoadedImage result = {};
+        result.width = image.width;
+        result.height = image.height;
+        result.depth = image.depth;
+        result.format = daxa::Format::BC5_UNORM_BLOCK;
+
+        u32 blocks_x = (image.width + 3) / 4;
+        u32 blocks_y = (image.height + 3) / 4;
+        usize block_count = blocks_x * blocks_y;
+        usize compressed_size = block_count * 16;
+
+        result.data.resize(compressed_size);
+        result.mipmaps.push_back(std::span<std::byte const>(result.data.data(), compressed_size));
+
+        const std::byte* src = image.data.data();
+        std::byte* dst = result.data.data();
+
+        for(u32 by = 0; by < blocks_y; by++) {
+            for(u32 bx = 0; bx < blocks_x; bx++) {
+                u8 block_pixels[16 * 4];
+
+                for(u32 y = 0; y < 4; y++) {
+                    for(u32 x = 0; x < 4; x++) {
+                        u32 src_x = std::min(bx * 4 + x, image.width - 1);
+                        u32 src_y = std::min(by * 4 + y, image.height - 1);
+                        u32 src_idx = (src_y * image.width + src_x) * 4;
+                        u32 dst_idx = (y * 4 + x) * 4;
+
+                        block_pixels[dst_idx + 0] = s_cast<u8>(src[src_idx + 2]);
+                        block_pixels[dst_idx + 1] = s_cast<u8>(src[src_idx + 1]);
+                        block_pixels[dst_idx + 2] = 0;
+                        block_pixels[dst_idx + 3] = 255;
+                    }
+                }
+
+                usize block_offset = (by * blocks_x + bx) * 16;
+                rgbcx::encode_bc5(dst + block_offset, block_pixels, 0, 1, 4);
+            }
+        }
+
+        return result;
+    }
+
+    auto ImageProcessor::compress_to_bc5_normal(LoadedImage& image) -> LoadedImage {
+        PROFILE_SCOPE;
+
+        initialize_compressor();
+
+        LoadedImage result = {};
+        result.width = image.width;
+        result.height = image.height;
+        result.depth = image.depth;
+        result.format = daxa::Format::BC5_UNORM_BLOCK;
+
+        u32 blocks_x = (image.width + 3) / 4;
+        u32 blocks_y = (image.height + 3) / 4;
+        usize block_count = blocks_x * blocks_y;
+        usize compressed_size = block_count * 16;
+
+        result.data.resize(compressed_size);
+        result.mipmaps.emplace_back(result.data.data(), compressed_size);
+
+        const std::byte* src = image.data.data();
+        std::byte* dst = result.data.data();
+
+        for(u32 by = 0; by < blocks_y; by++) {
+            for(u32 bx = 0; bx < blocks_x; bx++) {
+                u8 block_pixels[16 * 4];
+
+                for(u32 y = 0; y < 4; y++) {
+                    for(u32 x = 0; x < 4; x++) {
+                        u32 src_x = std::min(bx * 4 + x, image.width - 1);
+                        u32 src_y = std::min(by * 4 + y, image.height - 1);
+                        u32 src_idx = (src_y * image.width + src_x) * 4;
+                        u32 dst_idx = (y * 4 + x) * 4;
+
+                        f32 nx = (s_cast<f32>(src[src_idx + 0]) / 255.0f) * 2.0f - 1.0f;
+                        f32 ny = (s_cast<f32>(src[src_idx + 1]) / 255.0f) * 2.0f - 1.0f;
+                        f32 nz = (s_cast<f32>(src[src_idx + 2]) / 255.0f) * 2.0f - 1.0f;
+
+                        f32 len = std::sqrt(nx * nx + ny * ny + nz * nz);
+                        if(len > 0.0f) {
+                            nx /= len;
+                            ny /= len;
+                        }
+
+                        block_pixels[dst_idx + 0] = s_cast<u8>((nx * 0.5f + 0.5f) * 255.0f);
+                        block_pixels[dst_idx + 1] = s_cast<u8>((ny * 0.5f + 0.5f) * 255.0f);
+                        block_pixels[dst_idx + 2] = 0;
+                        block_pixels[dst_idx + 3] = 255;
+                    }
+                }
+
+                usize block_offset = (by * blocks_x + bx) * 16;
+                rgbcx::encode_bc5(dst + block_offset, block_pixels, 0, 1, 4);
+            }
+        }
+
+        return result;
+    }
+
+    auto ImageProcessor::compress_image(LoadedImage& image, TextureType texture_type) -> LoadedImage {
+        PROFILE_SCOPE;
+
+        if(image.format != daxa::Format::R8G8B8A8_UNORM && image.format != daxa::Format::R8G8B8A8_SRGB) {
+            return image;
+        }
+
+        bool is_srgb = (image.format == daxa::Format::R8G8B8A8_SRGB);
+        LoadedImage image_with_mipmaps = generate_mipmaps(image);
+
+        LoadedImage result = {};
+        result.width = image.width;
+        result.height = image.height;
+        result.depth = image.depth;
+
+        daxa::Format target_format;
+        switch(texture_type) {
+            case TextureType::GltfAlbedo: {
+                target_format = has_alpha_channel(image)
+                                    ? (is_srgb ? daxa::Format::BC3_SRGB_BLOCK : daxa::Format::BC3_UNORM_BLOCK)
+                                    : (is_srgb ? daxa::Format::BC1_RGBA_SRGB_BLOCK : daxa::Format::BC1_RGBA_UNORM_BLOCK);
+                break;
+            }
+
+            case TextureType::GltfEmissive:
+                target_format = is_srgb ? daxa::Format::BC1_RGBA_SRGB_BLOCK : daxa::Format::BC1_RGBA_UNORM_BLOCK;
+                break;
+
+            case TextureType::GltfRoughnessMetallic:
+                target_format = daxa::Format::BC5_UNORM_BLOCK;
+                break;
+
+            case TextureType::GltfNormal:
+                target_format = daxa::Format::BC5_UNORM_BLOCK;
+                break;
+
+            default:
+                return image;
+        }
+
+        result.format = target_format;
+
+        u32 current_width = image.width;
+        u32 current_height = image.height;
+
+        for(u32 mip = 0; mip < image_with_mipmaps.mipmaps.size(); ++mip) {
+            LoadedImage mip_image = {};
+            mip_image.width = current_width;
+            mip_image.height = current_height;
+            mip_image.depth = 1;
+            mip_image.format = image.format;
+            mip_image.data.resize(image_with_mipmaps.mipmaps[mip].size());
+            std::memcpy(mip_image.data.data(), image_with_mipmaps.mipmaps[mip].data(), image_with_mipmaps.mipmaps[mip].size());
+
+            LoadedImage compressed_mip;
+
+            switch(texture_type) {
+            case TextureType::GltfAlbedo:
+                if(has_alpha_channel(mip_image)) {
+                    compressed_mip = compress_to_bc3(mip_image, is_srgb);
+                } else {
+                    compressed_mip = compress_to_bc1(mip_image, is_srgb);
+                }
+                break;
+
+            case TextureType::GltfEmissive:
+                compressed_mip = compress_to_bc1(mip_image, is_srgb);
+                break;
+
+            case TextureType::GltfRoughnessMetallic:
+                compressed_mip = compress_to_bc5_rg(mip_image);
+                break;
+
+            case TextureType::GltfNormal:
+                compressed_mip = compress_to_bc5_normal(mip_image);
+                break;
+
+            default:
+                compressed_mip = mip_image;
+                break;
+            }
+
+            usize prev_size = result.data.size();
+            result.data.resize(prev_size + compressed_mip.data.size());
+            std::memcpy(result.data.data() + prev_size, compressed_mip.data.data(), compressed_mip.data.size());
+            result.mipmaps.emplace_back(result.data.data() + prev_size, compressed_mip.data.size());
+
+            current_width = std::max(1u, current_width / 2);
+            current_height = std::max(1u, current_height / 2);
+        }
+
+        return result;
+    }
+} // namespace foundation

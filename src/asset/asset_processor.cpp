@@ -6,20 +6,6 @@
 #include <utils/io.hpp>
 #include <graphics/gpu_context.hpp>
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wmicrosoft-enum-value"
-#pragma clang diagnostic ignored "-Wunused-but-set-variable"
-#pragma clang diagnostic ignored "-Wconversion"
-#pragma clang diagnostic ignored "-Wsign-conversion"
-#pragma clang diagnostic ignored "-Wold-style-cast"
-
-#include <fastgltf/core.hpp>
-#include <fastgltf/tools.hpp>
-#include <fastgltf/glm_element_traits.hpp>
-#include <fastgltf/types.hpp>
-
-#pragma clang diagnostic pop
-
 namespace foundation {
     AssetProcessor::AssetProcessor(GPUContext* _gpu_context) : gpu_context{_gpu_context} {}
     AssetProcessor::~AssetProcessor() {}
@@ -33,22 +19,22 @@ namespace foundation {
         auto& normals = loaded_mesh.normals;
         auto& uvs = loaded_mesh.uvs;
         auto& indices = loaded_mesh.indices;
-        
+
         MeshGeometryData mesh_geometry_data = {};
         mesh_geometry_data.vertex_count = s_cast<u32>(positions.size());
         mesh_geometry_data.index_count = s_cast<u32>(indices.size());
-        
+
         usize total_mesh_size = positions.size() * sizeof(glm::vec3) + normals.size() * sizeof(glm::vec3) + uvs.size() * sizeof(glm::vec2);
 
         daxa::BufferId staging_mesh_buffer = gpu_context->device.create_buffer(daxa::BufferInfo {
             .size = total_mesh_size,
             .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
-            .name = loaded_mesh.name.c_str()
+            .name = loaded_mesh.name.c_str(),
         });
 
         daxa::BufferId mesh_buffer = gpu_context->device.create_buffer(daxa::BufferInfo {
             .size = total_mesh_size,
-            .name = loaded_mesh.name.c_str()
+            .name = loaded_mesh.name.c_str(),
         });
 
         std::byte* mapped_ptr = gpu_context->device.buffer_host_address(staging_mesh_buffer).value();
@@ -76,12 +62,12 @@ namespace foundation {
         daxa::BufferId staging_index_buffer = gpu_context->device.create_buffer(daxa::BufferInfo {
             .size = indices.size() * sizeof(u32),
             .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
-            .name = loaded_mesh.name.c_str()
+            .name = loaded_mesh.name.c_str(),
         });
 
         daxa::BufferId index_buffer = gpu_context->device.create_buffer(daxa::BufferInfo {
             .size = indices.size() * sizeof(u32),
-            .name = loaded_mesh.name.c_str()
+            .name = loaded_mesh.name.c_str(),
         });
 
         std::memcpy(gpu_context->device.buffer_host_address(staging_index_buffer).value(), indices.data(), sizeof(u32) * indices.size());
@@ -138,6 +124,8 @@ namespace foundation {
             }
         }
 
+        loaded_image = ImageProcessor::compress_image(loaded_image, info.texture_type);
+
         daxa::BufferId staging_image_buffer = gpu_context->device.create_buffer({
             .size = loaded_image.data.size(),
             .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
@@ -146,7 +134,7 @@ namespace foundation {
         std::memcpy(gpu_context->device.buffer_host_address(staging_image_buffer).value(), loaded_image.data.data(), loaded_image.data.size());
 
         u32 mip_level_count = loaded_image.mipmaps.empty() ? s_cast<u32>(std::floor(std::log2(std::max(loaded_image.width, loaded_image.height)))) + 1 : s_cast<u32>(loaded_image.mipmaps.size());
-        daxa::ImageId image = gpu_context->device.create_image({
+        daxa::ImageId image = gpu_context->device.create_image(daxa::ImageInfo {
             .format = loaded_image.format,
             .size = { loaded_image.width, loaded_image.height, loaded_image.depth },
             .mip_level_count = mip_level_count,
@@ -193,7 +181,7 @@ namespace foundation {
             });
         }
     }
-    
+
     auto AssetProcessor::upload_resources(daxa::CommandRecorder& cmd_recorder) -> ResourceUploadInfos {
         PROFILE_SCOPE;
 
@@ -206,14 +194,14 @@ namespace foundation {
         }
 
         if(!ret.meshes.empty()) {
-            daxa::BufferId staging_transform_buffer = gpu_context->device.create_buffer({
+            daxa::BufferId staging_transform_buffer = gpu_context->device.create_buffer(daxa::BufferInfo {
                 .size = sizeof(daxa_f32mat3x4),
                 .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
                 .name = "staging transform buffer",
             });
             cmd_recorder.destroy_buffer_deferred(staging_transform_buffer);
 
-            daxa::BufferId transform_buffer =  gpu_context->device.create_buffer({
+            daxa::BufferId transform_buffer = gpu_context->device.create_buffer(daxa::BufferInfo {
                 .size = sizeof(daxa_f32mat3x4),
                 .name = "transform buffer",
             });
@@ -250,7 +238,7 @@ namespace foundation {
                     .size = gpu_context->device.buffer_info(mesh_upload_info.staging_mesh_buffer).value().size,
                 });
                 cmd_recorder.destroy_buffer_deferred(mesh_upload_info.staging_mesh_buffer);
-    
+
                 cmd_recorder.copy_buffer_to_buffer({
                     .src_buffer = mesh_upload_info.staging_index_buffer,
                     .dst_buffer = mesh_upload_info.index_buffer,
@@ -272,15 +260,15 @@ namespace foundation {
 
                 daxa::BlasBuildInfo blas_build_info = {
                     .flags = daxa::AccelerationStructureBuildFlagBits::PREFER_FAST_TRACE | daxa::AccelerationStructureBuildFlagBits::ALLOW_DATA_ACCESS,
-                    .geometries = std::span(&geometry_store.back(), 1), 
+                    .geometries = std::span(&geometry_store.back(), 1),
                     .scratch_data = {},
                 };
-                
+
                 daxa::AccelerationStructureBuildSizesInfo build_size_info = gpu_context->device.blas_build_sizes(blas_build_info);
 
                 mesh_upload_info.blas = gpu_context->device.create_blas({
                     .size = round_up_to_multiple(s_cast<u32>(build_size_info.acceleration_structure_size), ACCELERATION_STRUCTURE_BUILD_OFFSET_ALIGMENT),
-                    .name = fmt::format("{} blas", gpu_context->device.buffer_info(mesh_upload_info.mesh_buffer).value().name.c_str()).substr(0, 57)
+                    .name = fmt::format("{} blas", gpu_context->device.buffer_info(mesh_upload_info.mesh_buffer).value().name.c_str()).substr(0, 57),
                 });
 
                 u32 aligned_scratch_size = round_up_to_multiple(s_cast<u32>(build_size_info.build_scratch_size), ACCELERATION_STRUCTURE_BUILD_OFFSET_ALIGMENT);
@@ -329,7 +317,7 @@ namespace foundation {
                 daxa::Extent3D mip_size = gpu_context->device.image_info(texture_upload_info.image).value().size;
                 u32 mip_level_count = gpu_context->device.image_info(texture_upload_info.image).value().mip_level_count;
 
-                cmd_recorder.copy_buffer_to_image({
+                cmd_recorder.copy_buffer_to_image(daxa::BufferImageCopyInfo {
                     .buffer = texture_upload_info.staging_image_buffer,
                     .buffer_offset = 0,
                     .image = texture_upload_info.image,
@@ -339,10 +327,10 @@ namespace foundation {
                         .layer_count = 1,
                     },
                     .image_offset = { 0, 0, 0 },
-                    .image_extent = { mip_size.x, mip_size.y, mip_size.z }
+                    .image_extent = { mip_size.x, mip_size.y, mip_size.z },
                 });
 
-                cmd_recorder.pipeline_image_barrier(daxa::ImageBarrierInfo{
+                cmd_recorder.pipeline_image_barrier(daxa::ImageBarrierInfo {
                     .src_access = daxa::AccessConsts::TRANSFER_WRITE,
                     .dst_access = daxa::AccessConsts::BLIT_READ,
                     .image_id = texture_upload_info.image,
@@ -378,7 +366,7 @@ namespace foundation {
                         .dst_access = daxa::AccessConsts::BLIT_READ,
                         .image_id = texture_upload_info.image,
                     });
-                    
+
                     mip_size = next_mip_size;
                 }
             } else {
@@ -386,8 +374,8 @@ namespace foundation {
                 for(u32 mip_level = 0; mip_level < texture_upload_info.mipmaps.size(); ++mip_level) {
                     const auto& mipmap = texture_upload_info.mipmaps[mip_level];
                     daxa::Extent3D mip_size = gpu_context->device.image_info(texture_upload_info.image).value().size;
-                    
-                    cmd_recorder.copy_buffer_to_image({
+
+                    cmd_recorder.copy_buffer_to_image(daxa::BufferImageCopyInfo {
                         .buffer = texture_upload_info.staging_image_buffer,
                         .buffer_offset = staging_offset,
                         .image = texture_upload_info.image,

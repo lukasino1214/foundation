@@ -66,6 +66,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     flecs::flecs_static
     Tracy::TracyClient
     ufbx::ufbx
+    bc7enc_rdo::bc7enc_rdo
 )
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Windows")

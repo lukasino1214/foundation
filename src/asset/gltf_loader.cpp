@@ -2,10 +2,19 @@
 
 #include "asset_processor.hpp"
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wmicrosoft-enum-value"
+#pragma clang diagnostic ignored "-Wunused-but-set-variable"
+#pragma clang diagnostic ignored "-Wconversion"
+#pragma clang diagnostic ignored "-Wsign-conversion"
+#pragma clang diagnostic ignored "-Wold-style-cast"
+
 #include <fastgltf/core.hpp>
 #include <fastgltf/tools.hpp>
 #include <fastgltf/glm_element_traits.hpp>
 #include <fastgltf/types.hpp>
+
+#pragma clang diagnostic pop
 
 #include <ecs/entity.hpp>
 #include <ecs/scene.hpp>

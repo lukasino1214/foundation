@@ -1,10 +1,5 @@
 #pragma once
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wsign-conversion"
-#include <fastgltf/types.hpp>
-#pragma clang diagnostic pop
-
 namespace foundation {
     struct Asset;
     struct Scene;

@@ -1,11 +1,9 @@
 #pragma once
 
-namespace fastgltf {
-    struct Accessor;
-}
+#include "asset_manifests.hpp"
 
 namespace foundation {
-    struct GPUContext; 
+    struct GPUContext;
     struct Asset;
 
     struct LoadMeshInfo {
@@ -42,7 +40,8 @@ namespace foundation {
         Asset* asset;
         std::filesystem::path asset_path = {};
         bool load_as_srgb = {};
-        
+        TextureType texture_type = TextureType::None;
+
         u32 asset_manifest_index = {};
         u32 texture_manifest_index = {};
     };
@@ -63,7 +62,6 @@ namespace foundation {
         std::vector<TextureUploadInfo> textures = {};
     };
 
-
     struct AssetProcessor {
         explicit AssetProcessor(GPUContext* _gpu_context);
         ~AssetProcessor();
@@ -73,10 +71,7 @@ namespace foundation {
 
         auto upload_resources(daxa::CommandRecorder& cmd_recorder) -> ResourceUploadInfos;
 
-        template <typename ElemT, bool IS_INDEX_BUFFER>
-        static auto load_accessor_data_from_file(const std::filesystem::path& root_path, const Asset& gltf_asset, const fastgltf::Accessor& accesor) -> std::vector<ElemT>;
-    
-    private:
+      private:
         GPUContext* gpu_context = {};
 
         std::unique_ptr<std::mutex> mesh_upload_mutex = std::make_unique<std::mutex>();
@@ -85,4 +80,4 @@ namespace foundation {
         std::vector<MeshUploadInfo> mesh_upload_queue = {};
         std::vector<TextureUploadInfo> texture_upload_queue = {};
     };
-}
+} // namespace foundation
