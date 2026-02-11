@@ -79,7 +79,7 @@ if (NOT TARGET imgui::imgui)
         imgui
         GIT_REPOSITORY https://github.com/ocornut/imgui
         GIT_TAG        fdc084f532189fda8474079f79e74fa5e3541c9f
-        GIT_SHALLOW    OFF # docking branch cope
+        GIT_SHALLOW    ON # docking branch cope
         GIT_PROGRESS TRUE
         EXCLUDE_FROM_ALL
     )
@@ -159,7 +159,7 @@ if(NOT TARGET wuffs::wuffs)
         wuffs
         GIT_REPOSITORY https://github.com/google/wuffs
         GIT_TAG        072595ae7df55544874caf5096cd9ef4ecf1bdbb
-        GIT_SHALLOW    OFF
+        GIT_SHALLOW    ON
         GIT_PROGRESS TRUE
         EXCLUDE_FROM_ALL
     )
@@ -211,4 +211,29 @@ if(NOT TARGET Tracy::TracyClient)
     )
 
     FetchContent_MakeAvailable(tracy)
+endif()
+
+if(NOT TARGET ufbx::ufbx)
+    FetchContent_Declare(
+        ufbx
+        GIT_REPOSITORY https://github.com/ufbx/ufbx
+        GIT_TAG        83bc7cf44f76bc8622de63b809a42b5d557cd733
+        GIT_SHALLOW    ON
+        GIT_PROGRESS   TRUE
+        EXCLUDE_FROM_ALL
+    )
+
+    FetchContent_GetProperties(ufbx)
+    if(NOT ufbx_POPULATED)
+        FetchContent_MakeAvailable(ufbx)
+
+        add_library(lib_ufbx ${ufbx_SOURCE_DIR}/ufbx.c)
+        target_include_directories(lib_ufbx PUBLIC ${ufbx_SOURCE_DIR})
+
+        if(UNIX AND NOT APPLE)
+            target_link_libraries(lib_ufbx PRIVATE m)
+        endif()
+
+        add_library(ufbx::ufbx ALIAS lib_ufbx)
+    endif()
 endif()

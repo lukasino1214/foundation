@@ -24,6 +24,8 @@ add_executable(${PROJECT_NAME}
     "src/application.cpp"
     "src/asset/asset_manager.cpp"
     "src/asset/asset_processor.cpp"
+    "src/asset/image_processor.cpp"
+    "src/asset/mesh_processor.cpp"
     "src/ecs/entity.cpp"
     "src/ecs/scene.cpp"
     "src/graphics/window.cpp"
@@ -61,6 +63,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     meshoptimizer::meshoptimizer
     flecs::flecs_static
     Tracy::TracyClient
+    ufbx::ufbx
 )
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Windows")

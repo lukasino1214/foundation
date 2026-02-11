@@ -11,11 +11,15 @@ namespace foundation {
                 throw std::runtime_error("file hasnt been found: " + file_path.string());
             }
 
-            std::ifstream file(file_path, std::ios::binary);
-            auto size = std::filesystem::file_size(file_path);
-            std::vector<std::byte> data = {};
-            data.resize(size);
-            file.read(r_cast<char*>(data.data()), s_cast<std::streamsize>(size));
+            std::ifstream file(file_path, std::ios::binary | std::ios::ate);
+            const auto size = file.tellg();
+            file.seekg(0, std::ios::beg);
+
+            std::vector<std::byte> data(s_cast<size_t>(size));
+
+            if (!file.read(r_cast<char*>(data.data()), size)) {
+                throw std::runtime_error("failed to read file: " + file_path.string());
+            }
 
             return data;
         }

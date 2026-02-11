@@ -8,22 +8,6 @@ namespace fastgltf {
 namespace foundation {
     struct GPUContext; 
 
-    struct LoadedImage {
-        daxa::Format format = daxa::Format::UNDEFINED;
-        std::vector<std::byte> data = {};
-        std::vector<std::span<std::byte const>> mipmaps = {};
-        u32 width = 1;
-        u32 height = 1;
-        u32 depth = 1;
-    };
-
-    struct LoadedMesh {
-        std::vector<glm::vec3> positions = {};
-        std::vector<glm::vec3> normals = {};
-        std::vector<glm::vec2> uvs = {};
-        std::vector<u32> indices = {};
-    };
-
     struct LoadMeshInfo {
         fastgltf::Asset* asset;
         std::filesystem::path asset_path = {};
@@ -93,30 +77,6 @@ namespace foundation {
         static auto load_accessor_data_from_file(const std::filesystem::path& root_path, const fastgltf::Asset& gltf_asset, const fastgltf::Accessor& accesor) -> std::vector<ElemT>;
     
     private:
-        static auto load_mesh(fastgltf::Asset* asset, const std::filesystem::path& file_path, u32 mesh_group_index, u32 mesh_index) -> LoadedMesh;
-        static auto load_image(const std::filesystem::path& file_path) -> LoadedImage;
-
-        static auto load_dds(std::span<std::byte const> data) -> LoadedImage;
-        static auto load_png(std::span<std::byte const> data) -> LoadedImage;
-        static auto load_jpeg(std::span<std::byte const> data) -> LoadedImage;
-
-        struct GenerateIndexBufferInfo {
-            std::vector<f32vec3> unindexed_positions = {};
-            std::vector<f32vec3> unindexed_normals = {};
-            std::vector<f32vec2> unindexed_uvs = {};
-        };
-
-        struct ProcessedIndexBufferInfo {
-            std::vector<f32vec3> positions = {};
-            std::vector<f32vec3> normals = {};
-            std::vector<f32vec2> uvs = {};
-            std::vector<u32> indices = {};
-        };
-
-        static auto generate_index_buffer(const GenerateIndexBufferInfo& info) -> ProcessedIndexBufferInfo;
-        static auto optimize_vertex_cache(const std::vector<u32>& index_buffer, u32 vertex_count) -> std::vector<u32>;
-        static auto optimize_vertex_fetch(const ProcessedIndexBufferInfo& info) -> ProcessedIndexBufferInfo;
-
         GPUContext* gpu_context = {};
 
         std::unique_ptr<std::mutex> mesh_upload_mutex = std::make_unique<std::mutex>();
