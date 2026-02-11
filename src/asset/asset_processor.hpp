@@ -1,15 +1,15 @@
 #pragma once
 
 namespace fastgltf {
-    class Asset;
     struct Accessor;
 }
 
 namespace foundation {
     struct GPUContext; 
+    struct Asset;
 
     struct LoadMeshInfo {
-        fastgltf::Asset* asset;
+        Asset* asset;
         std::filesystem::path asset_path = {};
 
         u32 asset_manifest_index = {};
@@ -39,7 +39,7 @@ namespace foundation {
     };
 
     struct LoadTextureInfo {
-        fastgltf::Asset* asset;
+        Asset* asset;
         std::filesystem::path asset_path = {};
         bool load_as_srgb = {};
         
@@ -74,7 +74,7 @@ namespace foundation {
         auto upload_resources(daxa::CommandRecorder& cmd_recorder) -> ResourceUploadInfos;
 
         template <typename ElemT, bool IS_INDEX_BUFFER>
-        static auto load_accessor_data_from_file(const std::filesystem::path& root_path, const fastgltf::Asset& gltf_asset, const fastgltf::Accessor& accesor) -> std::vector<ElemT>;
+        static auto load_accessor_data_from_file(const std::filesystem::path& root_path, const Asset& gltf_asset, const fastgltf::Accessor& accesor) -> std::vector<ElemT>;
     
     private:
         GPUContext* gpu_context = {};

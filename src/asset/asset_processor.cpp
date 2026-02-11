@@ -21,166 +21,13 @@
 #pragma clang diagnostic pop
 
 namespace foundation {
-    template auto AssetProcessor::load_accessor_data_from_file<glm::vec2, false>(const std::filesystem::path&, const fastgltf::Asset&, const fastgltf::Accessor&) -> std::vector<glm::vec2>;
-    template auto AssetProcessor::load_accessor_data_from_file<glm::vec3, false>(const std::filesystem::path&, const fastgltf::Asset&, const fastgltf::Accessor&) -> std::vector<glm::vec3>;
-    template auto AssetProcessor::load_accessor_data_from_file<glm::vec4, false>(const std::filesystem::path&, const fastgltf::Asset&, const fastgltf::Accessor&) -> std::vector<glm::vec4>;
-    template auto AssetProcessor::load_accessor_data_from_file<glm::mat4, false>(const std::filesystem::path&, const fastgltf::Asset&, const fastgltf::Accessor&) -> std::vector<glm::mat4>;
-    template auto AssetProcessor::load_accessor_data_from_file<f32, false>(const std::filesystem::path&, const fastgltf::Asset&, const fastgltf::Accessor&) -> std::vector<f32>;
-    template auto AssetProcessor::load_accessor_data_from_file<u32, true>(const std::filesystem::path&, const fastgltf::Asset&, const fastgltf::Accessor&) -> std::vector<u32>;
-
-    struct BufferData {
-        std::vector<std::byte> loaded_data = {};
-        std::span<std::byte const> data_span = {};
-    };
-
-    auto fastgltf_read_data(const std::filesystem::path& root_path, const fastgltf::Asset& gltf_asset, const fastgltf::DataSource& data, usize total_bytes = 0, usize byte_offset = 0, usize accessor_offset = 0) -> BufferData {
-        BufferData ret;
-
-        std::visit(fastgltf::visitor {
-            [&](const std::monostate&) {
-                throw std::runtime_error("Buffer data is monostate (uninitialized)");
-            },
-            [&](const fastgltf::sources::BufferView& view) {
-                const auto& src_buffer_view = gltf_asset.bufferViews[view.bufferViewIndex];
-                const auto& src_buffer = gltf_asset.buffers[src_buffer_view.bufferIndex];
-                usize effective_size = total_bytes > 0 ? total_bytes : src_buffer_view.byteLength;
-
-                std::visit(fastgltf::visitor{
-                    [&](const fastgltf::sources::Array& arr) {
-                        ret.data_span = std::span<std::byte const>(
-                            reinterpret_cast<std::byte const*>(arr.bytes.data()) + src_buffer_view.byteOffset + accessor_offset,
-                            effective_size
-                        );
-                    },
-                    [&](const fastgltf::sources::Vector& vec) {
-                        ret.data_span = std::span<std::byte const>(
-                            reinterpret_cast<std::byte const*>(vec.bytes.data()) + src_buffer_view.byteOffset + accessor_offset,
-                            effective_size
-                        );
-                    },
-                    [&](const auto&) {
-                        throw std::runtime_error("Nested BufferView or unsupported source in BufferView");
-                    }
-                }, src_buffer.data);
-            },
-            [&](const fastgltf::sources::URI& uri) {
-                const std::filesystem::path full_path = root_path / uri.uri.fspath();
-                std::ifstream file(full_path, std::ios::binary);
-                if (!file) {
-                    throw std::runtime_error("Failed to open buffer file: " + full_path.string());
-                }
-
-                const usize file_offset = byte_offset + uri.fileByteOffset;
-                file.seekg(static_cast<std::streamsize>(file_offset));
-
-                ret.loaded_data.resize(total_bytes);
-                if (!file.read(reinterpret_cast<char*>(ret.loaded_data.data()), static_cast<std::streamsize>(total_bytes))) {
-                    throw std::runtime_error("Failed to read buffer data from file");
-                }
-
-                ret.data_span = std::span<std::byte const>(ret.loaded_data.data(), total_bytes);
-            },
-            [&](const fastgltf::sources::Array& arr) {
-                usize effective_size = total_bytes > 0 ? total_bytes : arr.bytes.size() - byte_offset;
-                ret.data_span = std::span<std::byte const>(reinterpret_cast<std::byte const*>(arr.bytes.data()) + byte_offset, effective_size);
-            },
-            [&](const fastgltf::sources::Vector& vec) {
-                usize effective_size = total_bytes > 0 ? total_bytes : vec.bytes.size() - byte_offset;
-                ret.data_span = std::span<std::byte const>(vec.bytes.data() + byte_offset, effective_size);
-            },
-            [&](const fastgltf::sources::CustomBuffer& /* custom */) {
-                throw std::runtime_error("Buffer data is custoom");
-            },
-            [&](const fastgltf::sources::ByteView& view) {
-                usize effective_size = total_bytes > 0 ? total_bytes : view.bytes.size() - byte_offset;
-                ret.data_span = std::span<std::byte const>(view.bytes.data() + byte_offset, effective_size);
-            },
-            [&](const fastgltf::sources::Fallback&) {
-                throw std::runtime_error("Fallback buffer source not supported");
-            }
-        }, data);
-
-        return ret;
-    };
-
-    template <typename ElemT, bool IS_INDEX_BUFFER>
-    auto AssetProcessor::load_accessor_data_from_file(const std::filesystem::path& root_path, const fastgltf::Asset& gltf_asset, const fastgltf::Accessor& accessor) -> std::vector<ElemT> {
-        PROFILE_SCOPE;
-
-        static_assert(!IS_INDEX_BUFFER || std::is_same_v<ElemT, u32>, "Index Buffer must be u32");
-        const fastgltf::BufferView& gltf_buffer_view = gltf_asset.bufferViews[accessor.bufferViewIndex.value()];
-        const fastgltf::Buffer& gltf_buffer = gltf_asset.buffers[gltf_buffer_view.bufferIndex];
-        
-        const usize element_byte_size = fastgltf::getElementByteSize(accessor.type, accessor.componentType);
-        const usize total_bytes = accessor.count * element_byte_size;
-
-        BufferData buffer_data = fastgltf_read_data(root_path, gltf_asset, gltf_buffer.data, total_bytes, gltf_buffer_view.byteOffset + accessor.byteOffset, accessor.byteOffset);
-        
-        std::vector<ElemT> ret(accessor.count);
-        if constexpr (IS_INDEX_BUFFER) {
-            if (accessor.componentType == fastgltf::ComponentType::UnsignedShort) {
-                const u16* src = r_cast<const u16*>(buffer_data.data_span.data());
-                for (size_t i = 0; i < accessor.count; ++i) {
-                    ret[i] = s_cast<u32>(src[i]);
-                }
-            } else if (accessor.componentType == fastgltf::ComponentType::UnsignedInt) {
-                std::memcpy(ret.data(), buffer_data.data_span.data(), total_bytes);
-            } else {
-                throw std::runtime_error("Unsupported index component type");
-            }
-        } else {
-            std::memcpy(ret.data(), buffer_data.data_span.data(), total_bytes);
-        }
-        
-        return ret;
-    }
-
     AssetProcessor::AssetProcessor(GPUContext* _gpu_context) : gpu_context{_gpu_context} {}
     AssetProcessor::~AssetProcessor() {}
 
     void AssetProcessor::process_mesh_load(const LoadMeshInfo& info) {
         PROFILE_SCOPE;
 
-        const fastgltf::Mesh& gltf_mesh = info.asset->meshes[info.asset_local_mesh_group_index];
-        const fastgltf::Primitive& gltf_primitive = gltf_mesh.primitives[info.asset_local_mesh_index];
-        if(gltf_primitive.type != fastgltf::PrimitiveType::Triangles) {
-            throw std::runtime_error("expecting primitive type of triangles");
-        }
-
-        auto fill = [](auto& vec, u32 required_size = 0) {
-            if(vec.empty()) {
-                vec.resize(required_size, {});
-            }
-        };
-
-        LoadedMesh loaded_mesh = {};
-
-        const fastgltf::Attribute* position_attribute_iter = gltf_primitive.findAttribute("POSITION");
-        if(position_attribute_iter != gltf_primitive.attributes.end()) {
-            loaded_mesh.positions = load_accessor_data_from_file<glm::vec3, false>(info.asset_path.parent_path(), *info.asset, info.asset->accessors[position_attribute_iter->accessorIndex]);
-        }
-
-        u32 vertex_count = s_cast<u32>(loaded_mesh.positions.size());
-
-        const fastgltf::Attribute* normal_attribute_iter = gltf_primitive.findAttribute("NORMAL");
-        if(normal_attribute_iter != gltf_primitive.attributes.end()) {
-            loaded_mesh.normals = load_accessor_data_from_file<glm::vec3, false>(info.asset_path.parent_path(), *info.asset, info.asset->accessors[normal_attribute_iter->accessorIndex]);
-        } else {
-            fill(loaded_mesh.normals, vertex_count);
-        }
-
-        const fastgltf::Attribute* uv_attribute_iter = gltf_primitive.findAttribute("TEXCOORD_0");
-        if(uv_attribute_iter != gltf_primitive.attributes.end()) {
-            loaded_mesh.uvs = load_accessor_data_from_file<glm::vec2, false>(info.asset_path.parent_path(), *info.asset, info.asset->accessors[uv_attribute_iter->accessorIndex]);
-        } else {
-            fill(loaded_mesh.uvs, vertex_count);
-        }
-
-        if(gltf_primitive.indicesAccessor.has_value()) {
-            loaded_mesh.indices = load_accessor_data_from_file<u32, true>(info.asset_path.parent_path(), *info.asset, info.asset->accessors[gltf_primitive.indicesAccessor.value()]);
-        }
-
-        loaded_mesh = MeshProcessor::process_mesh(loaded_mesh);
+        LoadedMesh loaded_mesh = MeshProcessor::process_mesh(info.asset->load_mesh(info.asset_local_mesh_group_index, info.asset_local_mesh_index));
 
         auto& positions = loaded_mesh.positions;
         auto& normals = loaded_mesh.normals;
@@ -193,17 +40,15 @@ namespace foundation {
         
         usize total_mesh_size = positions.size() * sizeof(glm::vec3) + normals.size() * sizeof(glm::vec3) + uvs.size() * sizeof(glm::vec2);
 
-        std::string mesh_name = fmt::format("mesh {}", gltf_mesh.name.empty() ? fmt::format("{}_{}", info.asset_manifest_index, info.mesh_manifest_index).c_str() : gltf_mesh.name.c_str());
-
         daxa::BufferId staging_mesh_buffer = gpu_context->device.create_buffer(daxa::BufferInfo {
             .size = total_mesh_size,
             .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
-            .name = mesh_name.c_str()
+            .name = loaded_mesh.name.c_str()
         });
 
         daxa::BufferId mesh_buffer = gpu_context->device.create_buffer(daxa::BufferInfo {
             .size = total_mesh_size,
-            .name = mesh_name.c_str()
+            .name = loaded_mesh.name.c_str()
         });
 
         std::byte* mapped_ptr = gpu_context->device.buffer_host_address(staging_mesh_buffer).value();
@@ -231,12 +76,12 @@ namespace foundation {
         daxa::BufferId staging_index_buffer = gpu_context->device.create_buffer(daxa::BufferInfo {
             .size = indices.size() * sizeof(u32),
             .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
-            .name = mesh_name.c_str()
+            .name = loaded_mesh.name.c_str()
         });
 
         daxa::BufferId index_buffer = gpu_context->device.create_buffer(daxa::BufferInfo {
             .size = indices.size() * sizeof(u32),
-            .name = mesh_name.c_str()
+            .name = loaded_mesh.name.c_str()
         });
 
         std::memcpy(gpu_context->device.buffer_host_address(staging_index_buffer).value(), indices.data(), sizeof(u32) * indices.size());
@@ -261,12 +106,15 @@ namespace foundation {
         PROFILE_SCOPE;
 
         LoadedImage loaded_image = {};
-        const fastgltf::Image& gltf_image = info.asset->images[info.texture_manifest_index];
-        if(const fastgltf::sources::URI* uri = std::get_if<fastgltf::sources::URI>(&gltf_image.data)) {
-            loaded_image = ImageProcessor::load_image(info.asset_path.parent_path() / uri->uri.fspath());
+        std::string image_name = {};
+        auto asset_image = info.asset->load_image(info.texture_manifest_index);
+        if(LoadedRawImageData* image_data = std::get_if<LoadedRawImageData>(&asset_image)) {
+            loaded_image = ImageProcessor::load_image(image_data->data_span);
+            image_name = image_data->name;
         } else {
-            BufferData data = fastgltf_read_data(info.asset_path, *info.asset, gltf_image.data);
-            loaded_image = ImageProcessor::load_image(data.data_span);
+            auto& loaded_image_info = std::get<LoadedImageInfo>(asset_image);
+            loaded_image = ImageProcessor::load_image(loaded_image_info.file_path);
+            image_name = loaded_image_info.name;
         }
 
         if(info.load_as_srgb) {
@@ -293,7 +141,7 @@ namespace foundation {
         daxa::BufferId staging_image_buffer = gpu_context->device.create_buffer({
             .size = loaded_image.data.size(),
             .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
-            .name = fmt::format("staging_texture_{}", gltf_image.name),
+            .name = fmt::format("staging_texture_{}", image_name),
         });
         std::memcpy(gpu_context->device.buffer_host_address(staging_image_buffer).value(), loaded_image.data.data(), loaded_image.data.size());
 
@@ -304,7 +152,7 @@ namespace foundation {
             .mip_level_count = mip_level_count,
             .array_layer_count = 1,
             .usage = daxa::ImageUsageFlagBits::TRANSFER_SRC | daxa::ImageUsageFlagBits::TRANSFER_DST | daxa::ImageUsageFlagBits::SHADER_SAMPLED,
-            .name = gltf_image.name.c_str(),
+            .name = image_name.c_str(),
         });
 
         daxa::SamplerId sampler = gpu_context->get_sampler(daxa::SamplerInfo {
@@ -322,7 +170,7 @@ namespace foundation {
             .min_lod = 0.0f,
             .max_lod = s_cast<f32>(mip_level_count),
             .enable_unnormalized_coordinates = false,
-            .name = gltf_image.name.c_str(),
+            .name = image_name.c_str(),
         });
 
         std::vector<std::pair<u32, u32>> mipmaps = {};

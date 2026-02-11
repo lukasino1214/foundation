@@ -5,6 +5,7 @@
 namespace foundation {
     auto MeshProcessor::process_mesh(const LoadedMesh& loaded_mesh) -> LoadedMesh {
         LoadedMesh processed_mesh = {};
+        processed_mesh.name = loaded_mesh.name;
         if(loaded_mesh.indices.empty()) {
             ProcessedIndexBufferInfo ret = generate_index_buffer(GenerateIndexBufferInfo {
                 .unindexed_positions = loaded_mesh.positions,

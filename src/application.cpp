@@ -63,16 +63,16 @@ namespace foundation {
             Entity root_entity = scene->create_entity("root entity");
             root_entity.add_component<TransformComponent>();
             root_entity.set_local_position({10, -2, 0});
-            asset_manager.load_asset("assets/models/bistro-full/bistro.gltf", root_entity);
-            // asset_manager.load_asset("assets/models/Bistro/Bistro.glb", root_entity);
+            // asset_manager.load_asset("assets/models/bistro-full/bistro.gltf", root_entity);
+            asset_manager.load_asset("assets/models/Bistro/Bistro.glb", root_entity);
         }
 
         {
             Entity root_entity = scene->create_entity("root entity 2");
             root_entity.add_component<TransformComponent>();
             root_entity.set_local_position({100, -2, 0});
-            asset_manager.load_asset("assets/models/bistro-full/bistro.gltf", root_entity);
-            // asset_manager.load_asset("assets/models/Bistro/Bistro.glb", root_entity);
+            // asset_manager.load_asset("assets/models/bistro-full/bistro.gltf", root_entity);
+            asset_manager.load_asset("assets/models/Bistro/Bistro.glb", root_entity);
         }
 
         {

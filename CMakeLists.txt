@@ -26,6 +26,8 @@ add_executable(${PROJECT_NAME}
     "src/asset/asset_processor.cpp"
     "src/asset/image_processor.cpp"
     "src/asset/mesh_processor.cpp"
+    "src/asset/gltf_loader.cpp"
+    "src/asset/fbx_loader.cpp"
     "src/ecs/entity.cpp"
     "src/ecs/scene.cpp"
     "src/graphics/window.cpp"

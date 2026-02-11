@@ -1,13 +1,8 @@
 #pragma once
 
-namespace foundation {
-    struct LoadedMesh {
-        std::vector<glm::vec3> positions = {};
-        std::vector<glm::vec3> normals = {};
-        std::vector<glm::vec2> uvs = {};
-        std::vector<u32> indices = {};
-    };
+#include "asset_manifests.hpp"
 
+namespace foundation {
     struct MeshProcessor {
         static auto process_mesh(const LoadedMesh& loaded_mesh) -> LoadedMesh;
 
