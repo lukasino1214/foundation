@@ -35,6 +35,9 @@ void fragment_main(in VertexStageOutput input) {
         f32 alpha = material.albedo_factor.a;
         if(!material.albedo_image_id.is_empty()) {
             alpha = Texture2D<f32vec4>::get(material.albedo_image_id).Sample(SamplerState::get(material.albedo_sampler_id), input.uv).a;
+            f32 lod = Texture2D<f32vec4>::get(material.albedo_image_id).CalculateLevelOfDetail(SamplerState::get(material.albedo_sampler_id), input.uv);
+            alpha *= 1.0f + max(0.0f, lod) * 0.25f;
+            alpha = saturate(alpha);
         }
 
         if(alpha < 0.5f) { discard; }

@@ -606,11 +606,134 @@ namespace foundation {
         }
     }
 
-    auto ImageProcessor::generate_mipmaps(LoadedImage& image) -> LoadedImage {
+    void ImageProcessor::downsample_rgba8_premultiplied(const std::byte* src, std::byte* dst, u32 src_width, u32 src_height, bool is_srgb) {
+        PROFILE_SCOPE;
+
+        u32 dst_width = std::max(1u, src_width / 2);
+        u32 dst_height = std::max(1u, src_height / 2);
+
+        auto srgb_to_linear = [](u8 v) -> f32 {
+            f32 f = s_cast<f32>(v) / 255.0f;
+            return (f <= 0.04045f) ? f / 12.92f : std::pow((f + 0.055f) / 1.055f, 2.4f);
+        };
+
+        auto linear_to_srgb = [](f32 v) -> u8 {
+            f32 s = (v <= 0.0031308f) ? v * 12.92f : 1.055f * std::pow(v, 1.0f / 2.4f) - 0.055f;
+            return s_cast<u8>(std::clamp(s * 255.0f + 0.5f, 0.0f, 255.0f));
+        };
+
+        for(u32 y = 0; y < dst_height; y++) {
+            for(u32 x = 0; x < dst_width; x++) {
+                u32 src_x = x * 2;
+                u32 src_y = y * 2;
+
+                f32 pr = 0.0f, pg = 0.0f, pb = 0.0f, pa = 0.0f;
+                u32 sample_count = 0;
+
+                for(u32 dy = 0; dy < 2 && (src_y + dy) < src_height; dy++) {
+                    for(u32 dx = 0; dx < 2 && (src_x + dx) < src_width; dx++) {
+                        u32 src_idx = ((src_y + dy) * src_width + (src_x + dx)) * 4;
+                        f32 a = s_cast<f32>(s_cast<u8>(src[src_idx + 3])) / 255.0f;
+
+                        f32 r, g, b;
+                        if(is_srgb) {
+                            r = srgb_to_linear(s_cast<u8>(src[src_idx + 0]));
+                            g = srgb_to_linear(s_cast<u8>(src[src_idx + 1]));
+                            b = srgb_to_linear(s_cast<u8>(src[src_idx + 2]));
+                        } else {
+                            r = s_cast<f32>(s_cast<u8>(src[src_idx + 0])) / 255.0f;
+                            g = s_cast<f32>(s_cast<u8>(src[src_idx + 1])) / 255.0f;
+                            b = s_cast<f32>(s_cast<u8>(src[src_idx + 2])) / 255.0f;
+                        }
+
+                        pr += r * a;
+                        pg += g * a;
+                        pb += b * a;
+                        pa += a;
+                        sample_count++;
+                    }
+                }
+
+                f32 inv_count = 1.0f / s_cast<f32>(sample_count);
+                pr *= inv_count;
+                pg *= inv_count;
+                pb *= inv_count;
+                pa *= inv_count;
+
+                f32 r, g, b;
+                if(pa > 1e-6f) {
+                    r = pr / pa;
+                    g = pg / pa;
+                    b = pb / pa;
+                } else {
+                    r = g = b = 0.0f;
+                }
+
+                u32 dst_idx = (y * dst_width + x) * 4;
+                if(is_srgb) {
+                    dst[dst_idx + 0] = s_cast<std::byte>(linear_to_srgb(r));
+                    dst[dst_idx + 1] = s_cast<std::byte>(linear_to_srgb(g));
+                    dst[dst_idx + 2] = s_cast<std::byte>(linear_to_srgb(b));
+                } else {
+                    dst[dst_idx + 0] = s_cast<std::byte>(s_cast<u8>(std::clamp(r * 255.0f + 0.5f, 0.0f, 255.0f)));
+                    dst[dst_idx + 1] = s_cast<std::byte>(s_cast<u8>(std::clamp(g * 255.0f + 0.5f, 0.0f, 255.0f)));
+                    dst[dst_idx + 2] = s_cast<std::byte>(s_cast<u8>(std::clamp(b * 255.0f + 0.5f, 0.0f, 255.0f)));
+                }
+                dst[dst_idx + 3] = s_cast<std::byte>(s_cast<u8>(std::clamp(pa * 255.0f + 0.5f, 0.0f, 255.0f)));
+            }
+        }
+    }
+
+    auto ImageProcessor::compute_alpha_coverage(const std::byte* data, u32 pixel_count, f32 alpha_ref) -> f32 {
+        u32 count = 0;
+        u8 ref_byte = s_cast<u8>(alpha_ref * 255.0f);
+        for(u32 i = 0; i < pixel_count; ++i) {
+            if(s_cast<u8>(data[i * 4 + 3]) > ref_byte) {
+                ++count;
+            }
+        }
+        return s_cast<f32>(count) / s_cast<f32>(pixel_count);
+    }
+
+    void ImageProcessor::scale_alpha_to_coverage(std::byte* data, u32 pixel_count, f32 desired_coverage, f32 alpha_ref) {
+        if(desired_coverage <= 0.0f || desired_coverage >= 1.0f) { return; }
+        if(pixel_count == 0) { return; }
+
+        f32 lo = 0.0f, hi = 1.0f;
+        for(u32 iter = 0; iter < 16; ++iter) {
+            f32 mid = (lo + hi) * 0.5f;
+            f32 coverage = compute_alpha_coverage(data, pixel_count, mid);
+            if(coverage < desired_coverage) {
+                hi = mid;
+            } else {
+                lo = mid;
+            }
+        }
+
+        f32 a_r = (lo + hi) * 0.5f;
+        if(a_r < 1e-6f) { return; }
+
+        f32 scale = alpha_ref / a_r;
+
+        for(u32 i = 0; i < pixel_count; ++i) {
+            f32 a = s_cast<f32>(s_cast<u8>(data[i * 4 + 3])) / 255.0f;
+            a = std::clamp(a * scale, 0.0f, 1.0f);
+            data[i * 4 + 3] = s_cast<std::byte>(s_cast<u8>(a * 255.0f + 0.5f));
+        }
+    }
+
+    auto ImageProcessor::generate_mipmaps(LoadedImage& image, bool preserve_alpha_coverage, f32 alpha_ref) -> LoadedImage {
         PROFILE_SCOPE;
 
         u32 max_dim = std::max(image.width, image.height);
         u32 mip_level_count = s_cast<u32>(std::floor(std::log2(max_dim))) + 1;
+
+        bool is_srgb = (image.format == daxa::Format::R8G8B8A8_SRGB);
+
+        f32 base_coverage = 0.0f;
+        if(preserve_alpha_coverage) {
+            base_coverage = compute_alpha_coverage(image.data.data(), image.width * image.height, alpha_ref);
+        }
 
         LoadedImage result = {};
         result.format = image.format;
@@ -629,12 +752,17 @@ namespace foundation {
             u32 next_height = std::max(1u, current_height / 2);
 
             std::vector<std::byte> next_level(next_width * next_height * 4);
-            downsample_rgba8(prev_level.data(), next_level.data(), current_width, current_height);
+            if(preserve_alpha_coverage) {
+                downsample_rgba8_premultiplied(prev_level.data(), next_level.data(), current_width, current_height, is_srgb);
+                scale_alpha_to_coverage(next_level.data(), next_width * next_height, base_coverage, alpha_ref);
+            } else {
+                downsample_rgba8(prev_level.data(), next_level.data(), current_width, current_height);
+            }
 
             usize prev_size = result.data.size();
             result.data.resize(prev_size + next_level.size());
             std::memcpy(result.data.data() + prev_size, next_level.data(), next_level.size());
-            result.mipmaps.push_back(std::span<std::byte const>(result.data.data() + prev_size, next_level.size()));
+            result.mipmaps.emplace_back(result.data.data() + prev_size, next_level.size());
 
             prev_level = std::move(next_level);
             current_width = next_width;
@@ -876,7 +1004,8 @@ namespace foundation {
         }
 
         bool is_srgb = (image.format == daxa::Format::R8G8B8A8_SRGB);
-        LoadedImage image_with_mipmaps = generate_mipmaps(image);
+        bool alpha_tested = (texture_type == TextureType::GltfAlbedo) && has_alpha_channel(image);
+        LoadedImage image_with_mipmaps = generate_mipmaps(image, alpha_tested);
 
         LoadedImage result = {};
         result.width = image.width;

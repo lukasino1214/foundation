@@ -184,6 +184,9 @@ f32vec4 fragment_main(u32 primitive_id : SV_PrimitiveID, bool is_front_facing : 
 
         if(!material.albedo_image_id.is_empty()) {
             color = Texture2D<f32vec4>::get(material.albedo_image_id).Sample(SamplerState::get(material.albedo_sampler_id), input.uv);
+            f32 lod = Texture2D<f32vec4>::get(material.albedo_image_id).CalculateLevelOfDetail(SamplerState::get(material.albedo_sampler_id), input.uv);
+            color.a *= 1.0f + max(0.0f, lod) * 0.25f;
+            color.a = saturate(color.a);
         } else {
             color = material.albedo_factor;
         }
