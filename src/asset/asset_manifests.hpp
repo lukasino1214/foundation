@@ -39,6 +39,15 @@ namespace foundation {
         std::vector<glm::vec3> normals = {};
         std::vector<glm::vec2> uvs = {};
         std::vector<u32> indices = {};
+
+        std::vector<Meshlet> meshlets = {};
+        std::vector<u32> indirect_vertices = {};
+        std::vector<u8> micro_indices = {};
+        std::vector<BoundingSphere> bounding_spheres = {};
+        std::vector<AABB> aabbs = {};
+
+        AABB mesh_aabb;
+
         std::string name = {};
     };
 
@@ -114,6 +123,7 @@ namespace foundation {
             MeshGeometryData mesh = {};
             u32 vertex_count = {};
             u32 index_count = {};
+            u32 meshlet_count = {};
         };
 
         u32 asset_manifest_index = {};

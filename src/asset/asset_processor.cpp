@@ -19,12 +19,27 @@ namespace foundation {
         auto& normals = loaded_mesh.normals;
         auto& uvs = loaded_mesh.uvs;
         auto& indices = loaded_mesh.indices;
+        auto& meshlets = loaded_mesh.meshlets;
+        auto& bounding_spheres = loaded_mesh.bounding_spheres;
+        auto& aabbs = loaded_mesh.aabbs;
+        auto& indirect_vertices = loaded_mesh.indirect_vertices;
+        auto& micro_indices = loaded_mesh.micro_indices;
 
         MeshGeometryData mesh_geometry_data = {};
         mesh_geometry_data.vertex_count = s_cast<u32>(positions.size());
         mesh_geometry_data.index_count = s_cast<u32>(indices.size());
+        mesh_geometry_data.meshlet_count = s_cast<u32>(meshlets.size());
+        mesh_geometry_data.mesh_aabb = loaded_mesh.mesh_aabb;
 
-        usize total_mesh_size = positions.size() * sizeof(glm::vec3) + normals.size() * sizeof(glm::vec3) + uvs.size() * sizeof(glm::vec2);
+        usize total_mesh_size = 
+            positions.size() * sizeof(glm::vec3) + 
+            normals.size() * sizeof(glm::vec3) + 
+            uvs.size() * sizeof(glm::vec2) +
+            meshlets.size() * sizeof(Meshlet) + 
+            indirect_vertices.size() * sizeof(u32) + 
+            micro_indices.size() * sizeof(u8) +
+            bounding_spheres.size() * sizeof(BoundingSphere) + 
+            aabbs.size() * sizeof(AABB);
 
         daxa::BufferId staging_mesh_buffer = gpu_context->device.create_buffer(daxa::BufferInfo {
             .size = total_mesh_size,
@@ -58,6 +73,31 @@ namespace foundation {
         } else {
             mesh_geometry_data.uvs = 0;
         }
+
+        std::memcpy(mapped_ptr, meshlets.data(), meshlets.size() * sizeof(Meshlet));
+        mapped_ptr += meshlets.size() * sizeof(Meshlet);
+        mesh_geometry_data.meshlets = bda;
+        bda += meshlets.size() * sizeof(Meshlet);
+
+        std::memcpy(mapped_ptr, indirect_vertices.data(), indirect_vertices.size() * sizeof(u32));
+        mapped_ptr += indirect_vertices.size() * sizeof(u32);
+        mesh_geometry_data.indirect_vertices = bda;
+        bda += indirect_vertices.size() * sizeof(u32);
+
+        std::memcpy(mapped_ptr, micro_indices.data(), micro_indices.size() * sizeof(u8));
+        mapped_ptr += micro_indices.size() * sizeof(u8);
+        mesh_geometry_data.micro_indices = bda;
+        bda += micro_indices.size() * sizeof(u8);
+
+        std::memcpy(mapped_ptr, bounding_spheres.data(), bounding_spheres.size() * sizeof(BoundingSphere));
+        mapped_ptr += bounding_spheres.size() * sizeof(BoundingSphere);
+        mesh_geometry_data.bounding_spheres = bda;
+        bda += bounding_spheres.size() * sizeof(BoundingSphere);
+
+        std::memcpy(mapped_ptr, aabbs.data(), aabbs.size() * sizeof(AABB));
+        mapped_ptr += aabbs.size() * sizeof(AABB);
+        mesh_geometry_data.aabbs = bda;
+        bda += aabbs.size() * sizeof(AABB);
 
         daxa::BufferId staging_index_buffer = gpu_context->device.create_buffer(daxa::BufferInfo {
             .size = indices.size() * sizeof(u32),

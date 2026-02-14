@@ -25,14 +25,46 @@ struct ShaderGlobals {
 };
 DAXA_DECL_BUFFER_PTR(ShaderGlobals)
 
+#define MAX_VERTICES_PER_MESHLET (64)
+#define MAX_TRIANGLES_PER_MESHLET (64)
+
+struct Meshlet {
+    u32 indirect_vertex_offset;
+    u32 micro_indices_offset;
+    u32 vertex_count;
+    u32 triangle_count;
+};
+DAXA_DECL_BUFFER_PTR(Meshlet)
+
+struct BoundingSphere {
+    f32vec3 center;
+    f32 radius;
+};
+DAXA_DECL_BUFFER_PTR(BoundingSphere)
+
+struct AABB {
+    f32vec3 center;
+    f32vec3 extent;
+};
+DAXA_DECL_BUFFER_PTR(AABB)
+
 struct MeshGeometryData {
     daxa_BufferPtr(f32vec3) positions;
     daxa_BufferPtr(f32vec3) normals;
     daxa_BufferPtr(f32vec2) uvs;
     daxa_BufferPtr(u32) indices;
+
+    daxa_BufferPtr(Meshlet) meshlets;
+    daxa_BufferPtr(u32) indirect_vertices;
+    daxa_BufferPtr(u32) micro_indices;
+    daxa_BufferPtr(BoundingSphere) bounding_spheres;
+    daxa_BufferPtr(AABB) aabbs;
+
+    AABB mesh_aabb;
     u32 material_index;
     u32 vertex_count;
     u32 index_count;
+    u32 meshlet_count;
 };
 DAXA_DECL_BUFFER_PTR(MeshGeometryData)
 
@@ -95,7 +127,7 @@ DAXA_DECL_BUFFER_PTR(SpotLightsData)
 
 #if defined(__cplusplus)
 #define SHARED_FUNCTION inline
-#define SHARED_FUNCTION_INOUT(X) X &
+#define SHARED_FUNCTION_INOUT(X) X&
 #else
 #define SHARED_FUNCTION
 #define SHARED_FUNCTION_INOUT(X) inout X
@@ -115,7 +147,7 @@ SHARED_FUNCTION f32mat4x4 mat_4x3_to_4x4(f32mat4x3 mat) {
         f32vec4(mat[0]),
         f32vec4(mat[1]),
         f32vec4(mat[2]),
-        f32vec4(0.0f,0.0f,0.0f, 1.0f));
+        f32vec4(0.0f, 0.0f, 0.0f, 1.0f));
 #else
     f32mat4x4 ret = f32mat4x4(
         f32vec4(mat[0], 0.0),
@@ -125,3 +157,10 @@ SHARED_FUNCTION f32mat4x4 mat_4x3_to_4x4(f32mat4x3 mat) {
 #endif
     return ret;
 }
+
+#if DAXA_LANGUAGE == DAXA_LANGUAGE_SLANG
+SHARED_FUNCTION u32 get_micro_index(daxa_BufferPtr(u32) micro_indices, u32 index) {
+    u32 packed = micro_indices[index / 4];
+    return (packed >> ((index % 4) * 8)) & 0xFF;
+}
+#endif

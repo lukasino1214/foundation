@@ -211,6 +211,7 @@ namespace foundation {
                 .mesh = mesh_geometry_data,
                 .vertex_count = mesh_geometry_data.vertex_count,
                 .index_count = mesh_geometry_data.index_count,
+                .meshlet_count = mesh_geometry_data.meshlet_count,
             };
 
             meshes.push_back(mesh_geometry_data);

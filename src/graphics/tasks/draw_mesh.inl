@@ -46,9 +46,9 @@ struct DrawMeshTask : DrawMesh::Task {
 
     static auto pipeline_config_info() -> daxa::RasterPipelineCompileInfo2 {
         return daxa::RasterPipelineCompileInfo2 {
-            .vertex_shader_info = daxa::ShaderCompileInfo2 {
+            .mesh_shader_info = daxa::ShaderCompileInfo2 {
                 .source = daxa::ShaderSource { daxa::ShaderFile { .path = "src/graphics/tasks/draw_mesh.slang" }, },
-                .entry_point = "vertex_main",
+                .entry_point = "mesh_main",
                 .language = daxa::ShaderLanguage::SLANG,
                 .defines = { { std::string{DrawMeshTask::name()} + "_SHADER", "1" } },
             },
@@ -114,9 +114,9 @@ struct DrawMeshTask : DrawMesh::Task {
                 push.mesh_index = asset_manifest.mesh_manifest_offset + mesh_group_manifest.asset_local_mesh_manifest_indices_offset + mesh_index;
 
                 render_cmd.push_constant(push);
-                render_cmd.set_index_buffer({ .id = mesh_manifest.render_info->index_buffer, .index_type = daxa::IndexType::uint32 });
-                render_cmd.push_constant(push);
-                render_cmd.draw_indexed({ .index_count = mesh_manifest.render_info->index_count });
+                // render_cmd.set_index_buffer({ .id = mesh_manifest.render_info->index_buffer, .index_type = daxa::IndexType::uint32 });
+                // render_cmd.draw_indexed({ .index_count = mesh_manifest.render_info->index_count });
+                render_cmd.draw_mesh_tasks(mesh_manifest.render_info->meshlet_count, 1, 1);
             }
         });
 
