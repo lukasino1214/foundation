@@ -31,7 +31,17 @@ namespace foundation {
         usize total_mesh_count = {};
         usize total_meshlet_count = {};
 
+        daxa::TaskBuffer gpu_mesh_group_instance_count = {};
+        daxa::TaskBuffer gpu_mesh_group_instances = {};
         daxa::TaskBuffer gpu_transforms = {};
+
+        daxa::TaskBuffer gpu_mesh_instances = {};
+        daxa::TaskBuffer gpu_mesh_instance_indices = {};
+
+        daxa::TaskBuffer gpu_culled_mesh_instances_data = {};
+        daxa::TaskBuffer gpu_prefix_sum_work_expansion_mesh = {};
+
+        daxa::TaskBuffer gpu_culled_meshlets_instances_data = {};
 
         ankerl::unordered_dense::map<u32, CPUMeshGroupData> mesh_group_data = {};
         std::vector<MeshGroupInstance> mesh_group_instances = {};

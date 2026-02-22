@@ -7,9 +7,44 @@
 
 namespace foundation {
     GPUScene::GPUScene(GPUContext* _gpu_context, Scene* _scene, AssetManager* _asset_manager) : gpu_context{_gpu_context}, scene{_scene}, asset_manager{_asset_manager} {
+        gpu_mesh_group_instance_count = make_task_buffer(gpu_context, daxa::BufferInfo {
+            .size = sizeof(u32),
+            .name = "mesh group instance count"
+        });
+        
+        gpu_mesh_group_instances = make_task_buffer(gpu_context, daxa::BufferInfo {
+            .size = sizeof(MeshGroupInstance),
+            .name = "mesh group instances"
+        });
+
         gpu_transforms = make_task_buffer(gpu_context, daxa::BufferInfo {
             .size = sizeof(f32mat4x3),
             .name = "transforms"
+        });
+
+        gpu_mesh_instances = make_task_buffer(gpu_context, daxa::BufferInfo {
+            .size = sizeof(MeshInstance),
+            .name = "mesh instances"
+        });
+
+        gpu_mesh_instance_indices = make_task_buffer(gpu_context, daxa::BufferInfo {
+            .size = sizeof(u32),
+            .name = "mesh instance indices"
+        });
+
+        gpu_culled_mesh_instances_data = make_task_buffer(gpu_context, daxa::BufferInfo {
+            .size = sizeof(CulledMeshInstancesData),
+            .name = "culled mesh instances data"
+        });
+
+        gpu_prefix_sum_work_expansion_mesh = make_task_buffer(gpu_context, daxa::BufferInfo {
+            .size = sizeof(PrefixSumWorkExpansion),
+            .name = "opaque prefix sum work expansion mesh"
+        });
+
+        gpu_culled_meshlets_instances_data = make_task_buffer(gpu_context, daxa::BufferInfo {
+            .size = sizeof(CulledMeshletInstancesData),
+            .name = "meshlets instance data"
         });
         
         gpu_tlas = daxa::TaskTlas{{ .name = "tlas" }};
@@ -25,7 +60,18 @@ namespace foundation {
         });
     }
     GPUScene::~GPUScene() {
+        gpu_context->device.destroy_buffer(gpu_mesh_group_instance_count.get_state().buffers[0]);
+        gpu_context->device.destroy_buffer(gpu_mesh_group_instances.get_state().buffers[0]);
         gpu_context->device.destroy_buffer(gpu_transforms.get_state().buffers[0]);
+
+        gpu_context->device.destroy_buffer(gpu_mesh_instances.get_state().buffers[0]);
+        gpu_context->device.destroy_buffer(gpu_mesh_instance_indices.get_state().buffers[0]);
+
+        gpu_context->device.destroy_buffer(gpu_culled_mesh_instances_data.get_state().buffers[0]);
+        gpu_context->device.destroy_buffer(gpu_prefix_sum_work_expansion_mesh.get_state().buffers[0]);
+
+        gpu_context->device.destroy_buffer(gpu_culled_meshlets_instances_data.get_state().buffers[0]);
+
         gpu_context->device.destroy_tlas(gpu_tlas.get_state().tlas[0]);
         gpu_context->device.destroy_buffer(gpu_point_lights.get_state().buffers[0]);
         gpu_context->device.destroy_buffer(gpu_spot_lights.get_state().buffers[0]);
@@ -57,13 +103,14 @@ namespace foundation {
             out_mesh_instance.meshlet_count = render_info.meshlet_count;
         };
 
+        usize old_mesh_group_count = total_mesh_group_count;
         std::vector<flecs::entity> deletion_queue = {};
         scene->world->each([&](flecs::entity e, MeshComponent& mesh_component, MeshComponentDirty) {
             const MeshGroupManifest& mesh_group_manifest = asset_manager->mesh_group_manifests[mesh_component.mesh_group_manifest_entry_index];
             const AssetManifest& asset_manifest = asset_manager->asset_manifests[mesh_group_manifest.asset_manifest_index];
             
             if(!mesh_component.mesh_group_index.has_value()) {
-                u32 mesh_group_instance_index = total_mesh_group_count++;
+                u32 mesh_group_instance_index = s_cast<u32>(total_mesh_group_count++);
                 mesh_component.mesh_group_index = mesh_group_instance_index;
 
                 CPUMeshGroupInstance cpu_mesh_group_instance = {
@@ -73,7 +120,7 @@ namespace foundation {
                 cpu_mesh_group_instance.mesh_instance_indices.reserve(mesh_group_manifest.mesh_count);
 
                 mesh_group_instances.push_back({
-                    .mesh_indices = mesh_instances.size(),
+                    .mesh_indices_offset = s_cast<u32>(mesh_instances.size()),
                     .count = mesh_group_manifest.mesh_count,
                 });
 
@@ -118,7 +165,126 @@ namespace foundation {
             total_meshlet_count += mesh_instance.meshlet_count;
         }
 
+        {
+            static bool first_time = true;
+            const bool mesh_data_changed = old_mesh_group_count != total_mesh_group_count || !upload_infos.meshes.empty() || first_time;
+            if(mesh_data_changed) {
+                std::vector<MeshGroupInstance> cpu_mesh_group_instances = {};
+                cpu_mesh_group_instances.resize(total_mesh_group_count);
+
+                std::vector<u32> mesh_indices = {};
+                mesh_indices.reserve(total_mesh_count);
+
+                for(const auto& [_, cpu_mesh_group_data] : mesh_group_data) {
+                    for(const auto& [__, cpu_mesh_group_instance] : cpu_mesh_group_data.mesh_group_instances) {
+                        MeshGroupInstance& gpu_mesh_group_instance = cpu_mesh_group_instances[cpu_mesh_group_instance.mesh_group_instance_index];
+                        gpu_mesh_group_instance.mesh_indices_offset = s_cast<u32>(mesh_indices.size());
+                        gpu_mesh_group_instance.count = s_cast<u32>(cpu_mesh_group_instance.mesh_instance_indices.size());
+                        mesh_indices.insert(mesh_indices.end(), cpu_mesh_group_instance.mesh_instance_indices.begin(), cpu_mesh_group_instance.mesh_instance_indices.end());
+                    }
+                }
+
+                if(!cpu_mesh_group_instances.empty()) {
+                    reallocate_buffer(gpu_context, cmd_recorder, gpu_mesh_group_instances, s_cast<u32>(cpu_mesh_group_instances.size() * sizeof(MeshGroupInstance)));
+
+                    daxa::BufferId staging_buffer = gpu_context->device.create_buffer({
+                        .size = cpu_mesh_group_instances.size() * sizeof(MeshGroupInstance),
+                        .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
+                        .name = "mesh groups staging buffer",
+                    });
+                    cmd_recorder.destroy_buffer_deferred(staging_buffer);
+                    std::memcpy(gpu_context->device.buffer_host_address(staging_buffer).value(), cpu_mesh_group_instances.data(), cpu_mesh_group_instances.size() * sizeof(MeshGroupInstance));
+                    cmd_recorder.copy_buffer_to_buffer({
+                        .src_buffer = staging_buffer,
+                        .dst_buffer = gpu_mesh_group_instances.get_state().buffers[0],
+                        .size = cpu_mesh_group_instances.size() * sizeof(MeshGroupInstance),
+                    });
+                }
+
+                if(!mesh_instances.empty()) {
+                    reallocate_buffer(gpu_context, cmd_recorder, gpu_mesh_instances, s_cast<u32>(mesh_instances.size() * sizeof(MeshInstance)));
+
+                    daxa::BufferId staging_buffer = gpu_context->device.create_buffer({
+                        .size = mesh_instances.size() * sizeof(MeshInstance),
+                        .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
+                        .name = "meshes staging buffer",
+                    });
+                    cmd_recorder.destroy_buffer_deferred(staging_buffer);
+                    std::memcpy(gpu_context->device.buffer_host_address(staging_buffer).value(), mesh_instances.data(), mesh_instances.size() * sizeof(MeshInstance));
+                    cmd_recorder.copy_buffer_to_buffer({
+                        .src_buffer = staging_buffer,
+                        .dst_buffer = gpu_mesh_instances.get_state().buffers[0],
+                        .size = mesh_instances.size() * sizeof(MeshInstance),
+                    });
+                }
+
+                if(!mesh_indices.empty()) {
+                    reallocate_buffer(gpu_context, cmd_recorder, gpu_mesh_instance_indices, s_cast<u32>(mesh_indices.size() * sizeof(u32)));
+
+                    daxa::BufferId staging_buffer = gpu_context->device.create_buffer({
+                        .size = mesh_indices.size() * sizeof(u32),
+                        .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
+                        .name = "mesh indices staging buffer",
+                    });
+                    cmd_recorder.destroy_buffer_deferred(staging_buffer);
+                    std::memcpy(gpu_context->device.buffer_host_address(staging_buffer).value(), mesh_indices.data(), mesh_indices.size() * sizeof(u32));
+                    cmd_recorder.copy_buffer_to_buffer({
+                        .src_buffer = staging_buffer,
+                        .dst_buffer = gpu_mesh_instance_indices.get_state().buffers[0],
+                        .size = mesh_indices.size() * sizeof(u32),
+                    });
+                }
+
+                first_time = false;
+            }
+        }
+
+        {
+            static bool first_time = true;
+            if(old_mesh_group_count != total_mesh_group_count || first_time) {
+                daxa::BufferId staging_buffer = gpu_context->device.create_buffer({
+                    .size = sizeof(u32),
+                    .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
+                    .name = "mesh group count staging buffer",
+                });
+                cmd_recorder.destroy_buffer_deferred(staging_buffer);
+
+                std::memcpy(gpu_context->device.buffer_host_address(staging_buffer).value(), &total_mesh_group_count, sizeof(u32));
+                cmd_recorder.copy_buffer_to_buffer(daxa::BufferCopyInfo {
+                    .src_buffer = staging_buffer,
+                    .dst_buffer = gpu_mesh_group_instance_count.get_state().buffers[0],
+                    .size = sizeof(u32)
+                });
+                
+                first_time = false;
+            }
+        }
+
         reallocate_buffer(gpu_context, cmd_recorder, gpu_transforms, s_cast<u32>(total_mesh_group_count * sizeof(f32mat4x3)));
+        reallocate_buffer<CulledMeshInstancesData>(gpu_context, cmd_recorder, gpu_culled_mesh_instances_data, s_cast<u32>(total_mesh_count * sizeof(MeshInstance) + sizeof(CulledMeshInstancesData)), [&](const daxa::BufferId& buffer) -> CulledMeshInstancesData {
+            return CulledMeshInstancesData {
+                .count = 0,
+                .mesh_instances = gpu_context->device.buffer_device_address(buffer).value() + sizeof(CulledMeshInstancesData)
+            };
+        });
+
+        reallocate_buffer<PrefixSumWorkExpansion>(gpu_context, cmd_recorder, gpu_prefix_sum_work_expansion_mesh, total_mesh_count * sizeof(u32) * 3 + sizeof(PrefixSumWorkExpansion), [&](const daxa::BufferId& buffer) -> PrefixSumWorkExpansion {
+            return PrefixSumWorkExpansion {
+                .merged_expansion_count_thread_count = 0,
+                .expansions_max = s_cast<u32>(total_mesh_count),
+                .workgroup_count = 0,
+                .expansions_inclusive_prefix_sum = gpu_context->device.buffer_device_address(buffer).value() + sizeof(PrefixSumWorkExpansion) + total_mesh_count * sizeof(u32) * 0,
+                .expansions_src_work_item = gpu_context->device.buffer_device_address(buffer).value() + sizeof(PrefixSumWorkExpansion) + total_mesh_count * sizeof(u32) * 1,
+                .expansions_expansion_factor = gpu_context->device.buffer_device_address(buffer).value() + sizeof(PrefixSumWorkExpansion) + total_mesh_count * sizeof(u32) * 2
+            };
+        });
+
+        reallocate_buffer<CulledMeshletInstancesData>(gpu_context, cmd_recorder, gpu_culled_meshlets_instances_data, s_cast<u32>(total_meshlet_count * sizeof(MeshletInstance) + sizeof(CulledMeshletInstancesData)), [&](const daxa::BufferId& buffer) -> CulledMeshletInstancesData {
+            return CulledMeshletInstancesData {
+                .count = 0,
+                .meshlet_instances = gpu_context->device.buffer_device_address(buffer).value() + sizeof(CulledMeshletInstancesData)
+            };
+        });
 
         bool entites_moved = false;
         std::vector<flecs::entity> moved_entities = {};

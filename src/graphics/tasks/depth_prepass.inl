@@ -8,16 +8,38 @@
 
 #include "../../shader_library/shared.inl"
 
+DAXA_DECL_COMPUTE_TASK_HEAD_BEGIN(DepthPrepassWriteCommand)
+DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(CulledMeshletInstancesData), u_culled_meshlet_instances_data)
+DAXA_TH_BUFFER_PTR(WRITE, daxa_BufferPtr(DispatchIndirectStruct), u_command)
+DAXA_DECL_TASK_HEAD_END
+
+struct DepthPrepassWriteCommandPush {
+    DAXA_TH_BLOB(DepthPrepassWriteCommand, uses)
+    daxa_u32 dummy;
+};
+
+#if __cplusplus
+using DepthPrepassWriteCommandTask = foundation::WriteIndirectComputeDispatchTask<
+    "DepthPrepassWriteCommand",
+    DepthPrepassWriteCommand::Task, 
+    DepthPrepassWriteCommandPush, 
+    "src/graphics/tasks/depth_prepass.slang", 
+    "depth_prepass_write_command"
+>;
+#endif
+
 DAXA_DECL_RASTER_TASK_HEAD_BEGIN(DepthPrepass)
 DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(ShaderGlobals), u_globals)
+DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(CulledMeshletInstancesData), u_culled_meshlet_instances_data)
+DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(MeshInstance), u_mesh_instances)
 DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(f32mat4x3), u_transforms)
 DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(Material), u_materials)
+DAXA_TH_BUFFER(INDIRECT_COMMAND_READ, u_command)
 DAXA_TH_IMAGE_ID(DEPTH_ATTACHMENT, REGULAR_2D, u_depth_image)
 DAXA_DECL_TASK_HEAD_END
 
 struct DepthPrepassPush {
     DAXA_TH_BLOB(DepthPrepass, uses)
-    MeshInstance mesh_instance_data;
 };
 
 #if __cplusplus
@@ -86,17 +108,12 @@ struct DepthPrepassTask : DepthPrepass::Task {
 
         render_cmd.set_pipeline(*gpu_context->raster_pipelines.at(DepthPrepassTask::name()));
 
-        for(const auto& mesh_group_instance : gpu_scene->mesh_group_instances) {
-            for(u32 mesh_instance_index = mesh_group_instance.mesh_indices; mesh_instance_index < mesh_group_instance.mesh_indices + mesh_group_instance.count; mesh_instance_index++) {
-                const auto& mesh_instance = gpu_scene->mesh_instances[mesh_instance_index];
+        assign_blob(push.uses, ti.attachment_shader_blob);
+        render_cmd.push_constant(push);
 
-                assign_blob(push.uses, ti.attachment_shader_blob);
-                
-                push.mesh_instance_data = mesh_instance;
-                render_cmd.push_constant(push);
-                render_cmd.draw_mesh_tasks(mesh_instance.meshlet_count, 1, 1);
-            }
-        }
+        render_cmd.draw_mesh_tasks_indirect(daxa::DrawMeshTasksIndirectInfo {
+            .indirect_buffer = ti.get(this->AT.u_command).ids[0],
+        });
 
         ti.recorder = std::move(render_cmd).end_renderpass();
     }

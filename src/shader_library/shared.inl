@@ -4,6 +4,30 @@
 
 #define INVALID_ID (~(0u))
 
+struct DrawIndexedIndirectStruct {
+    u32 index_count;
+    u32 instance_count;
+    u32 first_index;
+    u32 vertex_offset;
+    u32 first_instance;
+};
+DAXA_DECL_BUFFER_PTR(DrawIndexedIndirectStruct)
+
+struct DrawIndirectStruct {
+    u32 vertex_count;
+    u32 instance_count;
+    u32 first_vertex;
+    u32 first_instance;
+};
+DAXA_DECL_BUFFER_PTR(DrawIndirectStruct)
+
+struct DispatchIndirectStruct {
+    u32 x;
+    u32 y;
+    u32 z;
+};
+DAXA_DECL_BUFFER_PTR(DispatchIndirectStruct)
+
 struct CameraInfo {
     f32mat4x4 projection_matrix;
     f32mat4x4 inverse_projection_matrix;
@@ -69,11 +93,10 @@ struct MeshGeometryData {
 DAXA_DECL_BUFFER_PTR(MeshGeometryData)
 
 struct MeshGroupInstance {
-    daxa_BufferPtr(u32) mesh_indices;
+    u32 mesh_indices_offset;
     u32 count;
-    u32 padding;
 };
-DAXA_DECL_BUFFER_PTR_ALIGN(MeshGroup, 8)
+DAXA_DECL_BUFFER_PTR_ALIGN(MeshGroupInstance, 8)
 
 struct MeshInstance {
     daxa_BufferId mesh_buffer;
@@ -93,6 +116,34 @@ struct MeshInstance {
     u32 meshlet_count;
 };
 DAXA_DECL_BUFFER_PTR_ALIGN(MeshInstance, 8)
+
+struct MeshletInstance {
+    u32 mesh_instance_index;
+    u32 meshlet_index;
+};
+DAXA_DECL_BUFFER_PTR_ALIGN(MeshletInstance, 8)
+
+struct CulledMeshInstancesData {
+    u32 count;
+    daxa_BufferPtr(u32) mesh_instances;
+};
+DAXA_DECL_BUFFER_PTR(CulledMeshesData)
+
+struct CulledMeshletInstancesData {
+    u32 count;
+    daxa_BufferPtr(MeshletInstance) meshlet_instances;
+};
+DAXA_DECL_BUFFER_PTR(CulledMeshesData)
+
+struct PrefixSumWorkExpansion {
+    u64 merged_expansion_count_thread_count;
+    u32 expansions_max;
+    u32 workgroup_count;
+    daxa_BufferPtr(u32) expansions_inclusive_prefix_sum;
+    daxa_BufferPtr(u32) expansions_src_work_item;
+    daxa_BufferPtr(u32) expansions_expansion_factor;
+};
+DAXA_DECL_BUFFER_PTR(PrefixSumWorkExpansion)
 
 struct Material {
     daxa_ImageViewId albedo_image_id;

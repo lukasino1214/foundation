@@ -8,30 +8,52 @@
 
 #include "../../shader_library/shared.inl"
 
-DAXA_DECL_RASTER_TASK_HEAD_BEGIN(DrawMesh)
+DAXA_DECL_COMPUTE_TASK_HEAD_BEGIN(DrawMeshletsWriteCommand)
+DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(CulledMeshletInstancesData), u_culled_meshlet_instances_data)
+DAXA_TH_BUFFER_PTR(WRITE, daxa_BufferPtr(DispatchIndirectStruct), u_command)
+DAXA_DECL_TASK_HEAD_END
+
+struct DrawMeshletsWriteCommandPush {
+    DAXA_TH_BLOB(DrawMeshletsWriteCommand, uses)
+    daxa_u32 dummy;
+};
+
+#if __cplusplus
+using DrawMeshletsWriteCommandTask = foundation::WriteIndirectComputeDispatchTask<
+    "DepthPrepassWriteCommand",
+    DrawMeshletsWriteCommand::Task, 
+    DrawMeshletsWriteCommandPush, 
+    "src/graphics/tasks/draw_mesh.slang", 
+    "draw_meshlets_write_command"
+>;
+#endif
+
+DAXA_DECL_RASTER_TASK_HEAD_BEGIN(DrawMeshlets)
 DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(ShaderGlobals), u_globals)
 DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(f32mat4x3), u_transforms)
+DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(CulledMeshletInstancesData), u_culled_meshlet_instances_data)
+DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(MeshInstance), u_mesh_instances)
 DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(Material), u_materials)
 DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(PointLightsData), u_point_lights)
 DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(SpotLightsData), u_spot_lights)
+DAXA_TH_BUFFER(INDIRECT_COMMAND_READ, u_command)
 DAXA_TH_TLAS_ID(READ, u_tlas)
 DAXA_TH_IMAGE_ID(COLOR_ATTACHMENT, REGULAR_2D, u_render_image)
 DAXA_TH_IMAGE_ID(DEPTH_ATTACHMENT, REGULAR_2D, u_depth_image)
 DAXA_DECL_TASK_HEAD_END
 
-struct DrawMeshPush {
-    DAXA_TH_BLOB(DrawMesh, uses)
-    MeshInstance mesh_instance_data;
+struct DrawMeshletsPush {
+    DAXA_TH_BLOB(DrawMeshlets, uses)
 };
 
 #if __cplusplus
 #include <graphics/gpu_scene.hpp>
 
 using namespace foundation;
-struct DrawMeshTask : DrawMesh::Task {
+struct DrawMeshletsTask : DrawMeshlets::Task {
     AttachmentViews views = {};
     GPUContext* gpu_context = {};
-    DrawMeshPush push = {};
+    DrawMeshletsPush push = {};
     AssetManager* asset_manager = {};
     GPUScene* gpu_scene = {};
 
@@ -40,7 +62,7 @@ struct DrawMeshTask : DrawMesh::Task {
     }
 
     static auto name() -> std::string {
-        return "DrawMesh";
+        return "DrawMeshlets";
     }
 
     static auto pipeline_config_info() -> daxa::RasterPipelineCompileInfo2 {
@@ -49,13 +71,13 @@ struct DrawMeshTask : DrawMesh::Task {
                 .source = daxa::ShaderSource { daxa::ShaderFile { .path = "src/graphics/tasks/draw_mesh.slang" }, },
                 .entry_point = "mesh_main",
                 .language = daxa::ShaderLanguage::SLANG,
-                .defines = { { std::string{DrawMeshTask::name()} + "_SHADER", "1" } },
+                .defines = { { std::string{DrawMeshletsTask::name()} + "_SHADER", "1" } },
             },
             .fragment_shader_info = daxa::ShaderCompileInfo2 {
                 .source = daxa::ShaderSource { daxa::ShaderFile { .path = "src/graphics/tasks/draw_mesh.slang" }, },
                 .entry_point = "fragment_main",
                 .language = daxa::ShaderLanguage::SLANG,
-                .defines = { { std::string{DrawMeshTask::name()} + "_SHADER", "1" } } 
+                .defines = { { std::string{DrawMeshletsTask::name()} + "_SHADER", "1" } } 
             },
             .color_attachments = {
                 { .format = daxa::Format::R8G8B8A8_UNORM }
@@ -68,8 +90,8 @@ struct DrawMeshTask : DrawMesh::Task {
             .raster = {
                 .face_culling = daxa::FaceCullFlagBits::NONE
             },
-            .push_constant_size = s_cast<u32>(sizeof(DrawMeshPush)),
-            .name = std::string{DrawMeshTask::name()}
+            .push_constant_size = s_cast<u32>(sizeof(DrawMeshletsPush)),
+            .name = std::string{DrawMeshletsTask::name()}
         };
     }
 
@@ -98,19 +120,14 @@ struct DrawMeshTask : DrawMesh::Task {
             .render_area = {.x = 0, .y = 0, .width = size_x, .height = size_y},
         });
 
-        render_cmd.set_pipeline(*gpu_context->raster_pipelines.at(DrawMeshTask::name()));
+        render_cmd.set_pipeline(*gpu_context->raster_pipelines.at(DrawMeshletsTask::name()));
 
-        for(const auto& mesh_group_instance : gpu_scene->mesh_group_instances) {
-            for(u32 mesh_instance_index = mesh_group_instance.mesh_indices; mesh_instance_index < mesh_group_instance.mesh_indices + mesh_group_instance.count; mesh_instance_index++) {
-                const auto& mesh_instance = gpu_scene->mesh_instances[mesh_instance_index];
+        assign_blob(push.uses, ti.attachment_shader_blob);
+        render_cmd.push_constant(push);
 
-                assign_blob(push.uses, ti.attachment_shader_blob);
-                
-                push.mesh_instance_data = mesh_instance;
-                render_cmd.push_constant(push);
-                render_cmd.draw_mesh_tasks(mesh_instance.meshlet_count, 1, 1);
-            }
-        }
+        render_cmd.draw_mesh_tasks_indirect(daxa::DrawMeshTasksIndirectInfo {
+            .indirect_buffer = ti.get(this->AT.u_command).ids[0],
+        });
 
         ti.recorder = std::move(render_cmd).end_renderpass();
     }

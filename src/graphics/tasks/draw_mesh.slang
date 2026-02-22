@@ -2,13 +2,29 @@
 #include "daxa/daxa.inl"
 #include "draw_mesh.inl"
 
-[[vk::push_constant]] DrawMeshPush push;
+[[vk::push_constant]] DrawMeshletsWriteCommandPush write_push;
+
+[shader("compute")]
+[numthreads(1, 1, 1)]
+void draw_meshlets_write_command() {
+    DispatchIndirectStruct command;
+    command.x = write_push.uses.u_culled_meshlet_instances_data->count;
+    command.y = 1;
+    command.z = 1;
+    *write_push.uses.u_command = command;
+}
+
+[[vk::push_constant]] DrawMeshletsPush push;
 
 struct MeshStageOutput {
     f32vec4 sv_position : SV_Position;
     f32vec3 position;
     f32vec3 normal;
     f32vec2 uv;
+};
+
+struct PrimitiveOutput {
+    u32 meshlet_instance_index;
 };
 
 [outputtopology("triangle")]
@@ -18,14 +34,16 @@ void mesh_main(
     u32vec3 local_thread_index : SV_GroupThreadID,
     u32vec3 group_index : SV_GroupID,
     OutputIndices<u32vec3, MAX_TRIANGLES_PER_MESHLET> out_indices,
-    OutputVertices<MeshStageOutput, MAX_VERTICES_PER_MESHLET> out_vertices) {
+    OutputVertices<MeshStageOutput, MAX_VERTICES_PER_MESHLET> out_vertices,
+    OutputPrimitives<PrimitiveOutput, MAX_TRIANGLES_PER_MESHLET> out_primitives
+) {
     const u32 thread_index = local_thread_index.x;
 
-    const MeshInstance mesh_instance_data = push.mesh_instance_data;
-    if(mesh_instance_data.mesh_buffer.value == 0) { return; }
-    const Meshlet meshlet = mesh_instance_data.meshlets[group_index.x];
+    const MeshletInstance meshlet_instance = push.uses.u_culled_meshlet_instances_data.meshlet_instances[group_index.x];
+    const MeshInstance mesh_instance = push.uses.u_mesh_instances[meshlet_instance.mesh_instance_index];
+    const Meshlet meshlet = mesh_instance.meshlets[meshlet_instance.meshlet_index];
 
-    const f32mat4x4 transform_matrix = mat_4x3_to_4x4(push.uses.u_transforms[mesh_instance_data.mesh_group_index]);
+    const f32mat4x4 transform_matrix = mat_4x3_to_4x4(push.uses.u_transforms[mesh_instance.mesh_group_index]);
     const f32mat3x3 normal_matrix = f32mat3x3(
         cross(transform_matrix[1].xyz, transform_matrix[2].xyz), 
         cross(transform_matrix[2].xyz, transform_matrix[0].xyz), 
@@ -35,15 +53,15 @@ void mesh_main(
     SetMeshOutputCounts(meshlet.vertex_count, meshlet.triangle_count);
 
     if(thread_index < meshlet.vertex_count) {
-        const u32 vertex_index = mesh_instance_data.indirect_vertices[meshlet.indirect_vertex_offset + thread_index];
+        const u32 vertex_index = mesh_instance.indirect_vertices[meshlet.indirect_vertex_offset + thread_index];
 
         MeshStageOutput vertex;
-        vertex.position = mul(transform_matrix, f32vec4(mesh_instance_data.positions[vertex_index], 1.0f)).xyz;
+        vertex.position = mul(transform_matrix, f32vec4(mesh_instance.positions[vertex_index], 1.0f)).xyz;
         vertex.sv_position = mul(push.uses.u_globals->main_camera.projection_view_matrix, f32vec4(vertex.position, 1.0f));
-        vertex.normal = normalize(mul(normal_matrix, mesh_instance_data.normals[vertex_index]));
+        vertex.normal = normalize(mul(normal_matrix, mesh_instance.normals[vertex_index]));
 
-        if(mesh_instance_data.uvs != 0) {
-            vertex.uv = mesh_instance_data.uvs[vertex_index];
+        if(mesh_instance.uvs != 0) {
+            vertex.uv = mesh_instance.uvs[vertex_index];
         } else {
             vertex.uv = f32vec2(0.0f, 0.0f);
         }
@@ -53,12 +71,16 @@ void mesh_main(
 
     if(thread_index < meshlet.triangle_count) {
         u32vec3 indices = u32vec3(
-            get_micro_index(mesh_instance_data.micro_indices, meshlet.micro_indices_offset + thread_index * 3 + 0),
-            get_micro_index(mesh_instance_data.micro_indices, meshlet.micro_indices_offset + thread_index * 3 + 1),
-            get_micro_index(mesh_instance_data.micro_indices, meshlet.micro_indices_offset + thread_index * 3 + 2)
+            get_micro_index(mesh_instance.micro_indices, meshlet.micro_indices_offset + thread_index * 3 + 0),
+            get_micro_index(mesh_instance.micro_indices, meshlet.micro_indices_offset + thread_index * 3 + 1),
+            get_micro_index(mesh_instance.micro_indices, meshlet.micro_indices_offset + thread_index * 3 + 2)
         );
 
         out_indices[thread_index] = indices;
+
+        PrimitiveOutput primitive;
+        primitive.meshlet_instance_index = group_index.x;
+        out_primitives[thread_index] = primitive;
     }
 }
 
@@ -202,13 +224,19 @@ f32vec3 calculate_normal_from_map(f32vec3 tangent_normal, f32vec3 geometric_norm
 }
 
 [shader("fragment")]
-f32vec4 fragment_main(u32 primitive_id : SV_PrimitiveID, bool is_front_facing : SV_IsFrontFace, in MeshStageOutput input) : SV_Target {
-    const MeshInstance mesh_instance_data = push.mesh_instance_data;
+f32vec4 fragment_main(
+    u32 primitive_id : SV_PrimitiveID, 
+    bool is_front_facing : SV_IsFrontFace, 
+    in MeshStageOutput input, 
+    in PrimitiveOutput primitive
+) : SV_Target {
+    const MeshletInstance meshlet_instance = push.uses.u_culled_meshlet_instances_data.meshlet_instances[primitive.meshlet_instance_index];
+    const MeshInstance mesh_instance = push.uses.u_mesh_instances[meshlet_instance.mesh_instance_index];
 
     f32vec4 color = f32vec4(hsv_to_rgb(f32vec3(f32(primitive_id) / 128 * M_GOLDEN_CONJ, 0.875, 0.85)), 1.0);
     f32vec3 normal = input.normal;
-    if(mesh_instance_data.material_index != INVALID_ID) {
-        const Material material = push.uses.u_materials[mesh_instance_data.material_index];
+    if(mesh_instance.material_index != INVALID_ID) {
+        const Material material = push.uses.u_materials[mesh_instance.material_index];
 
         if(!material.albedo_image_id.is_empty()) {
             color = Texture2D<f32vec4>::get(material.albedo_image_id).Sample(SamplerState::get(material.albedo_sampler_id), input.uv);
@@ -254,4 +282,5 @@ f32vec4 fragment_main(u32 primitive_id : SV_PrimitiveID, bool is_front_facing : 
     );
 
     return f32vec4(color.rgb, 1.0f);
+
 }   

@@ -3,6 +3,8 @@
 #include "gpu_context.hpp"
 #include <imgui_impl_glfw.h>
 
+#include "tasks/cull_mesh_instances.inl"
+#include "tasks/cull_meshlet_instances.inl"
 #include "tasks/depth_prepass.inl"
 #include "tasks/draw_mesh.inl"
 #include "tasks/ray_tracing.inl"
@@ -102,7 +104,7 @@ namespace foundation {
 
         std::vector<std::tuple<std::string, daxa::RasterPipelineCompileInfo2>> rasters = {
             {DepthPrepassTask::name(), DepthPrepassTask::pipeline_config_info()},
-            {DrawMeshTask::name(), DrawMeshTask::pipeline_config_info()},
+            {DrawMeshletsTask::name(), DrawMeshletsTask::pipeline_config_info()},
         };
 
         for (auto [name, info] : rasters) {
@@ -116,7 +118,15 @@ namespace foundation {
             gpu_context->raster_pipelines[name] = compilation_result.value();
         }
 
-        std::vector<std::tuple<std::string, daxa::ComputePipelineCompileInfo2>> computes = {};
+        std::vector<std::tuple<std::string, daxa::ComputePipelineCompileInfo2>> computes = {
+            {CullMeshInstancesWriteCommandTask::name(), CullMeshInstancesWriteCommandTask::pipeline_config_info()},
+            {CullMeshInstancesTask::name(), CullMeshInstancesTask::pipeline_config_info()},
+            {CullMeshletInstancesWriteCommandTask::name(), CullMeshletInstancesWriteCommandTask::pipeline_config_info()},
+            {CullMeshletInstancesTask::name(), CullMeshletInstancesTask::pipeline_config_info()},
+
+            {DepthPrepassWriteCommandTask::name(), DepthPrepassWriteCommandTask::pipeline_config_info()},
+            {DrawMeshletsWriteCommandTask::name(), DrawMeshletsWriteCommandTask::pipeline_config_info()},
+        };
 
         for (auto [name, info] : computes) {
             auto compilation_result = this->gpu_context->pipeline_manager.add_compute_pipeline2(info);
@@ -166,9 +176,17 @@ namespace foundation {
         render_task_graph.use_persistent_buffer(gpu_context->shader_globals_buffer);
         render_task_graph.use_persistent_buffer(asset_manager->gpu_materials);
 
+        render_task_graph.use_persistent_buffer(gpu_scene->gpu_mesh_group_instance_count);
+        render_task_graph.use_persistent_buffer(gpu_scene->gpu_mesh_group_instances);
+        render_task_graph.use_persistent_buffer(gpu_scene->gpu_transforms);
+        render_task_graph.use_persistent_buffer(gpu_scene->gpu_mesh_instances);
+        render_task_graph.use_persistent_buffer(gpu_scene->gpu_mesh_instance_indices);
+        render_task_graph.use_persistent_buffer(gpu_scene->gpu_culled_mesh_instances_data);
+        render_task_graph.use_persistent_buffer(gpu_scene->gpu_prefix_sum_work_expansion_mesh);
+        render_task_graph.use_persistent_buffer(gpu_scene->gpu_culled_meshlets_instances_data);
+
         render_task_graph.use_persistent_buffer(gpu_scene->gpu_point_lights);
         render_task_graph.use_persistent_buffer(gpu_scene->gpu_spot_lights);
-        render_task_graph.use_persistent_buffer(gpu_scene->gpu_transforms);
         render_task_graph.use_persistent_tlas(gpu_scene->gpu_tlas);
 
         if(!pipelines_compiled) {
@@ -226,11 +244,73 @@ namespace foundation {
                 });
         }));
 
+        auto u_command = render_task_graph.create_transient_buffer(daxa::TaskTransientBufferInfo {
+            .size = s_cast<u32>(glm::max(sizeof(DispatchIndirectStruct), sizeof(DrawIndirectStruct))),
+            .name = "command",
+        });
+
+        render_task_graph.add_task(CullMeshInstancesWriteCommandTask {
+            .views = CullMeshInstancesWriteCommandTask::Views {
+                .u_mesh_group_instance_count = gpu_scene->gpu_mesh_group_instance_count.view(),
+                .u_culled_mesh_instances_data = gpu_scene->gpu_culled_mesh_instances_data.view(),
+                .u_prefix_sum_work_expansion_mesh = gpu_scene->gpu_prefix_sum_work_expansion_mesh.view(),
+                .u_command = u_command,
+            },
+            .gpu_context = gpu_context,
+        });
+
+        render_task_graph.add_task(CullMeshInstancesTask {
+            .views = CullMeshInstancesTask::Views {
+                .u_globals = gpu_context->shader_globals_buffer.view(),
+                .u_mesh_group_instance_count = gpu_scene->gpu_mesh_group_instance_count.view(),
+                .u_mesh_group_instances = gpu_scene->gpu_mesh_group_instances.view(),
+                .u_mesh_instance_indices = gpu_scene->gpu_mesh_instance_indices.view(),
+                .u_mesh_instances = gpu_scene->gpu_mesh_instances.view(),
+                .u_culled_mesh_instances_data = gpu_scene->gpu_culled_mesh_instances_data.view(),
+                .u_prefix_sum_work_expansion_mesh = gpu_scene->gpu_prefix_sum_work_expansion_mesh.view(),
+                .u_command = u_command,
+            },
+            .gpu_context = gpu_context,
+        });
+
+        render_task_graph.add_task(CullMeshletInstancesWriteCommandTask {
+            .views = CullMeshletInstancesWriteCommandTask::Views {
+                .u_culled_meshlet_instances_data = gpu_scene->gpu_culled_meshlets_instances_data.view(),
+                .u_prefix_sum_work_expansion_mesh = gpu_scene->gpu_prefix_sum_work_expansion_mesh.view(),
+                .u_command = u_command,
+            },
+            .gpu_context = gpu_context,
+        });
+
+        render_task_graph.add_task(CullMeshletInstancesTask {
+            .views = CullMeshletInstancesTask::Views {
+                .u_globals = gpu_context->shader_globals_buffer.view(),
+                .u_mesh_instances = gpu_scene->gpu_mesh_instances.view(),
+                .u_transforms = gpu_scene->gpu_transforms.view(),
+                .u_prefix_sum_work_expansion_mesh = gpu_scene->gpu_prefix_sum_work_expansion_mesh.view(),
+                .u_culled_mesh_instances_data = gpu_scene->gpu_culled_mesh_instances_data.view(),
+                .u_culled_meshlet_instances_data = gpu_scene->gpu_culled_meshlets_instances_data.view(),
+                .u_command = u_command,
+            },
+            .gpu_context = gpu_context,
+        });
+
+        render_task_graph.add_task(DepthPrepassWriteCommandTask {
+            .views = DepthPrepassWriteCommandTask::Views {
+                .u_culled_meshlet_instances_data = gpu_scene->gpu_culled_meshlets_instances_data.view(),
+                .u_command = u_command,
+            },
+            .gpu_context = gpu_context,
+        });
+
         render_task_graph.add_task(DepthPrepassTask {
             .views = DepthPrepassTask::Views {
                 .u_globals = gpu_context->shader_globals_buffer.view(),
+                .u_culled_meshlet_instances_data = gpu_scene->gpu_culled_meshlets_instances_data.view(),
+                .u_mesh_instances = gpu_scene->gpu_mesh_instances.view(),
                 .u_transforms = gpu_scene->gpu_transforms.view(),
                 .u_materials = asset_manager->gpu_materials.view(),
+                .u_command = u_command,
                 .u_depth_image = depth_image.view(),
             },
             .gpu_context = gpu_context,
@@ -238,13 +318,24 @@ namespace foundation {
             .gpu_scene = gpu_scene,
         });
 
-        render_task_graph.add_task(DrawMeshTask {
-            .views = DrawMeshTask::Views {
+        render_task_graph.add_task(DrawMeshletsWriteCommandTask {
+            .views = DrawMeshletsWriteCommandTask::Views {
+                .u_culled_meshlet_instances_data = gpu_scene->gpu_culled_meshlets_instances_data.view(),
+                .u_command = u_command,
+            },
+            .gpu_context = gpu_context,
+        });
+
+        render_task_graph.add_task(DrawMeshletsTask {
+            .views = DrawMeshletsTask::Views {
                 .u_globals = gpu_context->shader_globals_buffer.view(),
                 .u_transforms = gpu_scene->gpu_transforms.view(),
+                .u_culled_meshlet_instances_data = gpu_scene->gpu_culled_meshlets_instances_data.view(),
+                .u_mesh_instances = gpu_scene->gpu_mesh_instances.view(),
                 .u_materials = asset_manager->gpu_materials.view(),
                 .u_point_lights = gpu_scene->gpu_point_lights.view(),
                 .u_spot_lights = gpu_scene->gpu_spot_lights.view(),
+                .u_command = u_command,
                 .u_tlas = gpu_scene->gpu_tlas.view(),
                 .u_render_image = render_image.view(),
                 .u_depth_image = depth_image.view(),
@@ -257,7 +348,7 @@ namespace foundation {
         // render_task_graph.add_task(RayTraceTask {
         //     .views = RayTraceTask::Views {
         //         .u_globals = gpu_context->shader_globals_buffer.view(),
-        //         .u_meshes = asset_manager->gpu_meshes.view(),
+        //         .u_meshes = asset_manager->gpu_mesh_instances.view(),
         //         .u_materials = asset_manager->gpu_materials.view(),
         //         .u_tlas = gpu_scene->gpu_tlas.view(),
         //         .u_image = render_image.view(),

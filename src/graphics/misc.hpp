@@ -10,7 +10,7 @@ namespace foundation {
     template <daxa::StringLiteral T_NAME, typename T_USES_BASE, typename T_PUSH, daxa::StringLiteral T_FILE_PATH, daxa::StringLiteral T_ENTRY_POINT>
     struct WriteIndirectComputeDispatchTask : T_USES_BASE {
         T_USES_BASE::AttachmentViews views = {};
-        GPUContext* context = {};
+        GPUContext* gpu_context = {};
         T_PUSH push = {};
 
         static auto name() -> std::string {
@@ -32,7 +32,7 @@ namespace foundation {
         }
 
         void callback(daxa::TaskInterface ti) {
-            ti.recorder.set_pipeline(*context->compute_pipelines.at(name()));
+            ti.recorder.set_pipeline(*gpu_context->compute_pipelines.at(name()));
             assign_blob(push.uses, ti.attachment_shader_blob);
             ti.recorder.push_constant(push);
             ti.recorder.dispatch({.x = 1, .y = 1, .z = 1});
@@ -42,7 +42,7 @@ namespace foundation {
     template <daxa::StringLiteral T_NAME, typename T_USES_BASE, typename T_PUSH, daxa::StringLiteral T_FILE_PATH, daxa::StringLiteral T_ENTRY_POINT>
     struct IndirectComputeDispatchTask : T_USES_BASE {
         T_USES_BASE::AttachmentViews views = {};
-        GPUContext* context = {};
+        GPUContext* gpu_context = {};
         T_PUSH push = {};
 
         static auto name() -> std::string {
@@ -64,7 +64,7 @@ namespace foundation {
         }
 
         void callback(daxa::TaskInterface ti) {
-            ti.recorder.set_pipeline(*context->compute_pipelines.at(name()));
+            ti.recorder.set_pipeline(*gpu_context->compute_pipelines.at(name()));
             assign_blob(push.uses, ti.attachment_shader_blob);
             ti.recorder.push_constant(push);
             ti.recorder.dispatch_indirect({
@@ -76,7 +76,7 @@ namespace foundation {
     template <daxa::StringLiteral T_NAME, typename T_USES_BASE, typename T_PUSH, daxa::StringLiteral T_FILE_PATH, daxa::StringLiteral T_ENTRY_POINT>
     struct ComputeDispatchTask : T_USES_BASE {
         T_USES_BASE::AttachmentViews views = {};
-        GPUContext* context = {};
+        GPUContext* gpu_context = {};
         T_PUSH push = {};
         std::function<daxa::DispatchInfo(void)> dispatch_callback = {};
 
@@ -99,7 +99,7 @@ namespace foundation {
         }
 
         void callback(daxa::TaskInterface ti) {
-            ti.recorder.set_pipeline(*context->compute_pipelines.at(name()));
+            ti.recorder.set_pipeline(*gpu_context->compute_pipelines.at(name()));
             assign_blob(push.uses, ti.attachment_shader_blob);
             ti.recorder.push_constant(push);
             ti.recorder.dispatch(dispatch_callback());
