@@ -11,7 +11,6 @@
 DAXA_DECL_RASTER_TASK_HEAD_BEGIN(DrawMesh)
 DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(ShaderGlobals), u_globals)
 DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(f32mat4x3), u_transforms)
-DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(MeshGeometryData), u_mesh_geometry_data)
 DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(Material), u_materials)
 DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(PointLightsData), u_point_lights)
 DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(SpotLightsData), u_spot_lights)
@@ -22,8 +21,7 @@ DAXA_DECL_TASK_HEAD_END
 
 struct DrawMeshPush {
     DAXA_TH_BLOB(DrawMesh, uses)
-    u32 mesh_group_index;
-    u32 mesh_index;
+    MeshInstanceData mesh_instance_data;
 };
 
 #if __cplusplus
@@ -111,8 +109,27 @@ struct DrawMeshTask : DrawMesh::Task {
                 if(!mesh_manifest.render_info.has_value()) { continue; }
 
                 assign_blob(push.uses, ti.attachment_shader_blob);
-                push.mesh_group_index = s_cast<u32>(mesh_component.mesh_group_index.value());
-                push.mesh_index = asset_manifest.mesh_manifest_offset + mesh_group_manifest.asset_local_mesh_manifest_indices_offset + mesh_index;
+
+                if(mesh_manifest.render_info.has_value()) {
+                    const auto& render_info = mesh_manifest.render_info.value();
+
+                    push.mesh_instance_data = MeshInstanceData {
+                        .mesh_buffer = render_info.mesh_buffer,
+                        .meshlets = render_info.mesh.meshlets,
+                        .indirect_vertices = render_info.mesh.indirect_vertices,
+                        .micro_indices = render_info.mesh.micro_indices,
+                        .bounding_spheres = render_info.mesh.bounding_spheres,
+                        .aabbs = render_info.mesh.aabbs,
+                        .positions = render_info.mesh.positions,
+                        .normals = render_info.mesh.normals,
+                        .uvs = render_info.mesh.uvs,
+                        .mesh_group_index = s_cast<u32>(mesh_component.mesh_group_index.value()),
+                        .material_index = render_info.mesh.material_index,
+                        .meshlet_count = render_info.mesh.meshlet_count,
+                    };
+                } else {
+                    push.mesh_instance_data = {};
+                }
 
                 render_cmd.push_constant(push);
                 render_cmd.draw_mesh_tasks(mesh_manifest.render_info->meshlet_count, 1, 1);

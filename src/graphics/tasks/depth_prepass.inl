@@ -18,8 +18,7 @@ DAXA_DECL_TASK_HEAD_END
 
 struct DepthPrepassPush {
     DAXA_TH_BLOB(DepthPrepass, uses)
-    u32 mesh_group_index;
-    u32 mesh_index;
+    MeshInstanceData mesh_instance_data;
 };
 
 #if __cplusplus
@@ -94,11 +93,29 @@ struct DepthPrepassTask : DepthPrepass::Task {
 
             for(u32 mesh_index = 0; mesh_index < mesh_group_manifest.mesh_count; mesh_index++) {
                 const MeshManifest& mesh_manifest = asset_manager->mesh_manifests[asset_manifest.mesh_manifest_offset + mesh_group_manifest.asset_local_mesh_manifest_indices_offset + mesh_index];
-                if(!mesh_manifest.render_info.has_value()) { continue; }
 
                 assign_blob(push.uses, ti.attachment_shader_blob);
-                push.mesh_group_index = s_cast<u32>(mesh_component.mesh_group_index.value());
-                push.mesh_index = asset_manifest.mesh_manifest_offset + mesh_group_manifest.asset_local_mesh_manifest_indices_offset + mesh_index;
+                
+                if(mesh_manifest.render_info.has_value()) {
+                    const auto& render_info = mesh_manifest.render_info.value();
+
+                    push.mesh_instance_data = MeshInstanceData {
+                        .mesh_buffer = render_info.mesh_buffer,
+                        .meshlets = render_info.mesh.meshlets,
+                        .indirect_vertices = render_info.mesh.indirect_vertices,
+                        .micro_indices = render_info.mesh.micro_indices,
+                        .bounding_spheres = render_info.mesh.bounding_spheres,
+                        .aabbs = render_info.mesh.aabbs,
+                        .positions = render_info.mesh.positions,
+                        .normals = render_info.mesh.normals,
+                        .uvs = render_info.mesh.uvs,
+                        .mesh_group_index = s_cast<u32>(mesh_component.mesh_group_index.value()),
+                        .material_index = render_info.mesh.material_index,
+                        .meshlet_count = render_info.mesh.meshlet_count,
+                    };
+                } else {
+                    push.mesh_instance_data = {};
+                }
 
                 render_cmd.push_constant(push);
                 render_cmd.draw_mesh_tasks(mesh_manifest.render_info->meshlet_count, 1, 1);

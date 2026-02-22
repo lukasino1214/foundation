@@ -18,20 +18,21 @@ void mesh_main(
     OutputVertices<MeshStageOutput, MAX_VERTICES_PER_MESHLET> out_vertices) {
     const u32 thread_index = local_thread_index.x;
 
-    const MeshGeometryData mesh = push.uses.u_mesh_geometry_data[push.mesh_index];
-    const Meshlet meshlet = mesh.meshlets[group_index.x];
+    const MeshInstanceData mesh_instance_data = push.mesh_instance_data;
+    if(mesh_instance_data.mesh_buffer.value == 0) { return; }
+    const Meshlet meshlet = mesh_instance_data.meshlets[group_index.x];
 
     SetMeshOutputCounts(meshlet.vertex_count, meshlet.triangle_count);
 
     if(thread_index < meshlet.vertex_count) {
-        const u32 vertex_index = mesh.indirect_vertices[meshlet.indirect_vertex_offset + thread_index];
+        const u32 vertex_index = mesh_instance_data.indirect_vertices[meshlet.indirect_vertex_offset + thread_index];
 
         MeshStageOutput vertex;
-        const f32vec4 world_position = mul(mat_4x3_to_4x4(push.uses.u_transforms[push.mesh_group_index]), f32vec4(mesh.positions[vertex_index], 1.0f));
+        const f32vec4 world_position = mul(mat_4x3_to_4x4(push.uses.u_transforms[mesh_instance_data.mesh_group_index]), f32vec4(mesh_instance_data.positions[vertex_index], 1.0f));
         vertex.sv_position = mul(push.uses.u_globals->main_camera.projection_view_matrix, world_position);
 
-        if(mesh.uvs != 0) {
-            vertex.uv = mesh.uvs[vertex_index];
+        if(mesh_instance_data.uvs != 0) {
+            vertex.uv = mesh_instance_data.uvs[vertex_index];
         } else {
             vertex.uv = f32vec2(0.0f, 0.0f);
         }
@@ -41,9 +42,9 @@ void mesh_main(
 
     if(thread_index < meshlet.triangle_count) {
         u32vec3 indices = u32vec3(
-            get_micro_index(mesh.micro_indices, meshlet.micro_indices_offset + thread_index * 3 + 0),
-            get_micro_index(mesh.micro_indices, meshlet.micro_indices_offset + thread_index * 3 + 1),
-            get_micro_index(mesh.micro_indices, meshlet.micro_indices_offset + thread_index * 3 + 2)
+            get_micro_index(mesh_instance_data.micro_indices, meshlet.micro_indices_offset + thread_index * 3 + 0),
+            get_micro_index(mesh_instance_data.micro_indices, meshlet.micro_indices_offset + thread_index * 3 + 1),
+            get_micro_index(mesh_instance_data.micro_indices, meshlet.micro_indices_offset + thread_index * 3 + 2)
         );
 
         out_indices[thread_index] = indices;
@@ -52,10 +53,10 @@ void mesh_main(
 
 [shader("fragment")]
 void fragment_main(in MeshStageOutput input) {
-    const MeshGeometryData mesh = push.uses.u_mesh_geometry_data[push.mesh_index];
+    const MeshInstanceData mesh_instance_data = push.mesh_instance_data;
 
-    if(mesh.material_index != INVALID_ID) {
-        const Material material = push.uses.u_materials[mesh.material_index];
+    if(mesh_instance_data.material_index != INVALID_ID) {
+        const Material material = push.uses.u_materials[mesh_instance_data.material_index];
 
         f32 alpha = material.albedo_factor.a;
         if(!material.albedo_image_id.is_empty()) {

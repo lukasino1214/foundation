@@ -36,6 +36,5 @@ namespace foundation {
         std::vector<SkeletonManifest> skeleton_manifests = {};
 
         daxa::TaskBuffer gpu_materials = {};
-        daxa::TaskBuffer gpu_meshes = {};
     };
 }

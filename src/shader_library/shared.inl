@@ -68,6 +68,25 @@ struct MeshGeometryData {
 };
 DAXA_DECL_BUFFER_PTR(MeshGeometryData)
 
+struct MeshInstanceData {
+    daxa_BufferId mesh_buffer;
+
+    daxa_BufferPtr(Meshlet) meshlets;
+    daxa_BufferPtr(u32) indirect_vertices;
+    daxa_BufferPtr(u32) micro_indices;
+    daxa_BufferPtr(BoundingSphere) bounding_spheres;
+    daxa_BufferPtr(AABB) aabbs;
+
+    daxa_BufferPtr(f32vec3) positions;
+    daxa_BufferPtr(f32vec3) normals;
+    daxa_BufferPtr(f32vec2) uvs;
+
+    u32 mesh_group_index;
+    u32 material_index;
+    u32 meshlet_count;
+};
+DAXA_DECL_BUFFER_PTR_ALIGN(MeshInstanceData, 8)
+
 struct Material {
     daxa_ImageViewId albedo_image_id;
     daxa_SamplerId albedo_sampler_id;

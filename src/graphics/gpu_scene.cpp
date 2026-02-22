@@ -113,64 +113,66 @@ namespace foundation {
                 }
             });
 
-            daxa::BufferId staging_blas_instances_buffer = gpu_context->device.create_buffer({
-                .size = sizeof(daxa_BlasInstanceData) * blas_instances.size(),
-                .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
-                .name = "staging_blas_instances_buffer",
-            });
-            std::memcpy(gpu_context->device.buffer_host_address(staging_blas_instances_buffer).value(), blas_instances.data(), sizeof(daxa_BlasInstanceData) * blas_instances.size());
+            if(!blas_instances.empty()) {
+                daxa::BufferId staging_blas_instances_buffer = gpu_context->device.create_buffer({
+                    .size = sizeof(daxa_BlasInstanceData) * blas_instances.size(),
+                    .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
+                    .name = "staging_blas_instances_buffer",
+                });
+                std::memcpy(gpu_context->device.buffer_host_address(staging_blas_instances_buffer).value(), blas_instances.data(), sizeof(daxa_BlasInstanceData) * blas_instances.size());
 
-            daxa::BufferId blas_instances_buffer = gpu_context->device.create_buffer({
-                .size = sizeof(daxa_BlasInstanceData) * blas_instances.size(),
-                .name = "blas_instances_buffer",
-            });
-            cmd_recorder.destroy_buffer_deferred(blas_instances_buffer);
+                daxa::BufferId blas_instances_buffer = gpu_context->device.create_buffer({
+                    .size = sizeof(daxa_BlasInstanceData) * blas_instances.size(),
+                    .name = "blas_instances_buffer",
+                });
+                cmd_recorder.destroy_buffer_deferred(blas_instances_buffer);
 
-            cmd_recorder.copy_buffer_to_buffer(daxa::BufferCopyInfo {
-                .src_buffer = staging_blas_instances_buffer,
-                .dst_buffer = blas_instances_buffer,
-                .size = sizeof(daxa_BlasInstanceData) * blas_instances.size()
-            });
-            cmd_recorder.destroy_buffer_deferred(staging_blas_instances_buffer);
+                cmd_recorder.copy_buffer_to_buffer(daxa::BufferCopyInfo {
+                    .src_buffer = staging_blas_instances_buffer,
+                    .dst_buffer = blas_instances_buffer,
+                    .size = sizeof(daxa_BlasInstanceData) * blas_instances.size()
+                });
+                cmd_recorder.destroy_buffer_deferred(staging_blas_instances_buffer);
 
-            const u32 ACCELERATION_STRUCTURE_BUILD_OFFSET_ALIGMENT = 256;
+                const u32 ACCELERATION_STRUCTURE_BUILD_OFFSET_ALIGMENT = 256;
 
-            auto tlas_blas_instances_infos = std::array{daxa::TlasInstanceInfo{
-                .data = gpu_context->device.buffer_device_address(blas_instances_buffer).value(),
-                .count = s_cast<u32>(blas_instances.size()),
-                .is_data_array_of_pointers = 0,
-                .flags = daxa::GeometryFlagBits::NONE,
-            }};
+                auto tlas_blas_instances_infos = std::array{daxa::TlasInstanceInfo{
+                    .data = gpu_context->device.buffer_device_address(blas_instances_buffer).value(),
+                    .count = s_cast<u32>(blas_instances.size()),
+                    .is_data_array_of_pointers = 0,
+                    .flags = daxa::GeometryFlagBits::NONE,
+                }};
 
-            auto tlas_build_info = daxa::TlasBuildInfo {
-                .flags = daxa::AccelerationStructureBuildFlagBits::PREFER_FAST_TRACE,
-                .instances = tlas_blas_instances_infos,
-            };
+                auto tlas_build_info = daxa::TlasBuildInfo {
+                    .flags = daxa::AccelerationStructureBuildFlagBits::PREFER_FAST_TRACE,
+                    .instances = tlas_blas_instances_infos,
+                };
 
-            const daxa::AccelerationStructureBuildSizesInfo tlas_build_sizes = gpu_context->device.tlas_build_sizes(tlas_build_info);
-            if(!gpu_tlas.get_state().tlas.empty()) { gpu_context->device.destroy_tlas(gpu_tlas.get_state().tlas[0]); }
-            daxa::TlasId tlas = gpu_context->device.create_tlas({
-                .size = round_up_to_multiple(s_cast<u32>(tlas_build_sizes.acceleration_structure_size), ACCELERATION_STRUCTURE_BUILD_OFFSET_ALIGMENT),
-                .name = "tlas"
-            });
-            gpu_tlas.set_tlas({ .tlas = std::span{&tlas, 1}});
+                const daxa::AccelerationStructureBuildSizesInfo tlas_build_sizes = gpu_context->device.tlas_build_sizes(tlas_build_info);
+                if(!gpu_tlas.get_state().tlas.empty()) { gpu_context->device.destroy_tlas(gpu_tlas.get_state().tlas[0]); }
+                daxa::TlasId tlas = gpu_context->device.create_tlas({
+                    .size = round_up_to_multiple(s_cast<u32>(tlas_build_sizes.acceleration_structure_size), ACCELERATION_STRUCTURE_BUILD_OFFSET_ALIGMENT),
+                    .name = "tlas"
+                });
+                gpu_tlas.set_tlas({ .tlas = std::span{&tlas, 1}});
 
-            daxa::BufferId tlas_scratch_buffer = gpu_context->device.create_buffer({
-                .size = round_up_to_multiple(s_cast<u32>(tlas_build_sizes.build_scratch_size), ACCELERATION_STRUCTURE_BUILD_OFFSET_ALIGMENT),
-            });
-            cmd_recorder.destroy_buffer_deferred(tlas_scratch_buffer);
+                daxa::BufferId tlas_scratch_buffer = gpu_context->device.create_buffer({
+                    .size = round_up_to_multiple(s_cast<u32>(tlas_build_sizes.build_scratch_size), ACCELERATION_STRUCTURE_BUILD_OFFSET_ALIGMENT),
+                });
+                cmd_recorder.destroy_buffer_deferred(tlas_scratch_buffer);
 
-            tlas_build_info.dst_tlas = tlas;
-            tlas_build_info.scratch_data = gpu_context->device.buffer_device_address(tlas_scratch_buffer).value();
+                tlas_build_info.dst_tlas = tlas;
+                tlas_build_info.scratch_data = gpu_context->device.buffer_device_address(tlas_scratch_buffer).value();
 
-            cmd_recorder.pipeline_barrier(daxa::BarrierInfo {
-                .src_access = daxa::AccessConsts::TRANSFER_WRITE,
-                .dst_access = daxa::AccessConsts::READ,
-            });
+                cmd_recorder.pipeline_barrier(daxa::BarrierInfo {
+                    .src_access = daxa::AccessConsts::TRANSFER_WRITE,
+                    .dst_access = daxa::AccessConsts::READ,
+                });
 
-            cmd_recorder.build_acceleration_structures({
-                .tlas_build_infos = std::array{tlas_build_info},
-            });
+                cmd_recorder.build_acceleration_structures({
+                    .tlas_build_infos = std::array{tlas_build_info},
+                });
+            }
         }
 
         {

@@ -18,11 +18,6 @@ namespace foundation {
             daxa::MemoryFlagBits::NONE, 
             "materials"
         });
-        gpu_meshes = make_task_buffer(gpu_context, {
-            sizeof(MeshGeometryData), 
-            daxa::MemoryFlagBits::NONE, 
-            "meshes"
-        });
     }
 
     AssetManager::~AssetManager() {
@@ -41,7 +36,6 @@ namespace foundation {
         }
 
         gpu_context->device.destroy_buffer(gpu_materials.get_state().buffers[0]);
-        gpu_context->device.destroy_buffer(gpu_meshes.get_state().buffers[0]);
     }
 
     void AssetManager::load_asset(const std::filesystem::path& file_path, Entity root_entity) {
@@ -191,12 +185,7 @@ namespace foundation {
         PROFILE_SCOPE;
 
         reallocate_buffer(gpu_context, cmd_recorder, gpu_materials, s_cast<u32>(material_manifests.size() * sizeof(Material)));
-        reallocate_buffer(gpu_context, cmd_recorder, gpu_meshes, s_cast<u32>(mesh_manifests.size() * sizeof(MeshGeometryData)));
 
-        std::vector<MeshGeometryData> meshes = {};
-        std::vector<u32> mesh_indices = {};
-        meshes.reserve(upload_infos.meshes.size());
-        mesh_indices.reserve(upload_infos.meshes.size());
         for(const MeshUploadInfo& mesh_upload_info : upload_infos.meshes) {
             const AssetManifest& asset_manifest = asset_manifests[mesh_upload_info.asset_manifest_index];
             u32 mesh_manifest_manifest_index = asset_manifest.mesh_manifest_offset + mesh_upload_info.mesh_manifest_index;
@@ -213,43 +202,6 @@ namespace foundation {
                 .index_count = mesh_geometry_data.index_count,
                 .meshlet_count = mesh_geometry_data.meshlet_count,
             };
-
-            meshes.push_back(mesh_geometry_data);
-            mesh_indices.push_back(asset_manifest.mesh_manifest_offset + mesh_upload_info.mesh_manifest_index);
-        }
-
-        if(!meshes.empty()) {
-            daxa::BufferId staging_meshes_buffer = gpu_context->device.create_buffer({
-                .size = sizeof(MeshGeometryData) * meshes.size(),
-                .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
-                .name = "staging_meshes_buffer",
-            });
-            cmd_recorder.destroy_buffer_deferred(staging_meshes_buffer);
-
-            std::memcpy(gpu_context->device.buffer_host_address(staging_meshes_buffer).value(), meshes.data(), sizeof(MeshGeometryData) * meshes.size());
-
-            // why the hell is this necessary?
-            cmd_recorder.pipeline_barrier(daxa::BarrierInfo {
-                .src_access = daxa::AccessConsts::COPY_WRITE,
-                .dst_access = daxa::AccessConsts::COPY_WRITE,
-            });
-
-            u32 mesh_upload_index = 0;
-            for(u32 gpu_mesh_index : mesh_indices) {
-                cmd_recorder.copy_buffer_to_buffer(daxa::BufferCopyInfo {
-                    .src_buffer = staging_meshes_buffer,
-                    .dst_buffer = gpu_meshes.get_state().buffers[0],
-                    .src_offset = sizeof(MeshGeometryData) * mesh_upload_index++,
-                    .dst_offset = sizeof(MeshGeometryData) * gpu_mesh_index,
-                    .size = sizeof(MeshGeometryData),
-                });
-
-                // why the hell is this necessary?
-                cmd_recorder.pipeline_barrier(daxa::BarrierInfo {
-                    .src_access = daxa::AccessConsts::COPY_WRITE,
-                    .dst_access = daxa::AccessConsts::COPY_WRITE,
-                });
-            }
         }
 
         for(const TextureUploadInfo& texture_upload_info : upload_infos.textures) {

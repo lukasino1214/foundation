@@ -21,10 +21,11 @@ void mesh_main(
     OutputVertices<MeshStageOutput, MAX_VERTICES_PER_MESHLET> out_vertices) {
     const u32 thread_index = local_thread_index.x;
 
-    const MeshGeometryData mesh = push.uses.u_mesh_geometry_data[push.mesh_index];
-    const Meshlet meshlet = mesh.meshlets[group_index.x];
+    const MeshInstanceData mesh_instance_data = push.mesh_instance_data;
+    if(mesh_instance_data.mesh_buffer.value == 0) { return; }
+    const Meshlet meshlet = mesh_instance_data.meshlets[group_index.x];
 
-    const f32mat4x4 transform_matrix = mat_4x3_to_4x4(push.uses.u_transforms[push.mesh_group_index]);
+    const f32mat4x4 transform_matrix = mat_4x3_to_4x4(push.uses.u_transforms[mesh_instance_data.mesh_group_index]);
     const f32mat3x3 normal_matrix = f32mat3x3(
         cross(transform_matrix[1].xyz, transform_matrix[2].xyz), 
         cross(transform_matrix[2].xyz, transform_matrix[0].xyz), 
@@ -34,15 +35,15 @@ void mesh_main(
     SetMeshOutputCounts(meshlet.vertex_count, meshlet.triangle_count);
 
     if(thread_index < meshlet.vertex_count) {
-        const u32 vertex_index = mesh.indirect_vertices[meshlet.indirect_vertex_offset + thread_index];
+        const u32 vertex_index = mesh_instance_data.indirect_vertices[meshlet.indirect_vertex_offset + thread_index];
 
         MeshStageOutput vertex;
-        vertex.position = mul(transform_matrix, f32vec4(mesh.positions[vertex_index], 1.0f)).xyz;
+        vertex.position = mul(transform_matrix, f32vec4(mesh_instance_data.positions[vertex_index], 1.0f)).xyz;
         vertex.sv_position = mul(push.uses.u_globals->main_camera.projection_view_matrix, f32vec4(vertex.position, 1.0f));
-        vertex.normal = normalize(mul(normal_matrix, mesh.normals[vertex_index]));
+        vertex.normal = normalize(mul(normal_matrix, mesh_instance_data.normals[vertex_index]));
 
-        if(mesh.uvs != 0) {
-            vertex.uv = mesh.uvs[vertex_index];
+        if(mesh_instance_data.uvs != 0) {
+            vertex.uv = mesh_instance_data.uvs[vertex_index];
         } else {
             vertex.uv = f32vec2(0.0f, 0.0f);
         }
@@ -52,9 +53,9 @@ void mesh_main(
 
     if(thread_index < meshlet.triangle_count) {
         u32vec3 indices = u32vec3(
-            get_micro_index(mesh.micro_indices, meshlet.micro_indices_offset + thread_index * 3 + 0),
-            get_micro_index(mesh.micro_indices, meshlet.micro_indices_offset + thread_index * 3 + 1),
-            get_micro_index(mesh.micro_indices, meshlet.micro_indices_offset + thread_index * 3 + 2)
+            get_micro_index(mesh_instance_data.micro_indices, meshlet.micro_indices_offset + thread_index * 3 + 0),
+            get_micro_index(mesh_instance_data.micro_indices, meshlet.micro_indices_offset + thread_index * 3 + 1),
+            get_micro_index(mesh_instance_data.micro_indices, meshlet.micro_indices_offset + thread_index * 3 + 2)
         );
 
         out_indices[thread_index] = indices;
@@ -202,12 +203,12 @@ f32vec3 calculate_normal_from_map(f32vec3 tangent_normal, f32vec3 geometric_norm
 
 [shader("fragment")]
 f32vec4 fragment_main(u32 primitive_id : SV_PrimitiveID, bool is_front_facing : SV_IsFrontFace, in MeshStageOutput input) : SV_Target {
-    const MeshGeometryData mesh = push.uses.u_mesh_geometry_data[push.mesh_index];
+    const MeshInstanceData mesh_instance_data = push.mesh_instance_data;
 
     f32vec4 color = f32vec4(hsv_to_rgb(f32vec3(f32(primitive_id) / 128 * M_GOLDEN_CONJ, 0.875, 0.85)), 1.0);
     f32vec3 normal = input.normal;
-    if(mesh.material_index != INVALID_ID) {
-        const Material material = push.uses.u_materials[mesh.material_index];
+    if(mesh_instance_data.material_index != INVALID_ID) {
+        const Material material = push.uses.u_materials[mesh_instance_data.material_index];
 
         if(!material.albedo_image_id.is_empty()) {
             color = Texture2D<f32vec4>::get(material.albedo_image_id).Sample(SamplerState::get(material.albedo_sampler_id), input.uv);
