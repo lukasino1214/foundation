@@ -21,7 +21,7 @@ void mesh_main(
     OutputVertices<MeshStageOutput, MAX_VERTICES_PER_MESHLET> out_vertices) {
     const u32 thread_index = local_thread_index.x;
 
-    const MeshInstanceData mesh_instance_data = push.mesh_instance_data;
+    const MeshInstance mesh_instance_data = push.mesh_instance_data;
     if(mesh_instance_data.mesh_buffer.value == 0) { return; }
     const Meshlet meshlet = mesh_instance_data.meshlets[group_index.x];
 
@@ -203,7 +203,7 @@ f32vec3 calculate_normal_from_map(f32vec3 tangent_normal, f32vec3 geometric_norm
 
 [shader("fragment")]
 f32vec4 fragment_main(u32 primitive_id : SV_PrimitiveID, bool is_front_facing : SV_IsFrontFace, in MeshStageOutput input) : SV_Target {
-    const MeshInstanceData mesh_instance_data = push.mesh_instance_data;
+    const MeshInstance mesh_instance_data = push.mesh_instance_data;
 
     f32vec4 color = f32vec4(hsv_to_rgb(f32vec3(f32(primitive_id) / 128 * M_GOLDEN_CONJ, 0.875, 0.85)), 1.0);
     f32vec3 normal = input.normal;

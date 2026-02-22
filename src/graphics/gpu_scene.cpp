@@ -34,10 +34,59 @@ namespace foundation {
     void GPUScene::update(daxa::CommandRecorder& cmd_recorder, const ResourceUploadInfos& upload_infos) {
         PROFILE_SCOPE;
 
+        auto write_mesh_instance = [&](MeshInstance &out_mesh_instance, u32 mesh_manifest_index, u32 mesh_group_instance_index) {
+            out_mesh_instance = {};
+            out_mesh_instance.mesh_group_index = mesh_group_instance_index;
+            out_mesh_instance.material_index = ~0u;
+
+            if(mesh_manifest_index >= asset_manager->mesh_manifests.size()) { return; }
+            const MeshManifest& mesh_manifest = asset_manager->mesh_manifests[mesh_manifest_index];
+            if(!mesh_manifest.render_info.has_value()) { return; }
+
+            const auto& render_info = mesh_manifest.render_info.value();
+            out_mesh_instance.mesh_buffer = render_info.mesh_buffer;
+            out_mesh_instance.meshlets = render_info.mesh.meshlets;
+            out_mesh_instance.indirect_vertices = render_info.mesh.indirect_vertices;
+            out_mesh_instance.micro_indices = render_info.mesh.micro_indices;
+            out_mesh_instance.bounding_spheres = render_info.mesh.bounding_spheres;
+            out_mesh_instance.aabbs = render_info.mesh.aabbs;
+            out_mesh_instance.positions = render_info.mesh.positions;
+            out_mesh_instance.normals = render_info.mesh.normals;
+            out_mesh_instance.uvs = render_info.mesh.uvs;
+            out_mesh_instance.material_index = render_info.mesh.material_index;
+            out_mesh_instance.meshlet_count = render_info.meshlet_count;
+        };
+
         std::vector<flecs::entity> deletion_queue = {};
         scene->world->each([&](flecs::entity e, MeshComponent& mesh_component, MeshComponentDirty) {
+            const MeshGroupManifest& mesh_group_manifest = asset_manager->mesh_group_manifests[mesh_component.mesh_group_manifest_entry_index];
+            const AssetManifest& asset_manifest = asset_manager->asset_manifests[mesh_group_manifest.asset_manifest_index];
+            
             if(!mesh_component.mesh_group_index.has_value()) {
-                mesh_component.mesh_group_index = mesh_group_count++;   
+                u32 mesh_group_instance_index = total_mesh_group_count++;
+                mesh_component.mesh_group_index = mesh_group_instance_index;
+
+                CPUMeshGroupInstance cpu_mesh_group_instance = {
+                    .mesh_group_instance_index = mesh_group_instance_index,
+                    .mesh_instance_indices = {},
+                };
+                cpu_mesh_group_instance.mesh_instance_indices.reserve(mesh_group_manifest.mesh_count);
+
+                mesh_group_instances.push_back({
+                    .mesh_indices = mesh_instances.size(),
+                    .count = mesh_group_manifest.mesh_count,
+                });
+
+                for(u32 mesh_index = 0; mesh_index < mesh_group_manifest.mesh_count; mesh_index++) {
+                    const u32 mesh_manifest_index = asset_manifest.mesh_manifest_offset + mesh_group_manifest.asset_local_mesh_manifest_indices_offset + mesh_index;
+                    const u32 mesh_instance_index = s_cast<u32>(mesh_instances.size());
+                    cpu_mesh_group_instance.mesh_instance_indices.push_back(mesh_instance_index);
+
+                    mesh_instances.push_back({});
+                    write_mesh_instance(mesh_instances.back(), mesh_manifest_index, mesh_group_instance_index);
+                }
+
+                mesh_group_data[mesh_component.mesh_group_manifest_entry_index].mesh_group_instances[e.id()] = std::move(cpu_mesh_group_instance);
             }
             deletion_queue.push_back(e);
         });
@@ -46,7 +95,30 @@ namespace foundation {
             e.remove<MeshComponentDirty>();
         }
 
-        reallocate_buffer(gpu_context, cmd_recorder, gpu_transforms, s_cast<u32>(mesh_group_count * sizeof(f32mat4x3)));
+        if(!upload_infos.meshes.empty()) {
+            for(auto& [mesh_group_manifest_index, cpu_mesh_group_data] : mesh_group_data) {
+                if(mesh_group_manifest_index >= asset_manager->mesh_group_manifests.size()) { continue; }
+
+                const MeshGroupManifest& mesh_group_manifest = asset_manager->mesh_group_manifests[mesh_group_manifest_index];
+                const AssetManifest& asset_manifest = asset_manager->asset_manifests[mesh_group_manifest.asset_manifest_index];
+
+                for(auto& [_, cpu_mesh_group_instance] : cpu_mesh_group_data.mesh_group_instances) {
+                    for(u32 mesh_index = 0; mesh_index < mesh_group_manifest.mesh_count; mesh_index++) {
+                        const u32 mesh_instance_index = cpu_mesh_group_instance.mesh_instance_indices[mesh_index];
+                        const u32 mesh_manifest_index = asset_manifest.mesh_manifest_offset + mesh_group_manifest.asset_local_mesh_manifest_indices_offset + mesh_index;
+                        write_mesh_instance(mesh_instances[mesh_instance_index], mesh_manifest_index, cpu_mesh_group_instance.mesh_group_instance_index);
+                    }
+                }
+            }
+        }
+
+        total_mesh_count = mesh_instances.size();
+        total_meshlet_count = 0;
+        for(const auto& mesh_instance : mesh_instances) {
+            total_meshlet_count += mesh_instance.meshlet_count;
+        }
+
+        reallocate_buffer(gpu_context, cmd_recorder, gpu_transforms, s_cast<u32>(total_mesh_group_count * sizeof(f32mat4x3)));
 
         bool entites_moved = false;
         std::vector<flecs::entity> moved_entities = {};

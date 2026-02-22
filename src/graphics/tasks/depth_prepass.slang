@@ -18,7 +18,7 @@ void mesh_main(
     OutputVertices<MeshStageOutput, MAX_VERTICES_PER_MESHLET> out_vertices) {
     const u32 thread_index = local_thread_index.x;
 
-    const MeshInstanceData mesh_instance_data = push.mesh_instance_data;
+    const MeshInstance mesh_instance_data = push.mesh_instance_data;
     if(mesh_instance_data.mesh_buffer.value == 0) { return; }
     const Meshlet meshlet = mesh_instance_data.meshlets[group_index.x];
 
@@ -53,7 +53,7 @@ void mesh_main(
 
 [shader("fragment")]
 void fragment_main(in MeshStageOutput input) {
-    const MeshInstanceData mesh_instance_data = push.mesh_instance_data;
+    const MeshInstance mesh_instance_data = push.mesh_instance_data;
 
     if(mesh_instance_data.material_index != INVALID_ID) {
         const Material material = push.uses.u_materials[mesh_instance_data.material_index];

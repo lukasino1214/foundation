@@ -68,7 +68,14 @@ struct MeshGeometryData {
 };
 DAXA_DECL_BUFFER_PTR(MeshGeometryData)
 
-struct MeshInstanceData {
+struct MeshGroupInstance {
+    daxa_BufferPtr(u32) mesh_indices;
+    u32 count;
+    u32 padding;
+};
+DAXA_DECL_BUFFER_PTR_ALIGN(MeshGroup, 8)
+
+struct MeshInstance {
     daxa_BufferId mesh_buffer;
 
     daxa_BufferPtr(Meshlet) meshlets;
@@ -85,7 +92,7 @@ struct MeshInstanceData {
     u32 material_index;
     u32 meshlet_count;
 };
-DAXA_DECL_BUFFER_PTR_ALIGN(MeshInstanceData, 8)
+DAXA_DECL_BUFFER_PTR_ALIGN(MeshInstance, 8)
 
 struct Material {
     daxa_ImageViewId albedo_image_id;

@@ -167,14 +167,14 @@ namespace foundation {
         //     asset_manager.load_asset("assets/models/SimpleSkin/glTF/SimpleSkin.gltf", root_entity);
         // }
 
-        {
-            Entity root_entity = scene->create_entity("root entity 16");
-            root_entity.add_component<TransformComponent>();
-            root_entity.set_local_position({50, 0, -80});
-            asset_manager.load_asset("assets/models/main_sponza/NewSponza_Main_glTF_003.gltf", root_entity);
-            asset_manager.load_asset("assets/models/pkg_a_curtains/NewSponza_Curtains_glTF.gltf", root_entity);
-            asset_manager.load_asset("assets/models/pkg_b_ivy/NewSponza_IvyGrowth_glTF.gltf", root_entity);
-        }
+        // {
+        //     Entity root_entity = scene->create_entity("root entity 16");
+        //     root_entity.add_component<TransformComponent>();
+        //     root_entity.set_local_position({50, 0, -80});
+        //     asset_manager.load_asset("assets/models/main_sponza/NewSponza_Main_glTF_003.gltf", root_entity);
+        //     asset_manager.load_asset("assets/models/pkg_a_curtains/NewSponza_Curtains_glTF.gltf", root_entity);
+        //     asset_manager.load_asset("assets/models/pkg_b_ivy/NewSponza_IvyGrowth_glTF.gltf", root_entity);
+        // }
 
         // model_data = asset_manager.load_asset("assets/models/Bistro/Bistro.glb", gpu_context);
         // model_data = asset_manager.load_asset("assets/models/zorah/zorah_main_public.gltf", gpu_context);
@@ -259,6 +259,13 @@ namespace foundation {
 
             if(ImGui::Begin("Performance Statistics")) {
                 ImGui::Text("delta time: %f ms", delta_time * 1000.0);
+            }
+            ImGui::End();
+
+            if(ImGui::Begin("GPUScene Statistics")) {
+                ImGui::Text("total_mesh_group_count: %zu", gpu_scene.total_mesh_group_count);
+                ImGui::Text("total_mesh_count: %zu", gpu_scene.total_mesh_count);
+                ImGui::Text("total_meshlet_count: %zu", gpu_scene.total_meshlet_count);
             }
             ImGui::End();
 

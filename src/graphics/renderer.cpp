@@ -7,6 +7,7 @@
 #include "tasks/draw_mesh.inl"
 #include "tasks/ray_tracing.inl"
 #include "gpu_scene.hpp"
+#include <asset/asset_manager.hpp>
 
 namespace foundation {
     Renderer::Renderer(NativeWindow* _window, GPUContext* _gpu_context, GPUScene* _gpu_scene, AssetManager* _asset_manager, Scene* _scene) : window{_window}, gpu_context{_gpu_context}, asset_manager{_asset_manager}, scene{_scene}, gpu_scene{_gpu_scene} {
@@ -234,7 +235,7 @@ namespace foundation {
             },
             .gpu_context = gpu_context,
             .asset_manager = asset_manager,
-            .scene = scene,
+            .gpu_scene = gpu_scene,
         });
 
         render_task_graph.add_task(DrawMeshTask {
@@ -250,7 +251,7 @@ namespace foundation {
             },
             .gpu_context = gpu_context,
             .asset_manager = asset_manager,
-            .scene = scene,
+            .gpu_scene = gpu_scene,
         });
 
         // render_task_graph.add_task(RayTraceTask {

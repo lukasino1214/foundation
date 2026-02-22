@@ -11,18 +11,17 @@
 DAXA_DECL_RASTER_TASK_HEAD_BEGIN(DepthPrepass)
 DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(ShaderGlobals), u_globals)
 DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(f32mat4x3), u_transforms)
-DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(MeshGeometryData), u_mesh_geometry_data)
 DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(Material), u_materials)
 DAXA_TH_IMAGE_ID(DEPTH_ATTACHMENT, REGULAR_2D, u_depth_image)
 DAXA_DECL_TASK_HEAD_END
 
 struct DepthPrepassPush {
     DAXA_TH_BLOB(DepthPrepass, uses)
-    MeshInstanceData mesh_instance_data;
+    MeshInstance mesh_instance_data;
 };
 
 #if __cplusplus
-#include <asset/asset_manager.hpp>
+#include <graphics/gpu_scene.hpp>
 
 using namespace foundation;
 struct DepthPrepassTask : DepthPrepass::Task {
@@ -30,7 +29,7 @@ struct DepthPrepassTask : DepthPrepass::Task {
     GPUContext* gpu_context = {};
     DepthPrepassPush push = {};
     AssetManager* asset_manager = {};
-    Scene* scene = {};
+    GPUScene* gpu_scene = {};
 
     void assign_blob(auto& arr, const auto& span) {
         std::memcpy(arr.value.data(), span.data(), span.size());
@@ -87,40 +86,17 @@ struct DepthPrepassTask : DepthPrepass::Task {
 
         render_cmd.set_pipeline(*gpu_context->raster_pipelines.at(DepthPrepassTask::name()));
 
-        scene->world->each([&](MeshComponent& mesh_component) {
-            const MeshGroupManifest& mesh_group_manifest = asset_manager->mesh_group_manifests[mesh_component.mesh_group_manifest_entry_index]; 
-            const AssetManifest& asset_manifest = asset_manager->asset_manifests[mesh_group_manifest.asset_manifest_index];
-
-            for(u32 mesh_index = 0; mesh_index < mesh_group_manifest.mesh_count; mesh_index++) {
-                const MeshManifest& mesh_manifest = asset_manager->mesh_manifests[asset_manifest.mesh_manifest_offset + mesh_group_manifest.asset_local_mesh_manifest_indices_offset + mesh_index];
+        for(const auto& mesh_group_instance : gpu_scene->mesh_group_instances) {
+            for(u32 mesh_instance_index = mesh_group_instance.mesh_indices; mesh_instance_index < mesh_group_instance.mesh_indices + mesh_group_instance.count; mesh_instance_index++) {
+                const auto& mesh_instance = gpu_scene->mesh_instances[mesh_instance_index];
 
                 assign_blob(push.uses, ti.attachment_shader_blob);
                 
-                if(mesh_manifest.render_info.has_value()) {
-                    const auto& render_info = mesh_manifest.render_info.value();
-
-                    push.mesh_instance_data = MeshInstanceData {
-                        .mesh_buffer = render_info.mesh_buffer,
-                        .meshlets = render_info.mesh.meshlets,
-                        .indirect_vertices = render_info.mesh.indirect_vertices,
-                        .micro_indices = render_info.mesh.micro_indices,
-                        .bounding_spheres = render_info.mesh.bounding_spheres,
-                        .aabbs = render_info.mesh.aabbs,
-                        .positions = render_info.mesh.positions,
-                        .normals = render_info.mesh.normals,
-                        .uvs = render_info.mesh.uvs,
-                        .mesh_group_index = s_cast<u32>(mesh_component.mesh_group_index.value()),
-                        .material_index = render_info.mesh.material_index,
-                        .meshlet_count = render_info.mesh.meshlet_count,
-                    };
-                } else {
-                    push.mesh_instance_data = {};
-                }
-
+                push.mesh_instance_data = mesh_instance;
                 render_cmd.push_constant(push);
-                render_cmd.draw_mesh_tasks(mesh_manifest.render_info->meshlet_count, 1, 1);
+                render_cmd.draw_mesh_tasks(mesh_instance.meshlet_count, 1, 1);
             }
-        });
+        }
 
         ti.recorder = std::move(render_cmd).end_renderpass();
     }
