@@ -28,6 +28,37 @@ struct DispatchIndirectStruct {
 };
 DAXA_DECL_BUFFER_PTR(DispatchIndirectStruct)
 
+struct ShaderDebugAABBDraw {
+    f32vec3 color;
+    f32vec3 position;
+    f32vec3 extent;
+};
+DAXA_DECL_BUFFER_PTR(ShaderDebugAABBDraw)
+
+struct ShaderDebugCircleDraw {
+    f32vec3 color;
+    f32vec3 position;
+    f32 radius;
+};
+DAXA_DECL_BUFFER_PTR(ShaderDebugCircleDraw)
+
+struct ShaderDebugLineDraw {
+    f32vec3 color;
+    f32vec3 start;
+    f32vec3 end;
+};
+DAXA_DECL_BUFFER_PTR(ShaderDebugLineDraw)
+
+struct ShaderDebugBufferHead {
+    DrawIndirectStruct aabb_draw_indirect_info;
+    DrawIndirectStruct circle_draw_indirect_info;
+    DrawIndirectStruct line_draw_indirect_info;
+    daxa_RWBufferPtr(ShaderDebugAABBDraw) aabb_draws;
+    daxa_RWBufferPtr(ShaderDebugCircleDraw) circle_draws;
+    daxa_RWBufferPtr(ShaderDebugLineDraw) line_draws;
+};
+DAXA_DECL_BUFFER_PTR(ShaderDebugBufferHead)
+
 struct CameraInfo {
     f32mat4x4 projection_matrix;
     f32mat4x4 inverse_projection_matrix;
@@ -48,6 +79,7 @@ struct ShaderGlobals {
     u32vec2 render_target_size;
     f32vec2 render_target_size_inv;
     f32vec3 sun_direction;
+    daxa_BufferPtr(ShaderDebugBufferHead) debug;
 };
 DAXA_DECL_BUFFER_PTR(ShaderGlobals)
 
@@ -239,6 +271,51 @@ SHARED_FUNCTION f32mat4x4 mat_4x3_to_4x4(f32mat4x3 mat) {
 }
 
 #if DAXA_LANGUAGE == DAXA_LANGUAGE_SLANG
+extension ShaderGlobals {
+    void debug_draw(ShaderDebugAABBDraw draw) {
+        u32 index;
+        InterlockedAdd(debug->aabb_draw_indirect_info.instance_count, 1, index);
+        debug->aabb_draws[index] = draw;
+    }
+
+    void debug_draw(ShaderDebugCircleDraw draw) {
+        u32 index;
+        InterlockedAdd(debug->circle_draw_indirect_info.instance_count, 1, index);
+        debug->circle_draws[index] = draw;
+    }
+
+    void debug_draw(ShaderDebugLineDraw draw) {
+        u32 index;
+        InterlockedAdd(debug->line_draw_indirect_info.instance_count, 1, index);
+        debug->line_draws[index] = draw;
+    }
+};
+
+AABB calculate_worldspace_aabb_from_modelspace(in f32mat4x4 model_matrix, in AABB aabb) {
+    AABB worldspace_aabb;
+    worldspace_aabb.center = mul(model_matrix, f32vec4(aabb.center, 1.0)).xyz;
+    
+    const f32vec3 right = model_matrix[0].xyz * aabb.extent.x;
+    const f32vec3 up = model_matrix[1].xyz * aabb.extent.y;
+    const f32vec3 forward = (-model_matrix[2].xyz) * aabb.extent.z;
+
+    worldspace_aabb.extent = f32vec3(
+        abs(dot(f32vec3(1.0, 0.0, 0.0), right)) +
+        abs(dot(f32vec3(1.0, 0.0, 0.0), up)) +
+        abs(dot(f32vec3(1.0, 0.0, 0.0), forward)),
+
+        abs(dot(f32vec3(0.0, 1.0, 0.0), right)) +
+        abs(dot(f32vec3(0.0, 1.0, 0.0), up)) +
+        abs(dot(f32vec3(0.0, 1.0, 0.0), forward)),
+
+        abs(dot(f32vec3(0.0, 0.0, 1.0), right)) +
+        abs(dot(f32vec3(0.0, 0.0, 1.0), up)) +
+        abs(dot(f32vec3(0.0, 0.0, 1.0), forward))
+    );
+
+    return worldspace_aabb;
+}
+
 SHARED_FUNCTION u32 get_micro_index(daxa_BufferPtr(u32) micro_indices, u32 index) {
     u32 packed = micro_indices[index / 4];
     return (packed >> ((index % 4) * 8)) & 0xFF;

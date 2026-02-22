@@ -3,7 +3,34 @@
 #include <shared_mutex>
 
 namespace foundation {
+    struct GPUContext;
     struct NativeWindow;
+
+    template<typename T>
+    struct CPUDebugDraws {
+        u32 max_draws = {};
+        u32 vertices = {};
+        std::vector<T> cpu_debug_draws = {};
+
+        void draw(const T& draw) {
+            if(cpu_debug_draws.size() < max_draws) {
+                cpu_debug_draws.push_back(draw);
+            }
+        }
+    };
+
+    struct ShaderDebugDrawContext {
+        CPUDebugDraws<ShaderDebugAABBDraw> aabb_draws = { .max_draws = 128'000, .vertices = 24 };
+        CPUDebugDraws<ShaderDebugCircleDraw> circle_draws = { .max_draws = 128'000, .vertices = 32 };
+        CPUDebugDraws<ShaderDebugLineDraw> line_draws = { .max_draws = 128'000, .vertices = 2 };
+
+        daxa::BufferId buffer = {};
+        GPUContext* gpu_context = {};
+
+        ShaderDebugDrawContext(GPUContext* _gpu_context);
+        ~ShaderDebugDrawContext();
+        void update_debug_buffer(daxa::Device& device, daxa::CommandRecorder& recorder, daxa::TransferMemoryPool& allocator);
+    };
 
     struct SamplerInfoHasher {
         auto operator()(const daxa::SamplerInfo& info) const -> usize {
@@ -68,6 +95,8 @@ namespace foundation {
 
         ShaderGlobals shader_globals = {};
         daxa::TaskBuffer shader_globals_buffer = {};
+
+        ShaderDebugDrawContext shader_debug_draw_context;
 
         ankerl::unordered_dense::map<std::string, std::shared_ptr<daxa::RasterPipeline>> raster_pipelines = {};
         ankerl::unordered_dense::map<std::string, std::shared_ptr<daxa::ComputePipeline>> compute_pipelines = {};

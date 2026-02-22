@@ -8,6 +8,7 @@
 #include "tasks/draw_mesh.inl"
 #include "tasks/resolve_visibility_buffer.inl"
 #include "tasks/ray_tracing.inl"
+#include "tasks/debug.inl"
 #include "gpu_scene.hpp"
 #include <asset/asset_manager.hpp>
 
@@ -128,6 +129,9 @@ namespace foundation {
 
         std::vector<std::tuple<std::string, daxa::RasterPipelineCompileInfo2>> rasters = {
             {DrawMeshletsTask::name(), DrawMeshletsTask::pipeline_config_info()},
+            {DebugAABBDrawTask::name(), DebugAABBDrawTask::pipeline_config_info()},
+            {DebugCircleDrawTask::name(), DebugCircleDrawTask::pipeline_config_info()},
+            {DebugLineDrawTask::name(), DebugLineDrawTask::pipeline_config_info()},
         };
 
         for (auto [name, info] : rasters) {
@@ -266,6 +270,7 @@ namespace foundation {
                     .dst_offset = 0,
                     .size = sizeof(ShaderGlobals),
                 });
+                gpu_context->shader_debug_draw_context.update_debug_buffer(gpu_context->device, ti.recorder, *ti.allocator);
         }));
 
         auto u_command = render_task_graph.create_transient_buffer(daxa::TaskTransientBufferInfo {
@@ -366,6 +371,36 @@ namespace foundation {
                 .y = round_up_div(render_target_size.y, 16),
                 .z = 1
             },
+        });
+
+        render_task_graph.add_task(DebugAABBDrawTask {
+            .views = DebugAABBDrawTask::Views {
+                .u_globals = gpu_context->shader_globals_buffer.view(),
+                .u_transforms = gpu_scene->gpu_transforms.view(),
+                .u_render_image = render_image.view(),
+                .u_depth_image = depth_image.view(),
+            },
+            .gpu_context = gpu_context,
+        });
+
+        render_task_graph.add_task(DebugCircleDrawTask {
+            .views = DebugCircleDrawTask::Views {
+                .u_globals = gpu_context->shader_globals_buffer.view(),
+                .u_transforms = gpu_scene->gpu_transforms.view(),
+                .u_render_image = render_image.view(),
+                .u_depth_image = depth_image.view(),
+            },
+            .gpu_context = gpu_context,
+        });
+
+        render_task_graph.add_task(DebugLineDrawTask {
+            .views = DebugLineDrawTask::Views {
+                .u_globals = gpu_context->shader_globals_buffer.view(),
+                .u_transforms = gpu_scene->gpu_transforms.view(),
+                .u_render_image = render_image.view(),
+                .u_depth_image = depth_image.view(),
+            },
+            .gpu_context = gpu_context,
         });
 
         // render_task_graph.add_task(RayTraceTask {

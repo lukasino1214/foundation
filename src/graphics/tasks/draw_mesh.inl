@@ -77,7 +77,6 @@ struct DrawMeshletsTask : DrawMeshlets::Task {
                 .defines = { { std::string{DrawMeshletsTask::name()} + "_SHADER", "1" } } 
             },
             .color_attachments = {
-                { .format = daxa::Format::R8G8B8A8_UNORM },
                 { .format = daxa::Format::R32_UINT },
             },
             .depth_test = { daxa::DepthTestInfo {
@@ -113,6 +112,7 @@ struct DrawMeshletsTask : DrawMeshlets::Task {
                     .image_view = ti.get(AT.u_depth_image).ids[0].default_view(),
                     .load_op = daxa::AttachmentLoadOp::CLEAR,
                     .store_op = daxa::AttachmentStoreOp::STORE,
+                    .clear_value = daxa::DepthValue{ .depth = 0.0f, .stencil = {} },
                 }
             },
             .render_area = {.x = 0, .y = 0, .width = size_x, .height = size_y},
