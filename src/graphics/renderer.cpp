@@ -5,7 +5,6 @@
 
 #include "tasks/cull_mesh_instances.inl"
 #include "tasks/cull_meshlet_instances.inl"
-#include "tasks/depth_prepass.inl"
 #include "tasks/draw_mesh.inl"
 #include "tasks/resolve_visibility_buffer.inl"
 #include "tasks/ray_tracing.inl"
@@ -128,7 +127,6 @@ namespace foundation {
         PROFILE_SCOPE;
 
         std::vector<std::tuple<std::string, daxa::RasterPipelineCompileInfo2>> rasters = {
-            // {DepthPrepassTask::name(), DepthPrepassTask::pipeline_config_info()},
             {DrawMeshletsTask::name(), DrawMeshletsTask::pipeline_config_info()},
         };
 
@@ -149,7 +147,6 @@ namespace foundation {
             {CullMeshletInstancesWriteCommandTask::name(), CullMeshletInstancesWriteCommandTask::pipeline_config_info()},
             {CullMeshletInstancesTask::name(), CullMeshletInstancesTask::pipeline_config_info()},
 
-            // {DepthPrepassWriteCommandTask::name(), DepthPrepassWriteCommandTask::pipeline_config_info()},
             {DrawMeshletsWriteCommandTask::name(), DrawMeshletsWriteCommandTask::pipeline_config_info()},
             {ResolveVisibilityBufferTask::name(), ResolveVisibilityBufferTask::pipeline_config_info()},
         };
@@ -293,6 +290,7 @@ namespace foundation {
                 .u_mesh_group_instances = gpu_scene->gpu_mesh_group_instances.view(),
                 .u_mesh_instance_indices = gpu_scene->gpu_mesh_instance_indices.view(),
                 .u_mesh_instances = gpu_scene->gpu_mesh_instances.view(),
+                .u_transforms = gpu_scene->gpu_transforms.view(),
                 .u_culled_mesh_instances_data = gpu_scene->gpu_culled_mesh_instances_data.view(),
                 .u_prefix_sum_work_expansion_mesh = gpu_scene->gpu_prefix_sum_work_expansion_mesh.view(),
                 .u_command = u_command,
@@ -321,29 +319,6 @@ namespace foundation {
             },
             .gpu_context = gpu_context,
         });
-
-        // render_task_graph.add_task(DepthPrepassWriteCommandTask {
-        //     .views = DepthPrepassWriteCommandTask::Views {
-        //         .u_culled_meshlet_instances_data = gpu_scene->gpu_culled_meshlets_instances_data.view(),
-        //         .u_command = u_command,
-        //     },
-        //     .gpu_context = gpu_context,
-        // });
-
-        // render_task_graph.add_task(DepthPrepassTask {
-        //     .views = DepthPrepassTask::Views {
-        //         .u_globals = gpu_context->shader_globals_buffer.view(),
-        //         .u_culled_meshlet_instances_data = gpu_scene->gpu_culled_meshlets_instances_data.view(),
-        //         .u_mesh_instances = gpu_scene->gpu_mesh_instances.view(),
-        //         .u_transforms = gpu_scene->gpu_transforms.view(),
-        //         .u_materials = asset_manager->gpu_materials.view(),
-        //         .u_command = u_command,
-        //         .u_depth_image = depth_image.view(),
-        //     },
-        //     .gpu_context = gpu_context,
-        //     .asset_manager = asset_manager,
-        //     .gpu_scene = gpu_scene,
-        // });
 
         render_task_graph.add_task(DrawMeshletsWriteCommandTask {
             .views = DrawMeshletsWriteCommandTask::Views {

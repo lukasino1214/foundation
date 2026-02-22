@@ -43,6 +43,8 @@ DAXA_DECL_BUFFER_PTR(CameraInfo)
 
 struct ShaderGlobals {
     CameraInfo main_camera;
+    CameraInfo observer_camera;
+    b32 render_as_observer;
     u32vec2 render_target_size;
     f32vec2 render_target_size_inv;
     f32vec3 sun_direction;
@@ -111,6 +113,7 @@ struct MeshInstance {
     daxa_BufferPtr(f32vec3) normals;
     daxa_BufferPtr(f32vec2) uvs;
 
+    AABB mesh_aabb;
     u32 mesh_group_index;
     u32 material_index;
     u32 meshlet_count;

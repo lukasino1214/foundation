@@ -27,6 +27,7 @@ namespace foundation {
         GPUScene gpu_scene;
         Renderer renderer;
         ControlledCamera3D main_camera = {};
+        ControlledCamera3D observer_camera = {};
 
         std::chrono::time_point<std::chrono::steady_clock> last_time_point = {};
         f64 delta_time = 0.0;

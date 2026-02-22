@@ -247,7 +247,16 @@ namespace foundation {
             ImGui::End();
         };
 
+        
         if(!window.is_cursor_captured()) {
+            if(ImGui::Begin("Renderer settings")) {
+                ImGui::Text("Framebuffer resolution: %ux%u", gpu_context.shader_globals.render_target_size.x, gpu_context.shader_globals.render_target_size.y);
+                bool camera_option = s_cast<bool>(gpu_context.shader_globals.render_as_observer);
+                ImGui::Checkbox("Render as observer", &camera_option);
+                gpu_context.shader_globals.render_as_observer = s_cast<b32>(camera_option);
+            }
+            ImGui::End();
+
             create_window("Console");
             // create_window("Viewport Panel");
             // create_window("Performance Statistics");
@@ -255,7 +264,6 @@ namespace foundation {
             create_window("File Browser");
             create_window("Scene Hierarchy");
             create_window("Entity Inspector");
-            create_window("Renderer settings");
 
             if(ImGui::Begin("Performance Statistics")) {
                 ImGui::Text("delta time: %f ms", delta_time * 1000.0);
@@ -400,7 +408,11 @@ namespace foundation {
 
         scene->update(s_cast<f32>(delta_time));
 
-        main_camera.update(window, s_cast<f32>(delta_time));
+        if(gpu_context.shader_globals.render_as_observer != 0u) {
+            observer_camera.update(window, s_cast<f32>(delta_time));
+        } else {
+            main_camera.update(window, s_cast<f32>(delta_time));
+        }
 
         auto set_camera_info = [&](ControlledCamera3D& camera) -> CameraInfo {
             camera.camera.resize(s_cast<i32>(window.get_width()), s_cast<i32>(window.get_height()));
@@ -436,6 +448,7 @@ namespace foundation {
         };
 
         gpu_context.shader_globals.main_camera = set_camera_info(main_camera);
+        gpu_context.shader_globals.observer_camera = set_camera_info(observer_camera);
         gpu_context.shader_globals.render_target_size = { window.get_width(), window.get_height() };
         gpu_context.shader_globals.render_target_size_inv = {
             1.0f / s_cast<f32>(gpu_context.shader_globals.render_target_size.x),

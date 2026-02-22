@@ -99,6 +99,7 @@ namespace foundation {
             out_mesh_instance.positions = render_info.mesh.positions;
             out_mesh_instance.normals = render_info.mesh.normals;
             out_mesh_instance.uvs = render_info.mesh.uvs;
+            out_mesh_instance.mesh_aabb = render_info.mesh.mesh_aabb;
             out_mesh_instance.material_index = render_info.mesh.material_index;
             out_mesh_instance.meshlet_count = render_info.meshlet_count;
         };

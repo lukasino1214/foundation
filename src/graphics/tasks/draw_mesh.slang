@@ -55,7 +55,11 @@ void mesh_main(
         const u32 vertex_index = mesh_instance.indirect_vertices[meshlet.indirect_vertex_offset + thread_index];
 
         MeshStageOutput vertex;
-        vertex.sv_position = mul(push.uses.u_globals->main_camera.projection_view_matrix, mul(transform_matrix, f32vec4(mesh_instance.positions[vertex_index], 1.0f)));
+        if(push.uses.u_globals.render_as_observer) {
+            vertex.sv_position = mul(push.uses.u_globals->observer_camera.projection_view_matrix, mul(transform_matrix, f32vec4(mesh_instance.positions[vertex_index], 1.0f)));
+        } else {
+            vertex.sv_position = mul(push.uses.u_globals->main_camera.projection_view_matrix, mul(transform_matrix, f32vec4(mesh_instance.positions[vertex_index], 1.0f)));
+        }
 
         if(mesh_instance.uvs != 0) {
             vertex.uv = mesh_instance.uvs[vertex_index];
