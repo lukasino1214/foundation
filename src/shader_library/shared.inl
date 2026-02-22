@@ -240,4 +240,20 @@ SHARED_FUNCTION u32 get_micro_index(daxa_BufferPtr(u32) micro_indices, u32 index
     u32 packed = micro_indices[index / 4];
     return (packed >> ((index % 4) * 8)) & 0xFF;
 }
+
+SHARED_FUNCTION u32 get_vertex_index(MeshInstance mesh, Meshlet meshlet, u32 triangle_index, u32 offset) {
+    daxa_BufferPtr(u32) micro_index_buffer = mesh.micro_indices;
+    const u32 micro_index = get_micro_index(micro_index_buffer, meshlet.micro_indices_offset + triangle_index * 3 + offset);
+    u32 vertex_index = mesh.indirect_vertices[meshlet.indirect_vertex_offset + micro_index];
+    return vertex_index;
+}
+
+SHARED_FUNCTION void encode_triangle_id(inout u32 id, in u32 meshlet_index, in u32 triangle_index) {
+    id = (meshlet_index << 6) | (triangle_index);
+}
+
+SHARED_FUNCTION void decode_triangle_id(in u32 id, out u32 meshlet_index, out u32 triangle_index) {
+    meshlet_index = id >> 6;
+    triangle_index = id & 0x3F;
+}
 #endif

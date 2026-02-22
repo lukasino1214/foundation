@@ -204,7 +204,7 @@ if(NOT TARGET Tracy::TracyClient)
     FetchContent_Declare(
         tracy
         GIT_REPOSITORY https://github.com/wolfpld/tracy
-        GIT_TAG        c1556a0a73a494cfc58ac0609b4808a6f6fa3d20
+        GIT_TAG        05cceee0df3b8d7c6fa87e9638af311dbabc63cb
         GIT_SHALLOW    OFF
         GIT_PROGRESS TRUE
         EXCLUDE_FROM_ALL

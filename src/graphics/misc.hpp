@@ -78,7 +78,7 @@ namespace foundation {
         T_USES_BASE::AttachmentViews views = {};
         GPUContext* gpu_context = {};
         T_PUSH push = {};
-        std::function<daxa::DispatchInfo(void)> dispatch_callback = {};
+        daxa::DispatchInfo dispatch_info = {.x = 1, .y = 1, .z = 1};
 
         static auto name() -> std::string {
             return std::string(T_NAME.value, T_NAME.SIZE);
@@ -102,7 +102,7 @@ namespace foundation {
             ti.recorder.set_pipeline(*gpu_context->compute_pipelines.at(name()));
             assign_blob(push.uses, ti.attachment_shader_blob);
             ti.recorder.push_constant(push);
-            ti.recorder.dispatch(dispatch_callback());
+            ti.recorder.dispatch(dispatch_info);
         }
     };
 }

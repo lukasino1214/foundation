@@ -1,0 +1,38 @@
+#pragma once
+#include <daxa/daxa.inl>
+#include <daxa/utils/task_graph.inl>
+
+#if defined(__cplusplus)
+#include <graphics/misc.hpp>
+#endif
+
+#include "../../shader_library/shared.inl"
+
+DAXA_DECL_COMPUTE_TASK_HEAD_BEGIN(ResolveVisibilityBuffer)
+DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(ShaderGlobals), u_globals)
+DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(f32mat4x3), u_transforms)
+DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(CulledMeshletInstancesData), u_culled_meshlet_instances_data)
+DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(MeshInstance), u_mesh_instances)
+DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(Material), u_materials)
+DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(PointLightsData), u_point_lights)
+DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(SpotLightsData), u_spot_lights)
+DAXA_TH_BUFFER(INDIRECT_COMMAND_READ, u_command)
+DAXA_TH_TLAS_ID(READ, u_tlas)
+DAXA_TH_IMAGE_TYPED(READ, daxa::RWTexture2DId<u32>, u_visibility_image)
+DAXA_TH_IMAGE_TYPED(WRITE, daxa::RWTexture2DId<f32vec4>, u_render_image)
+DAXA_DECL_TASK_HEAD_END
+
+struct ResolveVisibilityBufferPush {
+    DAXA_TH_BLOB(ResolveVisibilityBuffer, uses)
+    daxa_u32 dummy;
+};
+
+#if __cplusplus
+using ResolveVisibilityBufferTask = foundation::ComputeDispatchTask<
+    "ResolveVisibilityBuffer", 
+    ResolveVisibilityBuffer::Task, 
+    ResolveVisibilityBufferPush, 
+    "src/graphics/tasks/resolve_visibility_buffer.slang", 
+    "resolve_visibility_buffer"
+>;
+#endif

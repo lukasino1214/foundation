@@ -20,7 +20,7 @@ struct DrawMeshletsWriteCommandPush {
 
 #if __cplusplus
 using DrawMeshletsWriteCommandTask = foundation::WriteIndirectComputeDispatchTask<
-    "DepthPrepassWriteCommand",
+    "DrawMeshletsWriteCommand",
     DrawMeshletsWriteCommand::Task, 
     DrawMeshletsWriteCommandPush, 
     "src/graphics/tasks/draw_mesh.slang", 
@@ -34,11 +34,8 @@ DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(f32mat4x3), u_transforms)
 DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(CulledMeshletInstancesData), u_culled_meshlet_instances_data)
 DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(MeshInstance), u_mesh_instances)
 DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(Material), u_materials)
-DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(PointLightsData), u_point_lights)
-DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(SpotLightsData), u_spot_lights)
 DAXA_TH_BUFFER(INDIRECT_COMMAND_READ, u_command)
-DAXA_TH_TLAS_ID(READ, u_tlas)
-DAXA_TH_IMAGE_ID(COLOR_ATTACHMENT, REGULAR_2D, u_render_image)
+DAXA_TH_IMAGE_ID(COLOR_ATTACHMENT, REGULAR_2D, u_visibility_image)
 DAXA_TH_IMAGE_ID(DEPTH_ATTACHMENT, REGULAR_2D, u_depth_image)
 DAXA_DECL_TASK_HEAD_END
 
@@ -80,12 +77,13 @@ struct DrawMeshletsTask : DrawMeshlets::Task {
                 .defines = { { std::string{DrawMeshletsTask::name()} + "_SHADER", "1" } } 
             },
             .color_attachments = {
-                { .format = daxa::Format::R8G8B8A8_UNORM }
+                { .format = daxa::Format::R8G8B8A8_UNORM },
+                { .format = daxa::Format::R32_UINT },
             },
             .depth_test = { daxa::DepthTestInfo {
                 .depth_attachment_format = daxa::Format::D32_SFLOAT,
-                .enable_depth_write = false,
-                .depth_test_compare_op = daxa::CompareOp::EQUAL
+                .enable_depth_write = true,
+                .depth_test_compare_op = daxa::CompareOp::GREATER_OR_EQUAL
             } },
             .raster = {
                 .face_culling = daxa::FaceCullFlagBits::NONE
@@ -98,22 +96,22 @@ struct DrawMeshletsTask : DrawMeshlets::Task {
     void callback(daxa::TaskInterface ti) {
         PROFILE_SCOPE_NAMED(draw_mesh_callback);
 
-        u32 size_x = ti.device.image_info(ti.get(AT.u_render_image).ids[0]).value().size.x;
-        u32 size_y = ti.device.image_info(ti.get(AT.u_render_image).ids[0]).value().size.y;
+        u32 size_x = ti.device.image_info(ti.get(AT.u_visibility_image).ids[0]).value().size.x;
+        u32 size_y = ti.device.image_info(ti.get(AT.u_visibility_image).ids[0]).value().size.y;
 
         auto render_cmd = std::move(ti.recorder).begin_renderpass(daxa::RenderPassBeginInfo {
             .color_attachments = {
                 daxa::RenderAttachmentInfo {
-                    .image_view = ti.get(AT.u_render_image).ids[0].default_view(),
+                    .image_view = ti.get(AT.u_visibility_image).ids[0].default_view(),
                     .load_op = daxa::AttachmentLoadOp::CLEAR,
                     .store_op = daxa::AttachmentStoreOp::STORE,
-                    .clear_value = std::array<daxa_f32, 4>{0.0f, 0.0f, 0.0f, 1.0},
+                    .clear_value = std::array<daxa_u32, 4>{INVALID_ID, INVALID_ID, INVALID_ID, INVALID_ID},
                 }
             },
             .depth_attachment = { 
                 daxa::RenderAttachmentInfo {
                     .image_view = ti.get(AT.u_depth_image).ids[0].default_view(),
-                    .load_op = daxa::AttachmentLoadOp::LOAD,
+                    .load_op = daxa::AttachmentLoadOp::CLEAR,
                     .store_op = daxa::AttachmentStoreOp::STORE,
                 }
             },
