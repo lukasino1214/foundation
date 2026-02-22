@@ -10,7 +10,8 @@
 
 DAXA_DECL_RASTER_TASK_HEAD_BEGIN(DrawMesh)
 DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(ShaderGlobals), u_globals)
-DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(MeshGeometryData), u_meshes)
+DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(f32mat4x3), u_transforms)
+DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(MeshGeometryData), u_mesh_geometry_data)
 DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(Material), u_materials)
 DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(PointLightsData), u_point_lights)
 DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(SpotLightsData), u_spot_lights)
@@ -21,7 +22,7 @@ DAXA_DECL_TASK_HEAD_END
 
 struct DrawMeshPush {
     DAXA_TH_BLOB(DrawMesh, uses)
-    f32mat4x3 matrix;
+    u32 mesh_group_index;
     u32 mesh_index;
 };
 
@@ -101,7 +102,7 @@ struct DrawMeshTask : DrawMesh::Task {
 
         render_cmd.set_pipeline(*gpu_context->raster_pipelines.at(DrawMeshTask::name()));
 
-        scene->world->each([&](MeshComponent& mesh_component, GlobalMatrix& matrix) {
+        scene->world->each([&](MeshComponent& mesh_component) {
             const MeshGroupManifest& mesh_group_manifest = asset_manager->mesh_group_manifests[mesh_component.mesh_group_manifest_entry_index]; 
             const AssetManifest& asset_manifest = asset_manager->asset_manifests[mesh_group_manifest.asset_manifest_index];
 
@@ -110,12 +111,10 @@ struct DrawMeshTask : DrawMesh::Task {
                 if(!mesh_manifest.render_info.has_value()) { continue; }
 
                 assign_blob(push.uses, ti.attachment_shader_blob);
-                push.matrix = matrix.matrix;
+                push.mesh_group_index = s_cast<u32>(mesh_component.mesh_group_index.value());
                 push.mesh_index = asset_manifest.mesh_manifest_offset + mesh_group_manifest.asset_local_mesh_manifest_indices_offset + mesh_index;
 
                 render_cmd.push_constant(push);
-                // render_cmd.set_index_buffer({ .id = mesh_manifest.render_info->index_buffer, .index_type = daxa::IndexType::uint32 });
-                // render_cmd.draw_indexed({ .index_count = mesh_manifest.render_info->index_count });
                 render_cmd.draw_mesh_tasks(mesh_manifest.render_info->meshlet_count, 1, 1);
             }
         });

@@ -30,6 +30,5 @@ namespace foundation {
         std::string name;
         std::unique_ptr<flecs::world> world;
         flecs::query<GlobalPosition, GlobalRotation, GlobalScale, GlobalMatrix, LocalPosition, LocalRotation, LocalScale, LocalMatrix, GlobalMatrix*, TransformDirty> query_transforms = {};
-        bool entites_moved = false;
     };
 }

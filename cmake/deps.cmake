@@ -79,7 +79,7 @@ if (NOT TARGET imgui::imgui)
         imgui
         GIT_REPOSITORY https://github.com/ocornut/imgui
         GIT_TAG        fdc084f532189fda8474079f79e74fa5e3541c9f
-        GIT_SHALLOW    ON # docking branch cope
+        GIT_SHALLOW    OFF # docking branch cope
         GIT_PROGRESS TRUE
         EXCLUDE_FROM_ALL
     )
@@ -158,7 +158,7 @@ if(NOT TARGET wuffs::wuffs)
     FetchContent_Declare(
         wuffs
         GIT_REPOSITORY https://github.com/google/wuffs
-        GIT_TAG        072595ae7df55544874caf5096cd9ef4ecf1bdbb
+        GIT_TAG        2560db99aa19c524880b56b0119cd8e979597490
         GIT_SHALLOW    ON
         GIT_PROGRESS TRUE
         EXCLUDE_FROM_ALL
@@ -204,8 +204,8 @@ if(NOT TARGET Tracy::TracyClient)
     FetchContent_Declare(
         tracy
         GIT_REPOSITORY https://github.com/wolfpld/tracy
-        GIT_TAG        05cceee0df3b8d7c6fa87e9638af311dbabc63cb
-        GIT_SHALLOW    ON
+        GIT_TAG        c1556a0a73a494cfc58ac0609b4808a6f6fa3d20
+        GIT_SHALLOW    OFF
         GIT_PROGRESS TRUE
         EXCLUDE_FROM_ALL
     )
@@ -254,16 +254,14 @@ if(NOT TARGET bc7enc_rdo::bc7enc_rdo)
     if(NOT bc7enc_rdo_POPULATED)
         FetchContent_MakeAvailable(bc7enc_rdo)
 
-        add_library(bc7enc_rdo_lib INTERFACE)
-        
-        target_sources(bc7enc_rdo_lib INTERFACE
+       add_library(bc7enc_rdo_lib STATIC
             ${bc7enc_rdo_SOURCE_DIR}/bc7enc.cpp
             ${bc7enc_rdo_SOURCE_DIR}/rgbcx.cpp
             ${bc7enc_rdo_SOURCE_DIR}/bc7decomp.cpp
             ${bc7enc_rdo_SOURCE_DIR}/ert.cpp
         )
 
-        target_include_directories(bc7enc_rdo_lib INTERFACE 
+        target_include_directories(bc7enc_rdo_lib SYSTEM PUBLIC
             ${bc7enc_rdo_SOURCE_DIR}
         )
 

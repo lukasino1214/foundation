@@ -17,6 +17,9 @@ namespace foundation {
         Scene* scene = {};
         AssetManager* asset_manager = {};
 
+        usize mesh_group_count = {};
+        daxa::TaskBuffer gpu_transforms = {};
+
         daxa::TaskTlas gpu_tlas = {};
 
         usize total_point_light_count = {};

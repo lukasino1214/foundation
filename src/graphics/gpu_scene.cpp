@@ -7,6 +7,11 @@
 
 namespace foundation {
     GPUScene::GPUScene(GPUContext* _gpu_context, Scene* _scene, AssetManager* _asset_manager) : gpu_context{_gpu_context}, scene{_scene}, asset_manager{_asset_manager} {
+        gpu_transforms = make_task_buffer(gpu_context, daxa::BufferInfo {
+            .size = sizeof(f32mat4x3),
+            .name = "transforms"
+        });
+        
         gpu_tlas = daxa::TaskTlas{{ .name = "tlas" }};
 
         gpu_point_lights = make_task_buffer(gpu_context, daxa::BufferInfo {
@@ -20,6 +25,7 @@ namespace foundation {
         });
     }
     GPUScene::~GPUScene() {
+        gpu_context->device.destroy_buffer(gpu_transforms.get_state().buffers[0]);
         gpu_context->device.destroy_tlas(gpu_tlas.get_state().tlas[0]);
         gpu_context->device.destroy_buffer(gpu_point_lights.get_state().buffers[0]);
         gpu_context->device.destroy_buffer(gpu_spot_lights.get_state().buffers[0]);
@@ -28,7 +34,58 @@ namespace foundation {
     void GPUScene::update(daxa::CommandRecorder& cmd_recorder, const ResourceUploadInfos& upload_infos) {
         PROFILE_SCOPE;
 
-        if(!upload_infos.meshes.empty() || scene->entites_moved) {
+        std::vector<flecs::entity> deletion_queue = {};
+        scene->world->each([&](flecs::entity e, MeshComponent& mesh_component, MeshComponentDirty) {
+            if(!mesh_component.mesh_group_index.has_value()) {
+                mesh_component.mesh_group_index = mesh_group_count++;   
+            }
+            deletion_queue.push_back(e);
+        });
+
+        for(flecs::entity e : deletion_queue) {
+            e.remove<MeshComponentDirty>();
+        }
+
+        reallocate_buffer(gpu_context, cmd_recorder, gpu_transforms, s_cast<u32>(mesh_group_count * sizeof(f32mat4x3)));
+
+        bool entites_moved = false;
+        std::vector<flecs::entity> moved_entities = {};
+        scene->world->each([&](flecs::entity e, MeshComponent&, GPUTransformDirty) {
+            moved_entities.push_back(e);
+        });
+        entites_moved = !moved_entities.empty();
+
+        if(!moved_entities.empty()) {
+            daxa::BufferId staging_buffer = gpu_context->device.create_buffer({
+                .size = moved_entities.size() * sizeof(f32mat4x3),
+                .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
+                .name = "transform upload staging buffer",
+            });
+
+            cmd_recorder.destroy_buffer_deferred(staging_buffer);
+            f32mat4x3* staging_ptr = gpu_context->device.buffer_host_address_as<f32mat4x3>(staging_buffer).value();
+
+            for(u32 i = 0; i < moved_entities.size(); i++) {
+                flecs::entity e = moved_entities[i];
+
+                staging_ptr[i] = e.get<GlobalMatrix>().matrix;
+                cmd_recorder.copy_buffer_to_buffer({
+                    .src_buffer = staging_buffer,
+                    .dst_buffer = gpu_transforms.get_state().buffers[0],
+                    .src_offset = i * sizeof(f32mat4x3),
+                    .dst_offset = e.get<MeshComponent>().mesh_group_index.value() * sizeof(f32mat4x3),
+                    .size = sizeof(f32mat4x3),
+                });
+
+                e.remove<GPUTransformDirty>();
+            }
+        } else {
+            for(flecs::entity e : moved_entities) {
+                e.remove<GPUTransformDirty>();
+            }
+        }
+
+        if(!upload_infos.meshes.empty() || entites_moved) {
             std::vector<daxa_BlasInstanceData> blas_instances = {};
             scene->world->each([&](MeshComponent& mesh_component, GlobalMatrix& matrix) {
                 const MeshGroupManifest& mesh_group_manifest = asset_manager->mesh_group_manifests[mesh_component.mesh_group_manifest_entry_index];
@@ -218,8 +275,5 @@ namespace foundation {
                 e.remove<SpotLightComponentDirty>();
             }
         }
-
-
-        scene->entites_moved = false;
     }
 } // namespace foundation

@@ -168,6 +168,7 @@ namespace foundation {
         render_task_graph.use_persistent_buffer(gpu_scene->gpu_point_lights);
         render_task_graph.use_persistent_buffer(gpu_scene->gpu_spot_lights);
 
+        render_task_graph.use_persistent_buffer(gpu_scene->gpu_transforms);
         render_task_graph.use_persistent_tlas(gpu_scene->gpu_tlas);
 
         if(!pipelines_compiled) {
@@ -228,7 +229,8 @@ namespace foundation {
         render_task_graph.add_task(DepthPrepassTask {
             .views = DepthPrepassTask::Views {
                 .u_globals = gpu_context->shader_globals_buffer.view(),
-                .u_meshes = asset_manager->gpu_meshes.view(),
+                .u_transforms = gpu_scene->gpu_transforms.view(),
+                .u_mesh_geometry_data = asset_manager->gpu_meshes.view(),
                 .u_materials = asset_manager->gpu_materials.view(),
                 .u_depth_image = depth_image.view(),
             },
@@ -240,7 +242,8 @@ namespace foundation {
         render_task_graph.add_task(DrawMeshTask {
             .views = DrawMeshTask::Views {
                 .u_globals = gpu_context->shader_globals_buffer.view(),
-                .u_meshes = asset_manager->gpu_meshes.view(),
+                .u_transforms = gpu_scene->gpu_transforms.view(),
+                .u_mesh_geometry_data = asset_manager->gpu_meshes.view(),
                 .u_materials = asset_manager->gpu_materials.view(),
                 .u_point_lights = gpu_scene->gpu_point_lights.view(),
                 .u_spot_lights = gpu_scene->gpu_spot_lights.view(),

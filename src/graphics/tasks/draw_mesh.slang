@@ -21,10 +21,10 @@ void mesh_main(
     OutputVertices<MeshStageOutput, MAX_VERTICES_PER_MESHLET> out_vertices) {
     const u32 thread_index = local_thread_index.x;
 
-    const MeshGeometryData mesh = push.uses.u_meshes[push.mesh_index];
+    const MeshGeometryData mesh = push.uses.u_mesh_geometry_data[push.mesh_index];
     const Meshlet meshlet = mesh.meshlets[group_index.x];
 
-    const f32mat4x4 transform_matrix = mat_4x3_to_4x4(push.matrix);
+    const f32mat4x4 transform_matrix = mat_4x3_to_4x4(push.uses.u_transforms[push.mesh_group_index]);
     const f32mat3x3 normal_matrix = f32mat3x3(
         cross(transform_matrix[1].xyz, transform_matrix[2].xyz), 
         cross(transform_matrix[2].xyz, transform_matrix[0].xyz), 
@@ -202,7 +202,7 @@ f32vec3 calculate_normal_from_map(f32vec3 tangent_normal, f32vec3 geometric_norm
 
 [shader("fragment")]
 f32vec4 fragment_main(u32 primitive_id : SV_PrimitiveID, bool is_front_facing : SV_IsFrontFace, in MeshStageOutput input) : SV_Target {
-    const MeshGeometryData mesh = push.uses.u_meshes[push.mesh_index];
+    const MeshGeometryData mesh = push.uses.u_mesh_geometry_data[push.mesh_index];
 
     f32vec4 color = f32vec4(hsv_to_rgb(f32vec3(f32(primitive_id) / 128 * M_GOLDEN_CONJ, 0.875, 0.85)), 1.0);
     f32vec3 normal = input.normal;

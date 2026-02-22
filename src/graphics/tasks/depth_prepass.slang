@@ -18,7 +18,7 @@ void mesh_main(
     OutputVertices<MeshStageOutput, MAX_VERTICES_PER_MESHLET> out_vertices) {
     const u32 thread_index = local_thread_index.x;
 
-    const MeshGeometryData mesh = push.uses.u_meshes[push.mesh_index];
+    const MeshGeometryData mesh = push.uses.u_mesh_geometry_data[push.mesh_index];
     const Meshlet meshlet = mesh.meshlets[group_index.x];
 
     SetMeshOutputCounts(meshlet.vertex_count, meshlet.triangle_count);
@@ -27,7 +27,7 @@ void mesh_main(
         const u32 vertex_index = mesh.indirect_vertices[meshlet.indirect_vertex_offset + thread_index];
 
         MeshStageOutput vertex;
-        const f32vec4 world_position = mul(mat_4x3_to_4x4(push.matrix), f32vec4(mesh.positions[vertex_index], 1.0f));
+        const f32vec4 world_position = mul(mat_4x3_to_4x4(push.uses.u_transforms[push.mesh_group_index]), f32vec4(mesh.positions[vertex_index], 1.0f));
         vertex.sv_position = mul(push.uses.u_globals->main_camera.projection_view_matrix, world_position);
 
         if(mesh.uvs != 0) {
@@ -52,7 +52,7 @@ void mesh_main(
 
 [shader("fragment")]
 void fragment_main(in MeshStageOutput input) {
-    const MeshGeometryData mesh = push.uses.u_meshes[push.mesh_index];
+    const MeshGeometryData mesh = push.uses.u_mesh_geometry_data[push.mesh_index];
 
     if(mesh.material_index != INVALID_ID) {
         const Material material = push.uses.u_materials[mesh.material_index];

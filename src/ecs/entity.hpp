@@ -46,6 +46,10 @@ public:
                 return;
             }
 
+            if constexpr (std::is_same_v<T, MeshComponent>) {
+                handle.add<MeshComponentDirty>();
+            }
+
             if constexpr (std::is_same_v<T, PointLightComponent>) {
                 handle.add<PointLightComponentDirty>();
             }

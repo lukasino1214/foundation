@@ -15,10 +15,14 @@ namespace foundation {
     struct GlobalMatrix { glm::mat4 matrix{1.0f}; };
 
     struct TransformDirty {};
+    struct GPUTransformDirty {};
     struct TransformComponent {};
 
+    struct MeshComponentDirty {};
     struct MeshComponent {
         u32 mesh_group_manifest_entry_index = {};
+
+        std::optional<usize> mesh_group_index = {};
     };
 
     struct PointLightComponentDirty {};

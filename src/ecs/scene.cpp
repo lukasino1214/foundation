@@ -40,7 +40,7 @@ namespace foundation {
 
         for(auto& entity : queue) {
             if(entity.has<MeshComponent>()) {
-                entites_moved = true;
+                entity.add<GPUTransformDirty>();
             }
             entity.remove<TransformDirty>();
         }
