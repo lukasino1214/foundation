@@ -30,6 +30,19 @@ void cull_meshlet_instances(u32vec3 thread_index : SV_DispatchThreadID) {
     u32 meshlet_index = dst_item_info.in_expansion_index;
     const u32 mesh_instance_index = push.uses.u_culled_mesh_instances_data->mesh_instances[dst_item_info.src_item_index];
     const MeshInstance mesh_instance = push.uses.u_mesh_instances[mesh_instance_index];
+    if(meshlet_index >= mesh_instance.meshlet_count) { return; }
+
+    const f32mat4x4 transform_matrix = mat_4x3_to_4x4(push.uses.u_transforms[mesh_instance.mesh_group_index]);
+    const AABB aabb = calculate_worldspace_aabb_from_modelspace(transform_matrix, mesh_instance.aabbs[meshlet_index]);
+
+    if(!is_worldspace_aabb_frusum_visible(push.uses.u_globals.main_camera, aabb)) { return; }
+
+    // ShaderDebugAABBDraw draw;
+    // draw.color = f32vec3(1, 0, 0);
+    // draw.position = aabb.center;
+    // draw.extent = aabb.extent;
+
+    // push.uses.u_globals.debug_draw(draw);
 
     MeshletInstance meshlet_instance;
     meshlet_instance.mesh_instance_index = mesh_instance_index;

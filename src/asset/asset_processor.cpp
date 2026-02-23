@@ -31,6 +31,10 @@ namespace foundation {
         mesh_geometry_data.meshlet_count = s_cast<u32>(meshlets.size());
         mesh_geometry_data.mesh_aabb = loaded_mesh.mesh_aabb;
 
+        while((micro_indices.size() % 4) != 0) {
+            micro_indices.push_back({});
+        }
+
         usize total_mesh_size = 
             positions.size() * sizeof(glm::vec3) + 
             normals.size() * sizeof(glm::vec3) + 

@@ -162,13 +162,13 @@ struct CulledMeshInstancesData {
     u32 count;
     daxa_BufferPtr(u32) mesh_instances;
 };
-DAXA_DECL_BUFFER_PTR(CulledMeshesData)
+DAXA_DECL_BUFFER_PTR(CulledMeshInstancesData)
 
 struct CulledMeshletInstancesData {
     u32 count;
     daxa_BufferPtr(MeshletInstance) meshlet_instances;
 };
-DAXA_DECL_BUFFER_PTR(CulledMeshesData)
+DAXA_DECL_BUFFER_PTR(CulledMeshletInstancesData)
 
 struct PrefixSumWorkExpansion {
     u64 merged_expansion_count_thread_count;
@@ -314,6 +314,23 @@ AABB calculate_worldspace_aabb_from_modelspace(in f32mat4x4 model_matrix, in AAB
     );
 
     return worldspace_aabb;
+}
+
+bool is_worldspace_aabb_inside_plane(in f32vec3 center, in f32vec3 extent, in f32vec4 plane) {
+    const f32vec3 normal = plane.xyz;
+    const f32 radius = dot(extent, abs(normal));
+    return (dot(normal, center) - plane.w) >= -radius;
+}
+
+bool is_worldspace_aabb_frusum_visible(in CameraInfo camera_info, in AABB aabb) {
+    const u32 planes = 6;
+    for (u32 i = 0; i < planes; ++i) {
+        if (!is_worldspace_aabb_inside_plane(aabb.center, aabb.extent, camera_info.frustum_planes[i])) {
+            return false;
+        }
+    }
+
+    return true;
 }
 
 SHARED_FUNCTION u32 get_micro_index(daxa_BufferPtr(u32) micro_indices, u32 index) {

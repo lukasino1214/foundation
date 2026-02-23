@@ -38,6 +38,17 @@ void cull_mesh_instances(u32vec3 thread_index : SV_DispatchThreadID) {
 
             if(mesh.mesh_buffer.value == 0) { continue; }
 
+            const f32mat4x4 transform_matrix = mat_4x3_to_4x4(push.uses.u_transforms[current_thread_index]);
+            const AABB aabb = calculate_worldspace_aabb_from_modelspace(transform_matrix, mesh.mesh_aabb);
+            if(!is_worldspace_aabb_frusum_visible(push.uses.u_globals.main_camera, aabb)) { continue; }
+
+            // ShaderDebugAABBDraw draw;
+            // draw.color = f32vec3(1, 0, 0);
+            // draw.position = aabb.center;
+            // draw.extent = aabb.extent;
+
+            // push.uses.u_globals.debug_draw(draw);
+
             u32 offset = 0;
             InterlockedAdd(push.uses.u_culled_mesh_instances_data->count, 1, offset);
             push.uses.u_culled_mesh_instances_data->mesh_instances[offset] = mesh_instance_index;
