@@ -1,5 +1,6 @@
 #include "daxa/daxa.inl"
 #include "cull_mesh_instances.inl"
+#include "../../shader_library/cull_util.slang"
 #include "../../shader_library/work_expansion.slang"
 
 [[vk::push_constant]] CullMeshInstancesWriteCommandPush write_push;
@@ -41,6 +42,17 @@ void cull_mesh_instances(u32vec3 thread_index : SV_DispatchThreadID) {
             const f32mat4x4 transform_matrix = mat_4x3_to_4x4(push.uses.u_transforms[current_thread_index]);
             const AABB aabb = calculate_worldspace_aabb_from_modelspace(transform_matrix, mesh.mesh_aabb);
             if(!is_worldspace_aabb_frusum_visible(push.uses.u_globals.main_camera, aabb)) { continue; }
+
+            AABB mesh_aabb = mesh.mesh_aabb;
+            NdcAABB ndc_aabb = calculate_ndc_aabb(push.uses.u_globals.main_camera, transform_matrix, mesh_aabb);
+            if(is_ndc_aabb_hiz_depth_occluded(
+                push.uses.u_globals.cull_data,
+                push.uses.u_globals.main_camera,
+                ndc_aabb,
+                push.uses.u_hiz
+            )) { 
+                continue; 
+            }
 
             // ShaderDebugAABBDraw draw;
             // draw.color = f32vec3(1, 0, 0);

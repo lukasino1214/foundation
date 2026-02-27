@@ -117,6 +117,53 @@ namespace foundation {
                         })},
             shader_debug_draw_context{this} 
     {
+        shader_globals.samplers = {
+            .linear_clamp = this->device.create_sampler({
+                .name = "linear clamp sampler",
+            }),
+            .linear_repeat = this->device.create_sampler({
+                .address_mode_u = daxa::SamplerAddressMode::REPEAT,
+                .address_mode_v = daxa::SamplerAddressMode::REPEAT,
+                .address_mode_w = daxa::SamplerAddressMode::REPEAT,
+                .name = "linear repeat sampler",
+            }),
+            .nearest_repeat = this->device.create_sampler({
+                .magnification_filter = daxa::Filter::NEAREST,
+                .minification_filter = daxa::Filter::NEAREST,
+                .address_mode_u = daxa::SamplerAddressMode::REPEAT,
+                .address_mode_v = daxa::SamplerAddressMode::REPEAT,
+                .address_mode_w = daxa::SamplerAddressMode::REPEAT,
+                .name = "linear repeat sampler",
+            }),
+            .nearest_clamp = this->device.create_sampler({
+                .magnification_filter = daxa::Filter::NEAREST,
+                .minification_filter = daxa::Filter::NEAREST,
+                .mipmap_filter = daxa::Filter::NEAREST,
+                .name = "nearest clamp sampler",
+            }),
+            .linear_repeat_ani = this->device.create_sampler({
+                .address_mode_u = daxa::SamplerAddressMode::REPEAT,
+                .address_mode_v = daxa::SamplerAddressMode::REPEAT,
+                .address_mode_w = daxa::SamplerAddressMode::REPEAT,
+                .mip_lod_bias = 0.0f,
+                .enable_anisotropy = true,
+                .max_anisotropy = 16.0f,
+                .name = "linear repeat ani sampler",
+            }),
+            .nearest_repeat_ani = this->device.create_sampler({
+                .magnification_filter = daxa::Filter::NEAREST,
+                .minification_filter = daxa::Filter::NEAREST,
+                .mipmap_filter = daxa::Filter::LINEAR,
+                .address_mode_u = daxa::SamplerAddressMode::REPEAT,
+                .address_mode_v = daxa::SamplerAddressMode::REPEAT,
+                .address_mode_w = daxa::SamplerAddressMode::REPEAT,
+                .mip_lod_bias = 0.0f,
+                .enable_anisotropy = true,
+                .max_anisotropy = 16.0f,
+                .name = "nearest repeat ani sampler",
+            }),
+        };
+
         shader_globals.debug = device.buffer_device_address(shader_debug_draw_context.buffer).value();
     }
 
@@ -129,6 +176,12 @@ namespace foundation {
             samplers.clear();
         }
         device.destroy_buffer(shader_globals_buffer.get_state().buffers[0]);
+        device.destroy_sampler(std::bit_cast<daxa::SamplerId>(shader_globals.samplers.linear_clamp));
+        device.destroy_sampler(std::bit_cast<daxa::SamplerId>(shader_globals.samplers.linear_repeat));
+        device.destroy_sampler(std::bit_cast<daxa::SamplerId>(shader_globals.samplers.nearest_repeat));
+        device.destroy_sampler(std::bit_cast<daxa::SamplerId>(shader_globals.samplers.nearest_clamp));
+        device.destroy_sampler(std::bit_cast<daxa::SamplerId>(shader_globals.samplers.linear_repeat_ani));
+        device.destroy_sampler(std::bit_cast<daxa::SamplerId>(shader_globals.samplers.nearest_repeat_ani));
         device.wait_idle();
         device.collect_garbage();
     }

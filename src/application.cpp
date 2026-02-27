@@ -59,21 +59,34 @@ namespace foundation {
         //     }
         // }
 
-        {
-            Entity root_entity = scene->create_entity("root entity");
-            root_entity.add_component<TransformComponent>();
-            root_entity.set_local_position({10, -2, 0});
-            // asset_manager.load_asset("assets/models/bistro-full/bistro.gltf", root_entity);
-            asset_manager.load_asset("assets/models/Bistro/Bistro.glb", root_entity);
+        u32 bistro_count = 6;
+
+        for(u32 x = 0; x < bistro_count; x++) {
+            for(u32 y = 0; y < bistro_count; y++) {
+                for(u32 z = 0; z < bistro_count; z++) {
+                    auto entity = scene->create_entity(std::format("bistro {} {} {}", x, y, z));
+                    entity.add_component<TransformComponent>();
+                    entity.set_local_position({200.0f * s_cast<f32>(x) + 10.0f, -100.0f * s_cast<f32>(y) - 2.0f, 200.0f * s_cast<f32>(z)});
+                    asset_manager.load_asset("assets/models/Bistro/Bistro.glb", entity);
+                }
+            }
         }
 
-        {
-            Entity root_entity = scene->create_entity("root entity 2");
-            root_entity.add_component<TransformComponent>();
-            root_entity.set_local_position({100, -2, 0});
-            // asset_manager.load_asset("assets/models/bistro-full/bistro.gltf", root_entity);
-            asset_manager.load_asset("assets/models/Bistro/Bistro.glb", root_entity);
-        }
+        // {
+        //     Entity root_entity = scene->create_entity("root entity");
+        //     root_entity.add_component<TransformComponent>();
+        //     root_entity.set_local_position({10, -2, 0});
+        //     // asset_manager.load_asset("assets/models/bistro-full/bistro.gltf", root_entity);
+        //     asset_manager.load_asset("assets/models/Bistro/Bistro.glb", root_entity);
+        // }
+
+        // {
+        //     Entity root_entity = scene->create_entity("root entity 2");
+        //     root_entity.add_component<TransformComponent>();
+        //     root_entity.set_local_position({100, -2, 0});
+        //     // asset_manager.load_asset("assets/models/bistro-full/bistro.gltf", root_entity);
+        //     asset_manager.load_asset("assets/models/Bistro/Bistro.glb", root_entity);
+        // }
 
         {
             Entity root_entity = scene->create_entity("root entity 3");

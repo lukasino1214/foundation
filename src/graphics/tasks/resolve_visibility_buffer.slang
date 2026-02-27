@@ -18,7 +18,7 @@ f32 calculate_point_light_attenuation(f32 to_light_dist, f32 cutoff) {
     return attenuation;
 }
 
-f32 calculate_spot_light_attenuation(float3 to_light_dir, f32 to_light_dist, SpotLight light) {
+f32 calculate_spot_light_attenuation(f32vec3 to_light_dir, f32 to_light_dist, SpotLight light) {
     f32 win = (to_light_dist / light.range);
     win = win * win * win * win;
     win = max(0.0, 1.0 - win);

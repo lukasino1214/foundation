@@ -9,6 +9,8 @@
 #include "tasks/resolve_visibility_buffer.inl"
 #include "tasks/ray_tracing.inl"
 #include "tasks/debug.inl"
+#include "tasks/gen_hiz.inl"
+#include "tasks/draw_depth.inl"
 #include "gpu_scene.hpp"
 #include <asset/asset_manager.hpp>
 
@@ -70,7 +72,7 @@ namespace foundation {
             {
                 {
                     .format = daxa::Format::D32_SFLOAT,
-                    .usage = daxa::ImageUsageFlagBits::TRANSFER_SRC | daxa::ImageUsageFlagBits::DEPTH_STENCIL_ATTACHMENT,
+                    .usage = daxa::ImageUsageFlagBits::TRANSFER_SRC | daxa::ImageUsageFlagBits::DEPTH_STENCIL_ATTACHMENT | daxa::ImageUsageFlagBits::SHADER_SAMPLED,
                     .name = depth_image.info().name,
                 },
                 depth_image,
@@ -128,7 +130,9 @@ namespace foundation {
         PROFILE_SCOPE;
 
         std::vector<std::tuple<std::string, daxa::RasterPipelineCompileInfo2>> rasters = {
+            {DrawDepthTask::name(), DrawDepthTask::pipeline_config_info()},
             {DrawMeshletsTask::name(), DrawMeshletsTask::pipeline_config_info()},
+
             {DebugAABBDrawTask::name(), DebugAABBDrawTask::pipeline_config_info()},
             {DebugCircleDrawTask::name(), DebugCircleDrawTask::pipeline_config_info()},
             {DebugLineDrawTask::name(), DebugLineDrawTask::pipeline_config_info()},
@@ -146,6 +150,9 @@ namespace foundation {
         }
 
         std::vector<std::tuple<std::string, daxa::ComputePipelineCompileInfo2>> computes = {
+            {DrawDepthWriteCommandTask::name(), DrawDepthWriteCommandTask::pipeline_config_info()},
+            {gen_hiz_pipeline_config_info().name, gen_hiz_pipeline_config_info()},
+            
             {CullMeshInstancesWriteCommandTask::name(), CullMeshInstancesWriteCommandTask::pipeline_config_info()},
             {CullMeshInstancesTask::name(), CullMeshInstancesTask::pipeline_config_info()},
             {CullMeshletInstancesWriteCommandTask::name(), CullMeshletInstancesWriteCommandTask::pipeline_config_info()},
@@ -278,6 +285,39 @@ namespace foundation {
             .name = "command",
         });
 
+        render_task_graph.add_task(DrawDepthWriteCommandTask {
+            .views = DrawDepthWriteCommandTask::Views {
+                .u_culled_meshlet_instances_data = gpu_scene->gpu_culled_meshlets_instances_data.view(),
+                .u_command = u_command,
+            },
+            .gpu_context = gpu_context,
+        });
+
+        render_task_graph.add_task(DrawDepthTask {
+            .views = DrawDepthTask::Views {
+                .u_globals = gpu_context->shader_globals_buffer.view(),
+                .u_transforms = gpu_scene->gpu_transforms.view(),
+                .u_culled_meshlet_instances_data = gpu_scene->gpu_culled_meshlets_instances_data.view(),
+                .u_mesh_instances = gpu_scene->gpu_mesh_instances.view(),
+                .u_materials = asset_manager->gpu_materials.view(),
+                .u_command = u_command,
+                .u_depth_image = depth_image.view(),
+            },
+            .gpu_context = gpu_context,
+            .asset_manager = asset_manager,
+            .gpu_scene = gpu_scene,
+        });
+
+        daxa::TaskImageView first_pass_hiz = {};
+        gpu_context->shader_globals.cull_data = fill_cull_data(*gpu_context);
+        task_gen_hiz_single_pass({
+            .gpu_context = gpu_context,
+            .tg = render_task_graph,
+            .src = depth_image,
+            .globals = gpu_context->shader_globals_buffer.view(),
+            .hiz = &first_pass_hiz,
+        });
+
         render_task_graph.add_task(CullMeshInstancesWriteCommandTask {
             .views = CullMeshInstancesWriteCommandTask::Views {
                 .u_mesh_group_instance_count = gpu_scene->gpu_mesh_group_instance_count.view(),
@@ -298,6 +338,7 @@ namespace foundation {
                 .u_transforms = gpu_scene->gpu_transforms.view(),
                 .u_culled_mesh_instances_data = gpu_scene->gpu_culled_mesh_instances_data.view(),
                 .u_prefix_sum_work_expansion_mesh = gpu_scene->gpu_prefix_sum_work_expansion_mesh.view(),
+                .u_hiz = first_pass_hiz,
                 .u_command = u_command,
             },
             .gpu_context = gpu_context,
@@ -320,6 +361,7 @@ namespace foundation {
                 .u_prefix_sum_work_expansion_mesh = gpu_scene->gpu_prefix_sum_work_expansion_mesh.view(),
                 .u_culled_mesh_instances_data = gpu_scene->gpu_culled_mesh_instances_data.view(),
                 .u_culled_meshlet_instances_data = gpu_scene->gpu_culled_meshlets_instances_data.view(),
+                .u_hiz = first_pass_hiz,
                 .u_command = u_command,
             },
             .gpu_context = gpu_context,

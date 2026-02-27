@@ -39,6 +39,7 @@ DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(MeshInstance), u_mesh_instances)
 DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(f32mat4x3), u_transforms)
 DAXA_TH_BUFFER_PTR(WRITE, daxa_BufferPtr(CulledMeshInstancesData), u_culled_mesh_instances_data)
 DAXA_TH_BUFFER_PTR(WRITE, daxa_BufferPtr(PrefixSumWorkExpansion), u_prefix_sum_work_expansion_mesh)
+DAXA_TH_IMAGE_ID(SAMPLED, REGULAR_2D, u_hiz)
 DAXA_TH_BUFFER(INDIRECT_COMMAND_READ, u_command)
 DAXA_DECL_TASK_HEAD_END
 

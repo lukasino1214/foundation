@@ -351,17 +351,17 @@ namespace foundation {
         uint32_t coloration = wuffs_base__pixel_format__coloration(&src_pfmt);
         uint32_t transparency = wuffs_base__pixel_format__transparency(&src_pfmt);
 
-        int src_channels = 0;
+        i32 src_channels = 0;
         if(coloration == WUFFS_BASE__PIXEL_COLORATION__GRAY) {
             src_channels = (transparency == WUFFS_BASE__PIXEL_ALPHA_TRANSPARENCY__OPAQUE) ? 1 : 2;
         } else { // RICH
             src_channels = (transparency == WUFFS_BASE__PIXEL_ALPHA_TRANSPARENCY__OPAQUE) ? 3 : 4;
         }
 
-        int desired_channels = 4;
+        i32 desired_channels = 4;
         // if (channels_in_file) *channels_in_file = src_channels;
 
-        int n = (desired_channels != 0) ? desired_channels : src_channels;
+        i32 n = (desired_channels != 0) ? desired_channels : src_channels;
         uint32_t dst_pfmt = 0;
         bool is_16bit = false;
 
@@ -472,17 +472,17 @@ namespace foundation {
         uint32_t coloration = wuffs_base__pixel_format__coloration(&src_pfmt);
         uint32_t transparency = wuffs_base__pixel_format__transparency(&src_pfmt);
 
-        int src_channels = 0;
+        i32 src_channels = 0;
         if(coloration == WUFFS_BASE__PIXEL_COLORATION__GRAY) {
             src_channels = (transparency == WUFFS_BASE__PIXEL_ALPHA_TRANSPARENCY__OPAQUE) ? 1 : 2;
         } else { // RICH
             src_channels = (transparency == WUFFS_BASE__PIXEL_ALPHA_TRANSPARENCY__OPAQUE) ? 3 : 4;
         }
 
-        int desired_channels = 4;
+        i32 desired_channels = 4;
         // if (channels_in_file) *channels_in_file = src_channels;
 
-        int n = (desired_channels != 0) ? desired_channels : src_channels;
+        i32 n = (desired_channels != 0) ? desired_channels : src_channels;
         uint32_t dst_pfmt = 0;
 
         switch(n) {

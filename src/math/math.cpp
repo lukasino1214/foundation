@@ -115,10 +115,10 @@ namespace foundation {
                 max(.0f, 1.f - local_matrix[0][0] + local_matrix[1][1] - local_matrix[2][2]),
                 max(.0f, 1.f - local_matrix[0][0] - local_matrix[1][1] + local_matrix[2][2])
             );
-            rotation.x = static_cast<float>(sqrt(static_cast<double>(rotation.x))) / 2;
-            rotation.y = static_cast<float>(sqrt(static_cast<double>(rotation.y))) / 2;
-            rotation.z = static_cast<float>(sqrt(static_cast<double>(rotation.z))) / 2;
-            rotation.w = static_cast<float>(sqrt(static_cast<double>(rotation.w))) / 2;
+            rotation.x = static_cast<f32>(sqrt(static_cast<double>(rotation.x))) / 2;
+            rotation.y = static_cast<f32>(sqrt(static_cast<double>(rotation.y))) / 2;
+            rotation.z = static_cast<f32>(sqrt(static_cast<double>(rotation.z))) / 2;
+            rotation.w = static_cast<f32>(sqrt(static_cast<double>(rotation.w))) / 2;
 
             rotation.x = std::copysignf(rotation.x, local_matrix[1][2] - local_matrix[2][1]);
             rotation.y = std::copysignf(rotation.y, local_matrix[2][0] - local_matrix[0][2]);

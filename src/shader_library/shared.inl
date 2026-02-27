@@ -72,6 +72,22 @@ struct CameraInfo {
 };
 DAXA_DECL_BUFFER_PTR(CameraInfo)
 
+struct CullData {
+    u32vec2 hiz_size;          
+    f32vec2 hiz_size_rcp;          
+    u32vec2 physical_hiz_size;  
+    f32vec2 physical_hiz_size_rcp;
+};
+
+struct GlobalSamplers {
+    daxa_SamplerId linear_clamp;
+    daxa_SamplerId linear_repeat;
+    daxa_SamplerId nearest_repeat;
+    daxa_SamplerId nearest_clamp;
+    daxa_SamplerId linear_repeat_ani;
+    daxa_SamplerId nearest_repeat_ani;
+};
+
 struct ShaderGlobals {
     CameraInfo main_camera;
     CameraInfo observer_camera;
@@ -79,6 +95,8 @@ struct ShaderGlobals {
     u32vec2 render_target_size;
     f32vec2 render_target_size_inv;
     f32vec3 sun_direction;
+    CullData cull_data;
+    GlobalSamplers samplers;
     daxa_BufferPtr(ShaderDebugBufferHead) debug;
 };
 DAXA_DECL_BUFFER_PTR(ShaderGlobals)
@@ -291,48 +309,6 @@ extension ShaderGlobals {
     }
 };
 
-AABB calculate_worldspace_aabb_from_modelspace(in f32mat4x4 model_matrix, in AABB aabb) {
-    AABB worldspace_aabb;
-    worldspace_aabb.center = mul(model_matrix, f32vec4(aabb.center, 1.0)).xyz;
-    
-    const f32vec3 right = model_matrix[0].xyz * aabb.extent.x;
-    const f32vec3 up = model_matrix[1].xyz * aabb.extent.y;
-    const f32vec3 forward = (-model_matrix[2].xyz) * aabb.extent.z;
-
-    worldspace_aabb.extent = f32vec3(
-        abs(dot(f32vec3(1.0, 0.0, 0.0), right)) +
-        abs(dot(f32vec3(1.0, 0.0, 0.0), up)) +
-        abs(dot(f32vec3(1.0, 0.0, 0.0), forward)),
-
-        abs(dot(f32vec3(0.0, 1.0, 0.0), right)) +
-        abs(dot(f32vec3(0.0, 1.0, 0.0), up)) +
-        abs(dot(f32vec3(0.0, 1.0, 0.0), forward)),
-
-        abs(dot(f32vec3(0.0, 0.0, 1.0), right)) +
-        abs(dot(f32vec3(0.0, 0.0, 1.0), up)) +
-        abs(dot(f32vec3(0.0, 0.0, 1.0), forward))
-    );
-
-    return worldspace_aabb;
-}
-
-bool is_worldspace_aabb_inside_plane(in f32vec3 center, in f32vec3 extent, in f32vec4 plane) {
-    const f32vec3 normal = plane.xyz;
-    const f32 radius = dot(extent, abs(normal));
-    return (dot(normal, center) - plane.w) >= -radius;
-}
-
-bool is_worldspace_aabb_frusum_visible(in CameraInfo camera_info, in AABB aabb) {
-    const u32 planes = 6;
-    for (u32 i = 0; i < planes; ++i) {
-        if (!is_worldspace_aabb_inside_plane(aabb.center, aabb.extent, camera_info.frustum_planes[i])) {
-            return false;
-        }
-    }
-
-    return true;
-}
-
 SHARED_FUNCTION u32 get_micro_index(daxa_BufferPtr(u32) micro_indices, u32 index) {
     u32 packed = micro_indices[index / 4];
     return (packed >> ((index % 4) * 8)) & 0xFF;
@@ -353,4 +329,9 @@ SHARED_FUNCTION void decode_triangle_id(in u32 id, out u32 meshlet_index, out u3
     meshlet_index = id >> 6;
     triangle_index = id & 0x3F;
 }
+
+SHARED_FUNCTION f32vec2 make_gather_uv(f32vec2 inv_src_size, u32vec2 top_left_index) {
+    return (f32vec2(top_left_index) + 1.0f) * inv_src_size;
+}
+
 #endif

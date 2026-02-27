@@ -3,8 +3,8 @@
 #include "shared.inl"
 
 struct DstItemInfo {
-    uint src_item_index;
-    uint in_expansion_index;
+    u32 src_item_index;
+    u32 in_expansion_index;
 };
 
 func prefix_sum_expansion_get_workitem(PrefixSumWorkExpansion* self, u32 thread_index, out DstItemInfo ret) -> bool {
