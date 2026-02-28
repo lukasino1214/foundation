@@ -65,13 +65,13 @@ struct DrawOpaqueMeshletsTask : DrawOpaqueMeshlets::Task {
     static auto pipeline_config_info() -> daxa::RasterPipelineCompileInfo2 {
         return daxa::RasterPipelineCompileInfo2 {
             .mesh_shader_info = daxa::ShaderCompileInfo2 {
-                .source = daxa::ShaderSource { daxa::ShaderFile { .path = "src/graphics/tasks/draw_opqaue_meshlets.slang" }, },
+                .source = daxa::ShaderSource { daxa::ShaderFile { .path = "src/graphics/tasks/draw_opaque_meshlets.slang" }, },
                 .entry_point = "mesh_main",
                 .language = daxa::ShaderLanguage::SLANG,
                 .defines = { { std::string{DrawOpaqueMeshletsTask::name()} + "_SHADER", "1" } },
             },
             .fragment_shader_info = daxa::ShaderCompileInfo2 {
-                .source = daxa::ShaderSource { daxa::ShaderFile { .path = "src/graphics/tasks/draw_opqaue_meshlets.slang" }, },
+                .source = daxa::ShaderSource { daxa::ShaderFile { .path = "src/graphics/tasks/draw_opaque_meshlets.slang" }, },
                 .entry_point = "fragment_main",
                 .language = daxa::ShaderLanguage::SLANG,
                 .defines = { { std::string{DrawOpaqueMeshletsTask::name()} + "_SHADER", "1" } } 

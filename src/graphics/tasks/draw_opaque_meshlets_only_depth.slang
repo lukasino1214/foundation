@@ -23,6 +23,7 @@ struct MeshStageOutput {
 [outputtopology("triangle")]
 [shader("mesh")]
 [numthreads(MAX_TRIANGLES_PER_MESHLET, 1, 1)]
+[earlydepthstencil]
 void mesh_main(
     u32vec3 local_thread_index : SV_GroupThreadID,
     u32vec3 group_index : SV_GroupID,
