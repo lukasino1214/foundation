@@ -24,7 +24,7 @@ using DrawOpaqueMeshletsWriteCommandTask = foundation::WriteIndirectComputeDispa
     "DrawOpaqueMeshletsWriteCommand",
     DrawOpaqueMeshletsWriteCommand::Task, 
     DrawOpaqueMeshletsWriteCommandPush, 
-    "src/graphics/tasks/draw_opqaue_meshlets.slang", 
+    "src/graphics/tasks/draw_opaque_meshlets.slang", 
     "draw_meshlets_write_command"
 >;
 #endif

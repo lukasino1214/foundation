@@ -335,4 +335,24 @@ SHARED_FUNCTION f32vec2 make_gather_uv(f32vec2 inv_src_size, u32vec2 top_left_in
     return (f32vec2(top_left_index) + 1.0f) * inv_src_size;
 }
 
+bool is_triangle_invisible_micro_triangle(const f32vec2 ndc_min, const f32vec2 ndc_max, f32vec2 resolution) {
+    const f32 delta = 1.0 / 256.0f;
+    const f32vec2 sample_grid_min = (ndc_min * 0.5f + 0.5f) * resolution - 0.5f - delta;
+    const f32vec2 sample_grid_max = (ndc_max * 0.5f + 0.5f) * resolution - 0.5f + delta;
+    const bool primitive_visible = !any(equal(floor(sample_grid_max), floor(sample_grid_min)));
+    return !primitive_visible && all(greaterThan(ndc_min, -f32vec2(0.99999,0.99999))) && all(lessThan(ndc_max, f32vec2(0.99999,0.99999)));
+}
+
+bool is_triangle_backfacing(f32vec4 triangle_clip_positions[3]) {
+    return determinant(f32mat3x3(triangle_clip_positions[0].xyw, triangle_clip_positions[1].xyw, triangle_clip_positions[2].xyw)) >= 0.00001;
+}
+
+f32vec4 shuffle_arr2(f32vec4 local_values[2], u32 load_index) {
+    f32vec4 load_0 = WaveReadLaneAt(local_values[0], (load_index % 32));
+    f32vec4 load_1 = WaveReadLaneAt(local_values[1], (u32(max(0u, i32(load_index) - 32))));
+    return load_index > 31 ? load_1 : load_0;
+}
+
 #endif
+
+#define MESH_SHADER_WORKGROUP_X 32

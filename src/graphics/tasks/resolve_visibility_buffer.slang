@@ -230,10 +230,6 @@ f32 calculate_lod_from_gradients(f32vec2 uv_dx, f32vec2 uv_dy, f32 texture_width
     return 0.5f * log2(delta_max);
 }
 
-bool is_triangle_backfacing(f32vec4 clip_positions[3]) {
-    return determinant(daxa_f32mat3x3(clip_positions[0].xyw, clip_positions[1].xyw, clip_positions[2].xyw)) > 0.00001f;
-}
-
 [[vk::push_constant]] ResolveVisibilityBufferPush push;
 [shader("compute")]
 [numthreads(16, 16, 1)]

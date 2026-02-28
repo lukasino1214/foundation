@@ -25,15 +25,20 @@ struct PrimitiveOutput {
     nointerpolation u32 meshlet_instance_index;
 };
 
+struct MeshPrimitiveOutput {
+    bool cull_primitive : SV_CullPrimitive;
+    PrimitiveOutput data; 
+};
+
 [outputtopology("triangle")]
 [shader("mesh")]
-[numthreads(MAX_TRIANGLES_PER_MESHLET, 1, 1)]
+[numthreads(MESH_SHADER_WORKGROUP_X, 1, 1)]
 void mesh_main(
     u32vec3 local_thread_index : SV_GroupThreadID,
     u32vec3 group_index : SV_GroupID,
     OutputIndices<u32vec3, MAX_TRIANGLES_PER_MESHLET> out_indices,
     OutputVertices<MeshStageOutput, MAX_VERTICES_PER_MESHLET> out_vertices,
-    OutputPrimitives<PrimitiveOutput, MAX_TRIANGLES_PER_MESHLET> out_primitives
+    OutputPrimitives<MeshPrimitiveOutput, MAX_TRIANGLES_PER_MESHLET> out_primitives
 ) {
     const u32 thread_index = local_thread_index.x;
 
@@ -42,49 +47,75 @@ void mesh_main(
     const Meshlet meshlet = mesh_instance.meshlets[meshlet_instance.meshlet_index];
 
     const f32mat4x4 transform_matrix = mat_4x3_to_4x4(push.uses.u_transforms[mesh_instance.mesh_group_index]);
-    const f32mat3x3 normal_matrix = f32mat3x3(
-        cross(transform_matrix[1].xyz, transform_matrix[2].xyz), 
-        cross(transform_matrix[2].xyz, transform_matrix[0].xyz), 
-        cross(transform_matrix[0].xyz, transform_matrix[1].xyz)
-    );
+    const f32mat4x4 projection_view_matrix = push.uses.u_globals->main_camera.projection_view_matrix;
 
     SetMeshOutputCounts(meshlet.vertex_count, meshlet.triangle_count);
 
-    if(thread_index < meshlet.vertex_count) {
-        const u32 vertex_index = mesh_instance.indirect_vertices[meshlet.indirect_vertex_offset + thread_index];
+    const u32 vertex_loops = (MAX_VERTICES_PER_MESHLET + MESH_SHADER_WORKGROUP_X - 1) / MESH_SHADER_WORKGROUP_X;
+    f32vec4 local_clip_vertices[2];
 
-        MeshStageOutput vertex;
-        vertex.sv_position = mul(push.uses.u_globals->main_camera.projection_view_matrix, mul(transform_matrix, f32vec4(mesh_instance.positions[vertex_index], 1.0f)));
+    [[unroll]]
+    for(u32 loop = 0; loop < vertex_loops; loop++) {
+        u32 index = thread_index + loop * MESH_SHADER_WORKGROUP_X;
+        index = min(index, meshlet.vertex_count - 1);
 
-        if(mesh_instance.uvs != 0) {
+        {
+            const u32 vertex_index = mesh_instance.indirect_vertices[meshlet.indirect_vertex_offset + index];
+            MeshStageOutput vertex;
+            local_clip_vertices[loop] = mul(projection_view_matrix, mul(transform_matrix, f32vec4(mesh_instance.positions[vertex_index], 1.0f)));
+            vertex.sv_position = local_clip_vertices[loop];
             vertex.uv = mesh_instance.uvs[vertex_index];
-        } else {
-            vertex.uv = f32vec2(0.0f, 0.0f);
+            out_vertices[index] = vertex;
         }
-
-        out_vertices[thread_index] = vertex;
     }
 
-    if(thread_index < meshlet.triangle_count) {
-        u32vec3 indices = u32vec3(
-            get_micro_index(mesh_instance.micro_indices, meshlet.micro_indices_offset + thread_index * 3 + 0),
-            get_micro_index(mesh_instance.micro_indices, meshlet.micro_indices_offset + thread_index * 3 + 1),
-            get_micro_index(mesh_instance.micro_indices, meshlet.micro_indices_offset + thread_index * 3 + 2)
+    const u32 triangle_loops = (MAX_TRIANGLES_PER_MESHLET + MESH_SHADER_WORKGROUP_X - 1) / MESH_SHADER_WORKGROUP_X;
+
+    [[unroll]]
+    for(u32 loop = 0; loop < triangle_loops; loop++) {
+        u32 index = thread_index + loop * MESH_SHADER_WORKGROUP_X;
+        index = min(index, meshlet.triangle_count - 1);
+
+        const u32vec3 indices = u32vec3(
+            get_micro_index(mesh_instance.micro_indices, meshlet.micro_indices_offset + index * 3 + 0),
+            get_micro_index(mesh_instance.micro_indices, meshlet.micro_indices_offset + index * 3 + 1),
+            get_micro_index(mesh_instance.micro_indices, meshlet.micro_indices_offset + index * 3 + 2)
         );
 
-        out_indices[thread_index] = indices;
+        const f32vec4[3] triangle_clip_positions = f32vec4[3](
+            shuffle_arr2(local_clip_vertices, indices[0]),
+            shuffle_arr2(local_clip_vertices, indices[1]),
+            shuffle_arr2(local_clip_vertices, indices[2])
+        );
 
-        PrimitiveOutput primitive;
-        primitive.meshlet_instance_index = group_index.x;
-        out_primitives[thread_index] = primitive;
+        bool cull_primitive = false;
+        if(!cull_primitive) {
+            const f32vec3[3] triangle_ndc_positions = f32vec3[3](
+                triangle_clip_positions[0].xyz / (triangle_clip_positions[0].w),
+                triangle_clip_positions[1].xyz / (triangle_clip_positions[1].w),
+                triangle_clip_positions[2].xyz / (triangle_clip_positions[2].w)
+            );
+
+            const f32vec2 ndc_min = min(min(triangle_ndc_positions[0].xy, triangle_ndc_positions[1].xy), triangle_ndc_positions[2].xy);
+            const f32vec2 ndc_max = max(max(triangle_ndc_positions[0].xy, triangle_ndc_positions[1].xy), triangle_ndc_positions[2].xy);
+            cull_primitive = is_triangle_invisible_micro_triangle( ndc_min, ndc_max, f32vec2(push.uses.u_globals.render_target_size));;
+        }
+
+        {
+            MeshPrimitiveOutput primitive;
+            primitive.cull_primitive = cull_primitive;
+            primitive.data.meshlet_instance_index = group_index.x;
+            out_primitives[index] = primitive;
+        }
+
+        if(!cull_primitive) {
+            out_indices[index] = indices;
+        }
     }
 }
 
 [shader("fragment")]
-void fragment_main(
-    in MeshStageOutput input, 
-    in PrimitiveOutput primitive
-) {
+void fragment_main(in MeshStageOutput input, in PrimitiveOutput primitive) {
     const MeshletInstance meshlet_instance = push.uses.u_culled_meshlet_instances_region.meshlet_instances[primitive.meshlet_instance_index];
     const MeshInstance mesh_instance = push.uses.u_mesh_instances[meshlet_instance.mesh_instance_index];
 
@@ -101,4 +132,4 @@ void fragment_main(
 
         if(alpha < 0.5f) { discard; }
     }
-}   
+}
