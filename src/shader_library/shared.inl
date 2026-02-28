@@ -182,11 +182,12 @@ struct CulledMeshInstancesData {
 };
 DAXA_DECL_BUFFER_PTR(CulledMeshInstancesData)
 
-struct CulledMeshletInstancesData {
+struct CulledMeshletInstancesRegion {
     u32 count;
+    u32 offset;
     daxa_BufferPtr(MeshletInstance) meshlet_instances;
 };
-DAXA_DECL_BUFFER_PTR(CulledMeshletInstancesData)
+DAXA_DECL_BUFFER_PTR(CulledMeshletInstancesRegion)
 
 struct PrefixSumWorkExpansion {
     u64 merged_expansion_count_thread_count;

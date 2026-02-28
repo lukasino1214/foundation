@@ -221,17 +221,12 @@ f32vec3 interpolate_attributes(in BarycentricDeriv derivatives, in f32vec3[3] at
 }
 
 f32 calculate_lod_from_gradients(f32vec2 uv_dx, f32vec2 uv_dy, f32 texture_width, f32 texture_height) {
-    // Scale derivatives by texture size
     f32vec2 dx = uv_dx * f32vec2(texture_width, texture_height);
     f32vec2 dy = uv_dy * f32vec2(texture_width, texture_height);
-    
-    // Compute pixel footprint area
+
     f32 delta_max_s = max(length(dx), length(dy));
-    
-    // Or more commonly, compute using the determinant method:
     f32 delta_max = max(dot(dx, dx), dot(dy, dy));
-    
-    // LOD is log2 of the pixel footprint
+
     return 0.5f * log2(delta_max);
 }
 
@@ -246,17 +241,16 @@ void resolve_visibility_buffer(u32vec3 pixel : SV_DispatchThreadID, u32vec2 tile
     if(any(pixel.xy >= deref(push.uses.u_globals).render_target_size)) { return; }
 
     u32 visibility_index = push.uses.u_visibility_image.get()[pixel.xy];
-
-    u32 meshlet_data_index = 0;
-    u32 triangle_index = 0;
-    decode_triangle_id(visibility_index, meshlet_data_index, triangle_index);
-    
     if(visibility_index == INVALID_ID) {
         push.uses.u_render_image.get()[pixel.xy] = f32vec4(0.0f, 0.0f, 0.0f, 1.0f);
         return;
     }
 
-    const MeshletInstance meshlet_instance = push.uses.u_culled_meshlet_instances_data.meshlet_instances[meshlet_data_index];
+    u32 meshlet_data_index = 0;
+    u32 triangle_index = 0;
+    decode_triangle_id(visibility_index, meshlet_data_index, triangle_index);
+
+    const MeshletInstance meshlet_instance = push.uses.u_culled_meshlet_instances[meshlet_data_index];
     const MeshInstance mesh_instance = push.uses.u_mesh_instances[meshlet_instance.mesh_instance_index];
     const Meshlet meshlet = mesh_instance.meshlets[meshlet_instance.meshlet_index];
 
@@ -299,11 +293,13 @@ void resolve_visibility_buffer(u32vec3 pixel : SV_DispatchThreadID, u32vec2 tile
         )
     );
 
-    const f32vec2[3] uvs = f32vec2[3](
-        mesh_instance.uvs[indices[0]],
-        mesh_instance.uvs[indices[1]],
-        mesh_instance.uvs[indices[2]]
-    );
+    const f32vec2[3] uvs = mesh_instance.uvs != 0
+        ? f32vec2[3](
+            mesh_instance.uvs[indices[0]],
+            mesh_instance.uvs[indices[1]],
+            mesh_instance.uvs[indices[2]]
+        )
+        : f32vec2[3](f32vec2(0.0f), f32vec2(0.0f), f32vec2(0.0f));
 
     const f32vec3[2] interp_uv = f32vec3[2](
         interpolate_attributes(derivatives, f32[](uvs[0].x, uvs[1].x, uvs[2].x)),
@@ -316,11 +312,13 @@ void resolve_visibility_buffer(u32vec3 pixel : SV_DispatchThreadID, u32vec2 tile
         f32vec2(interp_uv[0].z, interp_uv[1].z)
     );
 
-    const f32vec3[3] vertex_normals = f32vec3[3](
-        mesh_instance.normals[indices[0]],
-        mesh_instance.normals[indices[1]],
-        mesh_instance.normals[indices[2]]
-    );
+    const f32vec3[3] vertex_normals = mesh_instance.normals != 0
+        ? f32vec3[3](
+            mesh_instance.normals[indices[0]],
+            mesh_instance.normals[indices[1]],
+            mesh_instance.normals[indices[2]]
+        )
+        : f32vec3[3](f32vec3(0.0f, 1.0f, 0.0f), f32vec3(0.0f, 1.0f, 0.0f), f32vec3(0.0f, 1.0f, 0.0f));
 
     const f32mat3x3 normal_matrix = f32mat3x3(
         cross(transform_matrix[1].xyz, transform_matrix[2].xyz), 
@@ -360,6 +358,8 @@ void resolve_visibility_buffer(u32vec3 pixel : SV_DispatchThreadID, u32vec2 tile
 
         if(!material.emissive_image_id.is_empty()) {
             color.rgb += Texture2D<f32vec4>::get(material.emissive_image_id).SampleGrad(SamplerState::get(material.emissive_sampler_id), uv_grad.uv, uv_grad.ddx, uv_grad.ddy).rgb;
+        } else {
+            color.rgb += material.emissive_factor;
         }
         
         if(!material.normal_image_id.is_empty()) {

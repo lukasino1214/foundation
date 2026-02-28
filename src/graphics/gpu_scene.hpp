@@ -29,7 +29,14 @@ namespace foundation {
 
         usize total_mesh_group_count = {};
         usize total_mesh_count = {};
+        usize total_opaque_mesh_count = {};
+        usize total_masked_mesh_count = {};
+        usize total_blended_mesh_count = {};
+
         usize total_meshlet_count = {};
+        usize total_opaque_meshlet_count = {};
+        usize total_masked_meshlet_count = {};
+        usize total_blended_meshlet_count = {};
 
         daxa::TaskBuffer gpu_mesh_group_instance_count = {};
         daxa::TaskBuffer gpu_mesh_group_instances = {};
@@ -39,13 +46,20 @@ namespace foundation {
         daxa::TaskBuffer gpu_mesh_instance_indices = {};
 
         daxa::TaskBuffer gpu_culled_mesh_instances_data = {};
-        daxa::TaskBuffer gpu_prefix_sum_work_expansion_mesh = {};
+        daxa::TaskBuffer gpu_opaque_prefix_sum_work_expansion_mesh = {};
+        daxa::TaskBuffer gpu_masked_prefix_sum_work_expansion_mesh = {};
+        daxa::TaskBuffer gpu_blended_prefix_sum_work_expansion_mesh = {};
 
-        daxa::TaskBuffer gpu_culled_meshlets_instances_data = {};
+        daxa::TaskBuffer gpu_culled_meshlet_instances = {};
+        daxa::TaskBuffer gpu_opaque_culled_meshlet_instances_region = {};
+        daxa::TaskBuffer gpu_masked_culled_meshlet_instances_region = {};
+        daxa::TaskBuffer gpu_blended_culled_meshlet_instances_region = {};
 
         ankerl::unordered_dense::map<u32, CPUMeshGroupData> mesh_group_data = {};
         std::vector<MeshGroupInstance> mesh_group_instances = {};
         std::vector<MeshInstance> mesh_instances = {};
+        ankerl::unordered_dense::map<u32, std::vector<u32>> mesh_manifest_to_mesh_instances = {};
+        std::vector<u32> dirty_mesh_instance_indices = {};
 
         daxa::TaskTlas gpu_tlas = {};
 

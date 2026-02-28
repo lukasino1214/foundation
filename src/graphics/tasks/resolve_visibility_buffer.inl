@@ -11,7 +11,7 @@
 DAXA_DECL_COMPUTE_TASK_HEAD_BEGIN(ResolveVisibilityBuffer)
 DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(ShaderGlobals), u_globals)
 DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(f32mat4x3), u_transforms)
-DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(CulledMeshletInstancesData), u_culled_meshlet_instances_data)
+DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(MeshletInstance), u_culled_meshlet_instances)
 DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(MeshInstance), u_mesh_instances)
 DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(Material), u_materials)
 DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(PointLightsData), u_point_lights)

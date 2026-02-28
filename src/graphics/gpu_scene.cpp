@@ -37,14 +37,39 @@ namespace foundation {
             .name = "culled mesh instances data"
         });
 
-        gpu_prefix_sum_work_expansion_mesh = make_task_buffer(gpu_context, daxa::BufferInfo {
+        gpu_opaque_prefix_sum_work_expansion_mesh = make_task_buffer(gpu_context, daxa::BufferInfo {
             .size = sizeof(PrefixSumWorkExpansion),
             .name = "opaque prefix sum work expansion mesh"
         });
 
-        gpu_culled_meshlets_instances_data = make_task_buffer(gpu_context, daxa::BufferInfo {
-            .size = sizeof(CulledMeshletInstancesData),
-            .name = "meshlets instance data"
+        gpu_masked_prefix_sum_work_expansion_mesh = make_task_buffer(gpu_context, daxa::BufferInfo {
+            .size = sizeof(PrefixSumWorkExpansion),
+            .name = "masked prefix sum work expansion mesh"
+        });
+
+        gpu_blended_prefix_sum_work_expansion_mesh = make_task_buffer(gpu_context, daxa::BufferInfo {
+            .size = sizeof(PrefixSumWorkExpansion),
+            .name = "blended prefix sum work expansion mesh"
+        });
+
+        gpu_culled_meshlet_instances = make_task_buffer(gpu_context, daxa::BufferInfo {
+            .size = sizeof(MeshletInstance),
+            .name = "culled meshlets instances"
+        });
+
+        gpu_opaque_culled_meshlet_instances_region = make_task_buffer(gpu_context, daxa::BufferInfo {
+            .size = sizeof(CulledMeshletInstancesRegion),
+            .name = "opaque culled meshlets instance region"
+        });
+
+        gpu_masked_culled_meshlet_instances_region = make_task_buffer(gpu_context, daxa::BufferInfo {
+            .size = sizeof(CulledMeshletInstancesRegion),
+            .name = "masked culled meshlets instance region"
+        });
+
+        gpu_blended_culled_meshlet_instances_region = make_task_buffer(gpu_context, daxa::BufferInfo {
+            .size = sizeof(CulledMeshletInstancesRegion),
+            .name = "blended culled meshlets instance region"
         });
         
         gpu_tlas = daxa::TaskTlas{{ .name = "tlas" }};
@@ -68,9 +93,15 @@ namespace foundation {
         gpu_context->device.destroy_buffer(gpu_mesh_instance_indices.get_state().buffers[0]);
 
         gpu_context->device.destroy_buffer(gpu_culled_mesh_instances_data.get_state().buffers[0]);
-        gpu_context->device.destroy_buffer(gpu_prefix_sum_work_expansion_mesh.get_state().buffers[0]);
+        gpu_context->device.destroy_buffer(gpu_opaque_prefix_sum_work_expansion_mesh.get_state().buffers[0]);
+        gpu_context->device.destroy_buffer(gpu_masked_prefix_sum_work_expansion_mesh.get_state().buffers[0]);
+        gpu_context->device.destroy_buffer(gpu_blended_prefix_sum_work_expansion_mesh.get_state().buffers[0]);
 
-        gpu_context->device.destroy_buffer(gpu_culled_meshlets_instances_data.get_state().buffers[0]);
+        gpu_context->device.destroy_buffer(gpu_opaque_culled_meshlet_instances_region.get_state().buffers[0]);
+        gpu_context->device.destroy_buffer(gpu_masked_culled_meshlet_instances_region.get_state().buffers[0]);
+        gpu_context->device.destroy_buffer(gpu_blended_culled_meshlet_instances_region.get_state().buffers[0]);
+
+        gpu_context->device.destroy_buffer(gpu_culled_meshlet_instances.get_state().buffers[0]);
 
         gpu_context->device.destroy_tlas(gpu_tlas.get_state().tlas[0]);
         gpu_context->device.destroy_buffer(gpu_point_lights.get_state().buffers[0]);
@@ -80,28 +111,35 @@ namespace foundation {
     void GPUScene::update(daxa::CommandRecorder& cmd_recorder, const ResourceUploadInfos& upload_infos) {
         PROFILE_SCOPE;
 
-        auto write_mesh_instance = [&](MeshInstance &out_mesh_instance, u32 mesh_manifest_index, u32 mesh_group_instance_index) {
-            out_mesh_instance = {};
+        auto write_mesh_instance = [&](u32 mesh_instance_index, u32 mesh_manifest_index, u32 mesh_group_instance_index) {
+            MeshInstance out_mesh_instance = {};
             out_mesh_instance.mesh_group_index = mesh_group_instance_index;
-            out_mesh_instance.material_index = ~0u;
+            out_mesh_instance.material_index = INVALID_ID;
 
-            if(mesh_manifest_index >= asset_manager->mesh_manifests.size()) { return; }
-            const MeshManifest& mesh_manifest = asset_manager->mesh_manifests[mesh_manifest_index];
-            if(!mesh_manifest.render_info.has_value()) { return; }
+            if(mesh_manifest_index < asset_manager->mesh_manifests.size()) {
+                const MeshManifest& mesh_manifest = asset_manager->mesh_manifests[mesh_manifest_index];
+                if(mesh_manifest.render_info.has_value()) {
+                    const auto& render_info = mesh_manifest.render_info.value();
+                    out_mesh_instance.mesh_buffer = render_info.mesh_buffer;
+                    out_mesh_instance.meshlets = render_info.mesh.meshlets;
+                    out_mesh_instance.indirect_vertices = render_info.mesh.indirect_vertices;
+                    out_mesh_instance.micro_indices = render_info.mesh.micro_indices;
+                    out_mesh_instance.bounding_spheres = render_info.mesh.bounding_spheres;
+                    out_mesh_instance.aabbs = render_info.mesh.aabbs;
+                    out_mesh_instance.positions = render_info.mesh.positions;
+                    out_mesh_instance.normals = render_info.mesh.normals;
+                    out_mesh_instance.uvs = render_info.mesh.uvs;
+                    out_mesh_instance.mesh_aabb = render_info.mesh.mesh_aabb;
+                    out_mesh_instance.material_index = render_info.mesh.material_index;
+                    out_mesh_instance.meshlet_count = render_info.meshlet_count;
+                }
+            }
 
-            const auto& render_info = mesh_manifest.render_info.value();
-            out_mesh_instance.mesh_buffer = render_info.mesh_buffer;
-            out_mesh_instance.meshlets = render_info.mesh.meshlets;
-            out_mesh_instance.indirect_vertices = render_info.mesh.indirect_vertices;
-            out_mesh_instance.micro_indices = render_info.mesh.micro_indices;
-            out_mesh_instance.bounding_spheres = render_info.mesh.bounding_spheres;
-            out_mesh_instance.aabbs = render_info.mesh.aabbs;
-            out_mesh_instance.positions = render_info.mesh.positions;
-            out_mesh_instance.normals = render_info.mesh.normals;
-            out_mesh_instance.uvs = render_info.mesh.uvs;
-            out_mesh_instance.mesh_aabb = render_info.mesh.mesh_aabb;
-            out_mesh_instance.material_index = render_info.mesh.material_index;
-            out_mesh_instance.meshlet_count = render_info.meshlet_count;
+            MeshInstance &old_mesh_instance = mesh_instances[mesh_instance_index];
+            if(std::memcmp(&old_mesh_instance, &out_mesh_instance, sizeof(MeshInstance)) == 0) { return; }
+
+            old_mesh_instance = out_mesh_instance;
+            dirty_mesh_instance_indices.push_back(mesh_instance_index);
         };
 
         usize old_mesh_group_count = total_mesh_group_count;
@@ -131,7 +169,8 @@ namespace foundation {
                     cpu_mesh_group_instance.mesh_instance_indices.push_back(mesh_instance_index);
 
                     mesh_instances.push_back({});
-                    write_mesh_instance(mesh_instances.back(), mesh_manifest_index, mesh_group_instance_index);
+                    mesh_manifest_to_mesh_instances[mesh_manifest_index].push_back(mesh_instance_index);
+                    write_mesh_instance(mesh_instance_index, mesh_manifest_index, mesh_group_instance_index);
                 }
 
                 mesh_group_data[mesh_component.mesh_group_manifest_entry_index].mesh_group_instances[e.id()] = std::move(cpu_mesh_group_instance);
@@ -144,31 +183,64 @@ namespace foundation {
         }
 
         if(!upload_infos.meshes.empty()) {
-            for(auto& [mesh_group_manifest_index, cpu_mesh_group_data] : mesh_group_data) {
-                if(mesh_group_manifest_index >= asset_manager->mesh_group_manifests.size()) { continue; }
+            for(const auto& mesh_upload_info : upload_infos.meshes) {
+                if(mesh_upload_info.asset_manifest_index >= asset_manager->asset_manifests.size()) { continue; }
+                const AssetManifest& asset_manifest = asset_manager->asset_manifests[mesh_upload_info.asset_manifest_index];
+                const u32 mesh_manifest_index = asset_manifest.mesh_manifest_offset + mesh_upload_info.mesh_manifest_index;
 
-                const MeshGroupManifest& mesh_group_manifest = asset_manager->mesh_group_manifests[mesh_group_manifest_index];
-                const AssetManifest& asset_manifest = asset_manager->asset_manifests[mesh_group_manifest.asset_manifest_index];
-
-                for(auto& [_, cpu_mesh_group_instance] : cpu_mesh_group_data.mesh_group_instances) {
-                    for(u32 mesh_index = 0; mesh_index < mesh_group_manifest.mesh_count; mesh_index++) {
-                        const u32 mesh_instance_index = cpu_mesh_group_instance.mesh_instance_indices[mesh_index];
-                        const u32 mesh_manifest_index = asset_manifest.mesh_manifest_offset + mesh_group_manifest.asset_local_mesh_manifest_indices_offset + mesh_index;
-                        write_mesh_instance(mesh_instances[mesh_instance_index], mesh_manifest_index, cpu_mesh_group_instance.mesh_group_instance_index);
+                if(auto it = mesh_manifest_to_mesh_instances.find(mesh_manifest_index); it != mesh_manifest_to_mesh_instances.end()) {
+                    for(const u32 mesh_instance_index : it->second) {
+                        write_mesh_instance(mesh_instance_index, mesh_manifest_index, mesh_instances[mesh_instance_index].mesh_group_index);
                     }
                 }
             }
         }
 
         total_mesh_count = mesh_instances.size();
-        total_meshlet_count = 0;
-        for(const auto& mesh_instance : mesh_instances) {
-            total_meshlet_count += mesh_instance.meshlet_count;
+        if(!dirty_mesh_instance_indices.empty()) {
+            total_mesh_count = 0;
+            total_opaque_mesh_count = 0;
+            total_masked_mesh_count = 0;
+            total_blended_mesh_count = 0;
+
+            total_meshlet_count = 0;
+            total_opaque_meshlet_count = 0;
+            total_masked_meshlet_count = 0;
+            total_blended_meshlet_count = 0;
+
+            for(const auto& mesh_instance : mesh_instances) {
+                total_mesh_count += 1;
+
+                total_meshlet_count += mesh_instance.meshlet_count;
+                if(mesh_instance.material_index == INVALID_ID) {
+                    total_opaque_mesh_count += 1;
+                    total_opaque_meshlet_count += mesh_instance.meshlet_count;
+                    continue;
+                }
+
+                switch(asset_manager->material_manifests[mesh_instance.material_index].material_type) {
+                    case MaterialType::Opaque: {
+                        total_opaque_mesh_count += 1;
+                        total_opaque_meshlet_count += mesh_instance.meshlet_count; 
+                        break;
+                    }
+                    case MaterialType::Masked: {
+                        total_masked_mesh_count += 1;
+                        total_masked_meshlet_count += mesh_instance.meshlet_count; 
+                        break;
+                    }
+                    case MaterialType::Blend: {
+                        total_blended_mesh_count += 1;
+                        total_blended_meshlet_count += mesh_instance.meshlet_count; 
+                        break;
+                    }
+                }
+            }
         }
 
         {
             static bool first_time = true;
-            const bool mesh_data_changed = old_mesh_group_count != total_mesh_group_count || !upload_infos.meshes.empty() || first_time;
+            const bool mesh_data_changed = old_mesh_group_count != total_mesh_group_count || first_time;
             if(mesh_data_changed) {
                 std::vector<MeshGroupInstance> cpu_mesh_group_instances = {};
                 cpu_mesh_group_instances.resize(total_mesh_group_count);
@@ -237,8 +309,29 @@ namespace foundation {
                 }
 
                 first_time = false;
+            } else if(!dirty_mesh_instance_indices.empty()) {
+                daxa::BufferId staging_buffer = gpu_context->device.create_buffer({
+                    .size = dirty_mesh_instance_indices.size() * sizeof(MeshInstance),
+                    .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
+                    .name = "dirty meshes staging buffer",
+                });
+                cmd_recorder.destroy_buffer_deferred(staging_buffer);
+
+                auto *staging_ptr = gpu_context->device.buffer_host_address_as<MeshInstance>(staging_buffer).value();
+                for(u32 i = 0; i < dirty_mesh_instance_indices.size(); ++i) {
+                    const u32 mesh_instance_index = dirty_mesh_instance_indices[i];
+                    staging_ptr[i] = mesh_instances[mesh_instance_index];
+                    cmd_recorder.copy_buffer_to_buffer({
+                        .src_buffer = staging_buffer,
+                        .dst_buffer = gpu_mesh_instances.get_state().buffers[0],
+                        .src_offset = i * sizeof(MeshInstance),
+                        .dst_offset = mesh_instance_index * sizeof(MeshInstance),
+                        .size = sizeof(MeshInstance),
+                    });
+                }
             }
         }
+        dirty_mesh_instance_indices.clear();
 
         {
             static bool first_time = true;
@@ -269,23 +362,109 @@ namespace foundation {
             };
         });
 
-        reallocate_buffer<PrefixSumWorkExpansion>(gpu_context, cmd_recorder, gpu_prefix_sum_work_expansion_mesh, total_mesh_count * sizeof(u32) * 3 + sizeof(PrefixSumWorkExpansion), [&](const daxa::BufferId& buffer) -> PrefixSumWorkExpansion {
+        reallocate_buffer<PrefixSumWorkExpansion>(gpu_context, cmd_recorder, gpu_opaque_prefix_sum_work_expansion_mesh, total_opaque_mesh_count * sizeof(u32) * 3 + sizeof(PrefixSumWorkExpansion), [&](const daxa::BufferId& buffer) -> PrefixSumWorkExpansion {
             return PrefixSumWorkExpansion {
                 .merged_expansion_count_thread_count = 0,
-                .expansions_max = s_cast<u32>(total_mesh_count),
+                .expansions_max = s_cast<u32>(total_opaque_mesh_count),
                 .workgroup_count = 0,
-                .expansions_inclusive_prefix_sum = gpu_context->device.buffer_device_address(buffer).value() + sizeof(PrefixSumWorkExpansion) + total_mesh_count * sizeof(u32) * 0,
-                .expansions_src_work_item = gpu_context->device.buffer_device_address(buffer).value() + sizeof(PrefixSumWorkExpansion) + total_mesh_count * sizeof(u32) * 1,
-                .expansions_expansion_factor = gpu_context->device.buffer_device_address(buffer).value() + sizeof(PrefixSumWorkExpansion) + total_mesh_count * sizeof(u32) * 2
+                .expansions_inclusive_prefix_sum = gpu_context->device.buffer_device_address(buffer).value() + sizeof(PrefixSumWorkExpansion) + total_opaque_mesh_count * sizeof(u32) * 0,
+                .expansions_src_work_item = gpu_context->device.buffer_device_address(buffer).value() + sizeof(PrefixSumWorkExpansion) + total_opaque_mesh_count * sizeof(u32) * 1,
+                .expansions_expansion_factor = gpu_context->device.buffer_device_address(buffer).value() + sizeof(PrefixSumWorkExpansion) + total_opaque_mesh_count * sizeof(u32) * 2
             };
         });
 
-        reallocate_buffer<CulledMeshletInstancesData>(gpu_context, cmd_recorder, gpu_culled_meshlets_instances_data, s_cast<u32>(total_meshlet_count * sizeof(MeshletInstance) + sizeof(CulledMeshletInstancesData)), [&](const daxa::BufferId& buffer) -> CulledMeshletInstancesData {
-            return CulledMeshletInstancesData {
-                .count = 0,
-                .meshlet_instances = gpu_context->device.buffer_device_address(buffer).value() + sizeof(CulledMeshletInstancesData)
+        reallocate_buffer<PrefixSumWorkExpansion>(gpu_context, cmd_recorder, gpu_masked_prefix_sum_work_expansion_mesh, total_masked_mesh_count * sizeof(u32) * 3 + sizeof(PrefixSumWorkExpansion), [&](const daxa::BufferId& buffer) -> PrefixSumWorkExpansion {
+            return PrefixSumWorkExpansion {
+                .merged_expansion_count_thread_count = 0,
+                .expansions_max = s_cast<u32>(total_masked_mesh_count),
+                .workgroup_count = 0,
+                .expansions_inclusive_prefix_sum = gpu_context->device.buffer_device_address(buffer).value() + sizeof(PrefixSumWorkExpansion) + total_masked_mesh_count * sizeof(u32) * 0,
+                .expansions_src_work_item = gpu_context->device.buffer_device_address(buffer).value() + sizeof(PrefixSumWorkExpansion) + total_masked_mesh_count * sizeof(u32) * 1,
+                .expansions_expansion_factor = gpu_context->device.buffer_device_address(buffer).value() + sizeof(PrefixSumWorkExpansion) + total_masked_mesh_count * sizeof(u32) * 2
             };
         });
+
+        reallocate_buffer<PrefixSumWorkExpansion>(gpu_context, cmd_recorder, gpu_blended_prefix_sum_work_expansion_mesh, total_blended_mesh_count * sizeof(u32) * 3 + sizeof(PrefixSumWorkExpansion), [&](const daxa::BufferId& buffer) -> PrefixSumWorkExpansion {
+            return PrefixSumWorkExpansion {
+                .merged_expansion_count_thread_count = 0,
+                .expansions_max = s_cast<u32>(total_blended_mesh_count),
+                .workgroup_count = 0,
+                .expansions_inclusive_prefix_sum = gpu_context->device.buffer_device_address(buffer).value() + sizeof(PrefixSumWorkExpansion) + total_blended_mesh_count * sizeof(u32) * 0,
+                .expansions_src_work_item = gpu_context->device.buffer_device_address(buffer).value() + sizeof(PrefixSumWorkExpansion) + total_blended_mesh_count * sizeof(u32) * 1,
+                .expansions_expansion_factor = gpu_context->device.buffer_device_address(buffer).value() + sizeof(PrefixSumWorkExpansion) + total_blended_mesh_count * sizeof(u32) * 2
+            };
+        });
+
+        if(reallocate_buffer(gpu_context, cmd_recorder, gpu_culled_meshlet_instances, s_cast<u32>(total_meshlet_count * sizeof(MeshletInstance)))) {
+            daxa::DeviceAddress buffer_address = gpu_context->device.buffer_device_address(gpu_culled_meshlet_instances.get_state().buffers[0]).value();
+            
+            u32 offset = 0;
+            {
+                daxa::BufferId stagging_buffer = gpu_context->device.create_buffer(daxa::BufferInfo {
+                    .size = sizeof(CulledMeshletInstancesRegion),
+                    .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
+                    .name = "opaque stagging buffer"
+                });
+                cmd_recorder.destroy_buffer_deferred(stagging_buffer);
+
+                CulledMeshletInstancesRegion region {
+                    .count = 0,
+                    .offset = offset,
+                    .meshlet_instances = buffer_address + offset * sizeof(MeshletInstance),
+                };
+
+                std::memcpy(gpu_context->device.buffer_host_address(stagging_buffer).value(), &region, sizeof(CulledMeshletInstancesRegion));
+                cmd_recorder.copy_buffer_to_buffer(daxa::BufferCopyInfo {
+                    .src_buffer = stagging_buffer,
+                    .dst_buffer = gpu_opaque_culled_meshlet_instances_region.get_state().buffers[0],
+                    .size = sizeof(CulledMeshletInstancesRegion),
+                });
+            }
+            offset += s_cast<u32>(total_opaque_meshlet_count);
+            {
+                daxa::BufferId stagging_buffer = gpu_context->device.create_buffer(daxa::BufferInfo {
+                    .size = sizeof(CulledMeshletInstancesRegion),
+                    .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
+                    .name = "masked stagging buffer"
+                });
+                cmd_recorder.destroy_buffer_deferred(stagging_buffer);
+
+                CulledMeshletInstancesRegion data {
+                    .count = 0,
+                    .offset = offset,
+                    .meshlet_instances = buffer_address + offset * sizeof(MeshletInstance),
+                };
+
+                std::memcpy(gpu_context->device.buffer_host_address(stagging_buffer).value(), &data, sizeof(CulledMeshletInstancesRegion));
+                cmd_recorder.copy_buffer_to_buffer(daxa::BufferCopyInfo {
+                    .src_buffer = stagging_buffer,
+                    .dst_buffer = gpu_masked_culled_meshlet_instances_region.get_state().buffers[0],
+                    .size = sizeof(CulledMeshletInstancesRegion),
+                });
+            }
+            offset += s_cast<u32>(total_masked_meshlet_count);
+            {
+                daxa::BufferId stagging_buffer = gpu_context->device.create_buffer(daxa::BufferInfo {
+                    .size = sizeof(CulledMeshletInstancesRegion),
+                    .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
+                    .name = "transparent stagging buffer"
+                });
+                cmd_recorder.destroy_buffer_deferred(stagging_buffer);
+
+                CulledMeshletInstancesRegion data {
+                    .count = 0,
+                    .offset = offset,
+                    .meshlet_instances = buffer_address + offset * sizeof(MeshletInstance),
+                };
+
+                std::memcpy(gpu_context->device.buffer_host_address(stagging_buffer).value(), &data, sizeof(CulledMeshletInstancesRegion));
+                cmd_recorder.copy_buffer_to_buffer(daxa::BufferCopyInfo {
+                    .src_buffer = stagging_buffer,
+                    .dst_buffer = gpu_blended_culled_meshlet_instances_region.get_state().buffers[0],
+                    .size = sizeof(CulledMeshletInstancesRegion),
+                });
+            }
+        }
 
         bool entites_moved = false;
         std::vector<flecs::entity> moved_entities = {};

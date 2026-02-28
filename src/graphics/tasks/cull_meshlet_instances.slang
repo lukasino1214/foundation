@@ -15,7 +15,7 @@ void cull_meshlet_instances_write_command() {
     command.z = 1;
     *write_push.uses.u_command = command;
 
-    write_push.uses.u_culled_meshlet_instances_data->count = 0;
+    write_push.uses.u_culled_meshlet_instances_region->count = 0;
 }
 
 [shader("compute")]
@@ -61,6 +61,6 @@ void cull_meshlet_instances(u32vec3 thread_index : SV_DispatchThreadID) {
     meshlet_instance.meshlet_index = meshlet_index;
 
     u32 i = 0;
-    InterlockedAdd(push.uses.u_culled_meshlet_instances_data->count, 1, i);
-    push.uses.u_culled_meshlet_instances_data.meshlet_instances[i] = meshlet_instance;
+    InterlockedAdd(push.uses.u_culled_meshlet_instances_region->count, 1, i);
+    push.uses.u_culled_meshlet_instances_region.meshlet_instances[i] = meshlet_instance;
 }

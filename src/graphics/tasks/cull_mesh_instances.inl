@@ -11,7 +11,9 @@
 DAXA_DECL_COMPUTE_TASK_HEAD_BEGIN(CullMeshInstancesWriteCommand)
 DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(u32), u_mesh_group_instance_count)
 DAXA_TH_BUFFER_PTR(WRITE, daxa_BufferPtr(CulledMeshInstancesData), u_culled_mesh_instances_data)
-DAXA_TH_BUFFER_PTR(WRITE, daxa_BufferPtr(PrefixSumWorkExpansion), u_prefix_sum_work_expansion_mesh)
+DAXA_TH_BUFFER_PTR(WRITE, daxa_BufferPtr(PrefixSumWorkExpansion), u_opaque_prefix_sum_work_expansion_mesh)
+DAXA_TH_BUFFER_PTR(WRITE, daxa_BufferPtr(PrefixSumWorkExpansion), u_masked_prefix_sum_work_expansion_mesh)
+DAXA_TH_BUFFER_PTR(WRITE, daxa_BufferPtr(PrefixSumWorkExpansion), u_blended_prefix_sum_work_expansion_mesh)
 DAXA_TH_BUFFER_PTR(WRITE, daxa_BufferPtr(DispatchIndirectStruct), u_command)
 DAXA_DECL_TASK_HEAD_END
 
@@ -37,8 +39,11 @@ DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(MeshGroupInstance), u_mesh_group_instanc
 DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(u32), u_mesh_instance_indices)
 DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(MeshInstance), u_mesh_instances)
 DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(f32mat4x3), u_transforms)
+DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(Material), u_materials)
 DAXA_TH_BUFFER_PTR(WRITE, daxa_BufferPtr(CulledMeshInstancesData), u_culled_mesh_instances_data)
-DAXA_TH_BUFFER_PTR(WRITE, daxa_BufferPtr(PrefixSumWorkExpansion), u_prefix_sum_work_expansion_mesh)
+DAXA_TH_BUFFER_PTR(WRITE, daxa_BufferPtr(PrefixSumWorkExpansion), u_opaque_prefix_sum_work_expansion_mesh)
+DAXA_TH_BUFFER_PTR(WRITE, daxa_BufferPtr(PrefixSumWorkExpansion), u_masked_prefix_sum_work_expansion_mesh)
+DAXA_TH_BUFFER_PTR(WRITE, daxa_BufferPtr(PrefixSumWorkExpansion), u_blended_prefix_sum_work_expansion_mesh)
 DAXA_TH_IMAGE_ID(SAMPLED, REGULAR_2D, u_hiz)
 DAXA_TH_BUFFER(INDIRECT_COMMAND_READ, u_command)
 DAXA_DECL_TASK_HEAD_END

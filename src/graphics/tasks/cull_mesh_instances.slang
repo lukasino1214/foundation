@@ -19,8 +19,14 @@ void cull_mesh_instances_write_command() {
 
     write_push.uses.u_culled_mesh_instances_data->count = 0;
 
-    write_push.uses.u_prefix_sum_work_expansion_mesh->merged_expansion_count_thread_count = 0;
-    write_push.uses.u_prefix_sum_work_expansion_mesh->workgroup_count = 0;
+    write_push.uses.u_opaque_prefix_sum_work_expansion_mesh->merged_expansion_count_thread_count = 0;
+    write_push.uses.u_opaque_prefix_sum_work_expansion_mesh->workgroup_count = 0;
+
+    write_push.uses.u_masked_prefix_sum_work_expansion_mesh->merged_expansion_count_thread_count = 0;
+    write_push.uses.u_masked_prefix_sum_work_expansion_mesh->workgroup_count = 0;
+
+    write_push.uses.u_blended_prefix_sum_work_expansion_mesh->merged_expansion_count_thread_count = 0;
+    write_push.uses.u_blended_prefix_sum_work_expansion_mesh->workgroup_count = 0;
 }
 
 [shader("compute")]
@@ -65,7 +71,14 @@ void cull_mesh_instances(u32vec3 thread_index : SV_DispatchThreadID) {
             InterlockedAdd(push.uses.u_culled_mesh_instances_data->count, 1, offset);
             push.uses.u_culled_mesh_instances_data->mesh_instances[offset] = mesh_instance_index;
 
-            prefix_sum_expansion_add_workitems(push.uses.u_prefix_sum_work_expansion_mesh, offset, mesh.meshlet_count, 16);
+            PrefixSumWorkExpansion* prefix_sum_work_expansion = push.uses.u_opaque_prefix_sum_work_expansion_mesh;
+            if(mesh.material_index != INVALID_ID) {
+                if(push.uses.u_materials[mesh.material_index].alpha_mode == 0) { prefix_sum_work_expansion = push.uses.u_opaque_prefix_sum_work_expansion_mesh; }
+                else if(push.uses.u_materials[mesh.material_index].alpha_mode == 1) { prefix_sum_work_expansion = push.uses.u_masked_prefix_sum_work_expansion_mesh; }
+                else if(push.uses.u_materials[mesh.material_index].alpha_mode == 2) { prefix_sum_work_expansion = push.uses.u_blended_prefix_sum_work_expansion_mesh; }
+            }
+
+            prefix_sum_expansion_add_workitems(prefix_sum_work_expansion, offset, mesh.meshlet_count, 16);
         }
     }
 }

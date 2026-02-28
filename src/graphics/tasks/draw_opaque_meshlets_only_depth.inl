@@ -8,49 +8,49 @@
 
 #include "../../shader_library/shared.inl"
 
-DAXA_DECL_COMPUTE_TASK_HEAD_BEGIN(DrawDepthWriteCommand)
-DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(CulledMeshletInstancesData), u_culled_meshlet_instances_data)
+DAXA_DECL_COMPUTE_TASK_HEAD_BEGIN(DrawOpaqueMeshletsOnlyDepthWriteCommand)
+DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(MeshletInstance), u_culled_meshlet_instances)
+DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(CulledMeshletInstancesRegion), u_culled_meshlet_instances_region)
 DAXA_TH_BUFFER_PTR(WRITE, daxa_BufferPtr(DispatchIndirectStruct), u_command)
 DAXA_DECL_TASK_HEAD_END
 
-struct DrawDepthWriteCommandPush {
-    DAXA_TH_BLOB(DrawDepthWriteCommand, uses)
+struct DrawOpaqueMeshletsOnlyDepthWriteCommandPush {
+    DAXA_TH_BLOB(DrawOpaqueMeshletsOnlyDepthWriteCommand, uses)
     daxa_u32 dummy;
 };
 
 #if __cplusplus
-using DrawDepthWriteCommandTask = foundation::WriteIndirectComputeDispatchTask<
-    "DrawDepthWriteCommand",
-    DrawDepthWriteCommand::Task, 
-    DrawDepthWriteCommandPush, 
-    "src/graphics/tasks/draw_depth.slang", 
-    "draw_depth_write_command"
+using DrawOpaqueMeshletsOnlyDepthWriteCommandTask = foundation::WriteIndirectComputeDispatchTask<
+    "DrawOpaqueMeshletsOnlyDepthWriteCommand",
+    DrawOpaqueMeshletsOnlyDepthWriteCommand::Task, 
+    DrawOpaqueMeshletsOnlyDepthWriteCommandPush, 
+    "src/graphics/tasks/draw_opaque_meshlets_only_depth.slang", 
+    "draw_opaque_meshlets_only_depth_write_command"
 >;
 #endif
 
-DAXA_DECL_RASTER_TASK_HEAD_BEGIN(DrawDepth)
+DAXA_DECL_RASTER_TASK_HEAD_BEGIN(DrawOpaqueMeshletsOnlyDepth)
 DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(ShaderGlobals), u_globals)
 DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(f32mat4x3), u_transforms)
-DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(CulledMeshletInstancesData), u_culled_meshlet_instances_data)
+DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(MeshletInstance), u_culled_meshlet_instances)
+DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(CulledMeshletInstancesRegion), u_culled_meshlet_instances_region)
 DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(MeshInstance), u_mesh_instances)
-DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(Material), u_materials)
 DAXA_TH_BUFFER(INDIRECT_COMMAND_READ, u_command)
 DAXA_TH_IMAGE_ID(DEPTH_ATTACHMENT, REGULAR_2D, u_depth_image)
 DAXA_DECL_TASK_HEAD_END
 
-struct DrawDepthPush {
-    DAXA_TH_BLOB(DrawDepth, uses)
+struct DrawOpaqueMeshletsOnlyDepthPush {
+    DAXA_TH_BLOB(DrawOpaqueMeshletsOnlyDepth, uses)
 };
 
 #if __cplusplus
 #include <graphics/gpu_scene.hpp>
 
 using namespace foundation;
-struct DrawDepthTask : DrawDepth::Task {
+struct DrawOpaqueMeshletsOnlyDepthTask : DrawOpaqueMeshletsOnlyDepth::Task {
     AttachmentViews views = {};
     GPUContext* gpu_context = {};
-    DrawDepthPush push = {};
-    AssetManager* asset_manager = {};
+    DrawOpaqueMeshletsOnlyDepthPush push = {};
     GPUScene* gpu_scene = {};
 
     void assign_blob(auto& arr, const auto& span) {
@@ -58,22 +58,16 @@ struct DrawDepthTask : DrawDepth::Task {
     }
 
     static auto name() -> std::string {
-        return "DrawDepth";
+        return "DrawOpaqueMeshletsOnlyDepth";
     }
 
     static auto pipeline_config_info() -> daxa::RasterPipelineCompileInfo2 {
         return daxa::RasterPipelineCompileInfo2 {
             .mesh_shader_info = daxa::ShaderCompileInfo2 {
-                .source = daxa::ShaderSource { daxa::ShaderFile { .path = "src/graphics/tasks/draw_depth.slang" }, },
+                .source = daxa::ShaderSource { daxa::ShaderFile { .path = "src/graphics/tasks/draw_opaque_meshlets_only_depth.slang" }, },
                 .entry_point = "mesh_main",
                 .language = daxa::ShaderLanguage::SLANG,
-                .defines = { { std::string{DrawDepthTask::name()} + "_SHADER", "1" } },
-            },
-            .fragment_shader_info = daxa::ShaderCompileInfo2 {
-                .source = daxa::ShaderSource { daxa::ShaderFile { .path = "src/graphics/tasks/draw_depth.slang" }, },
-                .entry_point = "fragment_main",
-                .language = daxa::ShaderLanguage::SLANG,
-                .defines = { { std::string{DrawDepthTask::name()} + "_SHADER", "1" } } 
+                .defines = { { std::string{DrawOpaqueMeshletsOnlyDepthTask::name()} + "_SHADER", "1" } },
             },
             .depth_test = { daxa::DepthTestInfo {
                 .depth_attachment_format = daxa::Format::D32_SFLOAT,
@@ -81,16 +75,14 @@ struct DrawDepthTask : DrawDepth::Task {
                 .depth_test_compare_op = daxa::CompareOp::GREATER_OR_EQUAL
             } },
             .raster = {
-                .face_culling = daxa::FaceCullFlagBits::NONE
+                .face_culling = daxa::FaceCullFlagBits::FRONT_BIT
             },
-            .push_constant_size = s_cast<u32>(sizeof(DrawDepthPush)),
-            .name = std::string{DrawDepthTask::name()}
+            .push_constant_size = s_cast<u32>(sizeof(DrawOpaqueMeshletsOnlyDepthPush)),
+            .name = std::string{DrawOpaqueMeshletsOnlyDepthTask::name()}
         };
     }
 
     void callback(daxa::TaskInterface ti) {
-        PROFILE_SCOPE_NAMED(draw_mesh_callback);
-
         u32 size_x = ti.device.image_info(ti.get(AT.u_depth_image).ids[0]).value().size.x;
         u32 size_y = ti.device.image_info(ti.get(AT.u_depth_image).ids[0]).value().size.y;
 
@@ -106,7 +98,7 @@ struct DrawDepthTask : DrawDepth::Task {
             .render_area = {.x = 0, .y = 0, .width = size_x, .height = size_y},
         });
 
-        render_cmd.set_pipeline(*gpu_context->raster_pipelines.at(DrawDepthTask::name()));
+        render_cmd.set_pipeline(*gpu_context->raster_pipelines.at(DrawOpaqueMeshletsOnlyDepthTask::name()));
 
         assign_blob(push.uses, ti.attachment_shader_blob);
         render_cmd.push_constant(push);

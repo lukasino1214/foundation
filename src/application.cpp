@@ -68,6 +68,7 @@ namespace foundation {
                     entity.add_component<TransformComponent>();
                     entity.set_local_position({200.0f * s_cast<f32>(x) + 10.0f, -100.0f * s_cast<f32>(y) - 2.0f, 200.0f * s_cast<f32>(z)});
                     asset_manager.load_asset("assets/models/Bistro/Bistro.glb", entity);
+                    // asset_manager.load_asset("assets/models/bistro-full/bistro.gltf", entity);
                 }
             }
         }
@@ -273,7 +274,6 @@ namespace foundation {
             create_window("Console");
             // create_window("Viewport Panel");
             // create_window("Performance Statistics");
-            create_window("GPU Scene Statistic");
             create_window("File Browser");
             create_window("Scene Hierarchy");
             create_window("Entity Inspector");
@@ -283,10 +283,16 @@ namespace foundation {
             }
             ImGui::End();
 
-            if(ImGui::Begin("GPUScene Statistics")) {
+            if(ImGui::Begin("GPU Scene Statistics")) {
                 ImGui::Text("total_mesh_group_count: %zu", gpu_scene.total_mesh_group_count);
                 ImGui::Text("total_mesh_count: %zu", gpu_scene.total_mesh_count);
+                ImGui::Text("total_opaque_mesh_count: %zu", gpu_scene.total_opaque_mesh_count);
+                ImGui::Text("total_masked_mesh_count: %zu", gpu_scene.total_masked_mesh_count);
+                ImGui::Text("total_blended_mesh_count: %zu", gpu_scene.total_blended_mesh_count);
                 ImGui::Text("total_meshlet_count: %zu", gpu_scene.total_meshlet_count);
+                ImGui::Text("total_opaque_meshlet_count: %zu", gpu_scene.total_opaque_meshlet_count);
+                ImGui::Text("total_masked_meshlet_count: %zu", gpu_scene.total_masked_meshlet_count);
+                ImGui::Text("total_blended_meshlet_count: %zu", gpu_scene.total_blended_meshlet_count);
             }
             ImGui::End();
 

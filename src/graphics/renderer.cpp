@@ -5,14 +5,18 @@
 
 #include "tasks/cull_mesh_instances.inl"
 #include "tasks/cull_meshlet_instances.inl"
-#include "tasks/draw_mesh.inl"
-#include "tasks/resolve_visibility_buffer.inl"
 #include "tasks/ray_tracing.inl"
 #include "tasks/debug.inl"
 #include "tasks/gen_hiz.inl"
-#include "tasks/draw_depth.inl"
 #include "gpu_scene.hpp"
 #include <asset/asset_manager.hpp>
+
+#include "tasks/draw_opaque_meshlets_only_depth.inl"
+#include "tasks/draw_masked_meshlets_only_depth.inl"
+#include "tasks/draw_opaque_meshlets.inl"
+#include "tasks/draw_masked_meshlets.inl"
+
+#include "tasks/resolve_visibility_buffer.inl"
 
 namespace foundation {
     // TODO: get rid of this
@@ -130,8 +134,10 @@ namespace foundation {
         PROFILE_SCOPE;
 
         std::vector<std::tuple<std::string, daxa::RasterPipelineCompileInfo2>> rasters = {
-            {DrawDepthTask::name(), DrawDepthTask::pipeline_config_info()},
-            {DrawMeshletsTask::name(), DrawMeshletsTask::pipeline_config_info()},
+            {DrawOpaqueMeshletsOnlyDepthTask::name(), DrawOpaqueMeshletsOnlyDepthTask::pipeline_config_info()},
+            {DrawMaskedMeshletsOnlyDepthTask::name(), DrawMaskedMeshletsOnlyDepthTask::pipeline_config_info()},
+            {DrawOpaqueMeshletsTask::name(), DrawOpaqueMeshletsTask::pipeline_config_info()},
+            {DrawMaskedMeshletsTask::name(), DrawMaskedMeshletsTask::pipeline_config_info()},
 
             {DebugAABBDrawTask::name(), DebugAABBDrawTask::pipeline_config_info()},
             {DebugCircleDrawTask::name(), DebugCircleDrawTask::pipeline_config_info()},
@@ -150,15 +156,19 @@ namespace foundation {
         }
 
         std::vector<std::tuple<std::string, daxa::ComputePipelineCompileInfo2>> computes = {
-            {DrawDepthWriteCommandTask::name(), DrawDepthWriteCommandTask::pipeline_config_info()},
+            {DrawOpaqueMeshletsOnlyDepthWriteCommandTask::name(), DrawOpaqueMeshletsOnlyDepthWriteCommandTask::pipeline_config_info()},
+            {DrawMaskedMeshletsOnlyDepthWriteCommandTask::name(), DrawMaskedMeshletsOnlyDepthWriteCommandTask::pipeline_config_info()},
+            {DrawOpaqueMeshletsWriteCommandTask::name(), DrawOpaqueMeshletsWriteCommandTask::pipeline_config_info()},
+            {DrawMaskedMeshletsWriteCommandTask::name(), DrawMaskedMeshletsWriteCommandTask::pipeline_config_info()},
+
             {gen_hiz_pipeline_config_info().name, gen_hiz_pipeline_config_info()},
             
             {CullMeshInstancesWriteCommandTask::name(), CullMeshInstancesWriteCommandTask::pipeline_config_info()},
             {CullMeshInstancesTask::name(), CullMeshInstancesTask::pipeline_config_info()},
+
             {CullMeshletInstancesWriteCommandTask::name(), CullMeshletInstancesWriteCommandTask::pipeline_config_info()},
             {CullMeshletInstancesTask::name(), CullMeshletInstancesTask::pipeline_config_info()},
 
-            {DrawMeshletsWriteCommandTask::name(), DrawMeshletsWriteCommandTask::pipeline_config_info()},
             {ResolveVisibilityBufferTask::name(), ResolveVisibilityBufferTask::pipeline_config_info()},
         };
 
@@ -217,8 +227,15 @@ namespace foundation {
         render_task_graph.use_persistent_buffer(gpu_scene->gpu_mesh_instances);
         render_task_graph.use_persistent_buffer(gpu_scene->gpu_mesh_instance_indices);
         render_task_graph.use_persistent_buffer(gpu_scene->gpu_culled_mesh_instances_data);
-        render_task_graph.use_persistent_buffer(gpu_scene->gpu_prefix_sum_work_expansion_mesh);
-        render_task_graph.use_persistent_buffer(gpu_scene->gpu_culled_meshlets_instances_data);
+
+        render_task_graph.use_persistent_buffer(gpu_scene->gpu_culled_meshlet_instances);
+        render_task_graph.use_persistent_buffer(gpu_scene->gpu_opaque_prefix_sum_work_expansion_mesh);
+        render_task_graph.use_persistent_buffer(gpu_scene->gpu_masked_prefix_sum_work_expansion_mesh);
+        render_task_graph.use_persistent_buffer(gpu_scene->gpu_blended_prefix_sum_work_expansion_mesh);
+
+        render_task_graph.use_persistent_buffer(gpu_scene->gpu_opaque_culled_meshlet_instances_region);
+        render_task_graph.use_persistent_buffer(gpu_scene->gpu_masked_culled_meshlet_instances_region);
+        render_task_graph.use_persistent_buffer(gpu_scene->gpu_blended_culled_meshlet_instances_region);
 
         render_task_graph.use_persistent_buffer(gpu_scene->gpu_point_lights);
         render_task_graph.use_persistent_buffer(gpu_scene->gpu_spot_lights);
@@ -285,26 +302,74 @@ namespace foundation {
             .name = "command",
         });
 
-        render_task_graph.add_task(DrawDepthWriteCommandTask {
-            .views = DrawDepthWriteCommandTask::Views {
-                .u_culled_meshlet_instances_data = gpu_scene->gpu_culled_meshlets_instances_data.view(),
+        render_task_graph.add_task(DrawOpaqueMeshletsOnlyDepthWriteCommandTask {
+            .views = DrawOpaqueMeshletsOnlyDepthWriteCommandTask::Views {
+                .u_culled_meshlet_instances = gpu_scene->gpu_culled_meshlet_instances.view(),
+                .u_culled_meshlet_instances_region = gpu_scene->gpu_opaque_culled_meshlet_instances_region.view(),
                 .u_command = u_command,
             },
             .gpu_context = gpu_context,
         });
 
-        render_task_graph.add_task(DrawDepthTask {
-            .views = DrawDepthTask::Views {
+        render_task_graph.add_task(DrawOpaqueMeshletsOnlyDepthTask {
+            .views = DrawOpaqueMeshletsOnlyDepthTask::Views {
                 .u_globals = gpu_context->shader_globals_buffer.view(),
                 .u_transforms = gpu_scene->gpu_transforms.view(),
-                .u_culled_meshlet_instances_data = gpu_scene->gpu_culled_meshlets_instances_data.view(),
+                .u_culled_meshlet_instances = gpu_scene->gpu_culled_meshlet_instances.view(),
+                .u_culled_meshlet_instances_region = gpu_scene->gpu_opaque_culled_meshlet_instances_region.view(),
+                .u_mesh_instances = gpu_scene->gpu_mesh_instances.view(),
+                .u_command = u_command,
+                .u_depth_image = depth_image.view(),
+            },
+            .gpu_context = gpu_context,
+            .gpu_scene = gpu_scene,
+        });
+
+        render_task_graph.add_task(DrawMaskedMeshletsOnlyDepthWriteCommandTask {
+            .views = DrawMaskedMeshletsOnlyDepthWriteCommandTask::Views {
+                .u_culled_meshlet_instances = gpu_scene->gpu_culled_meshlet_instances.view(),
+                .u_culled_meshlet_instances_region = gpu_scene->gpu_masked_culled_meshlet_instances_region.view(),
+                .u_command = u_command,
+            },
+            .gpu_context = gpu_context,
+        });
+
+        render_task_graph.add_task(DrawMaskedMeshletsOnlyDepthTask {
+            .views = DrawMaskedMeshletsOnlyDepthTask::Views {
+                .u_globals = gpu_context->shader_globals_buffer.view(),
+                .u_transforms = gpu_scene->gpu_transforms.view(),
+                .u_culled_meshlet_instances = gpu_scene->gpu_culled_meshlet_instances.view(),
+                .u_culled_meshlet_instances_region = gpu_scene->gpu_masked_culled_meshlet_instances_region.view(),
                 .u_mesh_instances = gpu_scene->gpu_mesh_instances.view(),
                 .u_materials = asset_manager->gpu_materials.view(),
                 .u_command = u_command,
                 .u_depth_image = depth_image.view(),
             },
             .gpu_context = gpu_context,
-            .asset_manager = asset_manager,
+            .gpu_scene = gpu_scene,
+        });
+
+        render_task_graph.add_task(DrawMaskedMeshletsOnlyDepthWriteCommandTask {
+            .views = DrawMaskedMeshletsOnlyDepthWriteCommandTask::Views {
+                .u_culled_meshlet_instances = gpu_scene->gpu_culled_meshlet_instances.view(),
+                .u_culled_meshlet_instances_region = gpu_scene->gpu_blended_culled_meshlet_instances_region.view(),
+                .u_command = u_command,
+            },
+            .gpu_context = gpu_context,
+        });
+
+        render_task_graph.add_task(DrawMaskedMeshletsOnlyDepthTask {
+            .views = DrawMaskedMeshletsOnlyDepthTask::Views {
+                .u_globals = gpu_context->shader_globals_buffer.view(),
+                .u_transforms = gpu_scene->gpu_transforms.view(),
+                .u_culled_meshlet_instances = gpu_scene->gpu_culled_meshlet_instances.view(),
+                .u_culled_meshlet_instances_region = gpu_scene->gpu_blended_culled_meshlet_instances_region.view(),
+                .u_mesh_instances = gpu_scene->gpu_mesh_instances.view(),
+                .u_materials = asset_manager->gpu_materials.view(),
+                .u_command = u_command,
+                .u_depth_image = depth_image.view(),
+            },
+            .gpu_context = gpu_context,
             .gpu_scene = gpu_scene,
         });
 
@@ -322,7 +387,9 @@ namespace foundation {
             .views = CullMeshInstancesWriteCommandTask::Views {
                 .u_mesh_group_instance_count = gpu_scene->gpu_mesh_group_instance_count.view(),
                 .u_culled_mesh_instances_data = gpu_scene->gpu_culled_mesh_instances_data.view(),
-                .u_prefix_sum_work_expansion_mesh = gpu_scene->gpu_prefix_sum_work_expansion_mesh.view(),
+                .u_opaque_prefix_sum_work_expansion_mesh = gpu_scene->gpu_opaque_prefix_sum_work_expansion_mesh.view(),
+                .u_masked_prefix_sum_work_expansion_mesh = gpu_scene->gpu_masked_prefix_sum_work_expansion_mesh.view(),
+                .u_blended_prefix_sum_work_expansion_mesh = gpu_scene->gpu_blended_prefix_sum_work_expansion_mesh.view(),
                 .u_command = u_command,
             },
             .gpu_context = gpu_context,
@@ -336,8 +403,11 @@ namespace foundation {
                 .u_mesh_instance_indices = gpu_scene->gpu_mesh_instance_indices.view(),
                 .u_mesh_instances = gpu_scene->gpu_mesh_instances.view(),
                 .u_transforms = gpu_scene->gpu_transforms.view(),
+                .u_materials = asset_manager->gpu_materials.view(),
                 .u_culled_mesh_instances_data = gpu_scene->gpu_culled_mesh_instances_data.view(),
-                .u_prefix_sum_work_expansion_mesh = gpu_scene->gpu_prefix_sum_work_expansion_mesh.view(),
+                .u_opaque_prefix_sum_work_expansion_mesh = gpu_scene->gpu_opaque_prefix_sum_work_expansion_mesh.view(),
+                .u_masked_prefix_sum_work_expansion_mesh = gpu_scene->gpu_masked_prefix_sum_work_expansion_mesh.view(),
+                .u_blended_prefix_sum_work_expansion_mesh = gpu_scene->gpu_blended_prefix_sum_work_expansion_mesh.view(),
                 .u_hiz = first_pass_hiz,
                 .u_command = u_command,
             },
@@ -346,8 +416,8 @@ namespace foundation {
 
         render_task_graph.add_task(CullMeshletInstancesWriteCommandTask {
             .views = CullMeshletInstancesWriteCommandTask::Views {
-                .u_culled_meshlet_instances_data = gpu_scene->gpu_culled_meshlets_instances_data.view(),
-                .u_prefix_sum_work_expansion_mesh = gpu_scene->gpu_prefix_sum_work_expansion_mesh.view(),
+                .u_culled_meshlet_instances_region = gpu_scene->gpu_opaque_culled_meshlet_instances_region.view(),
+                .u_prefix_sum_work_expansion_mesh = gpu_scene->gpu_opaque_prefix_sum_work_expansion_mesh.view(),
                 .u_command = u_command,
             },
             .gpu_context = gpu_context,
@@ -358,28 +428,103 @@ namespace foundation {
                 .u_globals = gpu_context->shader_globals_buffer.view(),
                 .u_mesh_instances = gpu_scene->gpu_mesh_instances.view(),
                 .u_transforms = gpu_scene->gpu_transforms.view(),
-                .u_prefix_sum_work_expansion_mesh = gpu_scene->gpu_prefix_sum_work_expansion_mesh.view(),
+                .u_prefix_sum_work_expansion_mesh = gpu_scene->gpu_opaque_prefix_sum_work_expansion_mesh.view(),
                 .u_culled_mesh_instances_data = gpu_scene->gpu_culled_mesh_instances_data.view(),
-                .u_culled_meshlet_instances_data = gpu_scene->gpu_culled_meshlets_instances_data.view(),
+                .u_culled_meshlet_instances = gpu_scene->gpu_culled_meshlet_instances.view(),
+                .u_culled_meshlet_instances_region = gpu_scene->gpu_opaque_culled_meshlet_instances_region.view(),
                 .u_hiz = first_pass_hiz,
                 .u_command = u_command,
             },
             .gpu_context = gpu_context,
         });
 
-        render_task_graph.add_task(DrawMeshletsWriteCommandTask {
-            .views = DrawMeshletsWriteCommandTask::Views {
-                .u_culled_meshlet_instances_data = gpu_scene->gpu_culled_meshlets_instances_data.view(),
+        render_task_graph.add_task(CullMeshletInstancesWriteCommandTask {
+            .views = CullMeshletInstancesWriteCommandTask::Views {
+                .u_culled_meshlet_instances_region = gpu_scene->gpu_masked_culled_meshlet_instances_region.view(),
+                .u_prefix_sum_work_expansion_mesh = gpu_scene->gpu_masked_prefix_sum_work_expansion_mesh.view(),
                 .u_command = u_command,
             },
             .gpu_context = gpu_context,
         });
 
-        render_task_graph.add_task(DrawMeshletsTask {
-            .views = DrawMeshletsTask::Views {
+        render_task_graph.add_task(CullMeshletInstancesTask {
+            .views = CullMeshletInstancesTask::Views {
+                .u_globals = gpu_context->shader_globals_buffer.view(),
+                .u_mesh_instances = gpu_scene->gpu_mesh_instances.view(),
+                .u_transforms = gpu_scene->gpu_transforms.view(),
+                .u_prefix_sum_work_expansion_mesh = gpu_scene->gpu_masked_prefix_sum_work_expansion_mesh.view(),
+                .u_culled_mesh_instances_data = gpu_scene->gpu_culled_mesh_instances_data.view(),
+                .u_culled_meshlet_instances = gpu_scene->gpu_culled_meshlet_instances.view(),
+                .u_culled_meshlet_instances_region = gpu_scene->gpu_masked_culled_meshlet_instances_region.view(),
+                .u_hiz = first_pass_hiz,
+                .u_command = u_command,
+            },
+            .gpu_context = gpu_context,
+        });
+
+        render_task_graph.add_task(CullMeshletInstancesWriteCommandTask {
+            .views = CullMeshletInstancesWriteCommandTask::Views {
+                .u_culled_meshlet_instances_region = gpu_scene->gpu_blended_culled_meshlet_instances_region.view(),
+                .u_prefix_sum_work_expansion_mesh = gpu_scene->gpu_blended_prefix_sum_work_expansion_mesh.view(),
+                .u_command = u_command,
+            },
+            .gpu_context = gpu_context,
+        });
+
+        render_task_graph.add_task(CullMeshletInstancesTask {
+            .views = CullMeshletInstancesTask::Views {
+                .u_globals = gpu_context->shader_globals_buffer.view(),
+                .u_mesh_instances = gpu_scene->gpu_mesh_instances.view(),
+                .u_transforms = gpu_scene->gpu_transforms.view(),
+                .u_prefix_sum_work_expansion_mesh = gpu_scene->gpu_blended_prefix_sum_work_expansion_mesh.view(),
+                .u_culled_mesh_instances_data = gpu_scene->gpu_culled_mesh_instances_data.view(),
+                .u_culled_meshlet_instances = gpu_scene->gpu_culled_meshlet_instances.view(),
+                .u_culled_meshlet_instances_region = gpu_scene->gpu_blended_culled_meshlet_instances_region.view(),
+                .u_hiz = first_pass_hiz,
+                .u_command = u_command,
+            },
+            .gpu_context = gpu_context,
+        });
+
+        render_task_graph.add_task(DrawOpaqueMeshletsWriteCommandTask {
+            .views = DrawOpaqueMeshletsWriteCommandTask::Views {
+                .u_culled_meshlet_instances = gpu_scene->gpu_culled_meshlet_instances.view(),
+                .u_culled_meshlet_instances_region = gpu_scene->gpu_opaque_culled_meshlet_instances_region.view(),
+                .u_command = u_command,
+            },
+            .gpu_context = gpu_context,
+        });
+
+        render_task_graph.add_task(DrawOpaqueMeshletsTask {
+            .views = DrawOpaqueMeshletsTask::Views {
                 .u_globals = gpu_context->shader_globals_buffer.view(),
                 .u_transforms = gpu_scene->gpu_transforms.view(),
-                .u_culled_meshlet_instances_data = gpu_scene->gpu_culled_meshlets_instances_data.view(),
+                .u_culled_meshlet_instances = gpu_scene->gpu_culled_meshlet_instances.view(),
+                .u_culled_meshlet_instances_region = gpu_scene->gpu_opaque_culled_meshlet_instances_region.view(),
+                .u_mesh_instances = gpu_scene->gpu_mesh_instances.view(),
+                .u_command = u_command,
+                .u_visibility_image = visibility_image.view(),
+                .u_depth_image = depth_image.view(),
+            },
+            .gpu_context = gpu_context,
+            .gpu_scene = gpu_scene,
+        });
+
+        render_task_graph.add_task(DrawMaskedMeshletsWriteCommandTask {
+            .views = DrawMaskedMeshletsWriteCommandTask::Views {
+                .u_culled_meshlet_instances = gpu_scene->gpu_culled_meshlet_instances.view(),
+                .u_culled_meshlet_instances_region = gpu_scene->gpu_masked_culled_meshlet_instances_region.view(),
+                .u_command = u_command,
+            },
+            .gpu_context = gpu_context,
+        });
+
+        render_task_graph.add_task(DrawMaskedMeshletsTask {
+            .views = DrawMaskedMeshletsTask::Views {
+                .u_globals = gpu_context->shader_globals_buffer.view(),
+                .u_transforms = gpu_scene->gpu_transforms.view(),
+                .u_culled_meshlet_instances = gpu_scene->gpu_culled_meshlet_instances.view(),
+                .u_culled_meshlet_instances_region = gpu_scene->gpu_masked_culled_meshlet_instances_region.view(),
                 .u_mesh_instances = gpu_scene->gpu_mesh_instances.view(),
                 .u_materials = asset_manager->gpu_materials.view(),
                 .u_command = u_command,
@@ -387,7 +532,31 @@ namespace foundation {
                 .u_depth_image = depth_image.view(),
             },
             .gpu_context = gpu_context,
-            .asset_manager = asset_manager,
+            .gpu_scene = gpu_scene,
+        });
+
+        render_task_graph.add_task(DrawMaskedMeshletsWriteCommandTask {
+            .views = DrawMaskedMeshletsWriteCommandTask::Views {
+                .u_culled_meshlet_instances = gpu_scene->gpu_culled_meshlet_instances.view(),
+                .u_culled_meshlet_instances_region = gpu_scene->gpu_blended_culled_meshlet_instances_region.view(),
+                .u_command = u_command,
+            },
+            .gpu_context = gpu_context,
+        });
+
+        render_task_graph.add_task(DrawMaskedMeshletsTask {
+            .views = DrawMaskedMeshletsTask::Views {
+                .u_globals = gpu_context->shader_globals_buffer.view(),
+                .u_transforms = gpu_scene->gpu_transforms.view(),
+                .u_culled_meshlet_instances = gpu_scene->gpu_culled_meshlet_instances.view(),
+                .u_culled_meshlet_instances_region = gpu_scene->gpu_blended_culled_meshlet_instances_region.view(),
+                .u_mesh_instances = gpu_scene->gpu_mesh_instances.view(),
+                .u_materials = asset_manager->gpu_materials.view(),
+                .u_command = u_command,
+                .u_visibility_image = visibility_image.view(),
+                .u_depth_image = depth_image.view(),
+            },
+            .gpu_context = gpu_context,
             .gpu_scene = gpu_scene,
         });
 
@@ -397,7 +566,7 @@ namespace foundation {
             .views = ResolveVisibilityBufferTask::Views {
                 .u_globals = gpu_context->shader_globals_buffer.view(),
                 .u_transforms = gpu_scene->gpu_transforms.view(),
-                .u_culled_meshlet_instances_data = gpu_scene->gpu_culled_meshlets_instances_data.view(),
+                .u_culled_meshlet_instances = gpu_scene->gpu_culled_meshlet_instances.view(),
                 .u_mesh_instances = gpu_scene->gpu_mesh_instances.view(),
                 .u_materials = asset_manager->gpu_materials.view(),
                 .u_point_lights = gpu_scene->gpu_point_lights.view(),

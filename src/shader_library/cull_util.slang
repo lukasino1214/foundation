@@ -37,7 +37,7 @@ NdcAABB calculate_ndc_aabb(CameraInfo camera, f32mat4x4 model_matrix, AABB aabb)
     ret.ndc_min = ndc_corner_position.xyz;
     ret.ndc_max = ndc_corner_position.xyz;
     max_behind_near_plane = max_behind_near_plane || (clipspace_corner_position.z > clipspace_corner_position.w);
-    for(i32 i = 1; i < 8; ++i) {
+    for(i32 i = 1; i < 8; i++) {
         f32vec3 corner = f32vec3(i & 0x1, i & 0x2, i & 0x4) * f32vec3(2.0f, 1.0f, 0.5f) - 1.0f;
         const f32vec3 model_corner_position = aabb.center + aabb.extent * corner;
         const f32vec4 clipspace_corner_position = mul(mvp, f32vec4(model_corner_position,1));

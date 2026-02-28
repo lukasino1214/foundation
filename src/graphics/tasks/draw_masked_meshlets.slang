@@ -1,20 +1,20 @@
 #define DAXA_RAY_TRACING 1
 #include "daxa/daxa.inl"
-#include "draw_mesh.inl"
+#include "draw_masked_meshlets.inl"
 
-[[vk::push_constant]] DrawMeshletsWriteCommandPush write_push;
+[[vk::push_constant]] DrawMaskedMeshletsWriteCommandPush write_push;
 
 [shader("compute")]
 [numthreads(1, 1, 1)]
-void draw_depth_write_command() {
+void draw_meshlets_write_command() {
     DispatchIndirectStruct command;
-    command.x = write_push.uses.u_culled_meshlet_instances_data->count;
+    command.x = write_push.uses.u_culled_meshlet_instances_region->count;
     command.y = 1;
     command.z = 1;
     *write_push.uses.u_command = command;
 }
 
-[[vk::push_constant]] DrawMeshletsPush push;
+[[vk::push_constant]] DrawMaskedMeshletsPush push;
 
 struct MeshStageOutput {
     f32vec4 sv_position : SV_Position;
@@ -38,7 +38,7 @@ void mesh_main(
 ) {
     const u32 thread_index = local_thread_index.x;
 
-    const MeshletInstance meshlet_instance = push.uses.u_culled_meshlet_instances_data.meshlet_instances[group_index.x];
+    const MeshletInstance meshlet_instance = push.uses.u_culled_meshlet_instances_region.meshlet_instances[group_index.x];
     const MeshInstance mesh_instance = push.uses.u_mesh_instances[meshlet_instance.mesh_instance_index];
     const Meshlet meshlet = mesh_instance.meshlets[meshlet_instance.meshlet_index];
 
@@ -55,7 +55,11 @@ void mesh_main(
         const u32 vertex_index = mesh_instance.indirect_vertices[meshlet.indirect_vertex_offset + thread_index];
 
         MeshStageOutput vertex;
-        vertex.sv_position = mul(push.uses.u_globals->main_camera.projection_view_matrix, mul(transform_matrix, f32vec4(mesh_instance.positions[vertex_index], 1.0f)));
+        if(push.uses.u_globals.render_as_observer) {
+            vertex.sv_position = mul(push.uses.u_globals->observer_camera.projection_view_matrix, mul(transform_matrix, f32vec4(mesh_instance.positions[vertex_index], 1.0f)));
+        } else {
+            vertex.sv_position = mul(push.uses.u_globals->main_camera.projection_view_matrix, mul(transform_matrix, f32vec4(mesh_instance.positions[vertex_index], 1.0f)));
+        }
 
         if(mesh_instance.uvs != 0) {
             vertex.uv = mesh_instance.uvs[vertex_index];
@@ -83,11 +87,11 @@ void mesh_main(
 }
 
 [shader("fragment")]
-void fragment_main(
+u32 fragment_main( 
     in MeshStageOutput input, 
     in PrimitiveOutput primitive
-) {
-    const MeshletInstance meshlet_instance = push.uses.u_culled_meshlet_instances_data.meshlet_instances[primitive.meshlet_instance_index];
+) : SV_Target {
+    const MeshletInstance meshlet_instance = push.uses.u_culled_meshlet_instances_region.meshlet_instances[primitive.meshlet_instance_index];
     const MeshInstance mesh_instance = push.uses.u_mesh_instances[meshlet_instance.mesh_instance_index];
 
     if(mesh_instance.material_index != INVALID_ID) {
@@ -103,4 +107,8 @@ void fragment_main(
 
         if(alpha < 0.5f) { discard; }
     }
+
+    u32 visibility_index = 0;
+    encode_triangle_id(visibility_index, push.uses.u_culled_meshlet_instances_region.offset + primitive.meshlet_instance_index, primitive.triangle_index);
+    return visibility_index;
 }   
