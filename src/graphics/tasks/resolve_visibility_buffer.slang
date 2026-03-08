@@ -192,7 +192,7 @@ void resolve_visibility_buffer(u32vec3 pixel : SV_DispatchThreadID, u32vec2 tile
         mul(transform_matrix, f32vec4(positions[2], 1.0))
     );
 
-    const f32mat4x4 projection_view_matrix = push.uses.u_globals->render_as_observer ? push.uses.u_globals->observer_camera.projection_view_matrix : push.uses.u_globals->main_camera.projection_view_matrix;
+    const f32mat4x4 projection_view_matrix = push.uses.u_globals->view_camera.projection_view_matrix;
 
     const f32vec4[3] clip_position = f32vec4[3](
         mul(projection_view_matrix, world_positions[0]),

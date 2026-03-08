@@ -74,10 +74,10 @@ bool is_ndc_aabb_hiz_depth_occluded(CullData data, CameraInfo camera, NdcAABB nd
     const f32 pixel_width = max(max_texel_i.x - min_texel_i.x, max_texel_i.y - min_texel_i.y);
     const f32 mip = max(0.0f, ceil(log2(pixel_width)) - log2(f32(hiz_sample_width)));
 
-    i32 imip = i32(mip);
-    i32vec2 min_corner_texel = i32vec2(min_texel_i) >> imip;
-    i32vec2 max_corner_texel = i32vec2(max_texel_i) >> imip;
-    i32vec2 at_mip_pixel_width = max_corner_texel - min_corner_texel + i32vec2(1);
+    const i32 imip = i32(mip);
+    const i32vec2 min_corner_texel = i32vec2(min_texel_i) >> imip;
+    const i32vec2 max_corner_texel = i32vec2(max_texel_i) >> imip;
+    const i32vec2 at_mip_pixel_width = max_corner_texel - min_corner_texel + i32vec2(1);
     const i32vec2 quad_corner_texel = i32vec2(min_texel_i) >> imip;
     const i32vec2 physical_texel_bounds = max(i32vec2(0,0), (data.physical_hiz_size >> imip) - 1);
 
@@ -96,28 +96,14 @@ bool is_ndc_aabb_hiz_depth_occluded(CullData data, CameraInfo camera, NdcAABB nd
     return depth_cull;
 }
 
-AABB calculate_worldspace_aabb_from_modelspace(in f32mat4x4 model_matrix, in AABB aabb) {
-    AABB worldspace_aabb;
-    worldspace_aabb.center = mul(model_matrix, f32vec4(aabb.center, 1.0)).xyz;
+AABB calculate_worldspace_aabb_from_modelspace(in f32mat4x4 transform_matrix, in AABB aabb) {
+    const f32vec3 basis_x = mul(transform_matrix, f32vec4(aabb.extent.x, 0.0f, 0.0f, 0.0f)).xyz;
+    const f32vec3 basis_y = mul(transform_matrix, f32vec4(0.0f, aabb.extent.y, 0.0f, 0.0f)).xyz;
+    const f32vec3 basis_z = mul(transform_matrix, f32vec4(0.0f, 0.0f, aabb.extent.z, 0.0f)).xyz;
     
-    const f32vec3 right = model_matrix[0].xyz * aabb.extent.x;
-    const f32vec3 up = model_matrix[1].xyz * aabb.extent.y;
-    const f32vec3 forward = (-model_matrix[2].xyz) * aabb.extent.z;
-
-    worldspace_aabb.extent = f32vec3(
-        abs(dot(f32vec3(1.0, 0.0, 0.0), right)) +
-        abs(dot(f32vec3(1.0, 0.0, 0.0), up)) +
-        abs(dot(f32vec3(1.0, 0.0, 0.0), forward)),
-
-        abs(dot(f32vec3(0.0, 1.0, 0.0), right)) +
-        abs(dot(f32vec3(0.0, 1.0, 0.0), up)) +
-        abs(dot(f32vec3(0.0, 1.0, 0.0), forward)),
-
-        abs(dot(f32vec3(0.0, 0.0, 1.0), right)) +
-        abs(dot(f32vec3(0.0, 0.0, 1.0), up)) +
-        abs(dot(f32vec3(0.0, 0.0, 1.0), forward))
-    );
-
+    AABB worldspace_aabb;
+    worldspace_aabb.center = mul(transform_matrix, f32vec4(aabb.center, 1.0)).xyz;
+    worldspace_aabb.extent = abs(basis_x) + abs(basis_y) + abs(basis_z);
     return worldspace_aabb;
 }
 

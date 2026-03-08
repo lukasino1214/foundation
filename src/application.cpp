@@ -467,7 +467,12 @@ namespace foundation {
         };
 
         gpu_context.shader_globals.main_camera = set_camera_info(main_camera);
-        gpu_context.shader_globals.observer_camera = set_camera_info(observer_camera);
+        if(gpu_context.shader_globals.render_as_observer != 0u) {
+            gpu_context.shader_globals.view_camera = set_camera_info(observer_camera);
+        } else {
+            gpu_context.shader_globals.view_camera = set_camera_info(main_camera);
+        }
+
         gpu_context.shader_globals.render_target_size = { window.get_width(), window.get_height() };
         gpu_context.shader_globals.render_target_size_inv = {
             1.0f / s_cast<f32>(gpu_context.shader_globals.render_target_size.x),

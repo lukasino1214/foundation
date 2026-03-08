@@ -90,7 +90,7 @@ struct GlobalSamplers {
 
 struct ShaderGlobals {
     CameraInfo main_camera;
-    CameraInfo observer_camera;
+    CameraInfo view_camera;
     b32 render_as_observer;
     u32vec2 render_target_size;
     f32vec2 render_target_size_inv;

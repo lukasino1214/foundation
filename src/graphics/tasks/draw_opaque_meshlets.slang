@@ -49,7 +49,7 @@ void mesh_main(
     const Meshlet meshlet = mesh_instance.meshlets[meshlet_instance.meshlet_index];
 
     const f32mat4x4 transform_matrix = mat_4x3_to_4x4(push.uses.u_transforms[mesh_instance.mesh_group_index]);
-    const f32mat4x4 projection_view_matrix = push.uses.u_globals->main_camera.projection_view_matrix;
+    const f32mat4x4 projection_view_matrix = push.uses.u_globals->view_camera.projection_view_matrix;
 
     SetMeshOutputCounts(meshlet.vertex_count, meshlet.triangle_count);
 
