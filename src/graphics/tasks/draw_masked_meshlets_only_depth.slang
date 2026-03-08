@@ -2,6 +2,7 @@
 #include "daxa/daxa.inl"
 #include "draw_masked_meshlets_only_depth.inl"
 #include "../../shader_library/cull_util.slang"
+#include "../../shader_library/compression.inl"
 
 [[vk::push_constant]] DrawMaskedMeshletsOnlyDepthWriteCommandPush write_push;
 
@@ -65,7 +66,7 @@ void mesh_main(
             MeshStageOutput vertex;
             local_clip_vertices[loop] = mul(projection_view_matrix, mul(transform_matrix, f32vec4(mesh_instance.positions[vertex_index], 1.0f)));
             vertex.sv_position = local_clip_vertices[loop];
-            vertex.uv = mesh_instance.uvs[vertex_index];
+            vertex.uv = decode_uv(mesh_instance.uvs[vertex_index]);
             out_vertices[index] = vertex;
         }
     }

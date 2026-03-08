@@ -51,6 +51,23 @@ namespace foundation {
         std::string name = {};
     };
 
+    struct ProcessedMesh {
+        std::vector<glm::vec3> positions = {};
+        std::vector<u32> normals = {};
+        std::vector<u32> uvs = {};
+        std::vector<u32> indices = {};
+
+        std::vector<Meshlet> meshlets = {};
+        std::vector<u32> indirect_vertices = {};
+        std::vector<u8> micro_indices = {};
+        std::vector<BoundingSphere> bounding_spheres = {};
+        std::vector<AABB> aabbs = {};
+
+        AABB mesh_aabb;
+
+        std::string name = {};
+    };
+
     struct Asset {
         virtual ~Asset() = default;
 

@@ -3,6 +3,7 @@
 #include "resolve_visibility_buffer.inl"
 #include "../../shader_library/cull_util.slang"
 #include "../../shader_library/visibility_buffer.slang"
+#include "../../shader_library/compression.inl"
 
 f32vec3 hsv_to_rgb(in f32vec3 hsv) {
     const f32vec3 rgb = saturate(abs(fmod(hsv.x * 6.0 + f32vec3(0.0, 4.0, 2.0), 6.0) - 3.0) - 1.0);
@@ -213,9 +214,9 @@ void resolve_visibility_buffer(u32vec3 pixel : SV_DispatchThreadID, u32vec2 tile
 
     const f32vec2[3] uvs = mesh_instance.uvs != 0
         ? f32vec2[3](
-            mesh_instance.uvs[indices[0]],
-            mesh_instance.uvs[indices[1]],
-            mesh_instance.uvs[indices[2]]
+            decode_uv(mesh_instance.uvs[indices[0]]),
+            decode_uv(mesh_instance.uvs[indices[1]]),
+            decode_uv(mesh_instance.uvs[indices[2]])
         )
         : f32vec2[3](f32vec2(0.0f), f32vec2(0.0f), f32vec2(0.0f));
 
@@ -223,9 +224,9 @@ void resolve_visibility_buffer(u32vec3 pixel : SV_DispatchThreadID, u32vec2 tile
 
     const f32vec3[3] vertex_normals = mesh_instance.normals != 0
         ? f32vec3[3](
-            mesh_instance.normals[indices[0]],
-            mesh_instance.normals[indices[1]],
-            mesh_instance.normals[indices[2]]
+            decode_normal(mesh_instance.normals[indices[0]]),
+            decode_normal(mesh_instance.normals[indices[1]]),
+            decode_normal(mesh_instance.normals[indices[2]])
         )
         : f32vec3[3](f32vec3(0.0f, 1.0f, 0.0f), f32vec3(0.0f, 1.0f, 0.0f), f32vec3(0.0f, 1.0f, 0.0f));
 

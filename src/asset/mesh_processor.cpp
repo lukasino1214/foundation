@@ -1,9 +1,10 @@
 #include "mesh_processor.hpp"
 
 #include <meshoptimizer.h>
+#include <shader_library/compression.inl>
 
 namespace foundation {
-    auto MeshProcessor::process_mesh(const LoadedMesh& loaded_mesh) -> LoadedMesh {
+    auto MeshProcessor::process_mesh(const LoadedMesh& loaded_mesh) -> ProcessedMesh {
         LoadedMesh processed_mesh = {};
         processed_mesh.name = loaded_mesh.name;
         if(loaded_mesh.indices.empty()) {
@@ -116,7 +117,33 @@ namespace foundation {
             .extent =  (mesh_aabb_max - mesh_aabb_min) * 0.5f,
         };
 
-        return processed_mesh;
+        std::vector<u32> compressed_normals = {};
+        compressed_normals.reserve(processed_mesh.normals.size());
+
+        for(const glm::vec3& normal : processed_mesh.normals) {
+            compressed_normals.push_back(encode_normal(normal));
+        }
+
+        std::vector<u32> compressed_uvs = {};
+        compressed_uvs.reserve(processed_mesh.uvs.size());
+
+        for(const glm::vec2& uv : processed_mesh.uvs) {
+            compressed_uvs.push_back(encode_uv(uv));
+        }
+
+        return {
+            .positions = std::move(processed_mesh.positions),
+            .normals = std::move(compressed_normals),
+            .uvs = std::move(compressed_uvs),
+            .indices = std::move(processed_mesh.indices),
+            .meshlets = std::move(processed_mesh.meshlets),
+            .indirect_vertices = std::move(processed_mesh.indirect_vertices),
+            .micro_indices = std::move(processed_mesh.micro_indices),
+            .bounding_spheres = std::move(processed_mesh.bounding_spheres),
+            .aabbs = std::move(processed_mesh.aabbs),
+            .mesh_aabb = processed_mesh.mesh_aabb,
+            .name = processed_mesh.name,
+        };
     }
 
     auto MeshProcessor::generate_index_buffer(const GenerateIndexBufferInfo& info) -> ProcessedIndexBufferInfo {

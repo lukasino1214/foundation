@@ -4,7 +4,7 @@
 
 namespace foundation {
     struct MeshProcessor {
-        static auto process_mesh(const LoadedMesh& loaded_mesh) -> LoadedMesh;
+        static auto process_mesh(const LoadedMesh& loaded_mesh) -> ProcessedMesh;
 
     private:
         struct GenerateIndexBufferInfo {

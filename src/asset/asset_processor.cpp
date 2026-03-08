@@ -13,7 +13,7 @@ namespace foundation {
     void AssetProcessor::process_mesh_load(const LoadMeshInfo& info) {
         PROFILE_SCOPE;
 
-        LoadedMesh loaded_mesh = MeshProcessor::process_mesh(info.asset->load_mesh(info.asset_local_mesh_group_index, info.asset_local_mesh_index));
+        ProcessedMesh loaded_mesh = MeshProcessor::process_mesh(info.asset->load_mesh(info.asset_local_mesh_group_index, info.asset_local_mesh_index));
 
         auto& positions = loaded_mesh.positions;
         auto& normals = loaded_mesh.normals;
@@ -37,8 +37,8 @@ namespace foundation {
 
         usize total_mesh_size = 
             positions.size() * sizeof(glm::vec3) + 
-            normals.size() * sizeof(glm::vec3) + 
-            uvs.size() * sizeof(glm::vec2) +
+            normals.size() * sizeof(u32) + 
+            uvs.size() * sizeof(u32) +
             meshlets.size() * sizeof(Meshlet) + 
             indirect_vertices.size() * sizeof(u32) + 
             micro_indices.size() * sizeof(u8) +
@@ -64,16 +64,16 @@ namespace foundation {
         mesh_geometry_data.positions = bda;
         bda += positions.size() * sizeof(glm::vec3);
 
-        std::memcpy(mapped_ptr, normals.data(), normals.size() * sizeof(glm::vec3));
-        mapped_ptr += normals.size() * sizeof(glm::vec3);
+        std::memcpy(mapped_ptr, normals.data(), normals.size() * sizeof(u32));
+        mapped_ptr += normals.size() * sizeof(u32);
         mesh_geometry_data.normals = bda;
-        bda += normals.size() * sizeof(glm::vec3);
+        bda += normals.size() * sizeof(u32);
 
         if(!uvs.empty()) {
-            std::memcpy(mapped_ptr, uvs.data(), uvs.size() * sizeof(glm::vec2));
-            mapped_ptr += uvs.size() * sizeof(glm::vec2);
+            std::memcpy(mapped_ptr, uvs.data(), uvs.size() * sizeof(u32));
+            mapped_ptr += uvs.size() * sizeof(u32);
             mesh_geometry_data.uvs = bda;
-            bda += uvs.size() * sizeof(glm::vec2);
+            bda += uvs.size() * sizeof(u32);
         } else {
             mesh_geometry_data.uvs = 0;
         }

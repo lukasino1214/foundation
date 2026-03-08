@@ -126,8 +126,8 @@ DAXA_DECL_BUFFER_PTR(AABB)
 
 struct MeshGeometryData {
     daxa_BufferPtr(f32vec3) positions;
-    daxa_BufferPtr(f32vec3) normals;
-    daxa_BufferPtr(f32vec2) uvs;
+    daxa_BufferPtr(u32) normals;
+    daxa_BufferPtr(u32) uvs;
     daxa_BufferPtr(u32) indices;
 
     daxa_BufferPtr(Meshlet) meshlets;
@@ -160,8 +160,8 @@ struct MeshInstance {
     daxa_BufferPtr(AABB) aabbs;
 
     daxa_BufferPtr(f32vec3) positions;
-    daxa_BufferPtr(f32vec3) normals;
-    daxa_BufferPtr(f32vec2) uvs;
+    daxa_BufferPtr(u32) normals;
+    daxa_BufferPtr(u32) uvs;
 
     AABB mesh_aabb;
     u32 mesh_group_index;
