@@ -671,7 +671,11 @@ namespace foundation {
 
     void Renderer::ui_update() {
         PROFILE_SCOPE;
-        task_graph_debug_ui.update(render_task_graph);
+        {
+            PROFILE_ZONE_NAMED(rendergraph_execute);
+            std::lock_guard<std::mutex> lock(task_graph_mutex);
+            task_graph_debug_ui.update(render_task_graph);
+        }
     }
 
     void Renderer::ui_render_end() {

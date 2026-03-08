@@ -8,7 +8,7 @@
 
 #include "../../shader_library/shared.inl"
 
-DAXA_DECL_TASK_HEAD_BEGIN(DebugAABBDraw)
+DAXA_DECL_RASTER_TASK_HEAD_BEGIN(DebugAABBDraw)
 DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(ShaderGlobals), u_globals)
 DAXA_TH_IMAGE_TYPED(COLOR_ATTACHMENT, daxa::RWTexture2DId<f32vec4>, u_render_image)
 DAXA_TH_IMAGE_ID(DEPTH_ATTACHMENT, REGULAR_2D, u_depth_image)
@@ -19,7 +19,7 @@ struct DebugAABBDrawPush {
     daxa_u32 dummy;
 };
 
-DAXA_DECL_TASK_HEAD_BEGIN(DebugCircleDraw)
+DAXA_DECL_RASTER_TASK_HEAD_BEGIN(DebugCircleDraw)
 DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(ShaderGlobals), u_globals)
 DAXA_TH_IMAGE_TYPED(COLOR_ATTACHMENT, daxa::RWTexture2DId<f32vec4>, u_render_image)
 DAXA_TH_IMAGE_ID(DEPTH_ATTACHMENT, REGULAR_2D, u_depth_image)
@@ -30,7 +30,7 @@ struct DebugCircleDrawPush {
     daxa_u32 dummy;
 };
 
-DAXA_DECL_TASK_HEAD_BEGIN(DebugLineDraw)
+DAXA_DECL_RASTER_TASK_HEAD_BEGIN(DebugLineDraw)
 DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(ShaderGlobals), u_globals)
 DAXA_TH_IMAGE_TYPED(COLOR_ATTACHMENT, daxa::RWTexture2DId<f32vec4>, u_render_image)
 DAXA_TH_IMAGE_ID(DEPTH_ATTACHMENT, REGULAR_2D, u_depth_image)
