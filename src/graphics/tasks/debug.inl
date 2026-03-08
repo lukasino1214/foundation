@@ -72,7 +72,7 @@ struct DebugAABBDrawTask : DebugAABBDraw::Task {
                 .defines = { { std::string{DebugAABBDrawTask::name()} + "_SHADER", "1" } } 
             },
             .color_attachments = {
-                { .format = daxa::Format::R8G8B8A8_UNORM }
+                { .format = daxa::Format::R16G16B16A16_UNORM }
             },
             .depth_test = { daxa::DepthTestInfo {
                 .depth_attachment_format = daxa::Format::D32_SFLOAT,
@@ -167,7 +167,7 @@ struct DebugCircleDrawTask : DebugCircleDraw::Task {
                 .defines = { { std::string{DebugCircleDrawTask::name()} + "_SHADER", "1" } } 
             },
             .color_attachments = {
-                { .format = daxa::Format::R8G8B8A8_UNORM }
+                { .format = daxa::Format::R16G16B16A16_UNORM }
             },
             .depth_test = { daxa::DepthTestInfo {
                 .depth_attachment_format = daxa::Format::D32_SFLOAT,
@@ -262,7 +262,7 @@ struct DebugLineDrawTask : DebugLineDraw::Task {
                 .defines = { { std::string{DebugLineDrawTask::name()} + "_SHADER", "1" } } 
             },
             .color_attachments = {
-                { .format = daxa::Format::R8G8B8A8_UNORM }
+                { .format = daxa::Format::R16G16B16A16_UNORM }
             },
             .depth_test = { daxa::DepthTestInfo {
                 .depth_attachment_format = daxa::Format::D32_SFLOAT,

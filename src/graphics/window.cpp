@@ -130,15 +130,15 @@ namespace foundation {
             .native_window_info = get_native_window_info(),
             .surface_format_selector = [](daxa::Format format, daxa::ColorSpace) -> i32 {
                 switch (format) {
-                    // case daxa::Format::B8G8R8A8_UNORM: return 90;
-                    // case daxa::Format::R8G8B8A8_UNORM: return 80;
-                    case daxa::Format::B8G8R8A8_SRGB: return 70;
-                    case daxa::Format::R8G8B8A8_SRGB: return 60;
+                    case daxa::Format::B8G8R8A8_UNORM: return 90;
+                    case daxa::Format::R8G8B8A8_UNORM: return 80;
+                    // case daxa::Format::B8G8R8A8_SRGB: return 70;
+                    // case daxa::Format::R8G8B8A8_SRGB: return 60;
                     default: return 0;
                 }
             },
             .present_mode = daxa::PresentMode::MAILBOX,
-            .image_usage = daxa::ImageUsageFlagBits::TRANSFER_DST | daxa::ImageUsageFlagBits::COLOR_ATTACHMENT,
+            .image_usage = daxa::ImageUsageFlagBits::TRANSFER_DST | daxa::ImageUsageFlagBits::COLOR_ATTACHMENT | daxa::ImageUsageFlagBits::SHADER_STORAGE,
             .name = "swapchain's" + name
         });
     }

@@ -16,6 +16,7 @@
 #include "tasks/draw_masked_meshlets.inl"
 
 #include "tasks/resolve_visibility_buffer.inl"
+#include "tasks/write_swapchain.inl"
 
 namespace foundation {
     // TODO: get rid of this
@@ -58,7 +59,7 @@ namespace foundation {
         frame_buffer_images = {
             {
                 {
-                    .format = daxa::Format::R8G8B8A8_UNORM,
+                    .format = daxa::Format::R16G16B16A16_UNORM,
                     .usage = daxa::ImageUsageFlagBits::TRANSFER_SRC | daxa::ImageUsageFlagBits::TRANSFER_DST | daxa::ImageUsageFlagBits::COLOR_ATTACHMENT | daxa::ImageUsageFlagBits::SHADER_SAMPLED | daxa::ImageUsageFlagBits::SHADER_STORAGE,
                     .name = render_image.info().name,
                 },
@@ -169,6 +170,7 @@ namespace foundation {
             {CullMeshletInstancesTask::name(), CullMeshletInstancesTask::pipeline_config_info()},
 
             {ResolveVisibilityBufferTask::name(), ResolveVisibilityBufferTask::pipeline_config_info()},
+            {WriteSwapchainTask::name(), WriteSwapchainTask::pipeline_config_info()},
         };
 
         for (auto [name, info] : computes) {
@@ -572,7 +574,7 @@ namespace foundation {
             .dispatch_info = {
                 .x = round_up_div(render_target_size.x, 16),
                 .y = round_up_div(render_target_size.y, 16),
-                .z = 1
+                .z = 1,
             },
         });
 
@@ -603,21 +605,19 @@ namespace foundation {
             .gpu_context = gpu_context,
         });
 
-        render_task_graph.add_task(daxa::InlineTask::Transfer("blit image to swapchain")
-            .reads(render_image)
-            .writes(swapchain_image)
-            .executes([&](daxa::TaskInterface const &ti) {
-                auto size_x = ti.device.image_info(ti.get(render_image).ids[0]).value().size.x;
-                auto size_y = ti.device.image_info(ti.get(render_image).ids[0]).value().size.y;
-                ti.recorder.blit_image_to_image(daxa::ImageBlitInfo {
-                    .src_image = ti.get(render_image).ids[0],
-                    .dst_image = ti.get(swapchain_image).ids[0],
-                    .src_offsets = {{{0, 0, 0}, {static_cast<i32>(size_x), static_cast<i32>(size_y), 1}}},
-                    .dst_offsets = {{{0, 0, 0}, {static_cast<i32>(size_x), static_cast<i32>(size_y), 1}}},
-                    .filter = daxa::Filter::NEAREST,
-                });
-            })
-        );
+        render_task_graph.add_task(WriteSwapchainTask {
+            .views = WriteSwapchainTask::Views {
+                .u_render_image = render_image.view(),
+                .u_swapchain_image = swapchain_image.view(),
+            },
+            .gpu_context = gpu_context,
+            .push = { .size = render_target_size },
+            .dispatch_info = {
+                .x = round_up_div(render_target_size.x, 16),
+                .y = round_up_div(render_target_size.y, 8),
+                .z = 1,
+            },
+        });
 
         render_task_graph.add_task(
             daxa::InlineTask{"imgui draw"}
