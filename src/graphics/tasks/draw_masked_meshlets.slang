@@ -1,6 +1,8 @@
 #define DAXA_RAY_TRACING 1
 #include "daxa/daxa.inl"
 #include "draw_masked_meshlets.inl"
+#include "../../shader_library/cull_util.slang"
+#include "../../shader_library/visibility_buffer.slang"
 
 [[vk::push_constant]] DrawMaskedMeshletsWriteCommandPush write_push;
 
@@ -105,7 +107,7 @@ void mesh_main(
         {
             MeshPrimitiveOutput primitive;
             primitive.cull_primitive = cull_primitive;
-            encode_triangle_id(primitive.data.visibility_index, group_index.x, index);
+            encode_visibility_index(primitive.data.visibility_index, group_index.x, index);
             out_primitives[index] = primitive;
         }
 
@@ -119,7 +121,7 @@ void mesh_main(
 u32 fragment_main(in MeshStageOutput input, in PrimitiveOutput primitive) : SV_Target {
     u32 meshlet_instance_index;
     u32 triangle_index;
-    decode_triangle_id(primitive.visibility_index, meshlet_instance_index, triangle_index);
+    decode_visibility_index(primitive.visibility_index, meshlet_instance_index, triangle_index);
 
     const MeshletInstance meshlet_instance = push.uses.u_culled_meshlet_instances_region.meshlet_instances[meshlet_instance_index];
     const MeshInstance mesh_instance = push.uses.u_mesh_instances[meshlet_instance.mesh_instance_index];
@@ -139,6 +141,6 @@ u32 fragment_main(in MeshStageOutput input, in PrimitiveOutput primitive) : SV_T
     }
 
     u32 visibility_index = 0;
-    encode_triangle_id(visibility_index, push.uses.u_culled_meshlet_instances_region.offset + meshlet_instance_index, triangle_index);
+    encode_visibility_index(visibility_index, push.uses.u_culled_meshlet_instances_region.offset + meshlet_instance_index, triangle_index);
     return visibility_index;
 }   

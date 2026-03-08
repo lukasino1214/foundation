@@ -59,7 +59,7 @@ namespace foundation {
         //     }
         // }
 
-        u32 bistro_count = 6;
+        u32 bistro_count = 1;
 
         for(u32 x = 0; x < bistro_count; x++) {
             for(u32 y = 0; y < bistro_count; y++) {

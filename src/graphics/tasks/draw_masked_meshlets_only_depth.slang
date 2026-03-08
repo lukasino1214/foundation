@@ -1,6 +1,7 @@
 #define DAXA_RAY_TRACING 1
 #include "daxa/daxa.inl"
 #include "draw_masked_meshlets_only_depth.inl"
+#include "../../shader_library/cull_util.slang"
 
 [[vk::push_constant]] DrawMaskedMeshletsOnlyDepthWriteCommandPush write_push;
 

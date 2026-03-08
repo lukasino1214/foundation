@@ -1,6 +1,8 @@
 #define DAXA_RAY_TRACING 1
 #include "daxa/daxa.inl"
 #include "draw_opaque_meshlets.inl"
+#include "../../shader_library/cull_util.slang"
+#include "../../shader_library/visibility_buffer.slang"
 
 [[vk::push_constant]] DrawOpaqueMeshletsWriteCommandPush write_push;
 
@@ -104,7 +106,7 @@ void mesh_main(
         {
             MeshPrimitiveOutput primitive;
             primitive.cull_primitive = cull_primitive;
-            encode_triangle_id(primitive.data.visibility_index, push.uses.u_culled_meshlet_instances_region.offset + group_index.x, index);
+            encode_visibility_index(primitive.data.visibility_index, push.uses.u_culled_meshlet_instances_region.offset + group_index.x, index);
             out_primitives[index] = primitive;
         }
 

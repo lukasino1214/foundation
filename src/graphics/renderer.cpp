@@ -5,7 +5,6 @@
 
 #include "tasks/cull_mesh_instances.inl"
 #include "tasks/cull_meshlet_instances.inl"
-#include "tasks/ray_tracing.inl"
 #include "tasks/debug.inl"
 #include "tasks/gen_hiz.inl"
 #include "gpu_scene.hpp"
@@ -184,7 +183,6 @@ namespace foundation {
         }
 
         std::vector<std::tuple<std::string, daxa::RayTracingPipelineCompileInfo2>> ray_traces = {
-            {RayTraceTask::name(), RayTraceTask::pipeline_config_info()},
         };
 
         for (auto [name, info] : ray_traces) {
@@ -322,7 +320,6 @@ namespace foundation {
                 .u_depth_image = depth_image.view(),
             },
             .gpu_context = gpu_context,
-            .gpu_scene = gpu_scene,
         });
 
         render_task_graph.add_task(DrawMaskedMeshletsOnlyDepthWriteCommandTask {
@@ -346,7 +343,6 @@ namespace foundation {
                 .u_depth_image = depth_image.view(),
             },
             .gpu_context = gpu_context,
-            .gpu_scene = gpu_scene,
         });
 
         render_task_graph.add_task(DrawMaskedMeshletsOnlyDepthWriteCommandTask {
@@ -370,7 +366,6 @@ namespace foundation {
                 .u_depth_image = depth_image.view(),
             },
             .gpu_context = gpu_context,
-            .gpu_scene = gpu_scene,
         });
 
         daxa::TaskImageView first_pass_hiz = {};
@@ -507,7 +502,6 @@ namespace foundation {
                 .u_depth_image = depth_image.view(),
             },
             .gpu_context = gpu_context,
-            .gpu_scene = gpu_scene,
         });
 
         render_task_graph.add_task(DrawMaskedMeshletsWriteCommandTask {
@@ -532,7 +526,6 @@ namespace foundation {
                 .u_depth_image = depth_image.view(),
             },
             .gpu_context = gpu_context,
-            .gpu_scene = gpu_scene,
         });
 
         render_task_graph.add_task(DrawMaskedMeshletsWriteCommandTask {
@@ -557,7 +550,6 @@ namespace foundation {
                 .u_depth_image = depth_image.view(),
             },
             .gpu_context = gpu_context,
-            .gpu_scene = gpu_scene,
         });
 
         const auto render_target_size = glm::uvec2{std::max(window->get_width(), 1u), std::max(window->get_height(), 1u)};
@@ -587,7 +579,6 @@ namespace foundation {
         render_task_graph.add_task(DebugAABBDrawTask {
             .views = DebugAABBDrawTask::Views {
                 .u_globals = gpu_context->shader_globals_buffer.view(),
-                .u_transforms = gpu_scene->gpu_transforms.view(),
                 .u_render_image = render_image.view(),
                 .u_depth_image = depth_image.view(),
             },
@@ -597,7 +588,6 @@ namespace foundation {
         render_task_graph.add_task(DebugCircleDrawTask {
             .views = DebugCircleDrawTask::Views {
                 .u_globals = gpu_context->shader_globals_buffer.view(),
-                .u_transforms = gpu_scene->gpu_transforms.view(),
                 .u_render_image = render_image.view(),
                 .u_depth_image = depth_image.view(),
             },
@@ -607,23 +597,11 @@ namespace foundation {
         render_task_graph.add_task(DebugLineDrawTask {
             .views = DebugLineDrawTask::Views {
                 .u_globals = gpu_context->shader_globals_buffer.view(),
-                .u_transforms = gpu_scene->gpu_transforms.view(),
                 .u_render_image = render_image.view(),
                 .u_depth_image = depth_image.view(),
             },
             .gpu_context = gpu_context,
         });
-
-        // render_task_graph.add_task(RayTraceTask {
-        //     .views = RayTraceTask::Views {
-        //         .u_globals = gpu_context->shader_globals_buffer.view(),
-        //         .u_meshes = asset_manager->gpu_mesh_instances.view(),
-        //         .u_materials = asset_manager->gpu_materials.view(),
-        //         .u_tlas = gpu_scene->gpu_tlas.view(),
-        //         .u_image = render_image.view(),
-        //     },
-        //     .gpu_context = gpu_context,
-        // });
 
         render_task_graph.add_task(daxa::InlineTask::Transfer("blit image to swapchain")
             .reads(render_image)

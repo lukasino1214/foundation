@@ -52,7 +52,6 @@ struct DrawMaskedMeshletsOnlyDepthTask : DrawMaskedMeshletsOnlyDepth::Task {
     AttachmentViews views = {};
     GPUContext* gpu_context = {};
     DrawMaskedMeshletsOnlyDepthPush push = {};
-    GPUScene* gpu_scene = {};
 
     void assign_blob(auto& arr, const auto& span) {
         std::memcpy(arr.value.data(), span.data(), span.size());

@@ -1,6 +1,7 @@
 #define DAXA_RAY_TRACING 1
 #include "daxa/daxa.inl"
 #include "draw_opaque_meshlets_only_depth.inl"
+#include "../../shader_library/cull_util.slang"
 
 [[vk::push_constant]] DrawOpaqueMeshletsOnlyDepthWriteCommandPush write_push;
 

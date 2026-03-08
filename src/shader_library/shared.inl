@@ -315,36 +315,8 @@ SHARED_FUNCTION u32 get_micro_index(daxa_BufferPtr(u32) micro_indices, u32 index
     return (packed >> ((index % 4) * 8)) & 0xFF;
 }
 
-SHARED_FUNCTION u32 get_vertex_index(MeshInstance mesh, Meshlet meshlet, u32 triangle_index, u32 offset) {
-    daxa_BufferPtr(u32) micro_index_buffer = mesh.micro_indices;
-    const u32 micro_index = get_micro_index(micro_index_buffer, meshlet.micro_indices_offset + triangle_index * 3 + offset);
-    u32 vertex_index = mesh.indirect_vertices[meshlet.indirect_vertex_offset + micro_index];
-    return vertex_index;
-}
-
-SHARED_FUNCTION void encode_triangle_id(inout u32 id, in u32 meshlet_index, in u32 triangle_index) {
-    id = (meshlet_index << 6) | (triangle_index);
-}
-
-SHARED_FUNCTION void decode_triangle_id(in u32 id, out u32 meshlet_index, out u32 triangle_index) {
-    meshlet_index = id >> 6;
-    triangle_index = id & 0x3F;
-}
-
 SHARED_FUNCTION f32vec2 make_gather_uv(f32vec2 inv_src_size, u32vec2 top_left_index) {
     return (f32vec2(top_left_index) + 1.0f) * inv_src_size;
-}
-
-bool is_triangle_invisible_micro_triangle(const f32vec2 ndc_min, const f32vec2 ndc_max, f32vec2 resolution) {
-    const f32 delta = 1.0 / 256.0f;
-    const f32vec2 sample_grid_min = (ndc_min * 0.5f + 0.5f) * resolution - 0.5f - delta;
-    const f32vec2 sample_grid_max = (ndc_max * 0.5f + 0.5f) * resolution - 0.5f + delta;
-    const bool primitive_visible = !any(equal(floor(sample_grid_max), floor(sample_grid_min)));
-    return !primitive_visible && all(greaterThan(ndc_min, -f32vec2(0.99999,0.99999))) && all(lessThan(ndc_max, f32vec2(0.99999,0.99999)));
-}
-
-bool is_triangle_backfacing(f32vec4 triangle_clip_positions[3]) {
-    return determinant(f32mat3x3(triangle_clip_positions[0].xyw, triangle_clip_positions[1].xyw, triangle_clip_positions[2].xyw)) >= 0.00001;
 }
 
 f32vec4 shuffle_arr2(f32vec4 local_values[2], u32 load_index) {

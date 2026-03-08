@@ -1,6 +1,8 @@
 #define DAXA_RAY_TRACING 1
 #include "daxa/daxa.inl"
 #include "resolve_visibility_buffer.inl"
+#include "../../shader_library/cull_util.slang"
+#include "../../shader_library/visibility_buffer.slang"
 
 f32vec3 hsv_to_rgb(in f32vec3 hsv) {
     const f32vec3 rgb = saturate(abs(fmod(hsv.x * 6.0 + f32vec3(0.0, 4.0, 2.0), 6.0) - 3.0) - 1.0);
@@ -141,85 +143,6 @@ f32vec3 calculate_normal_from_map(f32vec3 tangent_normal, f32vec3 geometric_norm
     return normalize(world_normal);
 }
 
-struct BarycentricDeriv {
-    f32vec3 m_lambda;
-    f32vec3 m_ddx;
-    f32vec3 m_ddy;
-};
-
-BarycentricDeriv calc_bary_and_deriv(f32vec4 pt0, f32vec4 pt1, f32vec4 pt2, f32vec2 pixelNdc, f32vec2 winSize) {
-    BarycentricDeriv ret;   
-    f32vec3 invW = 1.0f / (f32vec3(pt0.w, pt1.w, pt2.w)); 
-    f32vec2 ndc0 = pt0.xy * invW.x;
-    f32vec2 ndc1 = pt1.xy * invW.y;
-    f32vec2 ndc2 = pt2.xy * invW.z;  
-    f32 invDet = 1.0f / (determinant(daxa_f32mat2x2(ndc2 - ndc1, ndc0 - ndc1)));
-    ret.m_ddx = f32vec3(ndc1.y - ndc2.y, ndc2.y - ndc0.y, ndc0.y - ndc1.y) * invDet * invW;
-    ret.m_ddy = f32vec3(ndc2.x - ndc1.x, ndc0.x - ndc2.x, ndc1.x - ndc0.x) * invDet * invW;
-    f32 ddxSum = dot(ret.m_ddx, f32vec3(1,1,1));
-    f32 ddySum = dot(ret.m_ddy, f32vec3(1,1,1));   
-    f32vec2 deltaVec = pixelNdc - ndc0;
-    f32 interpInvW = invW.x + deltaVec.x*ddxSum + deltaVec.y*ddySum;
-    f32 interpW = 1.0f / (interpInvW);    
-    ret.m_lambda.x = interpW * (invW[0] + deltaVec.x*ret.m_ddx.x + deltaVec.y*ret.m_ddy.x);
-    ret.m_lambda.y = interpW * (0.0f    + deltaVec.x*ret.m_ddx.y + deltaVec.y*ret.m_ddy.y);
-    ret.m_lambda.z = interpW * (0.0f    + deltaVec.x*ret.m_ddx.z + deltaVec.y*ret.m_ddy.z); 
-    ret.m_ddx *= (2.0f / winSize.x);
-    ret.m_ddy *= (2.0f / winSize.y);
-    ddxSum    *= (2.0f / winSize.x);
-    ddySum    *= (2.0f / winSize.y);  
-    ret.m_ddy *= -1.0f;
-    ddySum    *= -1.0f; 
-    f32 interpW_ddx = 1.0f / (interpInvW + ddxSum);
-    f32 interpW_ddy = 1.0f / (interpInvW + ddySum);   
-    ret.m_ddx = interpW_ddx * (ret.m_lambda*interpInvW + ret.m_ddx) - ret.m_lambda;
-    ret.m_ddy = interpW_ddy * (ret.m_lambda*interpInvW + ret.m_ddy) - ret.m_lambda;   
-    return ret;
-}
-
-struct UvGrad {
-    f32vec2 uv;
-    f32vec2 ddx;
-    f32vec2 ddy;
-};
-
-f32vec3 interpolate_attributes(in BarycentricDeriv derivatives, in f32[3] attributes) {
-    const f32vec3 v = f32vec3(attributes[0], attributes[1], attributes[2]);
-    return f32vec3(
-        dot(v, derivatives.m_lambda),
-        dot(v, derivatives.m_ddx),
-        dot(v, derivatives.m_ddy));
-}
-
-f32vec3 visgeo_interpolate_vec3(f32vec3 derivator, f32vec3 v0, f32vec3 v1, f32vec3 v2)
-{
-    f32vec3 merged_x = f32vec3(v0.x, v1.x, v2.x);
-    f32vec3 merged_y = f32vec3(v0.y, v1.y, v2.y);
-    f32vec3 merged_z = f32vec3(v0.z, v1.z, v2.z);
-    f32vec3 ret;
-    ret.x = dot(merged_x, derivator);
-    ret.y = dot(merged_y, derivator);
-    ret.z = dot(merged_z, derivator);
-    return ret;
-}
-
-f32vec2 visgeo_interpolate_vec2(f32vec3 derivator, f32vec2 v0, f32vec2 v1, f32vec2 v2)
-{
-    f32vec3 merged_x = f32vec3(v0.x, v1.x, v2.x);
-    f32vec3 merged_y = f32vec3(v0.y, v1.y, v2.y);
-    f32vec2 ret;
-    ret.x = dot(merged_x, derivator);
-    ret.y = dot(merged_y, derivator);
-    return ret;
-}
-
-f32vec3 interpolate_attributes(in BarycentricDeriv derivatives, in f32vec3[3] attributes) {
-    return
-        attributes[0] * derivatives.m_lambda.x +
-        attributes[1] * derivatives.m_lambda.y +
-        attributes[2] * derivatives.m_lambda.z;
-}
-
 f32 calculate_lod_from_gradients(f32vec2 uv_dx, f32vec2 uv_dy, f32 texture_width, f32 texture_height) {
     f32vec2 dx = uv_dx * f32vec2(texture_width, texture_height);
     f32vec2 dy = uv_dy * f32vec2(texture_width, texture_height);
@@ -244,16 +167,16 @@ void resolve_visibility_buffer(u32vec3 pixel : SV_DispatchThreadID, u32vec2 tile
 
     u32 meshlet_data_index = 0;
     u32 triangle_index = 0;
-    decode_triangle_id(visibility_index, meshlet_data_index, triangle_index);
+    decode_visibility_index(visibility_index, meshlet_data_index, triangle_index);
 
     const MeshletInstance meshlet_instance = push.uses.u_culled_meshlet_instances[meshlet_data_index];
     const MeshInstance mesh_instance = push.uses.u_mesh_instances[meshlet_instance.mesh_instance_index];
     const Meshlet meshlet = mesh_instance.meshlets[meshlet_instance.meshlet_index];
 
     const u32[3] indices = u32[3](
-        get_vertex_index(mesh_instance, meshlet, triangle_index, 0),
-        get_vertex_index(mesh_instance, meshlet, triangle_index, 1),
-        get_vertex_index(mesh_instance, meshlet, triangle_index, 2)
+        mesh_instance.indirect_vertices[meshlet.indirect_vertex_offset + get_micro_index(mesh_instance.micro_indices, meshlet.micro_indices_offset + triangle_index * 3 + 0)],
+        mesh_instance.indirect_vertices[meshlet.indirect_vertex_offset + get_micro_index(mesh_instance.micro_indices, meshlet.micro_indices_offset + triangle_index * 3 + 1)],
+        mesh_instance.indirect_vertices[meshlet.indirect_vertex_offset + get_micro_index(mesh_instance.micro_indices, meshlet.micro_indices_offset + triangle_index * 3 + 2)]
     );
 
     const f32vec3[3] positions = f32vec3[3](
@@ -281,12 +204,11 @@ void resolve_visibility_buffer(u32vec3 pixel : SV_DispatchThreadID, u32vec2 tile
     const f32vec2 ndc_xy = ((pixel.xy + 0.5f) * push.uses.u_globals->render_target_size_inv) * 2.0f - 1.0f;
     const BarycentricDeriv derivatives = calc_bary_and_deriv(clip_position[0], clip_position[1], clip_position[2], ndc_xy, f32vec2(push.uses.u_globals->render_target_size));
 
-    f32vec3 position = interpolate_attributes(
-        derivatives, f32vec3[3](
-            world_positions[0].xyz,
-            world_positions[1].xyz,
-            world_positions[2].xyz
-        )
+    f32vec3 position = interpolate_vec3(
+        derivatives.m_lambda,
+        world_positions[0].xyz,
+        world_positions[1].xyz,
+        world_positions[2].xyz
     );
 
     const f32vec2[3] uvs = mesh_instance.uvs != 0
@@ -297,16 +219,7 @@ void resolve_visibility_buffer(u32vec3 pixel : SV_DispatchThreadID, u32vec2 tile
         )
         : f32vec2[3](f32vec2(0.0f), f32vec2(0.0f), f32vec2(0.0f));
 
-    const f32vec3[2] interp_uv = f32vec3[2](
-        interpolate_attributes(derivatives, f32[](uvs[0].x, uvs[1].x, uvs[2].x)),
-        interpolate_attributes(derivatives, f32[](uvs[0].y, uvs[1].y, uvs[2].y))
-    );
-
-    const UvGrad uv_grad = UvGrad(
-        f32vec2(interp_uv[0].x, interp_uv[1].x),
-        f32vec2(interp_uv[0].y, interp_uv[1].y),
-        f32vec2(interp_uv[0].z, interp_uv[1].z)
-    );
+    const UvGrad uv_grad = get_uv_grad(derivatives, uvs[0], uvs[1], uvs[2]);
 
     const f32vec3[3] vertex_normals = mesh_instance.normals != 0
         ? f32vec3[3](
@@ -328,12 +241,11 @@ void resolve_visibility_buffer(u32vec3 pixel : SV_DispatchThreadID, u32vec2 tile
         mul(normal_matrix, vertex_normals[2])
     );
 
-    f32vec3 normal = normalize(interpolate_attributes(
-        derivatives, f32vec3[3](
-            worldspace_vertex_normals[0].xyz,
-            worldspace_vertex_normals[1].xyz,
-            worldspace_vertex_normals[2].xyz
-        )
+    f32vec3 normal = normalize(interpolate_vec3(
+        derivatives.m_lambda,
+        worldspace_vertex_normals[0].xyz,
+        worldspace_vertex_normals[1].xyz,
+        worldspace_vertex_normals[2].xyz
     ));
     normal = is_backfacing ? -normal : normal;
 
