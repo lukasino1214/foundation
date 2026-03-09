@@ -15,7 +15,8 @@
 #include "tasks/draw_opaque_meshlets.inl"
 #include "tasks/draw_masked_meshlets.inl"
 
-#include "tasks/resolve_visibility_buffer.inl"
+#include "tasks/shade_visibility_buffer.inl"
+#include "tasks/generate_gbuffer.inl"
 #include "tasks/write_swapchain.inl"
 
 namespace foundation {
@@ -49,11 +50,15 @@ namespace foundation {
         render_image = daxa::TaskImage{{ .name = "render image" }};
         visibility_image = daxa::TaskImage{{ .name = "visibility image" }};
         depth_image = daxa::TaskImage{{ .name = "depth image" }};
+        normal_image = daxa::TaskImage{{ .name = "normal image" }};
+        bloom_image = daxa::TaskImage{{ .name = "bloom image" }};
 
         images = {
             render_image,
             depth_image,
             visibility_image,
+            normal_image,
+            bloom_image,
         };
 
         frame_buffer_images = {
@@ -80,6 +85,22 @@ namespace foundation {
                     .name = depth_image.info().name,
                 },
                 depth_image,
+            },
+            {
+                {
+                    .format = daxa::Format::R32_UINT,
+                    .usage = daxa::ImageUsageFlagBits::SHADER_STORAGE | daxa::ImageUsageFlagBits::SHADER_SAMPLED,
+                    .name = normal_image.info().name,
+                },
+                normal_image,
+            },
+            {
+                {
+                    .format = daxa::Format::R16G16B16A16_SFLOAT,
+                    .usage = daxa::ImageUsageFlagBits::COLOR_ATTACHMENT | daxa::ImageUsageFlagBits::SHADER_STORAGE | daxa::ImageUsageFlagBits::SHADER_SAMPLED,
+                    .name = bloom_image.info().name,
+                },
+                bloom_image,
             },
         };
 
@@ -169,7 +190,8 @@ namespace foundation {
             {CullMeshletInstancesWriteCommandTask::name(), CullMeshletInstancesWriteCommandTask::pipeline_config_info()},
             {CullMeshletInstancesTask::name(), CullMeshletInstancesTask::pipeline_config_info()},
 
-            {ResolveVisibilityBufferTask::name(), ResolveVisibilityBufferTask::pipeline_config_info()},
+            {GenerateGBufferTask::name(), GenerateGBufferTask::pipeline_config_info()},
+            {ShadeVisibilityBufferTask::name(), ShadeVisibilityBufferTask::pipeline_config_info()},
             {WriteSwapchainTask::name(), WriteSwapchainTask::pipeline_config_info()},
         };
 
@@ -217,6 +239,8 @@ namespace foundation {
         render_task_graph.use_persistent_image(render_image);
         render_task_graph.use_persistent_image(visibility_image);
         render_task_graph.use_persistent_image(depth_image);
+        render_task_graph.use_persistent_image(normal_image);
+        render_task_graph.use_persistent_image(bloom_image);
 
         render_task_graph.use_persistent_buffer(gpu_context->shader_globals_buffer);
         render_task_graph.use_persistent_buffer(asset_manager->gpu_materials);
@@ -556,8 +580,27 @@ namespace foundation {
 
         const auto render_target_size = glm::uvec2{std::max(window->get_width(), 1u), std::max(window->get_height(), 1u)};
 
-        render_task_graph.add_task(ResolveVisibilityBufferTask {
-            .views = ResolveVisibilityBufferTask::Views {
+        render_task_graph.add_task(GenerateGBufferTask {
+            .views = GenerateGBufferTask::Views {
+                .u_globals = gpu_context->shader_globals_buffer.view(),
+                .u_transforms = gpu_scene->gpu_transforms.view(),
+                .u_culled_meshlet_instances = gpu_scene->gpu_culled_meshlet_instances.view(),
+                .u_mesh_instances = gpu_scene->gpu_mesh_instances.view(),
+                .u_materials = asset_manager->gpu_materials.view(),
+                .u_visibility_image = visibility_image.view(),
+                .u_normal_image = normal_image.view(),
+                .u_bloom_image = bloom_image.view(),
+            },
+            .gpu_context = gpu_context,
+            .dispatch_info = {
+                .x = round_up_div(render_target_size.x, 16),
+                .y = round_up_div(render_target_size.y, 8),
+                .z = 1,
+            },
+        });
+
+        render_task_graph.add_task(ShadeVisibilityBufferTask {
+            .views = ShadeVisibilityBufferTask::Views {
                 .u_globals = gpu_context->shader_globals_buffer.view(),
                 .u_transforms = gpu_scene->gpu_transforms.view(),
                 .u_culled_meshlet_instances = gpu_scene->gpu_culled_meshlet_instances.view(),

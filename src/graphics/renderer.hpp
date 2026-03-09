@@ -35,6 +35,8 @@ namespace foundation {
         daxa::TaskImage render_image = {};
         daxa::TaskImage visibility_image = {};
         daxa::TaskImage depth_image = {};
+        daxa::TaskImage normal_image = {};
+        daxa::TaskImage bloom_image = {};
 
         std::atomic<bool> pipelines_compiled = false;
         

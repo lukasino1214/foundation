@@ -1,6 +1,6 @@
 #define DAXA_RAY_TRACING 1
 #include "daxa/daxa.inl"
-#include "resolve_visibility_buffer.inl"
+#include "shade_visibility_buffer.inl"
 #include "../../shader_library/cull_util.slang"
 #include "../../shader_library/visibility_buffer.slang"
 #include "../../shader_library/compression.inl"
@@ -154,10 +154,10 @@ f32 calculate_lod_from_gradients(f32vec2 uv_dx, f32vec2 uv_dy, f32 texture_width
     return 0.5f * log2(delta_max);
 }
 
-[[vk::push_constant]] ResolveVisibilityBufferPush push;
+[[vk::push_constant]] ShadeVisibilityBufferPush push;
 [shader("compute")]
 [numthreads(16, 16, 1)]
-void resolve_visibility_buffer(u32vec3 pixel : SV_DispatchThreadID, u32vec2 tile_index : SV_GroupID) {
+void shade_visibility_buffer(u32vec3 pixel : SV_DispatchThreadID) {
     if(any(pixel.xy >= deref(push.uses.u_globals).render_target_size)) { return; }
 
     u32 visibility_index = push.uses.u_visibility_image.get()[pixel.xy];
