@@ -19,6 +19,7 @@ DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(SpotLightsData), u_spot_lights)
 DAXA_TH_BUFFER(INDIRECT_COMMAND_READ, u_command)
 DAXA_TH_TLAS_ID(READ, u_tlas)
 DAXA_TH_IMAGE_TYPED(READ, daxa::RWTexture2DId<u32>, u_visibility_image)
+DAXA_TH_IMAGE_TYPED(READ, daxa::RWTexture2DId<f32>, u_gtao_image)
 DAXA_TH_IMAGE_TYPED(WRITE, daxa::RWTexture2DId<f32vec4>, u_render_image)
 DAXA_DECL_TASK_HEAD_END
 

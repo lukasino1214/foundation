@@ -292,5 +292,6 @@ void shade_visibility_buffer(u32vec3 pixel : SV_DispatchThreadID) {
         push.uses.u_spot_lights
     );
 
-    push.uses.u_render_image.get()[pixel.xy] = color;
+    color.rgb *= push.uses.u_gtao_image.get()[pixel.xy];
+    push.uses.u_render_image.get()[pixel.xy] = f32vec4(color.rgb, 1);
 }

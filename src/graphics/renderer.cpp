@@ -17,6 +17,7 @@
 
 #include "tasks/shade_visibility_buffer.inl"
 #include "tasks/generate_gbuffer.inl"
+#include "tasks/gtao.inl"
 #include "tasks/bloom.inl"
 #include "tasks/write_swapchain.inl"
 
@@ -46,13 +47,14 @@ namespace foundation {
         });
         ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_DockingEnable;
         ImGui::GetStyle().WindowMenuButtonPosition = ImGuiDir_None;
-        
+
         swapchain_image = daxa::TaskImage{{.swapchain_image = true, .name = "swapchain image"}};
         render_image = daxa::TaskImage{{ .name = "render image" }};
         visibility_image = daxa::TaskImage{{ .name = "visibility image" }};
         depth_image = daxa::TaskImage{{ .name = "depth image" }};
         normal_image = daxa::TaskImage{{ .name = "normal image" }};
         bloom_image = daxa::TaskImage{{ .name = "bloom image" }};
+        gtao_image = daxa::TaskImage{{.name = "gtao image"}};
 
         images = {
             render_image,
@@ -60,6 +62,7 @@ namespace foundation {
             visibility_image,
             normal_image,
             bloom_image,
+            gtao_image,
         };
 
         frame_buffer_images = {
@@ -82,7 +85,7 @@ namespace foundation {
             {
                 {
                     .format = daxa::Format::D32_SFLOAT,
-                    .usage = daxa::ImageUsageFlagBits::TRANSFER_SRC | daxa::ImageUsageFlagBits::DEPTH_STENCIL_ATTACHMENT | daxa::ImageUsageFlagBits::SHADER_SAMPLED,
+                    .usage = daxa::ImageUsageFlagBits::TRANSFER_SRC | daxa::ImageUsageFlagBits::DEPTH_STENCIL_ATTACHMENT | daxa::ImageUsageFlagBits::SHADER_SAMPLED | daxa::ImageUsageFlagBits::SHADER_STORAGE,
                     .name = depth_image.info().name,
                 },
                 depth_image,
@@ -102,6 +105,14 @@ namespace foundation {
                     .name = bloom_image.info().name,
                 },
                 bloom_image,
+            },
+            {
+                {
+                    .format = daxa::Format::R16_SFLOAT,
+                    .usage = daxa::ImageUsageFlagBits::COLOR_ATTACHMENT | daxa::ImageUsageFlagBits::SHADER_STORAGE | daxa::ImageUsageFlagBits::SHADER_SAMPLED,
+                    .name = gtao_image.info().name,
+                },
+                gtao_image,
             },
         };
 
@@ -192,6 +203,7 @@ namespace foundation {
             {CullMeshletInstancesTask::name(), CullMeshletInstancesTask::pipeline_config_info()},
 
             {GenerateGBufferTask::name(), GenerateGBufferTask::pipeline_config_info()},
+            {GTAOTask::name(), GTAOTask::pipeline_config_info()},
             {ThresholdImageTask::name(), ThresholdImageTask::pipeline_config_info()},
             {BloomDownsampleTask::name(), BloomDownsampleTask::pipeline_config_info()},
             {BloomUpsampleTask::name(), BloomUpsampleTask::pipeline_config_info()},
@@ -245,6 +257,7 @@ namespace foundation {
         render_task_graph.use_persistent_image(depth_image);
         render_task_graph.use_persistent_image(normal_image);
         render_task_graph.use_persistent_image(bloom_image);
+        render_task_graph.use_persistent_image(gtao_image);
 
         render_task_graph.use_persistent_buffer(gpu_context->shader_globals_buffer);
         render_task_graph.use_persistent_buffer(asset_manager->gpu_materials);
@@ -603,6 +616,21 @@ namespace foundation {
             },
         });
 
+        render_task_graph.add_task(GTAOTask {
+            .views = GTAOTask::Views {
+                .u_globals = gpu_context->shader_globals_buffer.view(),
+                .u_normal_image = normal_image.view(),
+                .u_depth_image = depth_image.view(),
+                .u_gtao_image = gtao_image.view(),
+            },
+            .gpu_context = gpu_context,
+            .dispatch_info = {
+                .x = round_up_div(render_target_size.x, 16),
+                .y = round_up_div(render_target_size.y, 8),
+                .z = 1,
+            },
+        });
+
         render_task_graph.add_task(ShadeVisibilityBufferTask {
             .views = ShadeVisibilityBufferTask::Views {
                 .u_globals = gpu_context->shader_globals_buffer.view(),
@@ -615,6 +643,7 @@ namespace foundation {
                 .u_command = u_command,
                 .u_tlas = gpu_scene->gpu_tlas.view(),
                 .u_visibility_image = visibility_image.view(),
+                .u_gtao_image = gtao_image.view(),
                 .u_render_image = render_image.view(),
             },
             .gpu_context = gpu_context,
@@ -694,8 +723,8 @@ namespace foundation {
                 src_view = bloom_temp.mips(i - 1, 1);
             }
 
-            render_task_graph.add_task(BloomDownsampleTask{
-                .views = BloomDownsampleTask::Views{
+            render_task_graph.add_task(BloomDownsampleTask {
+                .views = BloomDownsampleTask::Views {
                     .u_globals = gpu_context->shader_globals_buffer.view(),
                     .u_src_image = src_view,
                     .u_dst_image = bloom_temp.mips(i, 1),
@@ -725,8 +754,8 @@ namespace foundation {
                 src_view = bloom_temp.mips(i + 1, 1);
             }
 
-            render_task_graph.add_task(BloomUpsampleTask{
-                .views = BloomUpsampleTask::Views{
+            render_task_graph.add_task(BloomUpsampleTask {
+                .views = BloomUpsampleTask::Views {
                     .u_globals = gpu_context->shader_globals_buffer.view(),
                     .u_src_image = src_view,
                     .u_downsample_image = bloom_temp.mips(i, 1),
@@ -745,8 +774,8 @@ namespace foundation {
             });
         }
 
-        render_task_graph.add_task(ApplyBloomTask{
-            .views = ApplyBloomTask::Views{
+        render_task_graph.add_task(ApplyBloomTask {
+            .views = ApplyBloomTask::Views {
                 .u_globals = gpu_context->shader_globals_buffer.view(),
                 .u_bloom_image = bloom_temp.mips(0, 1),
                 .u_render_image = render_image.view(),
@@ -760,8 +789,8 @@ namespace foundation {
             },
         });
 
-        render_task_graph.add_task(WriteSwapchainTask{
-            .views = WriteSwapchainTask::Views{
+        render_task_graph.add_task(WriteSwapchainTask {
+            .views = WriteSwapchainTask::Views {
                 .u_render_image = render_image.view(),
                 .u_swapchain_image = swapchain_image.view(),
             },
