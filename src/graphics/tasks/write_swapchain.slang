@@ -104,8 +104,8 @@ f32vec3 sRGB_OETF(f32vec3 a) {
 void write_swapchain(u32vec2 index : SV_DispatchThreadID) {
     if(any(greaterThanEqual(index, push.size))) { return; }
 
-    const f32vec4 exposed_color = push.uses.u_render_image.get()[index];
-    const f32vec3 tonemapped_color = agx_tonemapping(exposed_color.rgb);
+    const f32vec3 exposed_color = push.uses.u_render_image.get()[index].rgb;
+    const f32vec3 tonemapped_color = agx_tonemapping(exposed_color);
     const f32vec3 gamma_correct = sRGB_OETF(tonemapped_color);
 
     push.uses.u_swapchain_image.get()[index] = f32vec4(gamma_correct.rgb, 1.0f);

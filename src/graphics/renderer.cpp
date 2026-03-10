@@ -17,11 +17,12 @@
 
 #include "tasks/shade_visibility_buffer.inl"
 #include "tasks/generate_gbuffer.inl"
+#include "tasks/bloom.inl"
 #include "tasks/write_swapchain.inl"
 
 namespace foundation {
     // TODO: get rid of this
-    static void sync_render_target_globals(Renderer & renderer) {
+    static void sync_render_target_globals(Renderer& renderer) {
         const auto width = std::max(renderer.window->get_width(), 1u);
         const auto height = std::max(renderer.window->get_height(), 1u);
         renderer.gpu_context->shader_globals.render_target_size = { width, height };
@@ -64,7 +65,7 @@ namespace foundation {
         frame_buffer_images = {
             {
                 {
-                    .format = daxa::Format::R16G16B16A16_UNORM,
+                    .format = daxa::Format::R16G16B16A16_SFLOAT,
                     .usage = daxa::ImageUsageFlagBits::TRANSFER_SRC | daxa::ImageUsageFlagBits::TRANSFER_DST | daxa::ImageUsageFlagBits::COLOR_ATTACHMENT | daxa::ImageUsageFlagBits::SHADER_SAMPLED | daxa::ImageUsageFlagBits::SHADER_STORAGE,
                     .name = render_image.info().name,
                 },
@@ -116,8 +117,8 @@ namespace foundation {
             }
         }
 
-        for (auto& task_buffer : buffers) {
-            for (auto buffer : task_buffer.get_state().buffers) {
+        for(auto& task_buffer : buffers) {
+            for(auto buffer : task_buffer.get_state().buffers) {
                 gpu_context->device.destroy_buffer(buffer);
             }
         }
@@ -141,12 +142,12 @@ namespace foundation {
 
         fmt::println("resizing to {}x{}", size.x, size.y);
 
-        for (auto& [info, timg] : frame_buffer_images) {
+        for(auto& [info, timg] : frame_buffer_images) {
             for(auto image : timg.get_state().images) {
                 gpu_context->device.destroy_image(image);
             }
 
-            info.size = { std::max(size.x, 1u), std::max(size.y, 1u), 1 };
+            info.size = {std::max(size.x, 1u), std::max(size.y, 1u), 1};
             timg.set_images({.images = std::array{gpu_context->device.create_image(info)}});
         }
     }
@@ -165,7 +166,7 @@ namespace foundation {
             {DebugLineDrawTask::name(), DebugLineDrawTask::pipeline_config_info()},
         };
 
-        for (auto [name, info] : rasters) {
+        for(auto& [name, info] : rasters) {
             auto compilation_result = this->gpu_context->pipeline_manager.add_raster_pipeline2(info);
             if(compilation_result.is_ok()) {
                 fmt::println("SUCCESSFULLY compiled pipeline {}", name);
@@ -183,7 +184,7 @@ namespace foundation {
             {DrawMaskedMeshletsWriteCommandTask::name(), DrawMaskedMeshletsWriteCommandTask::pipeline_config_info()},
 
             {gen_hiz_pipeline_config_info().name, gen_hiz_pipeline_config_info()},
-            
+
             {CullMeshInstancesWriteCommandTask::name(), CullMeshInstancesWriteCommandTask::pipeline_config_info()},
             {CullMeshInstancesTask::name(), CullMeshInstancesTask::pipeline_config_info()},
 
@@ -191,11 +192,15 @@ namespace foundation {
             {CullMeshletInstancesTask::name(), CullMeshletInstancesTask::pipeline_config_info()},
 
             {GenerateGBufferTask::name(), GenerateGBufferTask::pipeline_config_info()},
+            {ThresholdImageTask::name(), ThresholdImageTask::pipeline_config_info()},
+            {BloomDownsampleTask::name(), BloomDownsampleTask::pipeline_config_info()},
+            {BloomUpsampleTask::name(), BloomUpsampleTask::pipeline_config_info()},
+            {ApplyBloomTask::name(), ApplyBloomTask::pipeline_config_info()},
             {ShadeVisibilityBufferTask::name(), ShadeVisibilityBufferTask::pipeline_config_info()},
             {WriteSwapchainTask::name(), WriteSwapchainTask::pipeline_config_info()},
         };
 
-        for (auto [name, info] : computes) {
+        for(auto& [name, info] : computes) {
             auto compilation_result = this->gpu_context->pipeline_manager.add_compute_pipeline2(info);
             if(compilation_result.is_ok()) {
                 fmt::println("SUCCESSFULLY compiled pipeline {}", name);
@@ -206,10 +211,9 @@ namespace foundation {
             gpu_context->compute_pipelines[name] = compilation_result.value();
         }
 
-        std::vector<std::tuple<std::string, daxa::RayTracingPipelineCompileInfo2>> ray_traces = {
-        };
+        std::vector<std::tuple<std::string, daxa::RayTracingPipelineCompileInfo2>> ray_traces = {};
 
-        for (auto [name, info] : ray_traces) {
+        for(auto& [name, info] : ray_traces) {
             auto compilation_result = this->gpu_context->pipeline_manager.add_ray_tracing_pipeline2(info);
             if(compilation_result.is_ok()) {
                 fmt::println("SUCCESSFULLY compiled pipeline {}", name);
@@ -648,13 +652,121 @@ namespace foundation {
             .gpu_context = gpu_context,
         });
 
-        render_task_graph.add_task(WriteSwapchainTask {
-            .views = WriteSwapchainTask::Views {
+        render_task_graph.add_task(ThresholdImageTask {
+            .views = ThresholdImageTask::Views {
+                .u_render_image = render_image.view(),
+                .u_bloom_image = bloom_image.view(),
+            },
+            .gpu_context = gpu_context,
+            .push = { .size = render_target_size },
+            .dispatch_info = {
+                .x = round_up_div(render_target_size.x, 16),
+                .y = round_up_div(render_target_size.y, 8),
+                .z = 1,
+            },
+        });
+
+        const u32 half_width = std::max(1u, render_target_size.x / 2);
+        const u32 half_height = std::max(1u, render_target_size.y / 2);
+        const u32 min_dim = std::min(half_width, half_height);
+        const u32 bloom_mip_count = std::max(1u, static_cast<u32>(std::floor(std::log2(static_cast<f32>(min_dim)))) - 3u);
+
+        auto bloom_temp = render_task_graph.create_transient_image({
+            .format = daxa::Format::R16G16B16A16_SFLOAT,
+            .size = {half_width, half_height, 1},
+            .mip_level_count = bloom_mip_count,
+            .name = "bloom_temp",
+        });
+
+        for(u32 i = 0; i < bloom_mip_count; i++) {
+            const u32 dst_w = std::max(1u, half_width >> i);
+            const u32 dst_h = std::max(1u, half_height >> i);
+            u32 src_w, src_h;
+            daxa::TaskImageView src_view;
+
+            if(i == 0) {
+                src_w = render_target_size.x;
+                src_h = render_target_size.y;
+                src_view = bloom_image.view();
+            } else {
+                src_w = std::max(1u, half_width >> (i - 1));
+                src_h = std::max(1u, half_height >> (i - 1));
+                src_view = bloom_temp.mips(i - 1, 1);
+            }
+
+            render_task_graph.add_task(BloomDownsampleTask{
+                .views = BloomDownsampleTask::Views{
+                    .u_globals = gpu_context->shader_globals_buffer.view(),
+                    .u_src_image = src_view,
+                    .u_dst_image = bloom_temp.mips(i, 1),
+                },
+                .gpu_context = gpu_context,
+                .push = {
+                    .src_size = {src_w, src_h},
+                    .dst_size = {dst_w, dst_h},
+                    .use_anti_flicker = (i == 0) ? 1u : 0u,
+                },
+                .dispatch_info = {
+                    .x = round_up_div(dst_w, 16),
+                    .y = round_up_div(dst_h, 8),
+                    .z = 1,
+                },
+            });
+        }
+
+        for(i32 i = static_cast<i32>(bloom_mip_count) - 2; i >= 0; i--) {
+            const u32 dst_w = std::max(1u, half_width >> i);
+            const u32 dst_h = std::max(1u, half_height >> i);
+
+            daxa::TaskImageView src_view;
+            if(i == static_cast<i32>(bloom_mip_count) - 2) {
+                src_view = bloom_temp.mips(bloom_mip_count - 1, 1);
+            } else {
+                src_view = bloom_temp.mips(i + 1, 1);
+            }
+
+            render_task_graph.add_task(BloomUpsampleTask{
+                .views = BloomUpsampleTask::Views{
+                    .u_globals = gpu_context->shader_globals_buffer.view(),
+                    .u_src_image = src_view,
+                    .u_downsample_image = bloom_temp.mips(i, 1),
+                    .u_dst_image = bloom_temp.mips(i, 1),
+                },
+                .gpu_context = gpu_context,
+                .push = {
+                    .dst_size = {dst_w, dst_h},
+                    .internal_blend = 0.5f,
+                },
+                .dispatch_info = {
+                    .x = round_up_div(dst_w, 16),
+                    .y = round_up_div(dst_h, 8),
+                    .z = 1,
+                },
+            });
+        }
+
+        render_task_graph.add_task(ApplyBloomTask{
+            .views = ApplyBloomTask::Views{
+                .u_globals = gpu_context->shader_globals_buffer.view(),
+                .u_bloom_image = bloom_temp.mips(0, 1),
+                .u_render_image = render_image.view(),
+            },
+            .gpu_context = gpu_context,
+            .push = {.size = render_target_size},
+            .dispatch_info = {
+                .x = round_up_div(render_target_size.x, 16),
+                .y = round_up_div(render_target_size.y, 8),
+                .z = 1,
+            },
+        });
+
+        render_task_graph.add_task(WriteSwapchainTask{
+            .views = WriteSwapchainTask::Views{
                 .u_render_image = render_image.view(),
                 .u_swapchain_image = swapchain_image.view(),
             },
             .gpu_context = gpu_context,
-            .push = { .size = render_target_size },
+            .push = {.size = render_target_size},
             .dispatch_info = {
                 .x = round_up_div(render_target_size.x, 16),
                 .y = round_up_div(render_target_size.y, 8),
@@ -674,17 +786,17 @@ namespace foundation {
         render_task_graph.present({});
         render_task_graph.complete({});
     }
-    
+
     void Renderer::render() {
         PROFILE_SCOPE;
 
         {
             PROFILE_ZONE_NAMED(pipelines);
             auto reloaded_result = gpu_context->pipeline_manager.reload_all();
-            if (auto* reload_err = daxa::get_if<daxa::PipelineReloadError>(&reloaded_result)) {
+            if(auto* reload_err = daxa::get_if<daxa::PipelineReloadError>(&reloaded_result)) {
                 fmt::println("Failed to reload {}", reload_err->message);
             }
-            if (daxa::get_if<daxa::PipelineReloadSuccess>(&reloaded_result) != nullptr) {
+            if(daxa::get_if<daxa::PipelineReloadSuccess>(&reloaded_result) != nullptr) {
                 fmt::println("Successfully reloaded!");
             }
         }
@@ -692,7 +804,7 @@ namespace foundation {
         daxa::ImageId image = gpu_context->swapchain.acquire_next_image();
         if(image.is_empty()) { return; }
         swapchain_image.set_images({.images = std::span{&image, 1}});
-        
+
         {
             PROFILE_ZONE_NAMED(rendergraph_execute);
             std::lock_guard<std::mutex> lock(task_graph_mutex);
@@ -726,4 +838,4 @@ namespace foundation {
 
         ImGui::Render();
     }
-}
+} // namespace foundation

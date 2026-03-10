@@ -264,12 +264,6 @@ void shade_visibility_buffer(u32vec3 pixel : SV_DispatchThreadID) {
         } else {
             color = material.albedo_factor;
         }
-
-        if(!material.emissive_image_id.is_empty()) {
-            color.rgb += Texture2D<f32vec4>::get(material.emissive_image_id).SampleGrad(SamplerState::get(material.emissive_sampler_id), uv_grad.uv, uv_grad.ddx, uv_grad.ddy).rgb;
-        } else {
-            color.rgb += material.emissive_factor;
-        }
         
         if(!material.normal_image_id.is_empty()) {
             f32vec3 normal_sample = f32vec3(0.0f);
