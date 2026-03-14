@@ -268,6 +268,9 @@ namespace foundation {
                 bool camera_option = s_cast<bool>(gpu_context.shader_globals.render_as_observer);
                 ImGui::Checkbox("Render as observer", &camera_option);
                 gpu_context.shader_globals.render_as_observer = s_cast<b32>(camera_option);
+                if(ImGui::DragFloat3("Sun Direction", &gpu_context.shader_globals.sky_settings.sun_direction.x, 0.01f)) {
+                    gpu_context.shader_globals.sky_settings.sun_direction = glm::normalize(gpu_context.shader_globals.sky_settings.sun_direction);
+                }
             }
             ImGui::End();
 
@@ -478,6 +481,7 @@ namespace foundation {
             1.0f / s_cast<f32>(gpu_context.shader_globals.render_target_size.x),
             1.0f / s_cast<f32>(gpu_context.shader_globals.render_target_size.y),
         };
-        gpu_context.shader_globals.sun_direction = glm::normalize(f32vec3{0.1, 1.0, 0.1});
+        // gpu_context.shader_globals.sun_direction = glm::normalize(f32vec3{0.1, 1.0, 0.1});
+        gpu_context.shader_globals.delta_time = s_cast<f32>(delta_time);
     }
 }

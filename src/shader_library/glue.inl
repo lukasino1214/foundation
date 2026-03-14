@@ -152,6 +152,11 @@ func AtomicAddU64(__ref uint64_t dest, uint64_t value) -> uint64_t {
     return original_value;
 }
 
+#define uintBitsToFloat(X) asfloat(X)
+#define _mod(X, Y) ((X) - (Y) * floor((X)/(Y)))
+#define _frac(X) frac(X)
+#define mix(X, Y, Z) lerp(X, Y, Z)
+
 #elif DAXA_LANGUAGE == DAXA_LANGUAGE_GLSL
 
 #define f32mat4x4 daxa_f32mat4x4
@@ -182,5 +187,10 @@ func AtomicAddU64(__ref uint64_t dest, uint64_t value) -> uint64_t {
 #define unpack_half_2x16 unpackHalf2x16
 #define pack_snorm_2x16 packSnorm2x16 
 #define unpack_snorm_2x16 unpackSnorm2x16 
+
+#define _mod(X, Y) mod(X,Y)
+#define _frac(X) fract(X)
+#define mul(M, V) ((M) * (V))
+#define atan2(Y, X) atan(Y, X)
 
 #endif

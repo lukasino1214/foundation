@@ -9,6 +9,7 @@
 #include "../../shader_library/shared.inl"
 
 DAXA_DECL_COMPUTE_TASK_HEAD_BEGIN(WriteSwapchain)
+DAXA_TH_BUFFER_PTR(READ, daxa_BufferPtr(f32), u_exposure)
 DAXA_TH_IMAGE_TYPED(SAMPLED, daxa::Texture2DId<f32vec4>, u_render_image)
 DAXA_TH_IMAGE_TYPED(WRITE, daxa::RWTexture2DId<daxa_f32vec4>, u_swapchain_image)
 DAXA_DECL_TASK_HEAD_END

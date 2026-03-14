@@ -165,6 +165,105 @@ namespace foundation {
         };
 
         shader_globals.debug = device.buffer_device_address(shader_debug_draw_context.buffer).value();
+
+        auto& postprocessing = shader_globals.postprocess_settings;
+        postprocessing.min_luminance_log2 = {std::log2(1.0f / 4096.0f)};
+        postprocessing.max_luminance_log2 = {std::log2(4096.0f)};
+        postprocessing.luminance_adaption_tau = {1.0f};
+        postprocessing.exposure_bias = {0.25f};
+        postprocessing.calibration = {12.5f};
+        postprocessing.sensor_sensitivity = {100.0f};
+        postprocessing.luminance_log2_range = {postprocessing.max_luminance_log2 - postprocessing.min_luminance_log2};
+        postprocessing.inv_luminance_log2_range = {1.0f / (postprocessing.max_luminance_log2 - postprocessing.min_luminance_log2)};
+        postprocessing.auto_exposure_histogram_clip_lo = {0.6f};
+        postprocessing.auto_exposure_histogram_clip_hi = {0.95f};
+
+        auto& sky = shader_globals.sky_settings;
+
+        sky.transmittance_dimensions = {256, 64};
+        sky.transmittance_step_count = 400;
+        sky.multiscattering_dimensions = {32, 32};
+        sky.multiscattering_step_count = 20;
+        sky.sky_dimensions = {256, 192};
+        sky.sky_step_count = 50;
+
+        sky.atmosphere_bottom = 6360.0f;
+        sky.atmosphere_top = 6460.0f;
+
+        sky.sun_brightness = 1.0f;
+        sky.sun_direction = {0.0f, 1.0f, 0.0f};
+
+        sky.mie_scattering = {0.003996f, 0.003996f, 0.003996f};
+        sky.mie_extinction = {0.00444f, 0.00444f, 0.00444f};
+        sky.mie_scale_height = 1.2f;
+        sky.mie_phase_function_g = 0.8f;
+
+        sky.rayleigh_scattering = {0.006604931f, 0.012344918f, 0.039412623f};
+        sky.rayleigh_scale_height = 8.696f;
+
+        sky.absorption_extinction = {0.00129072f, 0.00254036f, 0.0f};
+
+        sky.mie_density[0] = {
+            .layer_width = 11.0f,
+            .exp_term = 1.19f,
+            .exp_scale = -0.530f,
+            .lin_term = 0.0f,
+            .const_term = 0.266f
+        };
+
+        sky.mie_density[1] = {
+            .layer_width = 74.7f,
+            .exp_term = 0.730f,
+            .exp_scale = -0.090f,
+            .lin_term = 0.0f,
+            .const_term = 0.0f
+        };
+
+        sky.rayleigh_density[0] = {
+            .layer_width = 23.1f,
+            .exp_term = 2.0f,
+            .exp_scale = -0.325f,
+            .lin_term = 0.0f,
+            .const_term = 0.166f
+        };
+
+        sky.rayleigh_density[1] = {
+            .layer_width = 100.0f,
+            .exp_term = 0.0f,
+            .exp_scale = -0.085f,
+            .lin_term = 0.0f,
+            .const_term = 0.021f
+        };
+
+        sky.absorption_density[0] = {
+            .layer_width = 52.9f,
+            .exp_term = 0.00182376393f,
+            .exp_scale = 0.122f,
+            .lin_term = 0.0f,
+            .const_term = 0.0f
+        };
+
+        sky.absorption_density[1] = {
+            .layer_width = 52.2f,
+            .exp_term = 20.6245170027f,
+            .exp_scale = -0.06666666666f,
+            .lin_term = 0.0f,
+            .const_term = 0.0f
+        };
+
+        daxa::DeviceAddress render_data_device_address = this->device.buffer_device_address(shader_globals_buffer.get_state().buffers[0]).value();
+        const auto sky_settings_offset = offsetof(ShaderGlobals, sky_settings);
+
+        const auto mie_density_offset = sky_settings_offset + offsetof(SkySettings, mie_density);
+        shader_globals.sky_settings.mie_density_ptr = render_data_device_address + mie_density_offset;
+
+        const auto rayleigh_density_offset = sky_settings_offset + offsetof(SkySettings, rayleigh_density);
+        shader_globals.sky_settings.rayleigh_density_ptr = render_data_device_address + rayleigh_density_offset;
+
+        const auto absoprtion_density_offset = sky_settings_offset + offsetof(SkySettings, absorption_density);
+        shader_globals.sky_settings.absorption_density_ptr = render_data_device_address + absoprtion_density_offset;
+
+        shader_globals.frame_index = 0;
     }
 
     GPUContext::~GPUContext() {
@@ -175,6 +274,7 @@ namespace foundation {
             }
             samplers.clear();
         }
+
         device.destroy_buffer(shader_globals_buffer.get_state().buffers[0]);
         device.destroy_sampler(std::bit_cast<daxa::SamplerId>(shader_globals.samplers.linear_clamp));
         device.destroy_sampler(std::bit_cast<daxa::SamplerId>(shader_globals.samplers.linear_repeat));
@@ -182,6 +282,7 @@ namespace foundation {
         device.destroy_sampler(std::bit_cast<daxa::SamplerId>(shader_globals.samplers.nearest_clamp));
         device.destroy_sampler(std::bit_cast<daxa::SamplerId>(shader_globals.samplers.linear_repeat_ani));
         device.destroy_sampler(std::bit_cast<daxa::SamplerId>(shader_globals.samplers.nearest_repeat_ani));
+
         device.wait_idle();
         device.collect_garbage();
     }

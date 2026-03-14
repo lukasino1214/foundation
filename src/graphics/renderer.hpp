@@ -30,6 +30,16 @@ namespace foundation {
         AssetManager* asset_manager = {};
         Scene* scene = {};
         GPUScene* gpu_scene = {};
+        
+        std::atomic<bool> pipelines_compiled = false;
+        
+        mutable std::mutex task_graph_mutex;
+        daxa::TaskGraph render_task_graph = {};
+        
+        daxa::TaskImage transmittance = {};
+        daxa::TaskImage multiscattering = {};
+        daxa::TaskImage sky_ibl_cube = {};
+        std::vector<daxa::TaskImage> images = {};
 
         daxa::TaskImage swapchain_image = {};
         daxa::TaskImage render_image = {};
@@ -38,14 +48,9 @@ namespace foundation {
         daxa::TaskImage normal_image = {};
         daxa::TaskImage bloom_image = {};
         daxa::TaskImage gtao_image = {};
-
-        std::atomic<bool> pipelines_compiled = false;
-        
-        mutable std::mutex task_graph_mutex;
-        daxa::TaskGraph render_task_graph = {};
-
-        std::vector<daxa::TaskImage> images = {};
         std::vector<std::pair<daxa::ImageInfo, daxa::TaskImage>> frame_buffer_images = {};
+
+        daxa::TaskBuffer exposure_state = {};
         std::vector<daxa::TaskBuffer> buffers = {};
 
         daxa::ImGuiRenderer imgui_renderer = {};

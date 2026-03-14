@@ -143,5 +143,5 @@ void apply_bloom(u32vec2 index : SV_DispatchThreadID) {
     const f32vec3 exposed_color = apply_push.uses.u_render_image.get()[index].rgb;
     const f32vec3 bloom_color = apply_push.uses.u_bloom_image.get().SampleLevel(SamplerState::get(apply_push.uses.u_globals->samplers.linear_clamp), uv, 0).rgb;
     
-    apply_push.uses.u_render_image.get()[index].rgb = exposed_color + bloom_color;
+    apply_push.uses.u_render_image.get()[index].rgb = lerp(exposed_color, exposed_color + bloom_color, 0.04f);
 }

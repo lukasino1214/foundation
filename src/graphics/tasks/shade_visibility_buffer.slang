@@ -4,13 +4,12 @@
 #include "../../shader_library/cull_util.slang"
 #include "../../shader_library/visibility_buffer.slang"
 #include "../../shader_library/compression.inl"
+#include "../../shader_library/sky_util.glsl"
 
 f32vec3 hsv_to_rgb(in f32vec3 hsv) {
     const f32vec3 rgb = saturate(abs(fmod(hsv.x * 6.0 + f32vec3(0.0, 4.0, 2.0), 6.0) - 3.0) - 1.0);
     return hsv.z * lerp(f32vec3(1.0), rgb, hsv.y);
 }
-
-#define M_GOLDEN_CONJ 0.6180339887498948482045868343656
 
 f32 calculate_point_light_attenuation(f32 to_light_dist, f32 cutoff) {
     f32 win = (to_light_dist / cutoff);
@@ -52,9 +51,39 @@ bool trace_shadow_ray(f32vec3 origin, f32vec3 direction, f32 max_distance) {
     return q.CommittedStatus() == COMMITTED_TRIANGLE_HIT;
 }
 
-f32vec3 shade(f32vec3 diffuse, f32vec3 world_position, f32vec3 normal, f32vec3 sun_direction, PointLightsData* point_lights, SpotLightsData* spot_lights) {
-    const f32 ambient = 0.3f;
-    f32vec3 color = diffuse * ambient;
+f32vec3 get_sun_direct_lighting(
+    ShaderGlobals* globals, 
+    daxa_ImageViewId sky_transmittance,
+    daxa_ImageViewId sky,
+    f32vec3 view_direction, 
+    f32vec3 atmo_position)
+{
+    const float bottom_atmosphere_intersection_distance = ray_sphere_intersect_nearest(
+        f32vec3(0.0, 0.0, length(atmo_position)),
+        y_up_to_z_up(view_direction),
+        f32vec3(0.0),
+        globals.sky_settings.atmosphere_bottom
+    );
+    
+    bool view_ray_intersects_ground = bottom_atmosphere_intersection_distance >= 0.0;
+    const f32vec3 direct_sun_illuminance = view_ray_intersects_ground ? 
+        f32vec3(0.0) : 
+        get_sun_illuminance(
+            &globals.sky_settings,
+            sky_transmittance,
+            globals->samplers.linear_clamp,
+            y_up_to_z_up(view_direction),
+            length(atmo_position),
+            dot(y_up_to_z_up(globals.sky_settings.sun_direction), normalize(atmo_position))
+        );
+
+    return direct_sun_illuminance;
+}
+
+f32vec3 shade(f32vec3 world_position, f32vec3 normal, f32vec3 sun_direction, PointLightsData* point_lights, SpotLightsData* spot_lights) {
+    f32vec3 color = f32vec3(0);
+
+    f32vec3 atmo_position = get_atmo_position(push.uses.u_globals);
 
     {
         const f32 n_dot_l = max(dot(normal, sun_direction), 0.0f);
@@ -69,7 +98,7 @@ f32vec3 shade(f32vec3 diffuse, f32vec3 world_position, f32vec3 normal, f32vec3 s
             shadow = in_shadow ? 0.0f : 1.0f;
         }
         
-        color += diffuse * n_dot_l * f32vec3(1.0f) * 1.0f * shadow;
+        color += n_dot_l * shadow * get_sun_direct_lighting(push.uses.u_globals, push.uses.transmittance, push.uses.sky, push.uses.u_globals.sky_settings.sun_direction, atmo_position);
     }
 
     for(u32 i = 0; i < point_lights.count; i++) {
@@ -93,7 +122,7 @@ f32vec3 shade(f32vec3 diffuse, f32vec3 world_position, f32vec3 normal, f32vec3 s
         }
 
         const f32 attenuation = calculate_point_light_attenuation(to_light_dist, light.range);
-        color += diffuse * light.color * light.intensity * attenuation * n_dot_l * shadow;
+        color += light.color * light.intensity * attenuation * n_dot_l * shadow;
     }
 
 
@@ -118,7 +147,7 @@ f32vec3 shade(f32vec3 diffuse, f32vec3 world_position, f32vec3 normal, f32vec3 s
         }
 
         const f32 attenuation = calculate_spot_light_attenuation(to_light_dir, to_light_dist, light);
-        color += diffuse * light.color * light.intensity * attenuation * n_dot_l * shadow;
+        color += light.color * light.intensity * attenuation * n_dot_l * shadow;
     }
 
     return color;
@@ -162,7 +191,27 @@ void shade_visibility_buffer(u32vec3 pixel : SV_DispatchThreadID) {
 
     u32 visibility_index = push.uses.u_visibility_image.get()[pixel.xy];
     if(visibility_index == INVALID_ID) {
-        push.uses.u_render_image.get()[pixel.xy] = f32vec4(0.0f, 0.0f, 0.0f, 1.0f);
+        const f32vec2 ray_uv = f32vec2(pixel.xy + 0.5f) / f32vec2(push.uses.u_globals.render_target_size);
+        const f32vec2 ray_ndc = ray_uv * 2.0 - 1.0;
+        const f32vec4 ray_view_space = mul(push.uses.u_globals.view_camera.inverse_projection_matrix, f32vec4(ray_ndc, -1.0, 0.0));
+        const f32vec4 ray_world_space = mul(push.uses.u_globals.view_camera.inverse_view_matrix, f32vec4(ray_view_space.xy, -1.0, 0.0));
+        const f32vec3 view_direction = normalize(ray_world_space.xyz);
+        
+        const f32vec3 atmo_position = get_atmo_position(push.uses.u_globals);
+        const f32vec3 atmosphere_direct_illuminnace = get_atmosphere_illuminance_along_ray(
+            push.uses.u_globals->sky_settings,
+            push.uses.transmittance,
+            push.uses.sky,
+            push.uses.u_globals->samplers.linear_clamp,
+            view_direction,
+            atmo_position
+        );
+        const f32vec3 sun_direct_illuminance = get_sun_direct_lighting(
+            push.uses.u_globals, push.uses.transmittance, push.uses.sky,
+            view_direction, atmo_position);
+        const f32vec3 total_direct_illuminance = sun_direct_illuminance + atmosphere_direct_illuminnace;
+
+        push.uses.u_render_image.get()[pixel.xy] = f32vec4(total_direct_illuminance, 1.0f);
         return;
     }
 
@@ -250,19 +299,19 @@ void shade_visibility_buffer(u32vec3 pixel : SV_DispatchThreadID) {
     ));
     normal = is_backfacing ? -normal : normal;
 
-    f32vec4 color = f32vec4(hsv_to_rgb(f32vec3(f32(triangle_index) / 128 * M_GOLDEN_CONJ, 0.875, 0.85)), 1.0);
+    f32vec4 albedo = f32vec4(hsv_to_rgb(f32vec3(f32(triangle_index) / 128 * M_GOLDEN_CONJ, 0.875, 0.85)), 1.0);
     if(mesh_instance.material_index != INVALID_ID) {
         const Material material = push.uses.u_materials[mesh_instance.material_index];
 
         if(!material.albedo_image_id.is_empty()) {
-            color = Texture2D<f32vec4>::get(material.albedo_image_id).SampleGrad(SamplerState::get(material.albedo_sampler_id), uv_grad.uv, uv_grad.ddx, uv_grad.ddy);
+            albedo = Texture2D<f32vec4>::get(material.albedo_image_id).SampleGrad(SamplerState::get(material.albedo_sampler_id), uv_grad.uv, uv_grad.ddx, uv_grad.ddy);
             f32vec2 size;
             Texture2D<f32vec4>::get(material.albedo_image_id).GetDimensions(size.x, size.y);
             f32 lod = calculate_lod_from_gradients(uv_grad.ddx, uv_grad.ddy, size.x, size.y);
-            color.a *= 1.0f + max(0.0f, lod) * 0.25f;
-            color.a = saturate(color.a);
+            albedo.a *= 1.0f + max(0.0f, lod) * 0.25f;
+            albedo.a = saturate(albedo.a);
         } else {
-            color = material.albedo_factor;
+            albedo = material.albedo_factor;
         }
         
         if(!material.normal_image_id.is_empty()) {
@@ -283,15 +332,17 @@ void shade_visibility_buffer(u32vec3 pixel : SV_DispatchThreadID) {
         }
     }
 
-    color.rgb = shade(
-        color.rgb, 
+    f32vec3 direct_lighting = shade(
         position, 
         normalize(normal), 
-        push.uses.u_globals.sun_direction, 
+        push.uses.u_globals.sky_settings.sun_direction, 
         push.uses.u_point_lights, 
         push.uses.u_spot_lights
     );
 
-    color.rgb *= push.uses.u_gtao_image.get()[pixel.xy];
-    push.uses.u_render_image.get()[pixel.xy] = f32vec4(color.rgb, 1);
+    f32 ambient_occlusion = push.uses.u_gtao_image.get()[pixel.xy];
+    f32vec4 compressed_indirect_lighting = TextureCube<float4>::get(push.uses.sky_ibl).SampleLevel(SamplerState::get(push.uses.u_globals->samplers.linear_clamp), normal, 0);
+    f32vec3 indirect_lighting = compressed_indirect_lighting.rgb * M_PI * 2 * compressed_indirect_lighting.a;
+
+    push.uses.u_render_image.get()[pixel.xy] = f32vec4(albedo.rgb * M_FRAC_1_PI * (direct_lighting + indirect_lighting * ambient_occlusion), 1);
 }

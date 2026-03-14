@@ -1,6 +1,7 @@
 #include "renderer.hpp"
 #include "window.hpp"
 #include "gpu_context.hpp"
+#include "graphics/helper.hpp"
 #include <imgui_impl_glfw.h>
 
 #include "tasks/cull_mesh_instances.inl"
@@ -19,7 +20,9 @@
 #include "tasks/generate_gbuffer.inl"
 #include "tasks/gtao.inl"
 #include "tasks/bloom.inl"
+#include "tasks/auto_exposure.inl"
 #include "tasks/write_swapchain.inl"
+#include "tasks/sky.inl"
 
 namespace foundation {
     // TODO: get rid of this
@@ -56,6 +59,39 @@ namespace foundation {
         bloom_image = daxa::TaskImage{{ .name = "bloom image" }};
         gtao_image = daxa::TaskImage{{.name = "gtao image"}};
 
+        transmittance = daxa::TaskImage{{.name = "transmittance"}};
+        multiscattering = daxa::TaskImage{{.name = "multiscattering"}};
+        sky_ibl_cube = daxa::TaskImage{{.name = "sky ibl cube"}};
+
+        transmittance.set_images({ .images = std::array {
+            gpu_context->device.create_image({
+                .format = daxa::Format::R16G16B16A16_SFLOAT,
+                .size = {gpu_context->shader_globals.sky_settings.transmittance_dimensions.x, gpu_context->shader_globals.sky_settings.transmittance_dimensions.y, 1},
+                .usage = daxa::ImageUsageFlagBits::SHADER_SAMPLED | daxa::ImageUsageFlagBits::SHADER_STORAGE,
+                .name = "transmittance look up table",
+            })
+        }});
+
+        multiscattering.set_images({ .images = std::array {
+            gpu_context->device.create_image({
+                .format = daxa::Format::R16G16B16A16_SFLOAT,
+                .size = {gpu_context->shader_globals.sky_settings.multiscattering_dimensions.x, gpu_context->shader_globals.sky_settings.multiscattering_dimensions.y, 1},
+                .usage = daxa::ImageUsageFlagBits::SHADER_SAMPLED | daxa::ImageUsageFlagBits::SHADER_STORAGE,
+                .name = "multiscattering look up table",
+            })
+        }});
+
+        sky_ibl_cube.set_images({ .images = std::array {
+            gpu_context->device.create_image({
+                .flags = daxa::ImageCreateFlagBits::COMPATIBLE_CUBE,
+                .format = daxa::Format::R16G16B16A16_SFLOAT,
+                .size = {IBL_CUBE_RES, IBL_CUBE_RES, 1},
+                .array_layer_count = 6,
+                .usage = daxa::ImageUsageFlagBits::SHADER_SAMPLED | daxa::ImageUsageFlagBits::SHADER_STORAGE,
+                .name = "ibl cube",
+            })
+        }});
+
         images = {
             render_image,
             depth_image,
@@ -63,6 +99,9 @@ namespace foundation {
             normal_image,
             bloom_image,
             gtao_image,
+            transmittance,
+            multiscattering,
+            sky_ibl_cube,
         };
 
         frame_buffer_images = {
@@ -114,6 +153,31 @@ namespace foundation {
                 },
                 gtao_image,
             },
+        };
+
+        exposure_state = daxa::TaskBuffer{daxa::TaskBufferInfo{
+            .initial_buffers = daxa::TrackedBuffers{
+                .buffers = std::array{
+                    gpu_context->device.create_buffer(daxa::BufferInfo{
+                        .size = sizeof(AutoExposureState),
+                        .allocate_info = daxa::MemoryFlagBits::HOST_ACCESS_RANDOM,
+                        .name = "exposure state",
+                    }),
+                },
+            },
+            .name = "exposure state",
+        }};
+
+        {
+            AutoExposureState initial_exposure_state = {};
+            initial_exposure_state.exposure = 10.0f;
+            initial_exposure_state.ev = 12.0f;
+            auto buffer_id = exposure_state.get_state().buffers[0];
+            std::memcpy(gpu_context->device.buffer_host_address(buffer_id).value(), &initial_exposure_state, sizeof(AutoExposureState));
+        }
+
+        buffers = {
+            exposure_state,
         };
 
         recreate_frame_buffer({ window->get_width(), window->get_height() });
@@ -209,6 +273,12 @@ namespace foundation {
             {BloomUpsampleTask::name(), BloomUpsampleTask::pipeline_config_info()},
             {ApplyBloomTask::name(), ApplyBloomTask::pipeline_config_info()},
             {ShadeVisibilityBufferTask::name(), ShadeVisibilityBufferTask::pipeline_config_info()},
+            {gen_luminace_histogram_pipeline_compile_info().name, gen_luminace_histogram_pipeline_compile_info()},
+            {gen_luminace_average_pipeline_compile_info().name, gen_luminace_average_pipeline_compile_info()},
+            {compute_transmittance_pipeline_compile_info().name, compute_transmittance_pipeline_compile_info()},
+            {compute_multiscattering_pipeline_compile_info().name, compute_multiscattering_pipeline_compile_info()},
+            {compute_sky_pipeline_compile_info().name, compute_sky_pipeline_compile_info()},
+            {sky_into_cubemap_pipeline_compile_info().name, sky_into_cubemap_pipeline_compile_info()},
             {WriteSwapchainTask::name(), WriteSwapchainTask::pipeline_config_info()},
         };
 
@@ -259,6 +329,11 @@ namespace foundation {
         render_task_graph.use_persistent_image(bloom_image);
         render_task_graph.use_persistent_image(gtao_image);
 
+        render_task_graph.use_persistent_image(transmittance);
+        render_task_graph.use_persistent_image(multiscattering);
+        render_task_graph.use_persistent_image(sky_ibl_cube);
+        
+        render_task_graph.use_persistent_buffer(exposure_state);
         render_task_graph.use_persistent_buffer(gpu_context->shader_globals_buffer);
         render_task_graph.use_persistent_buffer(asset_manager->gpu_materials);
 
@@ -337,6 +412,46 @@ namespace foundation {
                 });
                 gpu_context->shader_debug_draw_context.update_debug_buffer(gpu_context->device, ti.recorder, *ti.allocator);
         }));
+
+        auto sky = render_task_graph.create_transient_image({
+            .format = daxa::Format::R16G16B16A16_SFLOAT,
+            .size = {gpu_context->shader_globals.sky_settings.sky_dimensions.x, gpu_context->shader_globals.sky_settings.sky_dimensions.y, 1},
+            .name = "sky look up table",
+        });
+
+        render_task_graph.add_task(daxa::HeadTask<ComputeTransmittanceH::Info>()
+            .head_views(ComputeTransmittanceH::Info::Views{
+                .globals = gpu_context->shader_globals_buffer.view(),
+                .transmittance = transmittance.view(),
+            })
+            .executes(compute_transmittance_callback, gpu_context));
+
+        render_task_graph.add_task(daxa::HeadTask<ComputeMultiscatteringH::Info>()
+            .head_views(ComputeMultiscatteringH::Info::Views{
+                .globals = gpu_context->shader_globals_buffer.view(),
+                .transmittance = transmittance.view(),
+                .multiscattering = multiscattering.view(),
+            })
+            .executes(compute_multiscattering_callback, gpu_context));
+
+        daxa::TaskImageView sky_ibl_view = sky_ibl_cube.view().layers(0, 6);
+        render_task_graph.add_task(daxa::HeadTask<ComputeSkyH::Info>()
+            .head_views({
+                .globals = gpu_context->shader_globals_buffer.view(),
+                .transmittance = transmittance.view(),
+                .multiscattering = multiscattering.view(),
+                .sky = sky,
+            })
+            .executes(compute_sky_task, gpu_context));
+
+        render_task_graph.add_task(daxa::HeadTask<SkyIntoCubemapH::Info>()
+            .head_views({
+                .globals = gpu_context->shader_globals_buffer.view(),
+                .transmittance = transmittance.view(),
+                .sky = sky,
+                .ibl_cube = sky_ibl_view,
+            })
+            .executes(sky_into_cubemap_task, gpu_context));
 
         auto u_command = render_task_graph.create_transient_buffer(daxa::TaskTransientBufferInfo {
             .size = s_cast<u32>(glm::max(sizeof(DispatchIndirectStruct), sizeof(DrawIndirectStruct))),
@@ -642,6 +757,9 @@ namespace foundation {
                 .u_spot_lights = gpu_scene->gpu_spot_lights.view(),
                 .u_command = u_command,
                 .u_tlas = gpu_scene->gpu_tlas.view(),
+                .transmittance = transmittance.view(),
+                .sky = sky,
+                .sky_ibl = sky_ibl_view,
                 .u_visibility_image = visibility_image.view(),
                 .u_gtao_image = gtao_image.view(),
                 .u_render_image = render_image.view(),
@@ -789,8 +907,29 @@ namespace foundation {
             },
         });
 
+        auto luminance_histogram = render_task_graph.create_transient_buffer({.size = sizeof(u32) * (LUM_HISTOGRAM_BIN_COUNT), .name = "luminance_histogram"});
+        render_task_graph.clear_buffer({.buffer = luminance_histogram, .clear_value = 0});
+
+        render_task_graph.add_task(daxa::HeadTask<GenLuminanceHistogramH::Info>()
+            .head_views(GenLuminanceHistogramH::Info::Views{
+                .globals = gpu_context->shader_globals_buffer.view(),
+                .histogram = luminance_histogram,
+                .exposure_state = exposure_state.view(),
+                .color_image = render_image.view(),
+            })
+            .executes(gen_luminance_histogram_callback, gpu_context));
+
+        render_task_graph.add_task(daxa::HeadTask<GenLuminanceAverageH::Info>()
+            .head_views(GenLuminanceAverageH::Info::Views{
+                .globals = gpu_context->shader_globals_buffer.view(),
+                .histogram = luminance_histogram,
+                .exposure_state = exposure_state.view(),
+            })
+            .executes(gen_luminance_average_callback, gpu_context));
+
         render_task_graph.add_task(WriteSwapchainTask {
             .views = WriteSwapchainTask::Views {
+                .u_exposure = exposure_state.view(),
                 .u_render_image = render_image.view(),
                 .u_swapchain_image = swapchain_image.view(),
             },

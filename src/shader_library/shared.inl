@@ -3,6 +3,8 @@
 #include "glue.inl"
 
 #define INVALID_ID (~(0u))
+#define WARP_SIZE 32
+#define WARP_SIZE_MULTIPLE_MASK (WARP_SIZE - 1u)
 
 struct DrawIndexedIndirectStruct {
     u32 index_count;
@@ -88,15 +90,77 @@ struct GlobalSamplers {
     daxa_SamplerId nearest_repeat_ani;
 };
 
+struct PostprocessSettings {
+    f32 min_luminance_log2;
+    f32 max_luminance_log2;
+    f32 luminance_adaption_tau;
+    f32 exposure_bias;
+    f32 calibration;
+    f32 sensor_sensitivity;
+    f32 luminance_log2_range;
+    f32 inv_luminance_log2_range;
+    f32 auto_exposure_histogram_clip_lo;
+    f32 auto_exposure_histogram_clip_hi;
+};
+DAXA_DECL_BUFFER_PTR(PostprocessSettings)
+
+#define PROFILE_LAYER_COUNT 2
+// An atmosphere layer density which can be calculated as:
+//   density = exp_term * exp(exp_scale * h) + linear_term * h + constant_term,
+struct DensityProfileLayer {
+    f32 layer_width;
+    f32 exp_term;
+    f32 exp_scale;
+    f32 lin_term;
+    f32 const_term;
+};
+DAXA_DECL_BUFFER_PTR(DensityProfileLayer)
+
+struct SkySettings {
+    u32vec2 transmittance_dimensions;
+    u32 transmittance_step_count;
+    u32vec2 multiscattering_dimensions;
+    u32 multiscattering_step_count;
+    u32vec2 sky_dimensions;
+    u32 sky_step_count;
+
+    // =============== Atmosphere =====================
+    f32 sun_brightness;
+    f32vec3 sun_direction;
+
+    f32 atmosphere_bottom;
+    f32 atmosphere_top;
+
+    f32vec3 mie_scattering;
+    f32vec3 mie_extinction;
+    f32 mie_scale_height;
+    f32 mie_phase_function_g;
+    DensityProfileLayer mie_density[PROFILE_LAYER_COUNT];
+    daxa_BufferPtr(DensityProfileLayer) mie_density_ptr; 
+
+    f32vec3 rayleigh_scattering;
+    f32 rayleigh_scale_height;
+    DensityProfileLayer rayleigh_density[PROFILE_LAYER_COUNT];
+    daxa_BufferPtr(DensityProfileLayer) rayleigh_density_ptr; 
+
+    f32vec3 absorption_extinction;
+    DensityProfileLayer absorption_density[PROFILE_LAYER_COUNT];
+    daxa_BufferPtr(DensityProfileLayer) absorption_density_ptr;
+};
+DAXA_DECL_BUFFER_PTR_ALIGN(SkySettings, 8)
+
 struct ShaderGlobals {
     CameraInfo main_camera;
     CameraInfo view_camera;
+    u32 frame_index;
+    f32 delta_time;
     b32 render_as_observer;
     u32vec2 render_target_size;
     f32vec2 render_target_size_inv;
-    f32vec3 sun_direction;
     CullData cull_data;
     GlobalSamplers samplers;
+    PostprocessSettings postprocess_settings;
+    SkySettings sky_settings;
     daxa_BufferPtr(ShaderDebugBufferHead) debug;
 };
 DAXA_DECL_BUFFER_PTR(ShaderGlobals)
@@ -328,3 +392,33 @@ f32vec4 shuffle_arr2(f32vec4 local_values[2], u32 load_index) {
 #endif
 
 #define MESH_SHADER_WORKGROUP_X 32
+
+#define M_PI 3.14159265358979323846264338327950288
+#define M_TAU 6.28318530717958647692528676655900577
+#define M_FRAC_PI_2 1.57079632679489661923132169163975144
+#define M_FRAC_PI_3 1.04719755119659774615421446109316763
+#define M_FRAC_PI_4 0.785398163397448309615660845819875721
+#define M_FRAC_PI_6 0.52359877559829887307710723054658381
+#define M_FRAC_PI_8 0.39269908169872415480783042290993786
+#define M_FRAC_1_PI 0.318309886183790671537767526745028724
+#define M_FRAC_2_PI 0.636619772367581343075535053490057448
+#define M_FRAC_2_SQRT_PI 1.12837916709551257389615890312154517
+#define M_SQRT_2 1.41421356237309504880168872420969808
+#define M_CBRT_2 1.2599210498948731647672106072782283505
+#define M_FRAC_1_SQRT_2 0.707106781186547524400844362104849039
+#define M_E 2.71828182845904523536028747135266250
+#define M_LOG2_E 1.44269504088896340735992468100189214
+#define M_LOG2_10 3.32192809488736234787031942948939018
+#define M_LOG10_E 0.434294481903251827651128918916605082
+#define M_LOG10_2 0.301029995663981195213738894724493027
+#define M_LN_2 0.693147180559945309417232121458176568
+#define M_LN_10 2.30258509299404568401799145468436421
+#define M_PHI 1.61803398874989484820
+#define M_PLASTIC 1.32471795724474602596
+#define FLT_MAX 3.402823466e+38f
+
+#define FP16_MIN_POS 0.000000059604645
+#define FP16_MAX 65504
+
+#define M_GOLDEN_CONJ 0.6180339887498948482045868343656
+#define M_GOLDEN_ANGLE 2.39996323
