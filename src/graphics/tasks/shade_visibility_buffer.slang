@@ -153,34 +153,21 @@ f32vec3 shade(f32vec3 world_position, f32vec3 normal, f32vec3 sun_direction, Poi
     return color;
 }
 
-f32vec3 calculate_normal_from_map(f32vec3 tangent_normal, f32vec3 geometric_normal, f32vec3 world_position, f32vec2 uv) {
-    tangent_normal.y *= -1.0;
-    
-    f32vec3 p_dx = ddx(world_position);
-    f32vec3 p_dy = ddy(world_position);
-    f32vec2 uv_dx = ddx(uv);
-    f32vec2 uv_dy = ddy(uv);
+void compute_uv_tangent(f32vec3 positions[3], f32vec2 uvs[3], out f32vec3 tangent, out f32vec3 bitangent) {
+    const f32vec3 d_p1 = positions[1].xyz - positions[0].xyz;
+    const f32vec3 d_p2 = positions[2].xyz - positions[0].xyz;
 
-    f32vec3 t = normalize(uv_dy.y * p_dx - uv_dx.y * p_dy);
-    f32vec3 b = normalize(uv_dy.x * p_dx - uv_dx.x * p_dy);
+    const f32vec2 d_uv1 = uvs[1] - uvs[0];
+    const f32vec2 d_uv2 = uvs[2] - uvs[0];
 
-    t = normalize(t - geometric_normal * dot(geometric_normal, t));
-    b = cross(geometric_normal, t);
-
-    f32mat3x3 tbn = transpose(f32mat3x3(t, b, geometric_normal));
-    f32vec3 world_normal = mul(tbn, tangent_normal);
-    
-    return normalize(world_normal);
+    const f32 r = 1.0f / (d_uv1.x * d_uv2.y - d_uv1.y * d_uv2.x);
+    tangent = normalize((d_p1 * d_uv2.y - d_p2 * d_uv1.y) * r);
+    bitangent = normalize((d_p2 * d_uv1.x - d_p1 * d_uv2.x) * r);
 }
 
-f32 calculate_lod_from_gradients(f32vec2 uv_dx, f32vec2 uv_dy, f32 texture_width, f32 texture_height) {
-    f32vec2 dx = uv_dx * f32vec2(texture_width, texture_height);
-    f32vec2 dy = uv_dy * f32vec2(texture_width, texture_height);
-
-    f32 delta_max_s = max(length(dx), length(dy));
-    f32 delta_max = max(dot(dx, dx), dot(dy, dy));
-
-    return 0.5f * log2(delta_max);
+f32vec3 calculate_normal_from_map(f32vec3 tangent_normal, f32vec3 geometric_normal, f32vec3 world_position, f32vec2 uv, f32vec3 tangent, f32vec3 bitangent) {
+    const f32mat3x3 tbn = transpose(f32mat3x3(tangent, bitangent, geometric_normal));
+    return normalize(mul(tbn, tangent_normal));
 }
 
 [[vk::push_constant]] ShadeVisibilityBufferPush push;
@@ -269,6 +256,10 @@ void shade_visibility_buffer(u32vec3 pixel : SV_DispatchThreadID) {
         )
         : f32vec2[3](f32vec2(0.0f), f32vec2(0.0f), f32vec2(0.0f));
 
+    f32vec3 tangent;
+    f32vec3 bitagent;
+    compute_uv_tangent(f32vec3[3](world_positions[0].xyz, world_positions[1].xyz, world_positions[2].xyz), uvs, tangent, bitagent);
+
     const UvGrad uv_grad = get_uv_grad(derivatives, uvs[0], uvs[1], uvs[2]);
 
     const f32vec3[3] vertex_normals = mesh_instance.normals != 0
@@ -305,11 +296,6 @@ void shade_visibility_buffer(u32vec3 pixel : SV_DispatchThreadID) {
 
         if(!material.albedo_image_id.is_empty()) {
             albedo = Texture2D<f32vec4>::get(material.albedo_image_id).SampleGrad(SamplerState::get(material.albedo_sampler_id), uv_grad.uv, uv_grad.ddx, uv_grad.ddy);
-            f32vec2 size;
-            Texture2D<f32vec4>::get(material.albedo_image_id).GetDimensions(size.x, size.y);
-            f32 lod = calculate_lod_from_gradients(uv_grad.ddx, uv_grad.ddy, size.x, size.y);
-            albedo.a *= 1.0f + max(0.0f, lod) * 0.25f;
-            albedo.a = saturate(albedo.a);
         } else {
             albedo = material.albedo_factor;
         }
@@ -327,7 +313,9 @@ void shade_visibility_buffer(u32vec3 pixel : SV_DispatchThreadID) {
                 normal_sample,
                 normalize(normal),
                 position,
-                uv_grad.uv
+                uv_grad.uv,
+                tangent,
+                bitagent
             );
         }
     }
