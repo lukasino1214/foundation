@@ -53,7 +53,7 @@ f32 noise(f32vec2 p, f32 freq) {
 
 f32vec3 get_view_position_from_depth(f32vec2 uv, f32 depth) {
     f32vec4 clip_space_position = f32vec4(uv * 2.0 - 1.0, depth, 1.0);
-    f32vec4 view_space_position = mul(push.uses.u_globals.main_camera.inverse_projection_matrix, clip_space_position);
+    f32vec4 view_space_position = mul(push.uses.u_globals.view_camera.inverse_projection_matrix, clip_space_position);
     return view_space_position.xyz / view_space_position.w;
 }
 
@@ -112,13 +112,13 @@ void gtao(u32vec3 pixel : SV_DispatchThreadID) {
     const f32vec3 random_vec = random_vec3(pixel.xy);
 
     const f32vec3 world_space_normal = decode_normal(push.uses.u_normal_image.get()[pixel.xy]);
-    const f32vec3 normal = normalize(mul(f32mat3x3(push.uses.u_globals.main_camera.view_matrix), world_space_normal.xyz));
+    const f32vec3 normal = normalize(mul(f32mat3x3(push.uses.u_globals.view_camera.view_matrix), world_space_normal.xyz));
 
     const f32vec3 tangent = normalize(random_vec - normal * dot(random_vec, normal));
 	const f32vec3 bitangent = cross(tangent, normal);
 	const f32mat3x3 tbn = transpose(f32mat3x3(tangent, bitangent, normal));
 
-    const f32vec3 frag_position = pixel_index_to_view_space(push.uses.u_globals.main_camera, push.uses.u_globals.render_target_size_inv, f32vec2(pixel.xy), depth);
+    const f32vec3 frag_position = pixel_index_to_view_space(push.uses.u_globals.view_camera, push.uses.u_globals.render_target_size_inv, f32vec2(pixel.xy), depth);
 
 	f32 occlusion = 0.0f;
 	for(i32 i = 0; i < KERNEL_SIZE; i++) {		
@@ -126,7 +126,7 @@ void gtao(u32vec3 pixel : SV_DispatchThreadID) {
 		sample_pos = frag_position + sample_pos * RADIUS; 
 		
 		f32vec4 offset = f32vec4(sample_pos, 1.0f);
-		offset = mul(push.uses.u_globals.main_camera.projection_matrix, offset); 
+		offset = mul(push.uses.u_globals.view_camera.projection_matrix, offset); 
 		offset.xy /= offset.w; 
 		offset.xy = offset.xy * 0.5f + 0.5f; 
 		
