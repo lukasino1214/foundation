@@ -3,11 +3,11 @@ This engine is used as the basis for research and general education in graphics 
 
 # Screenshots
 
-![](https://github.com/lukasino1214/foundation/blob/rewrite/media/bistro_main.png)
+![](https://github.com/lukasino1214/foundation/blob/rewrite/media/bistro_main.jpg)
 
-![](https://github.com/lukasino1214/foundation/blob/rewrite/media/intel_sponza.png)
+![](https://github.com/lukasino1214/foundation/blob/rewrite/media/intel_sponza.jpg)
 
-![](https://github.com/lukasino1214/foundation/blob/rewrite/media/many_bistros.png)
+![](https://github.com/lukasino1214/foundation/blob/rewrite/media/many_bistros.jpg)
 
 # Features
 ## Async Asset Loading
@@ -50,7 +50,7 @@ References:
  - https://advances.realtimerendering.com/s2021/Karis_Nanite_SIGGRAPH_Advances_2021_final.pdf
 
 ## Visibility Buffer Rendering
-![](https://github.com/lukasino1214/foundation/blob/rewrite/media/visibility_buffer.png)
+![](https://github.com/lukasino1214/foundation/blob/rewrite/media/visibility_buffer.jpg)
 
 Foundation uses a GPU-driven, fully bindless rendering pipeline. All geometry mesh, then cluster, then triangle culled and finally drawn to visibility buffer (triangle ID + depth).
 
@@ -64,9 +64,9 @@ Each entity may have a single MeshGroup, which can be shared across multiple ent
 ### GPU Culling
 An illustration of the culling. The first image shows the view of the main camera. The second image shadows the scene culled from the an observer camera point of view.
 
-![](https://github.com/lukasino1214/foundation/blob/rewrite/media/culling_main.png)
+![](https://github.com/lukasino1214/foundation/blob/rewrite/media/culling_main.jpg)
 
-![](https://github.com/lukasino1214/foundation/blob/rewrite/media/culling_view.png)
+![](https://github.com/lukasino1214/foundation/blob/rewrite/media/culling_view.jpg)
 
 All culling is done on the GPU. Foundation culls against frustum, HiZ(Hierarchical Z buffer), for meshes and meshlets. Aditionally for meshlets I am deciding which LOD level I am going to render. For triangles, Foundation addionally culls backfaces and if triangle is small enough that it misses all rasterization samples gets culled too. The triangle culling happens in mesh shaders.
 
